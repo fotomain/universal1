@@ -14,6 +14,8 @@ import {
   taskCustomValuesOf,
 } from '../columns/customColumns';
 import PMInlineCellInput from './PMInlineCellInput';
+import { customCellValue, isExtColumnKey } from '../../../extended/extendedColumns';
+import { extContextOf } from '../../../store/storeDerive';
 
 const PLACEHOLDER: Record<PMCustomColumnDef['type'], string> = {
   text: '',
@@ -34,7 +36,7 @@ export default function EditTaskCustomValue(props: {
   colors: { text: string; background: string; primary: string; error: string };
 }) {
   const { guid, column, crud } = props;
-  const value = usePMStore((s) => taskCustomValuesOf(s.tasksById[guid]?.rowJSON)[column.key]);
+  const value = usePMStore((s) => customCellValue(column.key, s.tasksById[guid], s.schedule[guid], extContextOf(s)));
   const close = () => usePMStore.getState().setCellEdit(null);
   const type = column.type;
   return (
@@ -57,7 +59,9 @@ export default function EditTaskCustomValue(props: {
       onCommit={(text) => {
         const r = parseCustomColumnValue(type, text);
         if ('error' in r) return r.error;
-        crud.setCustomColumnValue(guid, column.key, r.value);
+        // an Extended column (Priority, Deadline, Predecessors ...) is written by its own command, a custom column into rowJSON.customColumns
+        if (isExtColumnKey(column.key)) crud.setExtColumnValue(guid, column.key, r.value);
+        else crud.setCustomColumnValue(guid, column.key, r.value);
         close();
         return null;
       }}

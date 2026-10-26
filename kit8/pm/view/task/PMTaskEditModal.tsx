@@ -47,11 +47,14 @@ const KINDS: { kind: Exclude<PMRowKind, 'project'>; label: string; icon: string 
   { kind: 'milestone', label: 'Milestone', icon: 'flag' },
 ];
 
-export type TaskEditTab = 'TabMain' | 'TabUXUI';
+export type TaskEditTab = 'TabMain' | 'TabAdvanced' | 'TabUXUI';
 
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
 import ShareScreenshotButton from '../../../ui/components/common/ShareScreenshotButton';
 import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
+import PMTaskAdvancedTab from '../../extended/PMTaskAdvancedTab';
+import PMRichNotes from '../../extended/PMRichNotes';
+import { advancedTabOn } from '../../extended/extendedModel';
 
 export default function PMTaskEditModal({
   crud,
@@ -95,6 +98,7 @@ export default function PMTaskEditModal({
   const planMinute = usePMStore((s) => s.planMinute);
   const planSecond = usePMStore((s) => s.planSecond);
   const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
+  const extNotes = usePMStore((st) => st.extFlags.ganttRichNotesEnabled === true);
   const isSubDay = planHour || planMinute || planSecond;
 
   const statesByTask = usePMKanbanStore((s) => s.statesByTask);
@@ -137,7 +141,11 @@ export default function PMTaskEditModal({
 
   useEffect(() => {
     if (!task) return;
-    setActiveTab(modalTabOf(lastEditPlaceOf(task.rowJSON)));
+    // the row menu "Constraint…" / "Task inspector" opens the window on the Advanced tab
+    if (usePMStore.getState().openAdvancedFor === task.rowGUID) {
+      setActiveTab('TabAdvanced');
+      usePMStore.getState().setOpenAdvancedFor(null);
+    } else setActiveTab(modalTabOf(lastEditPlaceOf(task.rowJSON)));
     setName(task.rowJSON.taskDescription || '');
     setKind((task.rowJSON.rowKind as any) === 'project' ? 'task' : (task.rowJSON.rowKind as Exclude<PMRowKind, 'project'>) || 'task');
     setDays(String(task.rowJSON.durationDays ?? 1));
@@ -193,6 +201,7 @@ export default function PMTaskEditModal({
 
   if (!task) return null;
   const summary = hasChildren || kind === 'stage';
+  const showAdvancedTab = advancedTabOn(project?.rowJSON);
 
   const handleStartChange = (newStart: string) => {
     setError(null);
@@ -365,7 +374,7 @@ export default function PMTaskEditModal({
       typeof formSnapshot.current === 'object'
         ? { main: formNow().main !== formSnapshot.current.main, uxui: formNow().uxui !== formSnapshot.current.uxui }
         : { main: false, uxui: false },
-      activeTab,
+      activeTab === 'TabUXUI' ? 'TabUXUI' : 'TabMain', // the Advanced tab saves at once (its own undo steps): it is not a place the window reopens on
     );
     if (editedTab) crud.recordEditPlace?.(task.rowGUID, { surface: 'editModal', section: editedTab });
 
@@ -410,6 +419,7 @@ export default function PMTaskEditModal({
           <ScrollableTabBar testID="pm-task-edit-toptabs" style={styles.topTabsBar}>
             {[
               { id: 'TabMain' as const, label: 'Main', icon: 'info' },
+              ...(showAdvancedTab ? [{ id: 'TabAdvanced' as const, label: 'Advanced', icon: 'tune' }] : []),
               { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
             ].map((tab) => {
               const active = activeTab === tab.id;
@@ -687,6 +697,7 @@ export default function PMTaskEditModal({
                 </Text>
               )}
 
+              {extNotes ? <PMRichNotes label={pmT('Notes')} value={notes} onChangeText={setNotes} /> : (
               <TextAreaApp
                 testID="pm-edit-notes"
                 label={pmT('Notes')}
@@ -695,7 +706,15 @@ export default function PMTaskEditModal({
                 numberOfLines={3}
                 style={{ marginTop: 8 }}
               />
+              )}
             </View>
+
+            {/* TabAdvanced content (Gantt Extended, kit8/pm/extended): only while a function with fields in it is on */}
+            {showAdvancedTab && (
+              <View testID="pm-task-tab-advanced" style={activeTab === 'TabAdvanced' ? undefined : { display: 'none' }}>
+                <PMTaskAdvancedTab guid={task.rowGUID} crud={crud} />
+              </View>
+            )}
 
             {/* TabUXUI content */}
             <View

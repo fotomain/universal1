@@ -18,6 +18,7 @@
 //   after (greater than) · before (less than) · lessThanOrEqual · greaterThanOrEqual · between (A and B) ·
 //   matches (old AX / D365 query syntax, see compileMatches) · isEmpty · isNotEmpty (custom columns only)
 
+import { customCellValue, PMExtColumnContext } from '../../../extended/extendedColumns';
 import type { PMScheduledRow, PMTaskRow } from '../../../model/types';
 import type { PMProjectKanbanStageRow, PMTaskKanbanStateRow } from '../../../model/kanbanTypes';
 import type { PMTreeIndex } from '../../project/scheduling';
@@ -254,6 +255,10 @@ export interface PMTreeFilterContext {
   customColumns: readonly PMCustomColumnDef[];
   kanbanStages?: readonly PMProjectKanbanStageRow[];
   kanbanStates?: Record<string, PMTaskKanbanStateRow | undefined>;
+  /** Gantt Extended: what the cells of the extended / formula columns need (kit8/pm/extended/extendedColumns.ts) */
+  ext?: PMExtColumnContext;
+  /** Extended F8 Group by: the rows of one parent are kept together by this order (smaller first); the sort of a column then orders the rows inside a group */
+  groupOrder?: (guid: string) => number;
 }
 
 /**
@@ -325,7 +330,7 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
   }
   const type = treeColumnDataType(key, ctx.customColumns);
   if (!type) return null;
-  const v = taskCustomValuesOf(t?.rowJSON)[key];
+  const v = ctx.ext ? customCellValue(key, t, r, ctx.ext) : taskCustomValuesOf(t?.rowJSON)[key];
   if (v === null || v === undefined || v === '') return null;
   switch (type) {
     case 'boolean':
@@ -648,9 +653,14 @@ export function filterAndSortTreeRows(
 
   // ---- sort the siblings of every parent; empty values last in both directions; stable ----
   const sortedCache: Record<string, string[]> = {};
+  const grouped = (list: string[]): string[] => {
+    if (!ctx.groupOrder || list.length < 2) return list;
+    const go = ctx.groupOrder;
+    return list.map((g, i) => ({ g, i, k: go(g) })).sort((a, b) => a.k - b.k || a.i - b.i).map((x) => x.g);
+  };
   const childrenOf = (guid: string): string[] => {
     const kids = children(guid);
-    if (!sort || !sortType || kids.length < 2) return kids;
+    if (!sort || !sortType || kids.length < 2) return grouped(kids);
     if (sortedCache[guid]) return sortedCache[guid];
     const dir = sort.direction === 'desc' ? -1 : 1;
     const keyed = kids.map((g, i) => ({ g, i, v: treeCellFilterValue(sort.key, g, ctx) }));
@@ -660,7 +670,7 @@ export function filterAndSortTreeRows(
       if (ea || eb) return ea === eb ? a.i - b.i : ea ? 1 : -1;
       return dir * compareFilterValues(a.v!, b.v!, sortType) || a.i - b.i;
     });
-    return (sortedCache[guid] = keyed.map((k) => k.g));
+    return (sortedCache[guid] = grouped(keyed.map((k) => k.g)));
   };
 
   // ---- filter: matching rows + their ancestors (post-order over the whole tree) ----

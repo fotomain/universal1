@@ -18,6 +18,7 @@ import PMGanttScaleButtons from '../buttons/PMGanttScaleButtons';
 import PMGanttViewToggles from '../buttons/PMGanttViewToggles';
 import PMGanttLinkModeHint from './PMGanttLinkModeHint';
 import PMGanttPeriodButton from '../buttons/PMGanttPeriodButton';
+import PMGanttExtendedButtons from '../buttons/PMGanttExtendedButtons';
 import { pmT } from '../../../i18n/pmT';
 
 export interface PMGanttToolbarActions {
@@ -25,6 +26,9 @@ export interface PMGanttToolbarActions {
   setZoom: (dayWidth: number) => void;
   fit: () => void;
   goToday: () => void;
+  /** Extended E13 */
+  scrollToTask?: () => void;
+  zoomToSelection?: () => void;
 }
 
 export default function PMGanttToolbar({
@@ -52,6 +56,7 @@ export default function PMGanttToolbar({
           <PMToolbarDivider color={palette.border} />
           <PMGanttPeriodButton palette={palette} />
           <PMIconButton testID="pm-gantt-today" icon="today" label={pmT('Today')} color={palette.text} onPress={actions.goToday} />
+          <PMGanttExtendedButtons crud={crud} palette={palette} scrollToTask={actions.scrollToTask} zoomToSelection={actions.zoomToSelection} />
           <PMToolbarDivider color={palette.border} />
           <PMGanttScaleButtons palette={palette} activeUnit={activeUnit} onZoom={actions.setZoom} />
           <PMToolbarDivider color={palette.border} />

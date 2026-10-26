@@ -31,6 +31,10 @@ import PMTreeHeaderMenu from '../tree/customColumns/PMTreeHeaderMenu';
 import PMCustomColumnNameModalWindow from '../tree/customColumns/PMCustomColumnNameModalWindow';
 import PMTreeColumnFilterPopup from '../tree/filter/PMTreeColumnFilterPopup';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
+import PMExtendedWindow from '../../extended/PMExtendedWindow';
+import PMExtendedDialogs from '../../extended/PMExtendedDialogs';
+import PMTimelineStrip from '../../extended/PMTimelineStrip';
+import PMDetailsPane from '../../extended/PMDetailsPane';
 import PMApproveYesNoCancelModalWindow, { isPMApproveOpen } from '../../inner/PMApproveYesNoCancelModalWindow';
 import PMUndoProvider from '../undo/PMUndoProvider';
 import { useRecentProjects } from './recent/recentProjects';
@@ -49,6 +53,9 @@ import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 import { useDashboardDeepLink } from './useDashboardDeepLink';
 import { PMPicker, PMPickerScope } from './pick/pmPickerContext';
+import PMProjectSummaryRow from '../../extended/PMProjectSummaryRow';
+import { useExtendedKeys } from '../../extended/useExtendedKeys';
+import { useExternalDates } from '../../crud/extended/useExternalDates';
 
 export interface PMProjectDashboardProps {
   /**
@@ -102,6 +109,8 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   // /pm/project/dashboard?projectGUID=…&taskGUID=…&genus=…&lineGUID=… (a click on a transaction of a source window): project, Finances view, task, tab, line
   // (a picker is opened from a page whose own route params may look like a link: no deep link there)
   useDashboardDeepLink(ownerGUID, projectsQuery.isSuccess && !picker);
+  useExternalDates();
+  useExtendedKeys(crud);
 
   // Switching projects (e.g. pressing "Project 2") shows the same loader as the first
   // load until the project's data has been (re)read from the database - not the stale
@@ -286,6 +295,9 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
         </Centered>
       ) : (
         <View style={{ flex: 1 }}>
+          {!picker && ganttVsNetworkView === 'showGanttChart' && <PMTimelineStrip crud={crud} />}
+          {!picker && ganttVsNetworkView === 'showGanttChart' && <PMProjectSummaryRow />}
+          <View style={{ flex: 1 }}>
           {!picker && ganttVsNetworkView === 'showNetworkView' ? (
             <PMNetworkView crud={crud} />
           ) : (
@@ -298,6 +310,8 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
               hideToolbars={hideGanttToolBar}
             />
           )}
+          </View>
+          {!picker && ganttVsNetworkView === 'showGanttChart' && <PMDetailsPane crud={crud} />}
           {!picker && rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
             <View pointerEvents="box-none" style={styles.emptyOverlay}>
               <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} style={styles.cta} onPress={() => crud.createStage()} />
@@ -315,6 +329,8 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
       <PMCustomColumnNameModalWindow crud={crud} />
       <PMTreeColumnFilterPopup crud={crud} />
       <PMGanttUXUISettinsModalWindow crud={crud} />
+      <PMExtendedWindow crud={crud} />
+      <PMExtendedDialogs crud={crud} />
       {/* project versions: store sync + "Save project version" / "Restore project from version" windows */}
       <PMVersionWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
       {/* task templates: "Save to template" / "Fill from template" windows */}

@@ -521,6 +521,10 @@ export function createTemplateApi(sb: SupabaseClient) {
         ...templateProject.rowJSON,
         name: projectName,
         projectStartAt: new Date(targetStartMs).toISOString(),
+        // a template planned from its finish date: the typed finish moves with the start (the same shift as every date of the plan)
+        ...(templateProject.rowJSON?.projectScheduleFrom === 'finish' && templateProject.rowJSON?.projectFinishDate && !isNaN(Date.parse(templateProject.rowJSON.projectFinishDate))
+          ? { projectFinishDate: new Date(Date.parse(templateProject.rowJSON.projectFinishDate) + deltaMs).toISOString().slice(0, 10) }
+          : {}),
       },
     };
 
@@ -554,6 +558,12 @@ export function createTemplateApi(sb: SupabaseClient) {
         ...t.rowJSON,
         startAt: shiftIso(t.rowJSON?.startAt, deltaMs),
         manualStartAt: shiftIso(t.rowJSON?.manualStartAt, deltaMs),
+        // Extended: the dates of manual tasks, constraints, deadlines move with the project start too; actual dates and baselines belong to the old project
+        ...(t.rowJSON?.taskManualStartAt ? { taskManualStartAt: shiftIso(t.rowJSON.taskManualStartAt, deltaMs) } : {}),
+        ...(t.rowJSON?.taskConstraintDate ? { taskConstraintDate: shiftIso(t.rowJSON.taskConstraintDate, deltaMs) } : {}),
+        ...(t.rowJSON?.taskDeadline ? { taskDeadline: shiftIso(t.rowJSON.taskDeadline, deltaMs) } : {}),
+        ...(t.rowJSON?.actualStartAt ? { actualStartAt: shiftIso(t.rowJSON.actualStartAt, deltaMs) } : {}),
+        ...(t.rowJSON?.actualFinishAt ? { actualFinishAt: shiftIso(t.rowJSON.actualFinishAt, deltaMs) } : {}),
       };
 
       return {

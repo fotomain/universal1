@@ -5,6 +5,9 @@
 // duration / critical / progress), plus - when asked - the Kanban stage and Kanban percent of every row
 // (store_kanban) as the custom fields Text1 / Number1.
 
+import { scheduleOptionsOf } from '../../../model/scheduleOptions';
+import { extendedOf } from '../../../extended/extendedModel';
+import { ensureCalculated } from '../../project/ensureCalculated';
 import { usePMStore } from '../../../store/store_pm';
 import { usePMKanbanStore } from '../../../store/store_kanban';
 import { flattenAll } from '../../../view/project/scheduling';
@@ -23,6 +26,7 @@ export interface PMMSProjectExportResult {
 
 /** Builds the export input from the stores (throws when the project is not the one open on the dashboard). */
 export function msProjectInputFromStore(projectGUID: string, options: MSProjectExportOptions = {}): MSProjectExportInput {
+  ensureCalculated(); // Manual calculation (Extended A2) with edits pending: export the calculated plan
   const s = usePMStore.getState();
   const project = s.projectsById[projectGUID];
   if (!project) throw new Error(pmT('The project does not exist (any more).'));
@@ -47,6 +51,10 @@ export function msProjectInputFromStore(projectGUID: string, options: MSProjectE
     projectStartMs: s.projectStartMs,
     projectFinishMs: s.projectFinishMs,
     skipWeekends: !!project.rowJSON?.skipWeekends,
+    scheduleFromFinish: scheduleOptionsOf(project.rowJSON).scheduleFrom === 'finish',
+    constraintsEnabled: scheduleOptionsOf(project.rowJSON).constraintsEnabled,
+    manualEnabled: scheduleOptionsOf(project.rowJSON).manualEnabled,
+    priorityEnabled: extendedOf(project.rowJSON).ganttTaskPriorityEnabled === true,
     kanbanStageNameByTask,
     kanbanPercentByTask,
     options,

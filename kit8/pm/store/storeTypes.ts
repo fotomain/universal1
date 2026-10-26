@@ -1,5 +1,7 @@
 // Types of the PM Zustand store (store_pm.ts): the state shape + UI request objects.
 import type { PMTreeIndex } from '../view/project/scheduling';
+import type { PMCalcSignature } from '../model/calcSignature';
+import type { PMExtendedOptions } from '../extended/extendedOptions';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
 import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
 import type { PMSelectRowCheckBoxForm, PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow, PMPlanDateInputFormat } from '../model/types';
@@ -72,6 +74,22 @@ export interface PMStoreState {
   /** Live project progress (computeProjectProgress = SQL pm_recalc_project_progress formula). */
   projectProgress: number;
   cycleGUIDs: string[];
+  /** A4: scheduled from the finish date and the calculated start lies before today (model/scheduleFrom.ts). */
+  projectStartInPast: boolean;
+  /** A2 Project calculation (the Extended option calculationManual): 'manual' keeps the last calculated plan until calculateProject() (model/calcSignature.ts). */
+  calculationMode: 'automatic' | 'manual';
+  /** The scheduler inputs of the last calculation; null = not calculated yet (a load always calculates). */
+  calcSignature: PMCalcSignature | null;
+  /** Manual mode: tasks edited (or created) since the last calculation, and the number of other pending changes (moves, links, project settings). */
+  pendingGUIDs: Record<string, true>;
+  pendingStructureCount: number;
+  /** Counts the explicit "Calculate" commands: the schedule write-back flushes at once when it changes (Manual mode). */
+  calcRequest: number;
+  /** Calculate the whole plan now (button, F9, switch to Automatic, a forced point such as Post). The write-back then stores it. */
+  calculateProject: () => void;
+  /** B5 the stored dates of tasks of OTHER projects that tasks of this project wait for (task GUID -> start / exclusive finish). */
+  externalDates: Record<string, { startMs: number; finishMs: number }>;
+  setExternalDates: (dates: Record<string, { startMs: number; finishMs: number }>) => void;
   visibleRows: string[];
   rowIndexById: Record<string, number>;
   expandedByProject: Record<string, Record<string, boolean>>;
@@ -116,8 +134,11 @@ export interface PMStoreState {
   treeColumnsOrder: PMTreeColumnKey[];
   /** rowJSON.uxuiSettings.treeColumnsWidths - resized tree columns (no "name" = Task name fills the pane). */
   treeColumnsWidths: Record<string, number>;
-  /** rowJSON.customColumns.columns - custom tree columns of the selected project. */
+  /** rowJSON.customColumns.columns - custom tree columns of the selected project + the (virtual) columns of the Extended functions that are on. */
   customColumns: PMCustomColumnDef[];
+  /** Gantt Extended (kit8/pm/extended): the state of every function (master + switch) and its options, mirrored from the selected project. */
+  extFlags: Record<string, boolean>;
+  extOptions: PMExtendedOptions;
   /** rowJSON.customColumns.headersBackgroundColors - tree header background per column key. */
   treeHeadersBackgroundColors: Record<string, string>;
   /** rowJSON.uxuiSettings.treeColumnsFilters - column filters of the tree (tree/filter/treeColumnFilter.ts). */
@@ -197,6 +218,18 @@ export interface PMStoreState {
   /** Local (not saved) switch of the network view settings - used by read-only views. */
   setNetworkViewSettings: (patch: Partial<Pick<PMStoreState, 'ganttVsNetworkView' | 'viewButtonsOrder' | 'networkViewMode' | 'networkDiagramVariant' | 'networkScheduleVariant'>>) => void;
   /** PMGanttUXUISettinsModalWindow visible */
+  /** B7 Task path (Extended): the task whose predecessors / successors are coloured on the chart (null = none) */
+  /** the dialog of an Extended function that is open (kit8/pm/extended/PMExtendedDialogs.tsx) */
+  extDialog: 'find' | 'editChecked' | 'recurring' | 'print' | null;
+  setExtDialog: (d: 'find' | 'editChecked' | 'recurring' | 'print' | null) => void;
+  /** the task window opens on its Advanced tab for this task (row menu: Constraint…, Task inspector) */
+  openAdvancedFor: string | null;
+  setOpenAdvancedFor: (guid: string | null) => void;
+  pathTaskGUID: string | null;
+  setPathTaskGUID: (guid: string | null) => void;
+  /** the "Extended" window of the Gantt bar (kit8/pm/extended) */
+  extendedOpen: boolean;
+  setExtendedOpen: (open: boolean) => void;
   uxuiSettingsOpen: boolean;
   setUxuiSettingsOpen: (open: boolean) => void;
   /** Right-click / tap menu on a dependency arrow (window coordinates). */
@@ -242,6 +275,8 @@ export interface PMStoreState {
   hydrate: (projectGUID: string, tasks: PMTaskRow[], deps: PMTaskDependencyRow[]) => void;
   toggleExpanded: (rowGUID: string) => void;
   setAllExpanded: (expanded: boolean) => void;
+  /** E8 Show outline level (Extended): expand every row above the level, collapse the rows at it; null = all levels */
+  setExpandedToLevel: (level: number | null) => void;
   setHovered: (rowGUID: string | null) => void;
   setSelected: (rowGUID: string | null) => void;
   setLinkSource: (rowGUID: string | null) => void;

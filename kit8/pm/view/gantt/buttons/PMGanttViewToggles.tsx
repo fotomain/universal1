@@ -16,6 +16,7 @@ import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import PMGanttExportButton from './PMGanttExportButton';
 import { PMToolbarDivider } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { pmT } from '../../../i18n/pmT';
+import { extendedMasterOf } from '../../../extended/extendedModel';
 
 export default function PMGanttViewToggles({
   crud,
@@ -30,6 +31,8 @@ export default function PMGanttViewToggles({
   const showTaskProgress = usePMStore((s) => s.showTaskProgressOnGantt);
   const showCritical = usePMStore((s) => s.showCriticalPath);
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
+  // Gantt Extended (kit8/pm/extended): the button exists only while Project settings -> Gantt has the master switch on
+  const extendedOn = usePMStore((s) => extendedMasterOf(s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : undefined));
   return (
     <>
       <PMIconButton
@@ -56,6 +59,16 @@ export default function PMGanttViewToggles({
           {viewSwitch}
           <PMToolbarDivider color={palette.border} />
         </>
+      )}
+      {extendedOn && (
+        <PMIconButton
+          testID="pm-gantt-extended"
+          icon="tune"
+          label={pmT('Extended')}
+          title={pmT('Extended Gantt functions: switch on the functions you need (manual tasks, constraints, baselines, bar styles ...)')}
+          color={palette.text}
+          onPress={() => usePMStore.getState().setExtendedOpen(true)}
+        />
       )}
       <PMIconButton
         testID="pm-gantt-uxui-settings"

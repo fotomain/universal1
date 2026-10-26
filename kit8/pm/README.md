@@ -425,6 +425,12 @@ Full description: `documentation/PM_VERSION_STRUCTURE.html`. SQL: `create_tables
 * Tables missing (SQL not run): the Versions view shows a hint, Save is disabled.
 * Tests: `__tests__/pm/version/` (model, crud API, commands on the in-memory Supabase, UI).
 
+## Gantt Extended functions (2026-10-26)
+
+Project settings → Gantt → `ganttExtendedFunctionalityEnabled` shows the **Extended** button on the Gantt bar; every function has its own `gantt…Enabled` switch and is off by default
+(manual tasks, manual calculation, 8 constraint types, schedule from the finish date, calendars, baselines, EVM, chart styles, predecessors column, formulas, print options ...).
+Without the master switch nothing changes. Map, rules and tests: `kit8/pm/extended/README.md`; the table of every function: `documentation/MORE_GANTT_INPUT.html`.
+
 ## Dependencies
 
 `rowJSON` on `project_task_dependencies_table` (e.g. `dependencyColor`) and on the closure table. Arrow shape:

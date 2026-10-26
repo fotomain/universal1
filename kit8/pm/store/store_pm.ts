@@ -16,7 +16,8 @@ import { PM_DEFAULT_COLUMN_FILTER_ICON_COLOR } from '../view/tree/filter/treeCol
 import { PM_DEFAULT_POST_BUTTON_COLOR } from '../model/postButtonColors';
 import { PM_TREE_COLUMNS_DEFAULT_ORDER } from '../view/tree/columns/treeColumns';
 import { PMProjectRow, PMTaskRow, PM_DEFAULT_CONTEXT_COMMANDS_MODE, PM_DEFAULT_CRITICAL_PATH_TASK_COLOR, PM_DEFAULT_PROGRESS_LINE_COLOR, PM_DEFAULT_VIEW_BUTTONS_ORDER } from '../model/types';
-import { derive, EMPTY_TREE, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
+import { derive, EMPTY_TREE, PMFrozenPlan, treeRowsOf, viewSettingsOf, withoutWorkspaceMode } from './storeDerive';
+import { PM_EXTENDED_OPTIONS_DEFAULT } from '../extended/extendedOptions';
 import type { PMStoreState } from './storeTypes';
 
 export type { PMCellField, PMCustomColumnPrompt, PMRowMenuState, PMTreeColumnFilterPopupState, PMTreeHeaderMenuState, PMStoreState } from './storeTypes';
@@ -27,6 +28,20 @@ const rowsOf = (state: PMStoreState, expanded?: Record<string, boolean>) => {
   if (!pg || state.loadedProjectGUID !== pg) return {};
   return treeRowsOf(state, expanded ?? state.expandedByProject[pg] ?? {});
 };
+
+/** Manual calculation mode and the project already calculated once: the plan to keep showing (null = calculate in full). */
+const frozenOf = (state: PMStoreState, projectGUID: string | null): PMFrozenPlan | null =>
+  state.calculationMode === 'manual' && !!projectGUID && state.loadedProjectGUID === projectGUID && state.calcSignature
+    ? {
+        schedule: state.schedule,
+        projectStartMs: state.projectStartMs,
+        projectFinishMs: state.projectFinishMs,
+        projectProgress: state.projectProgress,
+        cycleGUIDs: state.cycleGUIDs,
+        projectStartInPast: state.projectStartInPast,
+        calcSignature: state.calcSignature,
+      }
+    : null;
 
 export const usePMStore = create<PMStoreState>((set, get) => ({
   projectsById: {},
@@ -44,6 +59,27 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   projectFinishMs: todayUTC(),
   projectProgress: 0,
   cycleGUIDs: [],
+  projectStartInPast: false,
+  calculationMode: 'automatic',
+  calcSignature: null,
+  pendingGUIDs: {},
+  pendingStructureCount: 0,
+  calcRequest: 0,
+  calculateProject: () =>
+    set((state) => {
+      const pg = state.loadedProjectGUID;
+      if (!pg || state.selectedProjectGUID !== pg) return {};
+      return { ...derive(state, pg, null), calcRequest: state.calcRequest + 1 };
+    }),
+  externalDates: {},
+  setExternalDates: (dates) =>
+    set((state) => {
+      const same = Object.keys(dates).length === Object.keys(state.externalDates).length && Object.keys(dates).every((k) => state.externalDates[k]?.startMs === dates[k].startMs && state.externalDates[k]?.finishMs === dates[k].finishMs);
+      if (same) return {};
+      const next = { ...state, externalDates: dates };
+      const pg = state.loadedProjectGUID;
+      return { externalDates: dates, ...(pg && pg === state.selectedProjectGUID ? derive(next, pg, frozenOf(next, pg)) : {}) };
+    }),
   visibleRows: [],
   rowIndexById: {},
   expandedByProject: {},
@@ -111,6 +147,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
   treeColumnsWidths: {},
   customColumns: [],
+  extFlags: {},
+  extOptions: PM_EXTENDED_OPTIONS_DEFAULT,
   treeHeadersBackgroundColors: {},
   treeColumnsFilters: {},
   treeColumnSort: null,
@@ -148,6 +186,14 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   setCustomColumnPrompt: (prompt) => set({ customColumnPrompt: prompt, treeHeaderMenu: null }),
   treeColumnReveal: null,
   requestTreeColumnReveal: (key) => set((s) => ({ treeColumnReveal: key ? { key, nonce: (s.treeColumnReveal?.nonce ?? 0) + 1 } : null })),
+  extDialog: null,
+  setExtDialog: (d) => set({ extDialog: d }),
+  openAdvancedFor: null,
+  setOpenAdvancedFor: (guid) => set({ openAdvancedFor: guid }),
+  pathTaskGUID: null,
+  setPathTaskGUID: (guid) => set({ pathTaskGUID: guid }),
+  extendedOpen: false,
+  setExtendedOpen: (open) => set({ extendedOpen: open }),
   uxuiSettingsOpen: false,
   setUxuiSettingsOpen: (open) => set({ uxuiSettingsOpen: open }),
   depMenu: null,
@@ -215,7 +261,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         selectedProjectGUID,
         ...(recentProjectGUIDs.length !== state.recentProjectGUIDs.length ? { recentProjectGUIDs } : {}),
         ...view,
-        ...(sameProject ? derive(next, selectedProjectGUID) : {}),
+        ...(sameProject ? derive(next, selectedProjectGUID, frozenOf(next as PMStoreState, selectedProjectGUID)) : {}),
       };
     }),
 
@@ -237,10 +283,16 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
             deps: [],
             tree: EMPTY_TREE,
             schedule: {},
+            calcSignature: null,
+            pendingGUIDs: {},
+            pendingStructureCount: 0,
+            projectStartInPast: false,
+            externalDates: {},
             visibleRows: [],
             rowIndexById: {},
             cycleGUIDs: [],
             hoveredGUID: null,
+            pathTaskGUID: null,
             selectedGUID: null,
             linkSourceGUID: null,
             editingGUID: null,
@@ -283,7 +335,7 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
         ...(Object.keys(state.checkedGUIDs).some((g) => !tasksById[g])
           ? { checkedGUIDs: Object.fromEntries(Object.keys(state.checkedGUIDs).filter((g) => tasksById[g]).map((g) => [g, true as const])) }
           : {}),
-        ...derive(next, projectGUID),
+        ...derive(next, projectGUID, frozenOf(state, projectGUID)),
       };
     }),
 
@@ -303,6 +355,18 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
       const map: Record<string, boolean> = {};
       for (const [guid, kids] of Object.entries(state.tree.childrenById)) {
         if (guid !== ROOT_KEY && kids.length) map[guid] = expanded;
+      }
+      const expandedByProject = { ...state.expandedByProject, [pg]: map };
+      return { expandedByProject, ...treeRowsOf(state, map) };
+    }),
+
+  setExpandedToLevel: (level) =>
+    set((state) => {
+      const pg = state.selectedProjectGUID;
+      if (!pg) return {};
+      const map: Record<string, boolean> = {};
+      for (const [guid, kids] of Object.entries(state.tree.childrenById)) {
+        if (guid !== ROOT_KEY && kids.length) map[guid] = level === null ? true : (state.tree.depthById[guid] ?? 0) < level - 1;
       }
       const expandedByProject = { ...state.expandedByProject, [pg]: map };
       return { expandedByProject, ...treeRowsOf(state, map) };

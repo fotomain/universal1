@@ -127,10 +127,14 @@ export function buildActivityNetwork(input: PMActivityNetworkInput): PMActivityN
     const r = schedule[g];
     if (!t || !r || hasKids(g) || t.rowJSON.rowKind === 'stage') continue; // leaves only, no empty stages
     const tfCal = Math.max(0, r.totalFloatDays || 0);
-    const lateStartMs = r.startMs + tfCal * DAY_MS;
-    const lateFinishMs = r.finishMs + tfCal * DAY_MS;
-    const es = off(r.startMs);
-    const ef = Math.max(es, off(r.finishMs));
+    // A4 (schedule from the project finish): the bar sits at the LATE dates, so the early dates come from earlyStartMs; in the normal mode the bar is the early plan
+    const spanMs = r.finishMs - r.startMs;
+    const earlyStartMs = r.earlyStartMs ?? r.startMs;
+    const earlyFinishMs = earlyStartMs + spanMs;
+    const lateStartMs = r.lateStartMs ?? earlyStartMs + tfCal * DAY_MS;
+    const lateFinishMs = lateStartMs + spanMs;
+    const es = off(earlyStartMs);
+    const ef = Math.max(es, off(earlyFinishMs));
     const ls = off(lateStartMs);
     const lf = Math.max(ls, off(lateFinishMs));
     const parent = tree.parentById[g] ?? null;
@@ -149,8 +153,8 @@ export function buildActivityNetwork(input: PMActivityNetworkInput): PMActivityN
       ls,
       lf,
       tf: Math.max(0, ls - es),
-      startMs: r.startMs,
-      finishMs: r.finishMs,
+      startMs: earlyStartMs,
+      finishMs: earlyFinishMs,
       lateStartMs,
       lateFinishMs,
       progress: r.progress,

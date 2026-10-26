@@ -25,6 +25,8 @@ import { useProjectViewSettings } from './project/useProjectViewSettings';
 import { useProjectCustomColumns } from './project/useProjectCustomColumns';
 import { useProjectTreeFilters } from './project/useProjectTreeFilters';
 import { useTaskLastEditPlace } from './task/useTaskLastEditPlace';
+import { useProjectExtended } from './project/useProjectExtended';
+import { useExtendedCommands } from './extended/useExtendedCommands';
 import { usePMStore } from '../store/store_pm';
 import { approvePM } from '../inner/PMApproveYesNoCancelModalWindow';
 
@@ -38,6 +40,8 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
   const customColumns = useProjectCustomColumns(ownerGUID, projectGUID);
   const treeFilters = useProjectTreeFilters(ownerGUID, projectGUID);
   const editPlace = useTaskLastEditPlace(ownerGUID, projectGUID);
+  const extended = useProjectExtended(ownerGUID, projectGUID);
+  const extendedCommands = useExtendedCommands(ownerGUID, projectGUID, undo);
   return useMemo(
     () => ({
       ...task,
@@ -45,6 +49,9 @@ export function usePMCrud(ownerGUID: string, projectGUID: string | null) {
       ...view,
       ...customColumns,
       ...treeFilters,
+      /** Gantt Extended (kit8/pm/extended): saveProjectJSON(patch) */
+      ...extended,
+      ...extendedCommands,
       /** rowJSON.lastEditPlace: remember where in the task the user edited (quiet, only when the place changes) */
       ...editPlace,
       /** Asks first (PMApproveYesNoCancelModalWindow), then undoes the last action. */

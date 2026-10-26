@@ -10,6 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
 import { useCostRefreshDebounce } from '../../../cost/useCostRefreshDebounce';
+import { ensureCalculated } from '../../../crud/project/ensureCalculated';
 import { PRODUCT_READ_PARAMS } from '../../../../catalog/product/dashboard/useProductCatalogData';
 import { DISTRIBUTION_TABLE } from '../../../../catalog/distribution/distributionModel';
 import { MANAGEMENT_CALENDAR_TABLE } from '../../../../catalog/management/calendar/managementCalendarModel';
@@ -66,6 +67,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
     }
     setBusy(true);
     try {
+      ensureCalculated();                                   // Manual calculation (Extended A2) with edits pending: the dates of the tasks are the calculated ones
       const state = usePMStore.getState();
       const calendarForTaskPlan = state.projectsById[projectGUID]?.rowJSON?.calendarForTaskPlan;
       let posted = 0, rows = 0;

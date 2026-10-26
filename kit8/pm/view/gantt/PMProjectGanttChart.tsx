@@ -14,7 +14,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Platform, View } from 'react-native';
-import { Canvas, Circle, Group, Path, Rect, RoundedRect, Skia, SkPath, SkPathBuilder, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
+import { Canvas, Circle, DashPathEffect, Group, Path, Rect, RoundedRect, Skia, SkPath, SkPathBuilder, Text as SkText, rect, useCanvasRef } from '@shopify/react-native-skia';
 import { registerScreenshotCanvas, skiaCanvasSnapshotBase64 } from '../../../lib/shareScreenshot';
 import PMGanttPeriodModalWindow from './PMGanttPeriodModalWindow';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -54,6 +54,12 @@ import { hidePMTip, showPMTip } from '../../inner/tooltip/PMTooltip';
 import { usePMVersionStore } from '../../version/store/store_version';
 import { usePMSubprojectStore } from '../../subproject/store_subproject';
 import { SUBPROJECT_CONFLICT_COLOR, subprojectLabelOf } from '../../subproject/subprojectMarks';
+import { scheduleOptionsOf } from '../../model/scheduleOptions';
+import { PMGanttExtendedOver, PMGanttExtendedUnder } from './PMGanttExtendedLayers';
+import { taskPathOf } from '../../extended/taskPath';
+import { statusDateMsOf } from '../../extended/tracking';
+import { PM_DEFAULT_WORK_WEEK } from '../../extended/extendedOptions';
+import { isWorkDay } from '../project/scheduling';
 import { versionStripGeometry } from '../../version/model/versionCompare';
 import PMGanttVersionsLegend from '../../version/view/legend/PMGanttVersionsLegend';
 import { useRouter } from 'expo-router';
@@ -146,6 +152,15 @@ interface BarDesc {
   labelInside: boolean;
   /** Subprojects: the dates of this origin task differ from its subproject - a dark orange outline */
   subConflict: boolean;
+  /** Extended: a manually scheduled bar (outlined, square ends), a date a link would not meet (dark orange outline), an edit not calculated yet (dashed outline), an estimated duration (dashed), the bar height and corners, the label style */
+  manual: boolean;
+  schedConflict: boolean;
+  pending: boolean;
+  estimated: boolean;
+  barH: number;
+  corner: number;
+  labelBold: boolean;
+  labelColor: string | null;
   /** showTaskProgressOnGantt: "XX%" text, right-justified at the bar end (null = hidden) */
   pctLabel: string | null;
   pctX: number;
@@ -178,6 +193,20 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   const showCritical = usePMStore((s) => s.showCriticalPath);
   const projectStartMs = usePMStore((s) => s.projectStartMs);
   const projectFinishMs = usePMStore((s) => s.projectFinishMs);
+  // Gantt Extended (kit8/pm/extended): the switches, the options and the state that the chart reads; everything is off / empty while the master switch is off
+  const extFlags = usePMStore((s) => s.extFlags);
+  const extOptions = usePMStore((s) => s.extOptions);
+  const pendingGUIDs = usePMStore((s) => s.pendingGUIDs);
+  const projectJSON = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : undefined));
+  const expandedMap = usePMStore((s) => (s.selectedProjectGUID ? s.expandedByProject[s.selectedProjectGUID] : undefined)) ?? {};
+  const treeIndex = usePMStore((s) => s.tree);
+  const pathTaskGUID = usePMStore((s) => s.pathTaskGUID);
+  const schedOptions = useMemo(() => scheduleOptionsOf(projectJSON), [projectJSON]);
+  const scheduledFromFinish = schedOptions.scheduleFrom === 'finish';
+  const statusMs = useMemo(() => statusDateMsOf(extOptions.statusDate, Date.now()), [extOptions.statusDate]);
+  const planFormat = usePMStore((s) => s.planDateInputFormat);
+  const projectCal = useMemo(() => schedOptions.projectCalendar ?? { skipWeekends: !!projectJSON?.skipWeekends }, [schedOptions.projectCalendar, projectJSON]);
+  const pathRoles = useMemo(() => (extFlags.ganttTaskPathEnabled && pathTaskGUID ? taskPathOf(pathTaskGUID, deps, schedule, projectCal) : {}), [extFlags.ganttTaskPathEnabled, pathTaskGUID, deps, schedule, projectCal]);
   const linkLineForm = usePMStore((s) => s.linkLineForm);
   const showTaskProgress = usePMStore((s) => s.showTaskProgressOnGantt);
   const taskLinePos = usePMStore((s) => s.taskProgressLinePosition);
@@ -248,9 +277,16 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       const y = i * PM_ROW_HEIGHT;
       const critical = showCritical && r.isCritical && kind !== K_SUMMARY;
       const customColor = taskColorOf(t.rowJSON);
+      // Extended E2 bar styles: the colour of a KIND of bar (the colour chosen for one task still wins)
+      const bs = extFlags.ganttBarStylesEnabled ? extOptions.barStyles : null;
+      const styleColor = bs ? (r.isManual && bs.manual ? bs.manual : kind === K_SUMMARY ? bs.summary : kind === K_MILESTONE ? bs.milestone : critical ? bs.critical : bs.normal) : null;
       const color = (critical && criticalPriority)
         ? palette.critical
-        : (customColor || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar));
+        : (customColor || styleColor || (kind === K_SUMMARY ? palette.summary : kind === K_MILESTONE ? palette.milestone : critical ? palette.critical : palette.bar));
+      // E5 bar height, E2 corners, E12 text style
+      const normalH = PM_ROW_HEIGHT - 2 * PM_BAR_VPAD;
+      const barH = extFlags.ganttLayoutOptionsEnabled ? Math.round(extOptions.layout.barHeight === 'small' ? normalH * 0.65 : extOptions.layout.barHeight === 'large' ? Math.min(PM_ROW_HEIGHT - 4, normalH + 4) : normalH) : normalH;
+      const ts = extFlags.ganttTextStylesEnabled ? (kind === K_SUMMARY ? extOptions.textStyles.summary : kind === K_MILESTONE ? extOptions.textStyles.milestone : critical ? extOptions.textStyles.critical : null) : null;
       const progressColor = kind === K_SUMMARY ? palette.summaryProgress : critical ? palette.criticalProgress : palette.barProgress;
       const subMark = subMarks[guid];
       const name = subprojectLabelOf(t.rowJSON.taskDescription || '', subMark);
@@ -274,6 +310,14 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
         labelX: inside ? x + 6 : kind === K_MILESTONE ? x + MILESTONE_HALF + 20 : x + w + 20,
         labelInside: inside,
         subConflict: !!subMark?.conflict,
+        manual: !!r.isManual,
+        schedConflict: !!r.constraintConflict,
+        pending: !!pendingGUIDs[guid],
+        estimated: extFlags.ganttEstimatedDurationEnabled && t.rowJSON.durationEstimated === true,
+        barH,
+        corner: extFlags.ganttBarStylesEnabled && extOptions.barStyles.corner === 'square' ? 1 : 4,
+        labelBold: !!ts?.bold,
+        labelColor: ts?.color ?? null,
         pctLabel,
         pctX: x + w - 5 - pctW, // right-justified at the end of the bar
         progressLinePos: taskLinePos,
@@ -281,7 +325,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, palette, fonts.regular, fonts.bold, fonts.smallBold, subMarks]);
+  }, [win.firstRow, win.lastRow, visibleRows, schedule, tasksById, hitTable, showCritical, criticalPriority, showTaskProgress, taskLinePos, taskLineColor, pendingGUIDs, extFlags, extOptions, palette, fonts.regular, fonts.bold, fonts.smallBold, subMarks]);
 
   // =====================================================================================
   // Project versions (kit8/pm/version): the checked versions are drawn on the SAME chart as the
@@ -395,7 +439,11 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   // =====================================================================================
   // Grid + 2-tier time scale for the visible day window
   // =====================================================================================
-  const levels = scaleLevelsFor(dayWidth);
+  const autoLevels = scaleLevelsFor(dayWidth);
+  // Extended E1 time scale: the units of the two tiers chosen by the user (Automatic = by the zoom, as before)
+  const tsx = extFlags.ganttTimescaleEnabled ? extOptions.timescale : null;
+  const levels = tsx && (tsx.top !== 'auto' || tsx.bottom !== 'auto') ? { top: tsx.top === 'auto' ? autoLevels.top : tsx.top, bottom: tsx.bottom === 'auto' ? autoLevels.bottom : tsx.bottom } : autoLevels;
+  const longLabels = !!tsx && tsx.labels === 'long';
   const grid = useMemo(() => {
     const weekend = Skia.PathBuilder.Make();
     const thin = Skia.PathBuilder.Make();
@@ -406,11 +454,13 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     const to = Math.min(totalDays, win.lastDay);
     if (dayWidth >= 3) {
       for (let d = from; d <= to; d++) {
-        if (isWeekendDay(timelineStartMs, d)) weekend.addRect(Skia.XYWHRect(d * dayWidth, yTop, dayWidth, yBottom - yTop));
+        // A11 non-working time = what the project calendar does not work (holidays, a custom week); without it the weekend, as before
+        const off = extFlags.ganttCalendarExceptionsEnabled && schedOptions.projectCalendar ? !isWorkDay(timelineStartMs + d * DAY_MS, schedOptions.projectCalendar) : isWeekendDay(timelineStartMs, d);
+        if (off) weekend.addRect(Skia.XYWHRect(d * dayWidth, yTop, dayWidth, yBottom - yTop));
       }
     }
-    const bottomCells = scaleCells(timelineStartMs, from, to, levels.bottom, dayWidth);
-    const topCells = scaleCells(timelineStartMs, from, to, levels.top, dayWidth);
+    const bottomCells = scaleCells(timelineStartMs, from, to, levels.bottom, dayWidth, longLabels);
+    const topCells = scaleCells(timelineStartMs, from, to, levels.top, dayWidth, longLabels);
     if (levels.bottom === 'day' && dayWidth >= 12) {
       for (const c of bottomCells) {
         thin.moveTo(c.x, yTop);
@@ -427,7 +477,7 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
       strong.lineTo(c.x, yBottom);
     }
     return { weekend: weekend.build(), thin: thin.build(), strong: strong.build(), bottomCells, topCells };
-  }, [win.firstRow, win.lastRow, win.firstDay, win.lastDay, totalDays, dayWidth, timelineStartMs, bodyPx, levels.bottom, levels.top]);
+  }, [win.firstRow, win.lastRow, win.firstDay, win.lastDay, totalDays, dayWidth, timelineStartMs, bodyPx, levels.bottom, levels.top, longLabels, extFlags.ganttCalendarExceptionsEnabled, schedOptions.projectCalendar]);
 
   const scaleLines = useMemo(() => {
     const p = Skia.PathBuilder.Make();
@@ -461,6 +511,9 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
   }, [win.firstRow, win.lastRow, visibleRows.length, width]);
 
   const todayX = xOf(todayUTC());
+  // A4 scheduled from the Project Finish Date: a line at the fixed finish (the last day of the project, inclusive)
+  const finishLineX = scheduledFromFinish ? xOf(projectFinishMs) : null;
+  const gl = extFlags.ganttGridlinesEnabled ? extOptions.gridlines : null;
   const projectBand = { x: xOf(projectStartMs), w: Math.max(0, xOf(projectFinishMs) - xOf(projectStartMs)) };
 
   // project progress line in the time-scale header (uxuiSettings.projectProgressLinePosition)
@@ -1165,7 +1218,49 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
     viewport.setZoom(dw);
     requestAnimationFrame(() => viewport.scrollToX(((projectStartMs - timelineStartMs) / DAY_MS - 1) * dw, false));
   };
-  const toolbarActions = { zoomBy, setZoom: (dw: number) => viewport.setZoom(dw), fit, goToday };
+  // Extended E13: jump to the bar of the selected task / fit the time scale to the checked tasks (or the selected one)
+  const scrollToTask = () => {
+    const r = selectedGUID ? schedule[selectedGUID] : undefined;
+    if (r) viewport.scrollToX(xOf(r.startMs) * (dayWidthLive.value / dayWidth) - chartW.value / 3);
+  };
+  const zoomToSelection = () => {
+    const st = usePMStore.getState();
+    const guids = Object.keys(st.checkedGUIDs).length ? Object.keys(st.checkedGUIDs) : st.selectedGUID ? [st.selectedGUID] : [];
+    let a = Infinity;
+    let b = -Infinity;
+    for (const g of guids) { const r = st.schedule[g]; if (r) { a = Math.min(a, r.startMs); b = Math.max(b, r.finishMs); } }
+    if (a !== Infinity) st.setGanttPeriod({ startMs: a, finishMs: Math.max(b, a + DAY_MS) });
+  };
+  const toolbarActions = { zoomBy, setZoom: (dw: number) => viewport.setZoom(dw), fit, goToday, scrollToTask, zoomToSelection };
+
+  // the props of the Extended layers; null while no Extended function that draws is on
+  const drawsExtended = ['ganttTrackingBarsEnabled', 'ganttActualDatesEnabled', 'ganttSplitTasksEnabled', 'ganttDeadlineEnabled', 'ganttInactiveTasksEnabled', 'ganttMilestoneFlagEnabled', 'ganttRollupBarsEnabled',
+    'ganttBarTextEnabled', 'ganttTaskPathEnabled', 'ganttProgressLinesEnabled', 'ganttHighlightFilterEnabled', 'ganttGroupByEnabled', 'ganttStatusDateEnabled', 'ganttEarnedValueEnabled', 'ganttLayoutOptionsEnabled'].some((k) => extFlags[k]);
+  const extLayerProps = drawsExtended
+    ? {
+        firstRow: win.firstRow,
+        lastRow: win.lastRow,
+        visibleRows,
+        schedule,
+        tasksById,
+        tree: treeIndex,
+        expanded: expandedMap,
+        xOf,
+        palette,
+        fonts: { small: fonts.small, smallBold: fonts.smallBold, regular: fonts.regular },
+        flags: extFlags,
+        opts: extOptions,
+        statusMs,
+        rowHeight: PM_ROW_HEIGHT,
+        barVPad: PM_BAR_VPAD,
+        timelineWidth: Math.max(width, totalDays * dayWidth),
+        yTop: win.firstRow * PM_ROW_HEIGHT,
+        yBottom: Math.max((win.lastRow + 2) * PM_ROW_HEIGHT, win.firstRow * PM_ROW_HEIGHT + bodyPx) + PM_OVERSCAN_ROWS * PM_ROW_HEIGHT,
+        pathRoles,
+        dateFormat: planFormat,
+        criticalOf: (g: string) => !!schedule[g]?.isCritical,
+      }
+    : null;
 
   // custom period (period button before "Today"): zoom so that it fills the pane, then scroll to its start;
   // period removed ("Whole project") = fit to screen
@@ -1217,13 +1312,25 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
             <Group clip={rect(0, PM_SCALE_HEIGHT, width, bodyPx)}>
               <Group transform={bodyY}>
                 <Rect x={0} y={hoverY} width={width} height={PM_ROW_HEIGHT} color={palette.hover} opacity={hoverOpacity} />
-                <Path path={rowLines} style="stroke" strokeWidth={1} color={palette.grid} />
+                {(!gl || gl.rows) && <Path path={rowLines} style="stroke" strokeWidth={1} color={palette.grid} />}
                 <Group transform={timeX}>
                   <Rect x={projectBand.x} y={win.firstRow * PM_ROW_HEIGHT} width={projectBand.w} height={2} color={palette.primary} opacity={0.35} />
                   <Path path={grid.weekend} color={palette.weekend} />
-                  <Path path={grid.thin} style="stroke" strokeWidth={1} color={palette.grid} />
-                  <Path path={grid.strong} style="stroke" strokeWidth={1} color={palette.gridStrong} />
-                  <Rect x={todayX - 1} y={win.firstRow * PM_ROW_HEIGHT} width={2} height={Math.max(bodyPx, (win.lastRow - win.firstRow + 2) * PM_ROW_HEIGHT) + PM_OVERSCAN_ROWS * PM_ROW_HEIGHT} color={palette.today} opacity={0.8} />
+                  {(!gl || gl.weeks) && <Path path={grid.thin} style="stroke" strokeWidth={1} color={palette.grid} />}
+                  {(!gl || gl.weeks) && <Path path={grid.strong} style="stroke" strokeWidth={1} color={palette.gridStrong} />}
+                  {finishLineX !== null && (
+                    <Rect x={finishLineX - 1} y={win.firstRow * PM_ROW_HEIGHT} width={2} height={Math.max(bodyPx, (win.lastRow - win.firstRow + 2) * PM_ROW_HEIGHT) + PM_OVERSCAN_ROWS * PM_ROW_HEIGHT} color={palette.critical} opacity={0.85} />
+                  )}
+                  {gl && gl.projectEdges && (
+                    <>
+                      <Rect x={xOf(projectStartMs) - 0.5} y={win.firstRow * PM_ROW_HEIGHT} width={1} height={Math.max(bodyPx, (win.lastRow - win.firstRow + 2) * PM_ROW_HEIGHT)} color={palette.primary} opacity={0.6} />
+                      <Rect x={xOf(projectFinishMs) - 0.5} y={win.firstRow * PM_ROW_HEIGHT} width={1} height={Math.max(bodyPx, (win.lastRow - win.firstRow + 2) * PM_ROW_HEIGHT)} color={palette.primary} opacity={0.6} />
+                    </>
+                  )}
+                  {(!gl || gl.today) && <Rect x={todayX - 1} y={win.firstRow * PM_ROW_HEIGHT} width={2} height={Math.max(bodyPx, (win.lastRow - win.firstRow + 2) * PM_ROW_HEIGHT) + PM_OVERSCAN_ROWS * PM_ROW_HEIGHT} color={palette.today} opacity={0.8} />}
+
+                  {/* Gantt Extended: highlighted / grouped rows and the status date line, under the links and the bars (kit8/pm/extended) */}
+                  {extLayerProps && <PMGanttExtendedUnder {...extLayerProps} />}
 
                   {/* links under bars */}
                   <Path path={links.normal} style="stroke" strokeWidth={1.4} color={palette.link} />
@@ -1242,6 +1349,9 @@ export default function PMProjectGanttChart({ viewport, width, height, palette, 
                   {bars.map((b) => (
                     <BarShape key={b.guid} bar={b} palette={palette} fonts={fonts} selected={b.guid === selectedGUID} linkSource={b.guid === linkSourceGUID} />
                   ))}
+
+                  {/* Gantt Extended: baseline / actual strips, split gaps, deadlines, inactive rows, text, task path, progress line (kit8/pm/extended) */}
+                  {extLayerProps && <PMGanttExtendedOver {...extLayerProps} />}
 
                   {/* checked project versions: thin bars under the task bars (kit8/pm/version) */}
                   {versionPaths.map((v) => (
@@ -1369,10 +1479,10 @@ const BarShape = React.memo(function BarShape({
   selected: boolean;
   linkSource: boolean;
 }) {
-  const h = PM_ROW_HEIGHT - 2 * PM_BAR_VPAD;
-  const y = bar.y + PM_BAR_VPAD;
+  const h = bar.barH;
+  const y = bar.cy - h / 2;
   const baseline = bar.cy + 4;
-  const outline = selected || linkSource ? (linkSource ? palette.linkActive : palette.text) : bar.subConflict ? SUBPROJECT_CONFLICT_COLOR : null;
+  const outline = selected || linkSource ? (linkSource ? palette.linkActive : palette.text) : bar.subConflict || bar.schedConflict ? SUBPROJECT_CONFLICT_COLOR : null;
 
   if (bar.kind === K_MILESTONE) {
     const path = milestonePath(bar.x, bar.cy);
@@ -1408,7 +1518,22 @@ const BarShape = React.memo(function BarShape({
 
   return (
     <Group>
-      <RoundedRect x={bar.x} y={y} width={bar.w} height={h} r={4} color={bar.color} />
+      {bar.manual ? (
+        <>
+          {/* a manually scheduled task: a lighter fill, the bar's own outline and square ends (the MS Project look) */}
+          <RoundedRect x={bar.x} y={y} width={bar.w} height={h} r={2} color={bar.color} opacity={0.45} />
+          <RoundedRect x={bar.x + 1} y={y + 1} width={Math.max(0, bar.w - 2)} height={h - 2} r={2} style="stroke" strokeWidth={2} color={bar.color} />
+          <Rect x={bar.x} y={y} width={3} height={h} color={bar.color} />
+          <Rect x={bar.x + bar.w - 3} y={y} width={3} height={h} color={bar.color} />
+        </>
+      ) : (
+        <RoundedRect x={bar.x} y={y} width={bar.w} height={h} r={bar.corner} color={bar.color} />
+      )}
+      {(bar.pending || bar.estimated) && (
+        <RoundedRect x={bar.x - 2} y={y - 2} width={bar.w + 4} height={h + 4} r={5} style="stroke" strokeWidth={1.5} color={palette.text}>
+          <DashPathEffect intervals={[4, 3]} />
+        </RoundedRect>
+      )}
       {bar.progress > 0 && (
         <Group clip={rect(bar.x, y, bar.w * bar.progress, h)}>
           <RoundedRect x={bar.x} y={y} width={bar.w} height={h} r={4} color={bar.progressColor} opacity={0.55} />
@@ -1417,7 +1542,7 @@ const BarShape = React.memo(function BarShape({
       {lineUnderText && progressLine}
       {outline && <RoundedRect x={bar.x - 1} y={y - 1} width={bar.w + 2} height={h + 2} r={5} style="stroke" strokeWidth={2} color={outline} />}
       {fonts.regular && (
-        <SkText x={bar.labelX} y={baseline} text={bar.label} font={fonts.regular} color={bar.labelInside ? palette.textOnBar : palette.text} />
+        <SkText x={bar.labelX} y={baseline} text={bar.label} font={bar.labelBold && fonts.bold ? fonts.bold : fonts.regular} color={bar.labelColor ?? (bar.labelInside ? palette.textOnBar : palette.text)} />
       )}
       {bar.pctLabel !== null && (
         <>

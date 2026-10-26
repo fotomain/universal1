@@ -14467,7 +14467,7 @@ GRANT EXECUTE ON FUNCTION public.task_template_visible(uuid) TO authenticated;
 -- the keys of a task / a line that belong to ONE project and are not copied (see the header of this part)
 CREATE OR REPLACE FUNCTION public.task_template_clean_task(p_json jsonb) RETURNS jsonb
 LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
-  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
+  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'taskManualStartAt' - 'taskConstraintDate' - 'taskDeadline' - 'actualStartAt' - 'actualFinishAt' - 'baselines' - 'externalPredecessors' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
 $$;
 
 CREATE OR REPLACE FUNCTION public.task_template_clean_line(p_json jsonb) RETURNS jsonb

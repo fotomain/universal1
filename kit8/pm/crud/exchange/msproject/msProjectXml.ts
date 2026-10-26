@@ -15,6 +15,8 @@
 // Unit-tested in __tests__/pm/crud/exchange/msProjectXml.test.ts.
 
 import { PMLinkType, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../../../model/types';
+import { constraintHasDate, constraintIsFinish, constraintOf, MSP_CONSTRAINT_TYPE } from '../../../model/taskConstraint';
+import { manualStartOf, taskModeOf } from '../../../model/taskScheduleMode';
 
 export const MSP_XMLNS = 'http://schemas.microsoft.com/project';
 /** working time of a day in the exported calendar: 08:00-12:00 + 13:00-17:00 */
@@ -47,6 +49,13 @@ export interface MSProjectExportInput {
   kanbanStageNameByTask?: Record<string, string | null | undefined>;
   kanbanPercentByTask?: Record<string, number | null | undefined>;
   options?: MSProjectExportOptions;
+  /** Extended: the project plans from its finish date (<ScheduleFromStart>0); default from the start */
+  scheduleFromFinish?: boolean;
+  /** Extended: the 8 constraint types / manually scheduled tasks are on in the project (kit8/pm/model/taskConstraint.ts, taskScheduleMode.ts) */
+  constraintsEnabled?: boolean;
+  manualEnabled?: boolean;
+  /** Extended A15: write the task priority (0-1000) */
+  priorityEnabled?: boolean;
   now?: Date;
   /** aliases of the custom fields (translated column titles); default "Kanban Stage" / "Kanban Percent" */
   kanbanStageAlias?: string;
@@ -134,7 +143,7 @@ export function buildMSProjectXml(input: MSProjectExportInput): string {
   xml += el('Title', name, '  ');
   xml += el('CreationDate', created, '  ');
   xml += el('LastSaved', created, '  ');
-  xml += el('ScheduleFromStart', 1, '  ');
+  xml += el('ScheduleFromStart', input.scheduleFromFinish ? 0 : 1, '  ');
   xml += el('StartDate', mspDateTime(input.projectStartMs), '  ');
   xml += el('FinishDate', mspDateTime(lastDay, '17:00:00'), '  ');
   xml += el('FYStartDate', 1, '  ');
@@ -176,7 +185,12 @@ export function buildMSProjectXml(input: MSProjectExportInput): string {
     const finishDay = milestone ? startMs : Math.max(startMs, (s?.finishMs ?? startMs + DAY_MS) - DAY_MS);
     const days = milestone ? 0 : Math.max(0, s?.durationDays ?? Number(task.rowJSON?.durationDays) ?? 0);
     const percent = Math.max(0, Math.min(100, Math.round(s?.progress ?? task.rowProgress ?? 0)));
-    const constraintMs = !summary && task.rowJSON?.manualStartAt ? Date.parse(task.rowJSON.manualStartAt) : NaN;
+    // constraint: a manually scheduled task is exported as Must Start On its typed start (the MSPDI <Manual> element is not written: its place in the schema is not verified);
+    // otherwise the 8 types (only Start No Earlier Than = manualStartAt while the function is off). The date of a finish type is the finish at 17:00.
+    const manualStart = !summary && input.manualEnabled === true && taskModeOf(task.rowJSON as any, true) === 'manual' ? manualStartOf(task.rowJSON as any) : null;
+    const con = manualStart !== null ? { type: 'MSO' as const, dateMs: manualStart } : summary ? { type: 'ASAP' as const, dateMs: null } : constraintOf(task.rowJSON as any, input.constraintsEnabled === true);
+    const constraintType = MSP_CONSTRAINT_TYPE[con.type];
+    const constraintDate = constraintHasDate(con.type) && con.dateMs !== null ? mspDateTime(con.dateMs, constraintIsFinish(con.type) ? '17:00:00' : '08:00:00') : null;
     const T = '      ';
     xml += '    <Task>\n';
     xml += el('UID', i + 1, T);
@@ -188,7 +202,7 @@ export function buildMSProjectXml(input: MSProjectExportInput): string {
     xml += el('WBS', r.wbs, T);
     xml += el('OutlineNumber', r.wbs, T);
     xml += el('OutlineLevel', Math.max(1, r.outlineLevel), T);
-    xml += el('Priority', 500, T);
+    xml += el('Priority', input.priorityEnabled ? Math.max(0, Math.min(1000, Math.round(Number((task.rowJSON as any)?.taskPriority ?? 500)))) : 500, T);
     xml += el('Start', mspDateTime(startMs), T);
     xml += el('Finish', mspDateTime(finishDay, milestone ? '08:00:00' : '17:00:00'), T);
     xml += el('Duration', mspDuration(days), T);
@@ -199,10 +213,10 @@ export function buildMSProjectXml(input: MSProjectExportInput): string {
     xml += el('Summary', summary ? 1 : 0, T);
     xml += el('Critical', s?.isCritical ? 1 : 0, T);
     xml += el('PercentComplete', percent, T);
-    // 0 = as soon as possible, 4 = start no earlier than
-    xml += el('ConstraintType', Number.isFinite(constraintMs) ? 4 : 0, T);
+    // 0 ASAP, 1 ALAP, 2 must start on, 3 must finish on, 4 start no earlier than, 5 start no later than, 6 finish no earlier than, 7 finish no later than
+    xml += el('ConstraintType', constraintType, T);
     xml += el('CalendarUID', -1, T);
-    if (Number.isFinite(constraintMs)) xml += el('ConstraintDate', mspDateTime(constraintMs), T);
+    if (constraintDate) xml += el('ConstraintDate', constraintDate, T);
     if (task.rowJSON?.notes) xml += el('Notes', task.rowJSON.notes, T);
     for (const d of depsBySuccessor[task.rowGUID] || []) {
       xml += `${T}<PredecessorLink>\n`;

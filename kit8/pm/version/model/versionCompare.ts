@@ -7,6 +7,7 @@
 import { DAY_MS, PM_BAR_VPAD, PM_ROW_HEIGHT } from '../../model/constants';
 import type { PMScheduledRow, PMTaskRow } from '../../model/types';
 import { scheduleProject, todayUTC } from '../../view/project/scheduling';
+import { scheduleOptionsOf } from '../../model/scheduleOptions';
 import { assignVersionColors, PMProjectVersionRow, PMVersionData } from './versionTypes';
 
 /** One row of a version on the time line. */
@@ -42,7 +43,8 @@ export function scheduleVersion(version: PMProjectVersionRow, data: Pick<PMVersi
     tasks: data.tasks,
     deps: data.deps,
     projectStartMs: versionProjectStartMs(version),
-    calendar: { skipWeekends: !!version.rowJSON?.skipWeekends },
+    calendar: scheduleOptionsOf(version.rowJSON).projectCalendar ?? { skipWeekends: !!version.rowJSON?.skipWeekends },
+    ...scheduleOptionsOf(version.rowJSON),
   });
   const bars: Record<string, PMVersionBar> = {};
   for (const t of data.tasks) {

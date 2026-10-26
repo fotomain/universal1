@@ -40,7 +40,7 @@ END $$;
 -- the source project of anna: stage S { T1 (Time 2 lines, Material 1), T2 (Expense 1) } with T2 waiting for T1; and a single task X with 2 lines
 SELECT tt.mk_project('aaaaaaaa-0000-0000-0000-00000000000a', 'Source', '11111111-1111-1111-1111-111111111111') AS psrc \gset
 SELECT tt.mk_task(:'psrc', NULL, 'stage', 'Stage S', '{"notes": "all of it"}') AS s \gset
-SELECT tt.mk_task(:'psrc', :'s', 'task', 'T1', '{"startAt": "2026-03-02T00:00:00Z", "manualStartAt": "2026-03-02T00:00:00Z", "customColumns": {"x": 1}, "lastEditPlace": {"surface": "taskPage"}}', 1) AS t1 \gset
+SELECT tt.mk_task(:'psrc', :'s', 'task', 'T1', '{"startAt": "2026-03-02T00:00:00Z", "manualStartAt": "2026-03-02T00:00:00Z", "taskManualStartAt": "2026-03-04T00:00:00Z", "taskConstraintDate": "2026-03-05T00:00:00Z", "taskDeadline": "2026-04-01T00:00:00Z", "actualStartAt": "2026-03-03T00:00:00Z", "baselines": {"0": {"startAt": "2026-03-02T00:00:00Z"}}, "externalPredecessors": [{"taskGUID": "x"}], "taskScheduleMode": "manual", "taskConstraintType": "MSO", "taskPriority": 800, "customColumns": {"x": 1}, "lastEditPlace": {"surface": "taskPage"}}', 1) AS t1 \gset
 SELECT tt.mk_task(:'psrc', :'s', 'task', 'T2', '{"notes": "second"}', 2) AS t2 \gset
 SELECT tt.mk_task(:'psrc', NULL, 'task', 'Task X', '{"notes": "single"}') AS x \gset
 SELECT tt.mk_line(:'t1', 'timeGenus', 8, 1) AS l1 \gset
@@ -69,8 +69,9 @@ SELECT tt.eq((SELECT count(*) FROM public.task_template_dependency WHERE "rowTem
 SELECT tt.eq((SELECT count(*) FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowParentGUID" IS NULL), 1::bigint, 'one top row');
 SELECT tt.eq((SELECT "rowGUID" FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowParentGUID" IS NULL), :'s'::uuid, '... the row that was saved');
 SELECT tt.eq((SELECT count(*) FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowParentGUID" = :'s'), 2::bigint, '... the two tasks have it as the parent');
-SELECT tt.eq((SELECT "rowJSON" ? 'startAt' OR "rowJSON" ? 'manualStartAt' OR "rowJSON" ? 'customColumns' OR "rowJSON" ? 'lastEditPlace' FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowGUID" = :'t1'), false, 'the dates of the scheduler, the custom column values and the edit place are not saved');
+SELECT tt.eq((SELECT "rowJSON" ? 'startAt' OR "rowJSON" ? 'manualStartAt' OR "rowJSON" ? 'taskManualStartAt' OR "rowJSON" ? 'taskConstraintDate' OR "rowJSON" ? 'taskDeadline' OR "rowJSON" ? 'actualStartAt' OR "rowJSON" ? 'baselines' OR "rowJSON" ? 'externalPredecessors' OR "rowJSON" ? 'customColumns' OR "rowJSON" ? 'lastEditPlace' FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowGUID" = :'t1'), false, 'the dates of the scheduler, the custom column values and the edit place are not saved');
 SELECT tt.eq((SELECT "rowJSON"->>'durationDays' FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowGUID" = :'t1'), '3', '... the duration is');
+SELECT tt.eq((SELECT ("rowJSON"->>'taskScheduleMode') || '/' || ("rowJSON"->>'taskConstraintType') || '/' || ("rowJSON"->>'taskPriority') FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowGUID" = :'t1'), 'manual/MSO/800', '... the schedule mode, the constraint TYPE and the priority are kept (only the dates belong to one project)');
 SELECT tt.eq((SELECT bool_and(("rowJSON"->>'taskIsPosted')::boolean = false AND NOT ("rowJSON" ? 'sumForBudget') AND NOT ("rowJSON" ? 'sumForAccounting') AND NOT ("rowJSON" ? 'fxSnapshotTaskLine') AND NOT ("rowJSON" ? 'baseOfDistribution') AND "rowJSON" ? 'sumForContract')
                 FROM public.task_template_line WHERE "rowTemplateGUID" = :'tpl'), true, 'the lines are saved UNPOSTED, without the sums in the currencies of the project (the sum for the contract stays)');
 SELECT tt.eq((SELECT count(*) FROM public.task_template_header), 2::bigint, 'two templates');

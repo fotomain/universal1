@@ -26,8 +26,8 @@ export const PM_PDF_MARGIN = 20;
 
 /** A4 page in the orientation of the picture; the picture keeps its proportions, fills the page width / height
  *  inside the margins, centered horizontally and placed at the top. */
-export function pdfPageLayoutFor(width: number, height: number, margin = PM_PDF_MARGIN): PMPdfPageLayout {
-  const landscape = width >= height;
+export function pdfPageLayoutFor(width: number, height: number, margin = PM_PDF_MARGIN, orientation: 'auto' | 'landscape' | 'portrait' = 'auto'): PMPdfPageLayout {
+  const landscape = orientation === 'auto' ? width >= height : orientation === 'landscape';
   const pageWidth = landscape ? PM_PDF_A4.long : PM_PDF_A4.short;
   const pageHeight = landscape ? PM_PDF_A4.short : PM_PDF_A4.long;
   const maxW = pageWidth - 2 * margin;
@@ -120,10 +120,15 @@ export interface PMPdfHeader {
   /** translated "Start" / "Finish" */
   startLabel?: string;
   finishLabel?: string;
+  /** Extended H1 print options: a text under the picture and a legend line (both empty = nothing is added) */
+  footer?: string;
+  legend?: string;
 }
 
 /** header height in layout px (scaled to the screenshot's pixels) */
 export const PM_PDF_HEADER_HEIGHT = 56;
+/** height of the footer band (footer text + legend) in layout px */
+export const PM_PDF_FOOTER_HEIGHT = 40;
 
 /** The two lines of the header: "Project name" and "Start: 2026-10-06   ·   Finish: 2026-12-18". */
 export function pdfHeaderLines(h: PMPdfHeader): { title: string; subtitle: string } {

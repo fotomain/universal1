@@ -13,11 +13,17 @@ import { useStartPurchaseOrder } from '../../../documents/vendor/purchase_order/
 import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 import { useTaskRelatedMenu } from './useTaskRelatedMenu';
 import { taskTemplatesSubmenu } from '../../tasktemplate/crud/useTaskTemplates';
+import { scheduleOptionsOf } from '../../model/scheduleOptions';
+import { taskModeOf, taskModeReadOnlyReason } from '../../model/taskScheduleMode';
+import { extendedOptionsPatch } from '../../extended/extendedOptions';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
   const task = usePMStore((s) => (s.rowMenu ? s.tasksById[s.rowMenu.guid] : undefined));
   const isSummary = usePMStore((s) => (s.rowMenu ? !!s.schedule[s.rowMenu.guid]?.isSummary : false));
+  const projectJSON = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : undefined));
+  const flags = usePMStore((s) => s.extFlags);
+  const timeline = usePMStore((s) => s.extOptions.timeline);
   const openFactInput = useOpenFactInput();
   const { start: startVendorInvoice } = useStartVendorInvoice();
   const { start: startPurchaseOrder } = useStartPurchaseOrder();
@@ -25,6 +31,10 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   if (!menu || !task) return null;
 
   const guid = menu.guid;
+  const schedOptions = scheduleOptionsOf(projectJSON);
+  const isManual = taskModeOf(task.rowJSON, schedOptions.manualEnabled, false) === 'manual';
+  const leaf = !isSummary && !taskModeReadOnlyReason(task.rowJSON, false);
+  const onTimeline = timeline.includes(guid);
   const close = () => usePMStore.getState().setRowMenu(null);
   const run = (fn: () => unknown) => () => {
     close();
@@ -46,6 +56,16 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     { testID: id('google-calendar'), label: 'Add to Google Calendar', icon: 'event', onPress: run(() => crud.addToGoogleCalendar(guid)) },
     { testID: id('link'), label: 'Link to…', icon: 'link', onPress: run(() => crud.startLink(guid)) },
     { testID: id('open'), label: 'Open task info', icon: 'open_in_new', onPress: run(() => crud.openInfo(guid)) },
+    // Gantt Extended (kit8/pm/extended): only the items of the functions that are on
+    ...(leaf && flags.ganttManualSchedulingEnabled ? [{ testID: id('schedule-mode'), label: isManual ? 'Schedule automatically' : 'Schedule manually', icon: isManual ? 'event_repeat' : 'push_pin', onPress: run(() => crud.setScheduleMode(guid, isManual ? 'auto' : 'manual')) }] : []),
+    ...(leaf && flags.ganttConstraintsEnabled && !isManual ? [{ testID: id('constraint'), label: 'Constraint…', icon: 'lock_clock', onPress: run(() => { usePMStore.getState().setOpenAdvancedFor(guid); crud.edit(guid); }) }] : []),
+    ...(!isSummary && flags.ganttInactiveTasksEnabled ? [{ testID: id('inactive'), label: task.rowJSON.taskInactive ? 'Activate the task' : 'Make the task inactive', icon: 'block', onPress: run(() => crud.updateTaskFields(guid, { taskInactive: !task.rowJSON.taskInactive }, task.rowJSON.taskInactive ? 'Activate' : 'Inactivate')) }] : []),
+    ...(!isSummary && flags.ganttTaskInspectorEnabled ? [{ testID: id('inspector'), label: 'Task inspector', icon: 'help', onPress: run(() => { usePMStore.getState().setOpenAdvancedFor(guid); crud.edit(guid); }) }] : []),
+    ...(flags.ganttTaskPathEnabled ? [{ testID: id('task-path'), label: 'Task path', icon: 'route', onPress: () => {}, submenu: [
+      { testID: id('task-path-show'), label: 'Show the path of this task', icon: 'visibility', onPress: run(() => usePMStore.getState().setPathTaskGUID(guid)) },
+      { testID: id('task-path-hide'), label: 'Hide the task path', icon: 'visibility_off', onPress: run(() => usePMStore.getState().setPathTaskGUID(null)) },
+    ] }] : []),
+    ...(flags.ganttTimelineViewEnabled ? [{ testID: id('timeline'), label: onTimeline ? 'Remove from the timeline' : 'Add to the timeline', icon: 'timeline', onPress: run(() => crud.saveProjectJSON(extendedOptionsPatch(projectJSON, { timeline: onTimeline ? timeline.filter((g) => g !== guid) : [...timeline, guid] }))) }] : []),
     // a stage has no lines, so no facts: only a task or a milestone (kit8/documents/fact/input, documentation/FACT_INPUT.html)
     ...(isSummary ? [] : [{ testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID: guid })) }]),
     // right after "Facts input": CREATES the vendor invoice(s) of ALL the lines of the task (one for each vendor + contract) and opens it (kit8/documents/vendor/invoice)

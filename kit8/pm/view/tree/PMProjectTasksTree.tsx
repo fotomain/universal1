@@ -32,7 +32,12 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { runOnJS, useAnimatedStyle, useDerivedValue, useSharedValue, withDecay, withTiming } from 'react-native-reanimated';
 import { PM_ROW_HEIGHT, PM_SCALE_HEIGHT, PM_TOOLBAR_HEIGHT, PM_TREE_INDENT } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
-import { formatDateShort } from '../project/scheduling';
+import { formatDateISO, formatDateShort } from '../project/scheduling';
+import { customCellValue, extColumnEditable } from '../../extended/extendedColumns';
+import PMTreeScheduleIcon, { PM_TREE_SCHEDULE_WIDTH } from './columns/PMTreeScheduleIcon';
+import { scheduleMarksOf } from '../project/scheduleMarks';
+import { formatWbsMask } from '../../extended/wbsMask';
+import { extContextOf } from '../../store/storeDerive';
 import { formatPlanDate, formatPlanDuration } from '../../model/planDateFormats';
 import { ellipsize, PMPalette, withAlpha } from '../theme';
 import { makeMeasure, usePMFonts } from '../../skia/usePMFonts';
@@ -161,8 +166,15 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   /** Subprojects: a task of the project stands for another project - the subproject column (icon + warning) sits before the posted column; no such task = no column, nothing changes */
   const subMarks = usePMSubprojectStore((s) => s.marks);
   const subW = Object.keys(subMarks).length > 0 ? PM_TREE_SUBPROJECT_WIDTH : 0;
-  /** everything left of the grid (Skia canvas): the multi-selection column + the drag column + the subproject column + the posted column */
-  const leftW = selectW + dragW + subW + statusW;
+  /** Schedule marks (Extended: a manual task, a constraint, a date a link would not meet, an edit not calculated, a missed deadline ...): the column exists only while a row has a mark */
+  const extFlags = usePMStore((s) => s.extFlags);
+  const pendingGUIDs = usePMStore((s) => s.pendingGUIDs);
+  const scheduleNow = usePMStore((s) => s.schedule);
+  const tasksByIdForMarks = usePMStore((s) => s.tasksById);
+  const schedMarks = useMemo(() => (Object.keys(extFlags).some((k) => extFlags[k]) ? scheduleMarksOf(scheduleNow, tasksByIdForMarks, pendingGUIDs, formatDateISO, extFlags) : {}), [scheduleNow, tasksByIdForMarks, pendingGUIDs, extFlags]);
+  const schedW = Object.keys(schedMarks).length > 0 ? PM_TREE_SCHEDULE_WIDTH : 0;
+  /** everything left of the grid (Skia canvas): the multi-selection column + the drag column + the subproject column + the schedule column + the posted column */
+  const leftW = selectW + dragW + subW + schedW + statusW;
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
   const { indicators: postIndicators } = useProjectTaskLines(selectedProjectGUID);
   /** the grid (Skia canvas) starts after the multi-selection and the posted columns */
@@ -232,6 +244,10 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const planMinute = usePMStore((s) => s.planMinute);
   const planSecond = usePMStore((s) => s.planSecond);
   const customCols = useMemo(() => layout.columns.filter((c) => c.customType), [layout]);
+  // Gantt Extended: the cells of the extended / formula columns (kit8/pm/extended/extendedColumns.ts)
+  const storeDeps = usePMStore((s) => s.deps);
+  const extOptions = usePMStore((s) => s.extOptions);
+  const customDefs = usePMStore((s) => s.customColumns);
   const kanbanStages = usePMKanbanStore((s) => s.stages);
   const kanbanStates = usePMKanbanStore((s) => s.statesByTask);
   /** grid width in content coordinates (rows, lines) */
@@ -266,6 +282,9 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   }, [columnReveal, layout, treeScrollX]);
 
   // ---- per-window row descriptors (re-computed only when the window/data changes) ------
+  // Extended F6: the outline number written by the code mask of the project (A.01.001); empty = the plain 1.2.3
+  const wbsMask = usePMStore((s) => (s.extFlags.ganttWbsCodeEnabled ? s.extOptions.wbsMask : ''));
+  const extCtx = useMemo(() => extContextOf({ deps: storeDeps, tree, tasksById, customColumns: customDefs, extOptions }), [storeDeps, tree, tasksById, customDefs, extOptions]);
   const rows = useMemo(() => {
     const measureReg = makeMeasure(fonts.regular);
     const measureBold = makeMeasure(fonts.bold);
@@ -391,10 +410,9 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         kanbanProg = `${val}%`;
         kanbanProgX = kanbanProgressCol.x + kanbanProgressCol.w - 8 - measureSmall(kanbanProg);
       }
-      const values = customCols.length ? taskCustomValuesOf(t.rowJSON) : {};
       const custom = customCols.map((c) => {
         const type = c.customType!;
-        const v = values[c.key];
+        const v = customCellValue(c.key, t, r, extCtx);
         if (type === 'boolean') return { key: c.key, text: '', x: 0, bool: v === true ? true : v === false ? false : null, boxX: c.x + (c.w - BOOL_BOX) / 2 };
         const text = ellipsize(formatCustomColumnValue(type, v), c.w - 14, measureSmall);
         const x = customColumnAlign(type) === 'right' ? c.x + c.w - 8 - measureSmall(text) : c.x + 8;
@@ -411,7 +429,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         isExpanded: expanded?.[guid] !== false,
         name: ellipsize(subprojectLabelOf(t.rowJSON?.taskDescription || '(untitled)', subMarks[guid]), nameCol.x + nameCol.w - nameX - 6, measure),
         nameX,
-        wbs: wbsCol ? ellipsize(tree.wbsById[guid] ?? '', wbsCol.w - 12, summary ? measureSmallBold : measureSmall) : '',
+        wbs: wbsCol ? ellipsize(wbsMask ? formatWbsMask(tree.wbsById[guid] ?? '', wbsMask) : tree.wbsById[guid] ?? '', wbsCol.w - 12, summary ? measureSmallBold : measureSmall) : '',
         start: startText,
         startHourStart: startHourStartText,
         startHourStartX,
@@ -444,7 +462,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       });
     }
     return out;
-  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costVatCol, costTotals, costTotalsWithVat, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond, subMarks]);
+  }, [win.firstRow, win.lastRow, visibleRows, tasksById, schedule, tree, expanded, fonts.regular, fonts.bold, fonts.small, fonts.smallBold, nameCol.x, nameCol.w, wbsCol, startCol, startHourStartCol, planMinuteStartCol, planSecondStartCol, finishCol, startHourFinishCol, planMinuteFinishCol, planSecondFinishCol, daysCol, progCol, costCol, costVatCol, costTotals, costTotalsWithVat, kanbanCol, kanbanProgressCol, kanbanStages, kanbanStates, customCols, showCritical, filterContext, planDateInputFormat, planDay, planHour, planMinute, planSecond, subMarks, extCtx, wbsMask]);
 
   // one path for all chevrons, one for all horizontal row lines, one per Boolean cell state
   const { chevrons, rowLines, milestones, boolBoxes, boolChecked, boolMarks } = useMemo(() => {
@@ -536,7 +554,11 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     const s = usePMStore.getState();
     if (!s.tasksById[guid]) return false;
     if (field === 'kanban' || field === 'kanbanStageProgressPercent') return true;
-    if (isCustomColumnKey(field)) return true;
+    if (isCustomColumnKey(field)) {
+      const def = s.customColumns.find((c) => c.key === field);
+      if (def?.formula) return false; // a formula column is calculated
+      return extColumnEditable(field, !!(s.schedule[guid]?.isSummary || (s.tree.childrenById[guid]?.length ?? 0) > 0));
+    }
     if (s.schedule[guid]?.isSummary || (s.tree.childrenById[guid]?.length ?? 0) > 0) return false;
     if ((field === 'taskDuration' || field === 'days') && s.tasksById[guid]?.rowJSON.rowKind === 'milestone') return false;
     if (
@@ -1319,6 +1341,27 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           </View>
         </GestureDetector>
       )}
+      {/* ---- schedule column (Extended; only while a row has a mark): pin = manual · lock = constraint · pending = not calculated · dark orange = a date and a link disagree / a missed deadline ---- */}
+      {schedW > 0 && (
+        <GestureDetector gesture={selectScroll}>
+          <View testID="pm-tree-schedule-column" style={{ width: schedW, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
+            <View style={{ position: 'absolute', left: 0, top: PM_SCALE_HEIGHT, width: schedW, height: Math.max(0, canvasH - PM_SCALE_HEIGHT), overflow: 'hidden' }}>
+              <Animated.View style={[{ position: 'absolute', left: 0, top: 0, width: schedW }, selectRowsStyle]}>
+                {rows.map((r) => {
+                  const mark = schedMarks[r.guid];
+                  if (!mark) return null;
+                  return (
+                    <View key={r.guid} style={{ position: 'absolute', left: 0, top: r.y, width: schedW, height: PM_ROW_HEIGHT }}>
+                      <PMTreeScheduleIcon testID={`pm-tree-schedule-${mark.icon}-${r.guid}`} mark={mark} height={PM_ROW_HEIGHT} color={palette.primary} />
+                    </View>
+                  );
+                })}
+              </Animated.View>
+            </View>
+            <View testID="pm-tree-schedule-header" style={{ height: PM_SCALE_HEIGHT, backgroundColor: palette.header, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: palette.border }} />
+          </View>
+        </GestureDetector>
+      )}
       {/* ---- posted column: nothing (not posted) · green check (posted) · dark orange check (posted, changed since); every icon has a tip ---- */}
       <GestureDetector gesture={selectScroll}>
         <View testID="pm-tree-post-column" style={{ width: PM_TREE_POST_STATUS_WIDTH, height: canvasH, overflow: 'hidden', borderRightWidth: StyleSheet.hairlineWidth, borderColor: palette.border }}>
@@ -1365,6 +1408,8 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
                   const cy = r.y + PM_ROW_HEIGHT / 2;
                   const iconX = nameCol.x + 8 + r.depth * PM_TREE_INDENT + CHEVRON_W;
                   const base = cy + 4;
+                  // E12 (ganttTextStylesEnabled): bold / colour of the name of a summary, milestone or critical row
+                  const ts = extFlags.ganttTextStylesEnabled ? (r.summary ? extOptions.textStyles.summary : r.milestone ? extOptions.textStyles.milestone : r.critical ? extOptions.textStyles.critical : null) : null;
                   return (
                     <Group key={r.guid}>
                       {r.summary ? (
@@ -1374,7 +1419,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
                       ) : null}
                       {fonts.ready && (
                         <>
-                          <SkText x={r.nameX} y={base} text={r.name} font={r.summary ? fonts.bold : fonts.regular} color={r.context ? palette.textMuted : palette.text} opacity={r.context ? 0.7 : 1} />
+                          <SkText x={r.nameX} y={base} text={r.name} font={r.summary || ts?.bold ? fonts.bold : fonts.regular} color={r.context ? palette.textMuted : ts?.color || palette.text} opacity={r.context ? 0.7 : 1} />
                           {wbsCol && <SkText x={wbsCol.x + 8} y={base} text={r.wbs} font={r.summary ? fonts.smallBold : fonts.small} color={palette.textMuted} />}
                           {startCol && <SkText x={startCol.x + 8} y={base} text={r.start} font={fonts.small} color={palette.textMuted} />}
                           {startHourStartCol && <SkText x={r.startHourStartX} y={base} text={r.startHourStart} font={fonts.small} color={palette.textMuted} />}

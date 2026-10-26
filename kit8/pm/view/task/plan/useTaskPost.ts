@@ -6,6 +6,7 @@ import { useCallback, useMemo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
 import { useCostRefreshDebounce } from '../../../cost/useCostRefreshDebounce';
+import { ensureCalculated } from '../../../crud/project/ensureCalculated';
 import { showErrorModal } from '../../../../ui/components/common/ErrorModalWindow';
 import { usePMStore } from '../../../store/store_pm';
 import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN } from '../../../../catalog/management/calendar/managementCalendarModel';
@@ -44,7 +45,10 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
 
   const post = useCallback(async (): Promise<void> => {
     const say = (message: string, isError = false) => dispatch(showSnackbar({ message, isError }));
-    const result = await runTaskPost({ taskGUID, ...live.current });
+    // Manual calculation mode (Extended A2) with edits pending: calculate first, Post reads the dates of the plan
+    const calculated = ensureCalculated();
+    const sch = calculated ? usePMStore.getState().schedule[taskGUID] : undefined;
+    const result = await runTaskPost({ taskGUID, ...live.current, ...(sch ? { startMs: sch.startMs, finishMs: sch.finishMs } : {}) });
     if (result.status === 'error') {
       say(`${pmT('The task could not be posted')}: ${result.message}`, true);
     } else if (result.status === 'nothing') {

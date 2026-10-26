@@ -119,13 +119,18 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
 
   const [linkType, setLinkType] = useState<PMLinkType>('FS');
   const [lag, setLag] = useState('0');
+  // B4 (ganttLagPercentEnabled): the lag as a percentage of the predecessor's duration, rowJSON.lagPercent (lagDays stays 0)
+  const percentOn = usePMStore((st) => st.extFlags.ganttLagPercentEnabled === true);
+  const [pctMode, setPctMode] = useState(false);
   const [color, setColor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!dep) return;
     setLinkType(dep.linkType || 'FS');
-    setLag(String(Number(dep.lagDays) || 0));
+    const pct = (dep.rowJSON as any)?.lagPercent;
+    setPctMode(typeof pct === 'number');
+    setLag(String(typeof pct === 'number' ? pct : Number(dep.lagDays) || 0));
     setColor(dep.rowJSON?.dependencyColor ?? null);
     setError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,12 +146,17 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
   const c = themeColors;
 
   const save = () => {
-    const lagDays = Number(lag.replace(',', '.'));
-    if (!Number.isFinite(lagDays)) return setError('Lag must be a number of working days (negative = lead).');
+    const lagValue = Number(lag.replace(',', '.'));
+    if (!Number.isFinite(lagValue)) return setError(pctMode ? 'Lag must be a percentage (negative = lead).' : 'Lag must be a number of working days (negative = lead).');
+    const usePct = percentOn && pctMode;
+    const lagDays = usePct ? 0 : lagValue;
+    const oldPct = (dep.rowJSON as any)?.lagPercent ?? null;
+    const newPct = usePct ? lagValue : null;
     const changed =
-      linkType !== (dep.linkType || 'FS') || lagDays !== (Number(dep.lagDays) || 0) || (color ?? null) !== (dep.rowJSON?.dependencyColor ?? null);
+      linkType !== (dep.linkType || 'FS') || lagDays !== (Number(dep.lagDays) || 0) || newPct !== oldPct || (color ?? null) !== (dep.rowJSON?.dependencyColor ?? null);
     if (changed) {
-      crud.updateDependency(ref, { linkType, lagDays, rowJSON: { ...(dep.rowJSON || {}), dependencyColor: color } });
+      const { lagPercent: _drop, ...restJSON } = (dep.rowJSON || {}) as any;
+      crud.updateDependency(ref, { linkType, lagDays, rowJSON: { ...restJSON, ...(newPct !== null ? { lagPercent: newPct } : {}), dependencyColor: color } });
     }
     close();
   };
@@ -198,8 +208,11 @@ export default function PMEditDependencyScreen({ crud }: { crud: PMCrud }) {
               })}
             </View>
 
-            <Text style={[styles.label, { color: c.text }]}>{pmT('Lag (working days, negative = lead)')}</Text>
+            <Text style={[styles.label, { color: c.text }]}>{percentOn && pctMode ? pmT('Lag (% of the predecessor duration, negative = lead)') : pmT('Lag (working days, negative = lead)')}</Text>
             <TextInput testID="pm-dep-lag" value={lag} onChangeText={(v) => setLag(v.replace(/[^0-9.,-]/g, ''))} keyboardType="numbers-and-punctuation" style={input} />
+            {percentOn && (
+              <PMDialogButton testID="pm-dep-lag-mode" kind="text" title={pctMode ? pmT('Use working days') : pmT('Use percent')} style={{ marginLeft: 0, alignSelf: 'flex-start' }} onPress={() => setPctMode((v) => !v)} />
+            )}
 
             <Text style={[styles.label, { color: c.text }]}>{pmT('Arrow color')}</Text>
             <SelectDependencyColor value={color} onChange={setColor} colors={c} />

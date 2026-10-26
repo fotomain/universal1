@@ -10,7 +10,7 @@
 
 import { Dimensions, Platform } from 'react-native';
 import { captureAppScreenshot } from '../../../../lib/shareScreenshot';
-import { buildPicturePdf, cropRectInPixels, dashboardPdfFileName, pdfHeaderLines, PMPdfHeader, PMRect, PM_PDF_HEADER_HEIGHT } from './pdfDocument';
+import { buildPicturePdf, cropRectInPixels, dashboardPdfFileName, pdfHeaderLines, pdfPageLayoutFor, PMPdfHeader, PMRect, PM_PDF_FOOTER_HEIGHT, PM_PDF_HEADER_HEIGHT } from './pdfDocument';
 import { downloadBinaryFile, PMBinaryDownloadResult } from './downloadBinaryFile';
 import { usePMStore } from '../../../store/store_pm';
 import { DAY_MS } from '../../../model/constants';
@@ -93,6 +93,35 @@ function drawPdfHeader(canvas: any, header: PMPdfHeader, width: number, height: 
   }
 }
 
+/** Draws the footer (a text and a legend line) into the bottom band of the canvas (H1 print options). */
+function drawPdfFooter(canvas: any, header: PMPdfHeader, width: number, top: number, height: number, k: number) {
+  const { Skia, matchFont } = require('@shopify/react-native-skia');
+  const lines = [header.footer, header.legend].filter((x): x is string => !!x && !!x.trim());
+  if (!lines.length) return;
+  const pad = Math.round(12 * k);
+  const size = Math.round(11 * k);
+  if (Platform.OS === 'web' && typeof document !== 'undefined') {
+    const cv = document.createElement('canvas');
+    cv.width = width;
+    cv.height = height;
+    const ctx = cv.getContext('2d');
+    if (!ctx) return;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, width, height);
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = '#444444';
+    ctx.font = `400 ${size}px ${SYSTEM_FONTS}`;
+    lines.forEach((l, i) => ctx.fillText(fitText(l, width - 2 * pad, (t) => ctx.measureText(t).width), pad, (height * (i + 1)) / (lines.length + 1)));
+    const picture = Skia.Image.MakeImageFromEncoded(Skia.Data.fromBase64(cv.toDataURL('image/png').replace(/^data:image\/\w+;base64,/, '')));
+    if (picture) canvas.drawImage(picture, 0, top);
+    return;
+  }
+  const font = matchFont({ fontFamily: Platform.select({ ios: 'Helvetica', default: 'sans-serif' }) as string, fontSize: size });
+  const paint = Skia.Paint();
+  paint.setColor(Skia.Color('#444444'));
+  lines.forEach((l, i) => canvas.drawText(fitText(l, width - 2 * pad, (t) => { try { return font.measureText(t).width; } catch { return t.length * size * 0.6; } }), pad, top + (height * (i + 1)) / (lines.length + 1) + size * 0.35, paint, font));
+}
+
 /** Cuts the text with … until it fits `maxWidth`. */
 export function fitText(text: string, maxWidth: number, widthOf: (t: string) => number): string {
   if (widthOf(text) <= maxWidth) return text;
@@ -111,7 +140,8 @@ export function cropScreenshotToJpeg(pngBase64: string, rect: PMRect, windowWidt
   if (!crop) throw new Error(pmT('the task tree / Gantt chart is not on the screen'));
   const k = image.width() / Math.max(1, windowWidth);
   const headerH = header ? Math.round(PM_PDF_HEADER_HEIGHT * k) : 0;
-  const surface = Skia.Surface.Make(crop.width, crop.height + headerH);
+  const footerH = header && (header.footer || header.legend) ? Math.round(PM_PDF_FOOTER_HEIGHT * k) : 0;
+  const surface = Skia.Surface.Make(crop.width, crop.height + headerH + footerH);
   if (!surface) throw new Error(pmT('the picture is too large'));
   const canvas = surface.getCanvas();
   canvas.clear(Skia.Color('#ffffff'));
@@ -123,10 +153,17 @@ export function cropScreenshotToJpeg(pngBase64: string, rect: PMRect, windowWidt
     }
   }
   canvas.drawImageRect(image, Skia.XYWHRect(crop.x, crop.y, crop.width, crop.height), Skia.XYWHRect(0, headerH, crop.width, crop.height), Skia.Paint());
+  if (header && footerH > 0) {
+    try {
+      drawPdfFooter(canvas, header, crop.width, headerH + crop.height, footerH, k);
+    } catch (e) {
+      console.warn('PDF export: the footer could not be drawn', e);
+    }
+  }
   surface.flush();
   const jpeg: Uint8Array = surface.makeImageSnapshot().encodeToBytes(ImageFormat.JPEG, PM_PDF_JPEG_QUALITY);
   if (!jpeg || !jpeg.length) throw new Error(pmT('the picture could not be encoded'));
-  return { jpeg, width: crop.width, height: crop.height + headerH };
+  return { jpeg, width: crop.width, height: crop.height + headerH + footerH };
 }
 
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -135,9 +172,16 @@ const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * Exports what the dashboard shows now. `header` = project name + dates drawn above the pictures (a plain string
  * = the name only). Throws an Error with a message for the user when it cannot.
  */
-export async function exportDashboardToPdf(header?: PMPdfHeader | string | null, opts: { delayMs?: number } = {}): Promise<PMBinaryDownloadResult> {
+export async function exportDashboardToPdf(header?: PMPdfHeader | string | null, opts: { delayMs?: number; orientation?: 'auto' | 'landscape' | 'portrait'; period?: { startMs: number; finishMs: number } | null } = {}): Promise<PMBinaryDownloadResult> {
   const head: PMPdfHeader | null = typeof header === 'string' ? { projectName: header } : header ?? null;
   if (!target) throw new Error(pmT('PDF export: open the task tree / Gantt chart first'));
+  // Extended H1 print options: show the chosen period on the chart for the picture, then put the chart back
+  const previousPeriod = usePMStore.getState().ganttPeriod;
+  if (opts.period) {
+    usePMStore.getState().setGanttPeriod(opts.period);
+    await wait(500);
+  }
+  try {
   // menus, tips and the pressed state of the button fade out before the picture is taken
   await wait(opts.delayMs ?? 180);
   const rect = await target();
@@ -150,7 +194,10 @@ export async function exportDashboardToPdf(header?: PMPdfHeader | string | null,
   } catch (e: any) {
     throw new Error(`${pmT('PDF export')}: ${e?.message || e}`);
   }
-  return downloadBinaryFile(dashboardPdfFileName(head?.projectName), buildPicturePdf(picture));
+  return downloadBinaryFile(dashboardPdfFileName(head?.projectName), buildPicturePdf(picture, pdfPageLayoutFor(picture.width, picture.height, undefined, opts.orientation ?? 'auto')));
+  } finally {
+    if (opts.period) usePMStore.getState().setGanttPeriod(previousPeriod ? { startMs: previousPeriod.startMs, finishMs: previousPeriod.finishMs } : null);
+  }
 }
 
 /** The header of the project that is open on the dashboard (name, start, finish - from the store). */
@@ -172,6 +219,8 @@ export function dashboardPdfHeaderOf(projectGUID: string | null | undefined): PM
 }
 
 /** "Export to PDF" of a project: the dashboard as shown now, with the project's header. */
-export function exportProjectDashboardToPdf(projectGUID: string | null | undefined, opts: { delayMs?: number } = {}) {
-  return exportDashboardToPdf(dashboardPdfHeaderOf(projectGUID), opts);
+export function exportProjectDashboardToPdf(projectGUID: string | null | undefined, opts: { delayMs?: number; orientation?: 'auto' | 'landscape' | 'portrait'; period?: { startMs: number; finishMs: number } | null; headerTitle?: string; footer?: string; legend?: string } = {}) {
+  const head = dashboardPdfHeaderOf(projectGUID);
+  const merged = head ? { ...head, ...(opts.headerTitle ? { projectName: opts.headerTitle } : {}), ...(opts.footer ? { footer: opts.footer } : {}), ...(opts.legend ? { legend: opts.legend } : {}) } : head;
+  return exportDashboardToPdf(merged, opts);
 }

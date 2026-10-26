@@ -19,8 +19,16 @@ import {
   useUpdateTaskMutation,
 } from './taskQueries';
 import { usePMStore } from '../../store/store_pm';
-import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, workDaysBetween } from '../../view/project/scheduling';
-import { PMTaskRow } from '../../model/types';
+import { isTreeAncestorPath, projectTreePath, ROOT_KEY, toLtreeLabel, validateNewDependency, workDaysBetween } from '../../view/project/scheduling';
+import { PMTaskJSON, PMTaskRow } from '../../model/types';
+import { barEditJSON } from './barEditPatch';
+import { scheduleOptionsOf } from '../../model/scheduleOptions';
+import { constraintOf, constraintPatch, constraintReadOnlyReason, PMConstraintType, constraintHasDate } from '../../model/taskConstraint';
+import { patchForMode, patchManualStart, PMScheduleMode, taskModeOf, taskModeReadOnlyReason } from '../../model/taskScheduleMode';
+import { isExtended } from '../../extended/extendedModel';
+import { extendedOptionsOf } from '../../extended/extendedOptions';
+import { actualPatchOnProgress } from '../../extended/tracking';
+import { useCreateDependencyMutation } from '../dependency/dependencyQueries';
 import { PMCustomColumnValue, taskCustomValuesOf } from '../../view/tree/columns/customColumns';
 import type { PMUndo } from '../../view/undo/useUndoGanttAction';
 import { copyTaskInfo, shareTask } from '../../view/task/taskShare';
@@ -36,6 +44,7 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
   const createTaskMutation = useCreateTaskMutation(projectGUID);
   const createTasksMutation = useCreateTasksMutation(projectGUID);
   const updateTaskMutation = useUpdateTaskMutation(projectGUID);
+  const createDependencyMutation = useCreateDependencyMutation(ownerGUID, projectGUID);
   const moveTaskMutation = useMoveTaskMutation(projectGUID);
   const deleteTaskMutation = useDeleteTaskMutation(projectGUID);
   const { record } = undo;
@@ -52,8 +61,11 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
     };
     const calendar = () => {
       const s = st();
-      return { skipWeekends: !!(projectGUID && s.projectsById[projectGUID]?.rowJSON.skipWeekends) };
+      return scheduleOptionsOf(projectGUID ? s.projectsById[projectGUID]?.rowJSON : undefined).projectCalendar ?? { skipWeekends: !!(projectGUID && s.projectsById[projectGUID]?.rowJSON.skipWeekends) };
     };
+    const projectJSON = () => (projectGUID ? st().projectsById[projectGUID]?.rowJSON : undefined);
+    const options = () => scheduleOptionsOf(projectJSON());
+    const isManualTask = (t: PMTaskRow) => taskModeOf(t.rowJSON, options().manualEnabled, (st().tree.childrenById[t.rowGUID]?.length ?? 0) > 0) === 'manual';
 
     const insertRow = (params: {
       parentGUID: string | null;
@@ -93,6 +105,11 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         orderInList,
         rowJSON: { rowKind: params.rowKind, taskDescription: params.name, durationDays: params.durationDays },
       };
+      // A1 "New tasks are scheduled manually" (Extended option): the new task keeps the place the plan would give it now = right after the row before it
+      if (params.rowKind !== 'stage' && options().manualEnabled && extendedOptionsOf(projectJSON()).newTasksManual) {
+        const refStart = (before && s.schedule[before]?.finishMs) || s.projectStartMs;
+        row.rowJSON = patchManualStart(row.rowJSON as PMTaskJSON, refStart) as typeof row.rowJSON;
+      }
       record('task-create', `Add ${params.rowKind}`);
       // rare: fractional gap collapsed -> re-space siblings first
       for (const r of rebalance || []) updateTaskMutation.mutate({ rowGUID: r.rowGUID, patch: { orderInList: r.orderInList } });
@@ -280,6 +297,20 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         });
         if (!ok || !st().tasksById[guid]) return;
         record('task-delete', `Delete "${row.rowJSON.taskDescription}"`);
+        // B3 auto-link (Extended): deleting a task connects its predecessors to its successors, so the chain stays closed
+        if (isExtended(projectJSON(), 'ganttAutoLinkEnabled') && !kids) {
+          const preds = s.deps.filter((d) => d.rowGUID === guid);
+          const succs = s.deps.filter((d) => d.rowDependsOnGUID === guid);
+          let probe = s.deps.filter((d) => d.rowGUID !== guid && d.rowDependsOnGUID !== guid);
+          for (const p of preds) {
+            for (const q of succs) {
+              if (probe.some((d) => d.rowGUID === q.rowGUID && d.rowDependsOnGUID === p.rowDependsOnGUID)) continue;
+              if (validateNewDependency(s.tasks.filter((t) => t.rowGUID !== guid), probe, p.rowDependsOnGUID, q.rowGUID)) continue;
+              probe = [...probe, { ...q, rowDependsOnGUID: p.rowDependsOnGUID, linkType: 'FS', lagDays: 0 }];
+              createDependencyMutation.mutate({ rowGUID: q.rowGUID, dependsOnGUID: p.rowDependsOnGUID, linkType: 'FS', lagDays: 0 });
+            }
+          }
+        }
         deleteTaskMutation.mutate(guid);
       },
 
@@ -359,31 +390,32 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         }
       },
 
-      /** Bar drag / resize from the chart, in whole calendar days. */
+      /** Bar drag / resize from the chart, in whole calendar days. The mode of the task and the Extended functions decide what is written (crud/task/barEditPatch.ts). */
       applyBarEdit: (guid: string, mode: PMBarEditMode, daysDelta: number) => {
         const s = st();
         const t = s.tasksById[guid];
         const r = s.schedule[guid];
         if (!t || !r || !daysDelta || r.isSummary) return;
         const cal = calendar();
+        let startMs = r.startMs;
+        let finishMs = r.finishMs;
+        let durationDays = r.durationDays;
         if (mode === 'move') {
-          const start = r.startMs + daysDelta * DAY_MS;
+          startMs = r.startMs + daysDelta * DAY_MS;
+          finishMs = r.finishMs + daysDelta * DAY_MS;
           record('task-move', `Move "${t.rowJSON.taskDescription}"`);
-          updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, manualStartAt: new Date(start).toISOString() } } });
         } else if (mode === 'resize-end') {
-          const finish = Math.max(r.startMs + DAY_MS, r.finishMs + daysDelta * DAY_MS);
-          const durationDays = Math.max(1, workDaysBetween(r.startMs, finish, cal));
+          finishMs = Math.max(r.startMs + DAY_MS, r.finishMs + daysDelta * DAY_MS);
+          durationDays = Math.max(1, workDaysBetween(r.startMs, finishMs, cal));
           record('task-resize', `Stretch "${t.rowJSON.taskDescription}"`);
-          updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, durationDays } } });
         } else {
-          const start = Math.min(r.finishMs - DAY_MS, r.startMs + daysDelta * DAY_MS);
-          const durationDays = Math.max(1, workDaysBetween(start, r.finishMs, cal));
+          startMs = Math.min(r.finishMs - DAY_MS, r.startMs + daysDelta * DAY_MS);
+          durationDays = Math.max(1, workDaysBetween(startMs, r.finishMs, cal));
           record('task-resize', `Stretch "${t.rowJSON.taskDescription}"`);
-          updateTaskMutation.mutate({
-            rowGUID: guid,
-            patch: { rowJSON: { ...t.rowJSON, durationDays, manualStartAt: new Date(start).toISOString() } },
-          });
         }
+        const o = options();
+        const json = barEditJSON(t.rowJSON as PMTaskJSON, { mode, startMs, finishMs, durationDays }, { manual: isManualTask(t), constraintsEnabled: o.constraintsEnabled, fromFinish: o.scheduleFrom === 'finish' });
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: json as any } });
       },
 
       setProgress: (guid: string, progress: number) => {
@@ -391,7 +423,11 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         const t = st().tasksById[guid];
         if (!t || Math.round(t.rowProgress) === p) return;
         record('task-progress', `Progress of "${t.rowJSON.taskDescription}"`);
-        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowProgress: p } });
+        // C3 actual dates: the first % sets the actual start, 100 % the actual finish (Extended: Actual start and finish)
+        if (isExtended(projectJSON(), 'ganttActualDatesEnabled') && (st().tree.childrenById[guid]?.length ?? 0) === 0) {
+          const actual = actualPatchOnProgress(t.rowJSON as PMTaskJSON, t.rowProgress || 0, p, st().schedule[guid], Date.now());
+          updateTaskMutation.mutate({ rowGUID: guid, patch: { rowProgress: p, rowJSON: { ...t.rowJSON, ...actual } as any } });
+        } else updateTaskMutation.mutate({ rowGUID: guid, patch: { rowProgress: p } });
       },
 
       /** Inline "Days" cell: working days (milestones stay 0, stages are rolled up). */
@@ -404,14 +440,66 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, durationDays } } });
       },
 
-      /** Inline "Start" cell: "start no earlier than" (null = as soon as possible). */
+      /**
+       * Inline "Start" cell. An AUTO task: "start no earlier than" (null = as soon as possible; with the constraint types on, a task that has another type is asked first).
+       * A MANUALLY scheduled task (Extended A1): its own start (it always has one, an empty cell does nothing).
+       */
       setStartConstraint: (guid: string, startMs: number | null) => {
         const t = st().tasksById[guid];
         if (!t || isSummary(guid)) return;
+        const json = t.rowJSON as PMTaskJSON;
+        if (isManualTask(t)) {
+          if (startMs === null) return;
+          if (new Date(startMs).toISOString() === (json.taskManualStartAt ?? null)) return;
+          record('task-move', `Start of "${t.rowJSON.taskDescription}"`);
+          updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: patchManualStart(json, startMs) as any } });
+          return;
+        }
+        const o = options();
+        if (o.constraintsEnabled) {
+          const c = constraintOf(json, true);
+          const next = startMs === null ? constraintPatch(json, 'ASAP', null) : constraintPatch(json, 'SNET', startMs);
+          if (c.type === 'SNET' && startMs !== null && c.dateMs === startMs) return;
+          if (c.type === 'ASAP' && startMs === null) return;
+          const apply = () => {
+            record('task-move', `Start of "${t.rowJSON.taskDescription}"`);
+            updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: next as any } });
+          };
+          if (!c.implicit && c.type !== 'SNET' && c.type !== 'ASAP' && startMs !== null) {
+            void approvePM({ title: 'Replace the constraint?', message: `${c.type} will be replaced by Start No Earlier Than ${new Date(startMs).toISOString().slice(0, 10)}.`, yesLabel: 'Replace' }).then((ok) => ok && apply());
+          } else apply();
+          return;
+        }
         const manualStartAt = startMs === null ? null : new Date(startMs).toISOString();
         if ((t.rowJSON.manualStartAt ?? null) === manualStartAt) return;
         record('task-move', `Start of "${t.rowJSON.taskDescription}"`);
         updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, manualStartAt } } });
+      },
+
+      /** A1 Auto <-> Manual scheduling (kit8/pm/model/taskScheduleMode.ts). Auto -> Manual keeps the dates the task has now. One undo step. */
+      setScheduleMode: (guid: string, mode: PMScheduleMode) => {
+        const s = st();
+        const t = s.tasksById[guid];
+        if (!t || !options().manualEnabled) return false;
+        const why = taskModeReadOnlyReason(t.rowJSON, isSummary(guid));
+        if (why) { appDispatch(showSnackbar({ message: why, isError: true })); return false; }
+        const cur: PMScheduleMode = isManualTask(t) ? 'manual' : 'auto';
+        if (cur === mode) return true;
+        record('task-move', `${mode === 'manual' ? 'Schedule manually' : 'Schedule automatically'}: "${t.rowJSON.taskDescription}"`);
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: patchForMode(t.rowJSON as PMTaskJSON, mode, s.schedule[guid]?.startMs ?? null) as any } });
+        return true;
+      },
+
+      /** A3 one of the 8 constraint types with its date (kit8/pm/model/taskConstraint.ts). One undo step. */
+      setConstraint: (guid: string, type: PMConstraintType, dateMs: number | null) => {
+        const t = st().tasksById[guid];
+        if (!t || !options().constraintsEnabled) return false;
+        const why = constraintReadOnlyReason(t.rowJSON, isSummary(guid), isManualTask(t));
+        if (why) { appDispatch(showSnackbar({ message: why, isError: true })); return false; }
+        if (constraintHasDate(type) && dateMs === null) return false;
+        record('task-move', `Constraint of "${t.rowJSON.taskDescription}"`);
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: constraintPatch(t.rowJSON as PMTaskJSON, type, dateMs) as any } });
+        return true;
       },
 
       /** Custom tree column cell (project.rowJSON.customColumns): value null = cleared. Undoable. */

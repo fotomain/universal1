@@ -50,6 +50,10 @@ export interface PMCustomColumnDef {
   name: string;
   type: PMCustomColumnType;
   createdAt?: string;
+  /** F5 (Extended): a FORMULA column - calculated from the other fields of the row, not editable (kit8/pm/extended/formula.ts) */
+  formula?: string;
+  /** F5 (Extended): a LIST column - the cell takes one of these values */
+  list?: string[];
 }
 
 /** project_table.rowJSON.customColumns */
@@ -80,7 +84,14 @@ export function projectCustomColumnsOf(json: { customColumns?: unknown } | null 
     for (const c of raw.columns as any[]) {
       if (!c || !isCustomColumnKey(c.key) || seen.has(c.key) || !isType(c.type)) continue;
       seen.add(c.key);
-      columns.push({ key: c.key, name: typeof c.name === 'string' && c.name.trim() ? c.name : c.key, type: c.type, ...(c.createdAt ? { createdAt: String(c.createdAt) } : {}) });
+      columns.push({
+        key: c.key,
+        name: typeof c.name === 'string' && c.name.trim() ? c.name : c.key,
+        type: c.type,
+        ...(c.createdAt ? { createdAt: String(c.createdAt) } : {}),
+        ...(typeof c.formula === 'string' && c.formula.trim() ? { formula: c.formula.slice(0, 300) } : {}),
+        ...(Array.isArray(c.list) && c.list.length ? { list: c.list.filter((x: unknown) => typeof x === 'string' && x.trim()).slice(0, 100) } : {}),
+      });
     }
   }
   const colorsRaw = (raw.headersBackgroundColors ?? raw.headersBacgroundColors ?? {}) as Record<string, unknown>;

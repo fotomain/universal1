@@ -18,6 +18,8 @@ import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttExportButton({ palette }: { palette: PMPalette }) {
   const selectedProjectGUID = usePMStore((s) => s.selectedProjectGUID);
+  // Extended H1: the options of the PDF export are asked first (all off by default)
+  const printOptions = usePMStore((s) => s.extFlags.ganttPrintOptionsEnabled === true);
   const anchor = useRef<View>(null);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const [busy, setBusy] = useState(false);
@@ -85,7 +87,7 @@ export default function PMGanttExportButton({ palette }: { palette: PMPalette })
               icon: 'picture_as_pdf',
               label: pmT('Export to PDF'),
               // the menu fades out before the screen is captured
-              onPress: pick(() => run(() => exportProjectDashboardToPdf(selectedProjectGUID, { delayMs: 350 }), pmT('PDF export failed'))),
+              onPress: pick(() => (printOptions ? usePMStore.getState().setExtDialog('print') : run(() => exportProjectDashboardToPdf(selectedProjectGUID, { delayMs: 350 }), pmT('PDF export failed')))),
             },
             {
               testID: 'pm-gantt-export-json',

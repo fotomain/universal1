@@ -35,6 +35,7 @@ import { useMonitor01SubprojectKind } from '../../subproject/useMonitor01Subproj
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
 import Monitor01ProjectStrip from './Monitor01ProjectStrip';
+import Monitor01EvmStrip from './Monitor01EvmStrip';
 import { useVatBasis } from '../../vat/useVatBasis';
 import VatBasisSelect from '../../vat/VatBasisSelect';
 import { MONITOR01_POLL_INTERVAL_MS, MONITOR01_REFRESH_INTERVAL } from './monitor01Constants';
@@ -250,6 +251,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       </View>
 
       <Monitor01ProjectStrip testID={`${testID}-strip`} projectGUID={mode === 'project' ? scopeProject : (filters.projectGUID || null)} startDate={filters.startDate} finishDate={filters.finishDate} vatBasis={vatBasis} refreshKey={data.changedAt} />
+      <Monitor01EvmStrip testID={`${testID}-evm`} rows={sourceRows} projectGUID={mode === 'project' ? scopeProject : (filters.projectGUID || null)} />
 
       <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
         {MONITOR01_TABS.map((t) => {

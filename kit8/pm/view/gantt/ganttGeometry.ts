@@ -66,8 +66,20 @@ function nextUnit(ms: number, unit: PMScaleUnit): number {
   }
 }
 
-function labelFor(ms: number, unit: PMScaleUnit, dayWidth: number): string {
+const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+function labelFor(ms: number, unit: PMScaleUnit, dayWidth: number, long = false): string {
   const d = new Date(ms);
+  if (long) {
+    // the long labels of the Extended time scale option (E1)
+    switch (unit) {
+      case 'day': return `${WEEKDAY[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]}`;
+      case 'week': return `Week of ${d.getUTCDate()} ${MONTHS_SHORT[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      case 'month': return `${MONTHS_LONG[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+      case 'quarter': return `Q${Math.floor(d.getUTCMonth() / 3) + 1} ${d.getUTCFullYear()}`;
+      case 'year': return String(d.getUTCFullYear());
+    }
+  }
   switch (unit) {
     case 'day':
       return dayWidth >= 44 ? `${WEEKDAY[d.getUTCDay()]} ${d.getUTCDate()}` : String(d.getUTCDate());
@@ -88,7 +100,8 @@ export function scaleCells(
   fromDay: number,
   toDay: number,
   unit: PMScaleUnit,
-  dayWidth: number
+  dayWidth: number,
+  long = false
 ): PMScaleCell[] {
   const cells: PMScaleCell[] = [];
   const fromMs = timelineStartMs + fromDay * DAY_MS;
@@ -99,7 +112,7 @@ export function scaleCells(
     const x = ((s - timelineStartMs) / DAY_MS) * dayWidth;
     const w = ((e - s) / DAY_MS) * dayWidth;
     const d = new Date(s);
-    cells.push({ x, w, label: labelFor(s, unit, dayWidth), strong: unit === 'day' && (d.getUTCDay() === 0 || d.getUTCDay() === 6) });
+    cells.push({ x, w, label: labelFor(s, unit, dayWidth, long), strong: unit === 'day' && (d.getUTCDay() === 0 || d.getUTCDay() === 6) });
     s = e;
   }
   return cells;

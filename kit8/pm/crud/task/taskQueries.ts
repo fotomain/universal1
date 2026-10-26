@@ -67,6 +67,27 @@ export function useUpdateTaskMutation(projectGUID: string | null | undefined) {
   );
 }
 
+/** Updates MANY tasks (a bulk edit, fill down, Set baseline, Update project): one optimistic cache change, the saves in chunks of 15. Each patch carries the whole rowJSON, like useUpdateTaskMutation. */
+export function useUpdateTasksMutation(projectGUID: string | null | undefined) {
+  const api = usePMApi();
+  return useProjectMutation<{ rowGUID: string; patch: Partial<PMTaskRow> }[], void>(
+    projectGUID,
+    async (items) => {
+      for (let i = 0; i < items.length; i += 15) await Promise.all(items.slice(i, i + 15).map(({ rowGUID, patch }) => api.updateTask(rowGUID, patch)));
+    },
+    (data, items) => {
+      const by = new Map(items.map((x) => [x.rowGUID, x.patch]));
+      return {
+        ...data,
+        tasks: data.tasks.map((t) => {
+          const p = by.get(t.rowGUID);
+          return p ? { ...t, ...p, rowJSON: p.rowJSON ? { ...t.rowJSON, ...p.rowJSON } : t.rowJSON } : t;
+        }),
+      };
+    }
+  );
+}
+
 export interface PMMoveVars {
   rowGUID: string;
   oldTreePath: string;

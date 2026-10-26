@@ -21,6 +21,7 @@ import { PMScheduleWrite } from './api/api_pm';
 import { usePMStore } from '../store/store_pm';
 import { PMProjectData, PMProjectRow } from '../model/types';
 import { errorMessage } from './api/apiUtils';
+import { scheduleOptionsOf } from '../model/scheduleOptions';
 import { pmKeys, usePMApi } from './shared/queryShared';
 
 export { pmKeys, usePMApi, useProjectMutation, useProjectsListMutation } from './shared/queryShared';
@@ -84,9 +85,16 @@ export function useScheduleWriteBack(projectGUID: string | null | undefined) {
     if (!projectGUID) return;
     let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const flush = async () => {
+    // `force` = the user pressed Calculate: write the plan even in Manual calculation mode, and retry while one of our own mutations is still in flight
+    const flush = async (force = false, attempt = 0): Promise<void> => {
       const s = usePMStore.getState();
-      if (s.loadedProjectGUID !== projectGUID || inFlight.current || qc.isMutating() > 0) return;
+      if (s.loadedProjectGUID !== projectGUID) return;
+      if (inFlight.current || qc.isMutating() > 0) {
+        if (force && attempt < 20) timer = setTimeout(() => void flush(true, attempt + 1), 250);
+        return;
+      }
+      // Manual calculation (Extended A2): the rows on the screen with pending edits are PROVISIONAL, they are never written
+      if (!force && s.calculationMode === 'manual' && (Object.keys(s.pendingGUIDs).length > 0 || s.pendingStructureCount > 0)) return;
       const writes: PMScheduleWrite[] = [];
       for (const t of s.tasks) {
         const r = s.schedule[t.rowGUID];
@@ -106,11 +114,15 @@ export function useScheduleWriteBack(projectGUID: string | null | undefined) {
         !!project &&
         ((projectFinish && (!project.rowDuration || Date.parse(project.rowDuration) !== s.projectFinishMs)) ||
           Math.abs((project.rowProgress || 0) - projectProgress) > 0.05);
-      if (!writes.length && !projectChanged) return;
+      // A4 scheduled from the FINISH date: the start is a result - written into the project row so every other reader (cards, versions, exports, a switch back to "from start") sees it
+      const fromFinish = !!project && scheduleOptionsOf(project.rowJSON).scheduleFrom === 'finish' && s.tasks.length > 0;
+      const calcStartIso = fromFinish ? new Date(s.projectStartMs).toISOString() : null;
+      const startChanged = fromFinish && !!project && project.rowJSON?.projectStartAt !== calcStartIso;
+      if (!writes.length && !projectChanged && !startChanged) return;
 
       inFlight.current = true;
       try {
-        await api.applySchedule(projectGUID, writes, projectFinish, projectProgress);
+        if (writes.length || projectChanged) await api.applySchedule(projectGUID, writes, projectFinish, projectProgress);
         const byGUID = new Map(writes.map((w) => [w.rowGUID, w]));
         qc.setQueryData<PMProjectData>(pmKeys.projectData(projectGUID), (old) =>
           old
@@ -125,9 +137,14 @@ export function useScheduleWriteBack(projectGUID: string | null | undefined) {
               }
             : old
         );
+        let newJSON = project?.rowJSON;
+        if (startChanged && project) {
+          newJSON = { ...project.rowJSON, projectStartAt: calcStartIso!, projectStartDate: calcStartIso!.slice(0, 10) };
+          await api.updateProject(projectGUID, { rowJSON: newJSON });
+        }
         if (project) {
           qc.setQueryData<PMProjectRow[]>(pmKeys.projects(project.rowOwnerGUID), (old) =>
-            old?.map((p) => (p.rowGUID === projectGUID ? { ...p, rowDuration: projectFinish, rowProgress: projectProgress } : p))
+            old?.map((p) => (p.rowGUID === projectGUID ? { ...p, rowDuration: projectFinish, rowProgress: projectProgress, rowJSON: newJSON ?? p.rowJSON } : p))
           );
         }
       } catch (e) {
@@ -138,11 +155,17 @@ export function useScheduleWriteBack(projectGUID: string | null | undefined) {
     };
 
     const unsubscribe = usePMStore.subscribe((state, prev) => {
+      // an explicit Calculate: write at once (also in Manual mode)
+      if (state.calcRequest !== prev.calcRequest) {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(() => void flush(true), 0);
+        return;
+      }
       if (state.schedule === prev.schedule && state.projectsById === prev.projectsById) return;
       if (timer) clearTimeout(timer);
-      timer = setTimeout(flush, 800);
+      timer = setTimeout(() => void flush(), 800);
     });
-    timer = setTimeout(flush, 800);
+    timer = setTimeout(() => void flush(), 800);
     return () => {
       unsubscribe();
       if (timer) clearTimeout(timer);

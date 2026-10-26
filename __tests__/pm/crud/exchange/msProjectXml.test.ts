@@ -167,3 +167,42 @@ describe('PDF header', () => {
     expect(pdfHeaderLines({ projectName: 'X' }).subtitle).toBe('');
   });
 });
+
+describe('Extended functions in the MS Project file (A1, A3, A4, A15)', () => {
+  const one = (json: Record<string, unknown>, extra: Record<string, unknown> = {}) => {
+    const base = input();
+    return buildMSProjectXml({
+      ...base,
+      rows: [{ task: row('a', 'Dig', 'task', json) as any, outlineLevel: 1, wbs: '1', schedule: sch(start, start + 2 * DAY, 2) }],
+      dependencies: [],
+      ...extra,
+    } as any);
+  };
+  const constraintOf = (xml: string) => /<ConstraintType>(\d)<\/ConstraintType>/.exec(xml)?.[1];
+
+  it('writes each of the 8 constraint types with its MS Project number while the functions is on', () => {
+    const wanted: [string, string][] = [['ASAP', '0'], ['ALAP', '1'], ['MSO', '2'], ['MFO', '3'], ['SNET', '4'], ['SNLT', '5'], ['FNET', '6'], ['FNLT', '7']];
+    for (const [type, num] of wanted) {
+      const xml = one({ taskConstraintType: type, taskConstraintDate: '2026-10-07T00:00:00.000Z' }, { constraintsEnabled: true });
+      expect(constraintOf(xml)).toBe(num);
+    }
+    expect(one({ taskConstraintType: 'MSO', taskConstraintDate: '2026-10-07T00:00:00.000Z' }, { constraintsEnabled: true })).toContain('<ConstraintDate>');
+    expect(one({ taskConstraintType: 'ALAP' }, { constraintsEnabled: true })).not.toContain('<ConstraintDate>');
+  });
+
+  it('without the functions the file is as before: the manual start is Start No Earlier Than', () => {
+    const xml = one({ manualStartAt: '2026-10-07T00:00:00.000Z', taskConstraintType: 'MSO' });
+    expect(constraintOf(xml)).toBe('4');
+  });
+
+  it('the project plans from its finish date', () => {
+    expect(one({}, { scheduleFromFinish: true })).toContain('<ScheduleFromStart>0</ScheduleFromStart>');
+    expect(one({})).toContain('<ScheduleFromStart>1</ScheduleFromStart>');
+  });
+
+  it('the priority is written only while the function is on', () => {
+    expect(one({ taskPriority: 900 }, { priorityEnabled: true })).toContain('<Priority>900</Priority>');
+    expect(one({ taskPriority: 900 })).toContain('<Priority>500</Priority>');
+    expect(one({ taskPriority: 5000 }, { priorityEnabled: true })).toContain('<Priority>1000</Priority>');
+  });
+});

@@ -15,6 +15,7 @@ import { PMCrud } from '../../../crud/usePMCrud';
 import { PMToolbar, PMToolbarDivider, PMToolbarSpacer } from '../../../inner/toolbars/PMToolbarPrimitives';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { pmT } from '../../../i18n/pmT';
+import PMTreeExtendedMenu from '../../../extended/PMTreeExtendedMenu';
 
 export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette: PMPalette }) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
@@ -84,6 +85,7 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
           <PMIconButton testID="pm-tree-delete-checked" icon="delete_sweep" title={`Delete the ${checkedCount} selected row(s)`} color={palette.error} onPress={() => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs))} />
         </>
       )}
+      <PMTreeExtendedMenu crud={crud} palette={palette} />
       <PMToolbarSpacer />
       {(filterCount > 0 || sorted) && (
         <PMIconButton

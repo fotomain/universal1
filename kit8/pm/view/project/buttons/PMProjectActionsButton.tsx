@@ -16,6 +16,9 @@ import { cancelProjectCostRefresh } from '../../../cost/costRefreshScheduler';
 import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import PMContextMenu from '../../../inner/menu/PMContextMenu';
 import { pmT } from '../../../i18n/pmT';
+import { usePMStore } from '../../../store/store_pm';
+import { useExtendedActions } from './useExtendedActions';
+import PMExtendedActionsHost from './PMExtendedActionsHost';
 import { useProjectPostActions } from '../../task/plan/useProjectPostActions';
 
 export default function PMProjectActionsButton({ projectGUID, color, disabled, width, size, costBudgetOn }: { projectGUID: string | null | undefined; color: string; disabled?: boolean; width?: number; size?: number; costBudgetOn?: boolean }) {
@@ -32,6 +35,8 @@ export default function PMProjectActionsButton({ projectGUID, color, disabled, w
     else setMenu({ x: 8, y: 56 });
   };
   const pick = (fn: () => void) => () => { setMenu(null); fn(); };
+  // Gantt Extended: Calculate (A2), Set baseline (C1), Update project (C5)
+  const extendedItems = useExtendedActions(projectGUID, pick);
 
   // Update project cost: flush the queued tasks of the project, rebuild its cost totals (heals any drift), tell the open tree to read them again
   const updateCost = async () => {
@@ -52,6 +57,7 @@ export default function PMProjectActionsButton({ projectGUID, color, disabled, w
 
   return (
     <>
+      <PMExtendedActionsHost projectGUID={projectGUID} />
       <View ref={ref} collapsable={false}>
         <PMIconButton
           testID="pm-project-actions"
@@ -78,6 +84,7 @@ export default function PMProjectActionsButton({ projectGUID, color, disabled, w
             { testID: 'pm-project-actions-post-unposted', label: 'Post unposted tasks', icon: 'cloud_upload', disabled: busy, onPress: pick(postUnposted) },
             { testID: 'pm-project-actions-repost-all', label: 'Repost all tasks', icon: 'sync', disabled: busy, onPress: pick(repostAll) },
             ...(costBudgetOn ? [{ testID: 'pm-project-actions-update-cost', label: 'Update project cost', icon: 'calculate', disabled: busy || costBusy, onPress: pick(() => { void updateCost(); }) }] : []),
+            ...extendedItems,
             { testID: 'pm-project-actions-refresh', label: 'Refresh the project', icon: 'refresh', onPress: pick(() => dispatch(refreshProjectData())) },
           ]}
         />

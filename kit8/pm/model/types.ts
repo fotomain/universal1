@@ -58,6 +58,39 @@ export interface PMRowJSON {
   durationDays: number;
   /** "Start no earlier than" constraint (ISO timestamptz, UTC midnight). null = ASAP. */
   manualStartAt?: string | null;
+  // ---- Gantt "Extended" functions (kit8/pm/extended): every key below is read ONLY while its function is on ----
+  /** A1 Manually scheduled tasks: 'auto' (default, absent) | 'manual'; taskManualStartAt = the typed start of a MANUAL task (manualStartAt above stays the Start No Earlier Than of an AUTO task). */
+  taskScheduleMode?: 'auto' | 'manual';
+  taskManualStartAt?: string | null;
+  /** A3 constraint: one of the 8 types + its date (the LAST day for a finish type); manualStartAt mirrors the date of Start No Earlier Than. */
+  taskConstraintType?: 'ASAP' | 'ALAP' | 'MSO' | 'MFO' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT';
+  taskConstraintDate?: string | null;
+  /** A5 deadline (ISO day): never moves the task. */
+  taskDeadline?: string | null;
+  /** A6 task type + work (hours) + units (%) + effort driven. */
+  taskType?: 'fixedUnits' | 'fixedDuration' | 'fixedWork';
+  taskWorkHours?: number | null;
+  taskUnits?: number | null;
+  taskEffortDriven?: boolean;
+  /** A8 elapsed duration (calendar days, the calendar is ignored); A9 estimated duration ("?"). */
+  durationElapsed?: boolean;
+  durationEstimated?: boolean;
+  /** A10 the id of a calendar of ganttExtendedOptions.calendars. */
+  taskCalendarId?: string | null;
+  /** A12 splits: after = working days of work done before the gap, gap = working days of pause. */
+  taskSplits?: { after: number; gap: number }[];
+  /** A14 inactive task: visible but not part of the schedule. */
+  taskInactive?: boolean;
+  /** A15 priority 0..1000 (default 500). */
+  taskPriority?: number | null;
+  /** G2 draw a milestone diamond at the finish of a task that has a duration. */
+  taskMarkAsMilestone?: boolean;
+  /** C3 actual dates (ISO); C1 baselines by number "0".."10". */
+  actualStartAt?: string | null;
+  actualFinishAt?: string | null;
+  baselines?: Record<string, { startAt: string; finishAt: string; durationDays: number }>;
+  /** B5 predecessors that are tasks of OTHER projects. */
+  externalPredecessors?: { taskGUID: string; linkType?: PMLinkType; lagDays?: number; name?: string }[];
   /** Computed by the scheduler and written back (ISO timestamptz). Finish lives in rowDuration. */
   startAt?: string | null;
   notes?: string;
@@ -103,6 +136,13 @@ export interface PMRowJSON {
   planSecond?: boolean;
   /** Date input format for start/finish date columns in TaskTree (e.g. DD MMM, DD.MM.YYYY, YYYY-MM-DD). */
   planDateInputFormat?: PMPlanDateInputFormat;
+  /** Project window: the typed start / finish (YYYY-MM-DD). projectFinishDate drives the schedule only while projectScheduleFrom = 'finish' (A4, model/scheduleFrom.ts). */
+  projectStartDate?: string | null;
+  projectFinishDate?: string | null;
+  projectScheduleFrom?: 'start' | 'finish';
+  /** Gantt Extended (kit8/pm/extended): the MASTER switch (Project settings -> Gantt) and the options of the functions; the xxxxEnabled switch of every function is read through extendedOf(). */
+  ganttExtendedFunctionalityEnabled?: boolean;
+  ganttExtendedOptions?: Record<string, unknown>;
   // ---- project_table only: Partners & Contracts ----
   /** Selected main supplier partner rowGUID (partnerTable) */
   mainSupplierGUID?: string | null;
@@ -516,6 +556,25 @@ export interface PMScheduledRow {
   totalFloatDays: number;
   isCritical: boolean;
   inCycle: boolean;
+  /** Extended (kit8/pm/extended): slack that may be NEGATIVE (totalFloatDays is it clamped to >= 0). */
+  slackDays?: number;
+  /** A1 manually scheduled row. */
+  isManual?: boolean;
+  /** A3 the constraint that decided the row (absent = none of its own). */
+  constraintType?: 'ASAP' | 'ALAP' | 'MSO' | 'MFO' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT';
+  /** 'constraintWins' = a date (constraint / manual start) was kept although a link would have put the task later; 'linkWins' = the link won and the constraint is not met. */
+  constraintConflict?: 'constraintWins' | 'linkWins';
+  /** where the links alone would start the task (only on a conflict) */
+  engineStartMs?: number;
+  /** A4 early and late start (startMs is the PLACED one: early when scheduled from the start, late from the finish date). */
+  earlyStartMs?: number;
+  lateStartMs?: number;
+  /** A14 inactive task; A12 the segments of a split task; A5 the deadline (ms) and whether the finish is after it; B5 has an external predecessor. */
+  isInactive?: boolean;
+  segments?: { startMs: number; finishMs: number }[];
+  deadlineMs?: number;
+  deadlineMissed?: boolean;
+  hasExternal?: boolean;
 }
 
 export function depKey(d: { rowDependsOnGUID: string; rowGUID: string }): string {

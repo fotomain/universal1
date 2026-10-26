@@ -7,7 +7,9 @@
 // UI thread-free side (the dashboard, the task info screen and the write-back hook).
 
 import { DAY_MS } from '../../model/constants';
-import { PMLinkType, PMScheduledRow, PMTaskDependencyRow, PMTaskRow } from '../../model/types';
+import { PMLinkType, PMScheduledRow, PMTaskDependencyRow, PMTaskJSON, PMTaskRow } from '../../model/types';
+import { constraintOf, PMConstraint, PMConstraintType } from '../../model/taskConstraint';
+import { manualStartOf, taskModeOf } from '../../model/taskScheduleMode';
 
 // =====================================================================================
 // ltree
@@ -77,6 +79,11 @@ export function rebalanceOrders(orderedGUIDs: string[]): Map<string, number> {
 
 export interface PMCalendar {
   skipWeekends: boolean;
+  /** A10 / A11 (Extended): a custom working week, index = UTC weekday (0 = Sunday); overrides skipWeekends */
+  workWeek?: readonly boolean[];
+  /** A11: UTC midnights that are NOT worked (holidays, days off) / that ARE worked (an extra working day) */
+  offDays?: ReadonlySet<number>;
+  extraDays?: ReadonlySet<number>;
 }
 
 export const DEFAULT_CALENDAR: PMCalendar = { skipWeekends: false };
@@ -97,7 +104,21 @@ export function diffDaysMs(a: number, b: number): number {
   return Math.round((a - b) / DAY_MS);
 }
 
+/** every calendar day is a working day (no weekend rule, no week, no exception): the fast path of the day maths */
+function isPlainCalendar(cal: PMCalendar): boolean {
+  return !cal.skipWeekends && !cal.workWeek && !cal.offDays?.size && !cal.extraDays?.size;
+}
+
+/** the scans below stop after this many days: a calendar can never make a loop endless */
+const MAX_SCAN_DAYS = 36600;
+
 export function isWorkDay(ms: number, cal: PMCalendar): boolean {
+  if (cal.offDays?.size || cal.extraDays?.size) {
+    const day = utcMidnight(ms);
+    if (cal.offDays?.has(day)) return false;
+    if (cal.extraDays?.has(day)) return true;
+  }
+  if (cal.workWeek) return cal.workWeek[new Date(ms).getUTCDay()] === true;
   if (!cal.skipWeekends) return true;
   const dow = new Date(ms).getUTCDay();
   return dow !== 0 && dow !== 6;
@@ -105,17 +126,24 @@ export function isWorkDay(ms: number, cal: PMCalendar): boolean {
 
 export function nextWorkDay(ms: number, cal: PMCalendar): number {
   let d = utcMidnight(ms);
-  for (let guard = 0; guard < 14 && !isWorkDay(d, cal); guard++) d += DAY_MS;
+  for (let guard = 0; guard < MAX_SCAN_DAYS && !isWorkDay(d, cal); guard++) d += DAY_MS;
+  return d;
+}
+
+/** The working day on or before `ms` (the last day of a project typed on a weekend is the Friday before). */
+export function previousWorkDay(ms: number, cal: PMCalendar): number {
+  let d = utcMidnight(ms);
+  for (let guard = 0; guard < MAX_SCAN_DAYS && !isWorkDay(d, cal); guard++) d -= DAY_MS;
   return d;
 }
 
 /** Exclusive finish of `n` working days starting at `startMs`. n = 0 -> startMs. */
 export function addWorkDays(startMs: number, n: number, cal: PMCalendar): number {
   if (n <= 0) return startMs;
-  if (!cal.skipWeekends) return startMs + n * DAY_MS;
+  if (isPlainCalendar(cal)) return startMs + n * DAY_MS;
   let d = startMs;
   let count = 0;
-  while (count < n) {
+  for (let guard = 0; count < n && guard < MAX_SCAN_DAYS; guard++) {
     if (isWorkDay(d, cal)) count++;
     d += DAY_MS;
   }
@@ -125,10 +153,10 @@ export function addWorkDays(startMs: number, n: number, cal: PMCalendar): number
 /** Inverse of addWorkDays: the start that makes `n` working days end at `finishMs`. */
 export function subtractWorkDays(finishMs: number, n: number, cal: PMCalendar): number {
   if (n <= 0) return finishMs;
-  if (!cal.skipWeekends) return finishMs - n * DAY_MS;
+  if (isPlainCalendar(cal)) return finishMs - n * DAY_MS;
   let d = finishMs;
   let count = 0;
-  while (count < n) {
+  for (let guard = 0; count < n && guard < MAX_SCAN_DAYS; guard++) {
     d -= DAY_MS;
     if (isWorkDay(d, cal)) count++;
   }
@@ -144,7 +172,7 @@ export function shiftWorkDays(ms: number, k: number, cal: PMCalendar): number {
 
 export function workDaysBetween(startMs: number, finishMs: number, cal: PMCalendar): number {
   if (finishMs <= startMs) return 0;
-  if (!cal.skipWeekends) return Math.round((finishMs - startMs) / DAY_MS);
+  if (isPlainCalendar(cal)) return Math.round((finishMs - startMs) / DAY_MS);
   let count = 0;
   for (let d = startMs; d < finishMs; d += DAY_MS) if (isWorkDay(d, cal)) count++;
   return count;
@@ -274,6 +302,27 @@ export interface PMScheduleInput {
   deps: PMTaskDependencyRow[];
   projectStartMs: number;
   calendar?: PMCalendar;
+  /** A1 manually scheduled tasks (model/taskScheduleMode.ts) are honored. Default false. */
+  manualEnabled?: boolean;
+  /** A3 the 8 constraint types (model/taskConstraint.ts) are honored; false = only the old Start No Earlier Than (manualStartAt). */
+  constraintsEnabled?: boolean;
+  /** A3 MS Project "Tasks will always honor their constraint dates" (default true). */
+  constraintsAlwaysHonored?: boolean;
+  /** A4 'finish' = plan backward from projectFinishDayMs; the start is a result (model/scheduleFrom.ts). Default 'start'. */
+  scheduleFrom?: 'start' | 'finish';
+  /** A4 the typed LAST day of the project (UTC midnight), used only when scheduleFrom = 'finish'. */
+  projectFinishDayMs?: number | null;
+  /** A10 task calendars by id (taskCalendarId of a task); a task without one uses `calendar`. */
+  calendars?: Record<string, PMCalendar>;
+  /** A12 split tasks, A14 inactive tasks, A8 elapsed durations, A5 deadlines, B4 lag in percent, B5 external predecessors: honored while true. */
+  splitEnabled?: boolean;
+  inactiveEnabled?: boolean;
+  elapsedEnabled?: boolean;
+  deadlineEnabled?: boolean;
+  lagPercentEnabled?: boolean;
+  externalEnabled?: boolean;
+  /** B5 the stored dates of tasks of OTHER projects (task GUID -> start / exclusive finish). */
+  externalDates?: Record<string, { startMs: number; finishMs: number }>;
 }
 
 export interface PMScheduleResult {
@@ -281,6 +330,8 @@ export interface PMScheduleResult {
   projectStartMs: number;
   projectFinishMs: number;
   cycleGUIDs: string[];
+  /** A4 finish mode only: the calculated start lies before today */
+  projectStartInPast?: boolean;
 }
 
 interface LeafEdge {
@@ -305,7 +356,7 @@ function durationOf(task: PMTaskRow): number {
  *    aggregate start/finish is used for the date maths.
  * Links between rows of the same branch (ancestor/descendant) are ignored.
  */
-function buildLeafGraph(tasks: PMTaskRow[], deps: PMTaskDependencyRow[], tree: PMTreeIndex) {
+function buildLeafGraph(tasks: PMTaskRow[], deps: PMTaskDependencyRow[], tree: PMTreeIndex, lagOf?: (pred: PMTaskRow | undefined, d: PMTaskDependencyRow) => number) {
   const byGUID = new Map(tasks.map((t) => [t.rowGUID, t]));
   const isSummary = (g: string) => (tree.childrenById[g]?.length ?? 0) > 0;
 
@@ -327,21 +378,22 @@ function buildLeafGraph(tasks: PMTaskRow[], deps: PMTaskDependencyRow[], tree: P
   }
 
   const leaves = flattenAll(tree).filter((g) => !isSummary(g));
-  const constraintsByLeaf = new Map<string, PMTaskDependencyRow[]>();
+  /** the links that hold a leaf (also those of its stages): predecessor row, type and lag in working days */
+  const constraintsByLeaf = new Map<string, { pred: string; type: PMLinkType; lag: number }[]>();
   const edges: LeafEdge[] = [];
   for (const leaf of leaves) {
-    const cons: PMTaskDependencyRow[] = [];
+    const cons: { pred: string; type: PMLinkType; lag: number }[] = [];
     for (let g: string | null = leaf; g; g = tree.parentById[g] ?? null) {
       for (const d of depsBySucc.get(g) || []) {
         const pred = byGUID.get(d.rowDependsOnGUID)!;
         if (areTreeRelated(pred, byGUID.get(leaf)!)) continue;
-        cons.push(d);
+        cons.push({ pred: d.rowDependsOnGUID, type: d.linkType || 'FS', lag: lagOf ? lagOf(pred, d) : Number(d.lagDays) || 0 });
       }
     }
     constraintsByLeaf.set(leaf, cons);
     for (const c of cons) {
-      for (const pl of leavesUnder(c.rowDependsOnGUID)) {
-        if (pl !== leaf) edges.push({ from: pl, to: leaf, type: c.linkType || 'FS', lag: Number(c.lagDays) || 0 });
+      for (const pl of leavesUnder(c.pred)) {
+        if (pl !== leaf) edges.push({ from: pl, to: leaf, type: c.type, lag: c.lag });
       }
     }
   }
@@ -378,112 +430,330 @@ function topoSort(nodes: string[], edges: LeafEdge[]): [string[], string[]] {
   return [ordered, cyclic];
 }
 
+// A12 the working-day segments of a split task (pure): `after` = working days of work done before the gap, `gap` = working days of pause.
+export interface PMSplit { after: number; gap: number }
+export function splitsOf(json: Partial<PMTaskJSON> | undefined, dur: number): PMSplit[] {
+  const raw = Array.isArray(json?.taskSplits) ? json!.taskSplits! : [];
+  const out: PMSplit[] = [];
+  for (const s of raw) {
+    const after = Math.round(Number((s as any)?.after));
+    const gap = Math.round(Number((s as any)?.gap));
+    if (Number.isFinite(after) && Number.isFinite(gap) && after > 0 && after < dur && gap > 0) out.push({ after, gap });
+  }
+  return out.sort((a, b) => a.after - b.after).filter((s, i, a) => i === 0 || s.after > a[i - 1].after);
+}
+
+/** the pieces of a split task from its first day: [{ startMs, finishMs (exclusive) }] */
+export function splitSegments(startMs: number, dur: number, splits: PMSplit[], cal: PMCalendar): { startMs: number; finishMs: number }[] {
+  const segs: { startMs: number; finishMs: number }[] = [];
+  let cursor = nextWorkDay(startMs, cal);
+  let done = 0;
+  for (const s of splits) {
+    const f = addWorkDays(cursor, s.after - done, cal);
+    segs.push({ startMs: cursor, finishMs: f });
+    done = s.after;
+    cursor = nextWorkDay(shiftWorkDays(f, s.gap, cal), cal);
+  }
+  segs.push({ startMs: cursor, finishMs: addWorkDays(cursor, dur - done, cal) });
+  return segs;
+}
+
 export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
-  const cal = input.calendar ?? DEFAULT_CALENDAR;
-  const projectStartMs = nextWorkDay(utcMidnight(input.projectStartMs), cal);
-  const tree = buildTreeIndex(input.tasks);
-  const g = buildLeafGraph(input.tasks, input.deps, tree);
+  const baseCal = input.calendar ?? DEFAULT_CALENDAR;
+  const honor = input.constraintsAlwaysHonored !== false;
+  const constraintsOn = input.constraintsEnabled === true;
+  const manualOn = input.manualEnabled === true;
+  const finishDay = input.scheduleFrom === 'finish' && typeof input.projectFinishDayMs === 'number' && Number.isFinite(input.projectFinishDayMs) ? utcMidnight(input.projectFinishDayMs) : null;
+  const finishMode = finishDay !== null;
+  let projectStartMs = nextWorkDay(utcMidnight(input.projectStartMs), baseCal);
+
+  // A14 inactive tasks (and everything under an inactive stage) are not part of the plan: they are scheduled on their own afterwards
+  let planTasks = input.tasks;
+  const inactiveTasks: PMTaskRow[] = [];
+  if (input.inactiveEnabled) {
+    const off = input.tasks.filter((t) => (t.rowJSON as PMTaskJSON)?.taskInactive === true);
+    if (off.length) {
+      const offPaths = off.map((t) => t.treePath + '.');
+      const isOff = (t: PMTaskRow) => (t.rowJSON as PMTaskJSON)?.taskInactive === true || offPaths.some((p) => t.treePath.startsWith(p));
+      planTasks = input.tasks.filter((t) => !isOff(t));
+      for (const t of input.tasks) if (isOff(t)) inactiveTasks.push(t);
+    }
+  }
+  const tree = buildTreeIndex(planTasks);
+  const lagOf = (pred: PMTaskRow | undefined, d: PMTaskDependencyRow): number => {
+    const pct = (d.rowJSON as any)?.lagPercent;
+    if (input.lagPercentEnabled && pred && typeof pct === 'number' && Number.isFinite(pct)) return Math.round((durationOf(pred) * pct) / 100);
+    return Number(d.lagDays) || 0;
+  };
+  const g = buildLeafGraph(planTasks, input.deps, tree, lagOf);
   const [topo, cyclic] = topoSort(g.leaves, g.edges);
   const cycleSet = new Set(cyclic);
 
-  const ES = new Map<string, number>();
-  const EF = new Map<string, number>();
-
-  const aggregate = (guid: string): [number, number] | null => {
-    if (!g.isSummary(guid)) {
-      return ES.has(guid) ? [ES.get(guid)!, EF.get(guid)!] : null;
-    }
-    let s = Infinity;
-    let f = -Infinity;
-    for (const l of g.leavesUnder(guid)) {
-      if (!ES.has(l)) continue;
-      s = Math.min(s, ES.get(l)!);
-      f = Math.max(f, EF.get(l)!);
-    }
-    return s === Infinity ? null : [s, f];
-  };
-
-  // ---- forward pass -----------------------------------------------------------------
-  for (const leaf of [...topo, ...cyclic]) {
+  // ---- what decides each leaf: a manual start, a constraint, its calendar, its duration kind, its splits, its external predecessors ------------------------------------------
+  interface Plan {
+    manualStart: number | null;
+    con: PMConstraint;
+    subFixed: number | null;
+    cal: PMCalendar;
+    elapsed: boolean;
+    splits: PMSplit[];
+    gaps: number;
+    ext: { dates: { startMs: number; finishMs: number }; type: PMLinkType; lag: number }[];
+  }
+  const plans = new Map<string, Plan>();
+  for (const leaf of g.leaves) {
     const task = g.byGUID.get(leaf)!;
+    const json = task.rowJSON as PMTaskJSON;
+    const stage = json?.rowKind === 'stage';
+    const manual = !stage && taskModeOf(json, manualOn) === 'manual' ? manualStartOf(json) : null;
+    const sub = !stage && json?.taskIsSubproject === true;
+    // legacy: Start No Earlier Than (manualStartAt) applies to every leaf; the other 7 types only to a plain task / milestone of a project that switched them on
+    const con = manual !== null ? { type: 'ASAP' as PMConstraintType, dateMs: null, implicit: true } : constraintOf(json, constraintsOn && !stage && !sub);
     const dur = durationOf(task);
-    let es = projectStartMs;
-    const manual = task.rowJSON?.manualStartAt ? Date.parse(task.rowJSON.manualStartAt) : NaN;
-    if (Number.isFinite(manual)) es = Math.max(es, utcMidnight(manual));
-
-    for (const c of g.constraintsByLeaf.get(leaf) || []) {
-      const agg = aggregate(c.rowDependsOnGUID);
-      if (!agg) continue; // predecessor not scheduled yet (only inside a cycle)
-      const [ps, pf] = agg;
-      const lag = Number(c.lagDays) || 0;
-      switch (c.linkType || 'FS') {
-        case 'FS':
-          es = Math.max(es, shiftWorkDays(pf, lag, cal));
-          break;
-        case 'SS':
-          es = Math.max(es, shiftWorkDays(ps, lag, cal));
-          break;
-        case 'FF':
-          es = Math.max(es, subtractWorkDays(shiftWorkDays(pf, lag, cal), dur, cal));
-          break;
-        case 'SF':
-          es = Math.max(es, subtractWorkDays(shiftWorkDays(ps, lag, cal), dur, cal));
-          break;
+    const splits = input.splitEnabled && !stage ? splitsOf(json, dur) : [];
+    const ext: Plan['ext'] = [];
+    if (input.externalEnabled && !stage && Array.isArray(json?.externalPredecessors)) {
+      for (const e of json.externalPredecessors!) {
+        const dates = input.externalDates?.[e?.taskGUID];
+        if (dates) ext.push({ dates, type: e.linkType || 'FS', lag: Number(e.lagDays) || 0 });
       }
     }
-    es = nextWorkDay(es, cal);
-    ES.set(leaf, es);
-    EF.set(leaf, addWorkDays(es, dur, cal));
+    const calId = (json?.taskCalendarId as string | null | undefined) || null;
+    plans.set(leaf, {
+      manualStart: manual === null ? null : utcMidnight(manual),
+      con,
+      subFixed: sub && con.type === 'SNET' ? con.dateMs : null,
+      cal: (calId && input.calendars?.[calId]) || baseCal,
+      elapsed: input.elapsedEnabled === true && !stage && json?.durationElapsed === true,
+      splits,
+      gaps: splits.reduce((a, s) => a + s.gap, 0),
+      ext,
+    });
   }
+  const planOf = (leaf: string) => plans.get(leaf)!;
+  const calOf = (leaf: string) => plans.get(leaf)!.cal;
+  const durOf = (leaf: string) => durationOf(g.byGUID.get(leaf)!);
 
-  let projectFinishMs = projectStartMs;
-  for (const f of EF.values()) projectFinishMs = Math.max(projectFinishMs, f);
+  // the exclusive finish of a leaf that starts on `es`, and the start of a leaf that must end at `endEx` (a milestone starts where it ends)
+  const finishOf = (leaf: string, es: number): number => {
+    const p = planOf(leaf);
+    const d = durOf(leaf);
+    if (p.elapsed) return es + d * DAY_MS;
+    return addWorkDays(es, d + p.gaps, p.cal);
+  };
+  const startFor = (leaf: string, endEx: number): number => {
+    const p = planOf(leaf);
+    const d = durOf(leaf);
+    if (d <= 0) return endEx;
+    if (p.elapsed) return endEx - d * DAY_MS;
+    return subtractWorkDays(endEx, d + p.gaps, p.cal);
+  };
+  const snap = (leaf: string, ms: number): number => (planOf(leaf).elapsed ? utcMidnight(ms) : nextWorkDay(ms, calOf(leaf)));
+  const lastDayEx = (dayMs: number) => utcMidnight(dayMs) + DAY_MS; // the exclusive finish of a typed last day
 
-  // ---- backward pass (total float / critical path) -------------------------------------
-  const LF = new Map<string, number>();
-  const LS = new Map<string, number>();
+  // ---- forward pass (from `pStart`): dates, constraints, conflicts ---------------------------------------------------------------------------------------------------------
+  const forward = (pStart: number) => {
+    const ES = new Map<string, number>();
+    const EF = new Map<string, number>();
+    const conflict = new Map<string, 'constraintWins' | 'linkWins'>();
+    const engine = new Map<string, number>();
+    const aggregate = (guid: string): [number, number] | null => {
+      if (!g.isSummary(guid)) return ES.has(guid) ? [ES.get(guid)!, EF.get(guid)!] : null;
+      let s = Infinity;
+      let f = -Infinity;
+      for (const l of g.leavesUnder(guid)) {
+        if (!ES.has(l)) continue;
+        s = Math.min(s, ES.get(l)!);
+        f = Math.max(f, EF.get(l)!);
+      }
+      return s === Infinity ? null : [s, f];
+    };
+    for (const leaf of [...topo, ...cyclic]) {
+      const dur = durOf(leaf);
+      const plan = planOf(leaf);
+      const cal = plan.cal;
+      let linkEs = pStart;
+      const apply = (type: PMLinkType, lag: number, ps: number, pf: number) => {
+        switch (type || 'FS') {
+          case 'FS': linkEs = Math.max(linkEs, shiftWorkDays(pf, lag, cal)); break;
+          case 'SS': linkEs = Math.max(linkEs, shiftWorkDays(ps, lag, cal)); break;
+          case 'FF': linkEs = Math.max(linkEs, startFor(leaf, shiftWorkDays(pf, lag, cal))); break;
+          case 'SF': linkEs = Math.max(linkEs, startFor(leaf, shiftWorkDays(ps, lag, cal))); break;
+        }
+      };
+      for (const c of g.constraintsByLeaf.get(leaf) || []) {
+        const agg = aggregate(c.pred);
+        if (!agg) continue; // predecessor not scheduled yet (only inside a cycle)
+        apply(c.type, c.lag, agg[0], agg[1]);
+      }
+      for (const e of plan.ext) apply(e.type, e.lag, e.dates.startMs, e.dates.finishMs); // B5: fixed dates of a task of another project
+      const linkStart = snap(leaf, linkEs);
+      let es = linkEs;
+      if (plan.manualStart !== null) {
+        es = plan.manualStart;
+        if (linkStart > snap(leaf, es)) { conflict.set(leaf, 'constraintWins'); engine.set(leaf, linkStart); }
+      } else if (plan.subFixed !== null && finishMode) {
+        es = plan.subFixed;
+      } else {
+        const { type, dateMs: D } = plan.con;
+        const sD = D === null ? 0 : snap(leaf, D);
+        const fromFinish = D === null ? 0 : dur <= 0 ? D : startFor(leaf, lastDayEx(D));
+        const finishTry = (s: number) => finishOf(leaf, snap(leaf, s));
+        switch (type) {
+          case 'SNET': es = Math.max(linkEs, D!); break;
+          case 'FNET': es = Math.max(linkEs, fromFinish); break;
+          case 'MSO':
+          case 'MFO': {
+            const fixed = type === 'MSO' ? sD : snap(leaf, fromFinish);
+            if (honor) { es = fixed; if (linkStart > fixed) { conflict.set(leaf, 'constraintWins'); engine.set(leaf, linkStart); } }
+            else { es = Math.max(linkEs, fixed); if (linkStart > fixed) { conflict.set(leaf, 'linkWins'); engine.set(leaf, linkStart); } }
+            break;
+          }
+          case 'SNLT':
+            if (linkStart > sD) { if (honor) { es = sD; conflict.set(leaf, 'constraintWins'); } else conflict.set(leaf, 'linkWins'); engine.set(leaf, linkStart); }
+            break;
+          case 'FNLT': {
+            const late = dur <= 0 ? linkStart > sD : finishTry(linkStart) > lastDayEx(D!);
+            if (late) { if (honor) { es = snap(leaf, fromFinish); conflict.set(leaf, 'constraintWins'); } else conflict.set(leaf, 'linkWins'); engine.set(leaf, linkStart); }
+            break;
+          }
+          default: break; // ASAP, ALAP (placed by the extra pass below)
+        }
+      }
+      es = snap(leaf, es);
+      ES.set(leaf, es);
+      EF.set(leaf, finishOf(leaf, es));
+    }
+    return { ES, EF, conflict, engine };
+  };
+
   const outEdges = new Map<string, LeafEdge[]>();
   for (const e of g.edges) {
     if (!outEdges.has(e.from)) outEdges.set(e.from, []);
     outEdges.get(e.from)!.push(e);
   }
-  for (let i = topo.length - 1; i >= 0; i--) {
-    const leaf = topo[i];
-    const dur = durationOf(g.byGUID.get(leaf)!);
-    let lf = projectFinishMs;
+  // the latest EXCLUSIVE finish of `leaf` that the successors allow, from their dates (sStart / sFinish give the successor's start / finish)
+  const limitFrom = (leaf: string, bound: number, sStart: (to: string) => number | undefined, sFinish: (to: string) => number | undefined): number => {
+    let lf = bound;
     for (const e of outEdges.get(leaf) || []) {
-      if (!LS.has(e.to)) continue;
-      const sLS = LS.get(e.to)!;
-      const sLF = LF.get(e.to)!;
+      const st = sStart(e.to);
+      const fi = sFinish(e.to);
+      if (st === undefined || fi === undefined) continue;
+      const scal = calOf(e.to);
       switch (e.type) {
-        case 'FS':
-          lf = Math.min(lf, shiftWorkDays(sLS, -e.lag, cal));
-          break;
-        case 'SS':
-          lf = Math.min(lf, addWorkDays(shiftWorkDays(sLS, -e.lag, cal), dur, cal));
-          break;
-        case 'FF':
-          lf = Math.min(lf, shiftWorkDays(sLF, -e.lag, cal));
-          break;
-        case 'SF':
-          lf = Math.min(lf, addWorkDays(shiftWorkDays(sLF, -e.lag, cal), dur, cal));
-          break;
+        case 'FS': lf = Math.min(lf, shiftWorkDays(st, -e.lag, scal)); break;
+        case 'SS': lf = Math.min(lf, finishOf(leaf, shiftWorkDays(st, -e.lag, scal))); break;
+        case 'FF': lf = Math.min(lf, shiftWorkDays(fi, -e.lag, scal)); break;
+        case 'SF': lf = Math.min(lf, finishOf(leaf, shiftWorkDays(fi, -e.lag, scal))); break;
       }
     }
-    LF.set(leaf, lf);
-    LS.set(leaf, subtractWorkDays(lf, dur, cal));
+    return lf;
+  };
+
+  const LF = new Map<string, number>();
+  const LS = new Map<string, number>();
+  let ES = new Map<string, number>();
+  let EF = new Map<string, number>();
+  let conflict = new Map<string, 'constraintWins' | 'linkWins'>();
+  let engine = new Map<string, number>();
+  let projectFinishMs: number;
+
+  if (!finishMode) {
+    // ---- scheduled from the project START: forward pass, As Late As Possible pass, backward pass for the slack ---------------------------------------------------------------
+    ({ ES, EF, conflict, engine } = forward(projectStartMs));
+    projectFinishMs = projectStartMs;
+    for (const f of EF.values()) projectFinishMs = Math.max(projectFinishMs, f);
+
+    // As Late As Possible: reverse topological order, uses the SCHEDULED dates of the successors (free slack); a successor is never moved
+    for (let i = topo.length - 1; i >= 0; i--) {
+      const leaf = topo[i];
+      const plan = planOf(leaf);
+      if (plan.manualStart !== null || plan.con.type !== 'ALAP') continue;
+      const lf = limitFrom(leaf, projectFinishMs, (to) => ES.get(to), (to) => EF.get(to));
+      const es = startFor(leaf, lf);
+      if (es > ES.get(leaf)!) {
+        ES.set(leaf, es);
+        EF.set(leaf, finishOf(leaf, es));
+      }
+    }
+
+    // backward pass (total slack / critical path)
+    for (let i = topo.length - 1; i >= 0; i--) {
+      const leaf = topo[i];
+      const dur = durOf(leaf);
+      let lf = limitFrom(leaf, projectFinishMs, (to) => LS.get(to), (to) => LF.get(to));
+      const plan = planOf(leaf);
+      if (plan.manualStart === null && plan.con.dateMs !== null) {
+        const D = plan.con.dateMs;
+        switch (plan.con.type) {
+          case 'MSO':
+          case 'SNLT': lf = Math.min(lf, finishOf(leaf, snap(leaf, D))); break;
+          case 'MFO':
+          case 'FNLT': lf = Math.min(lf, dur <= 0 ? D : lastDayEx(D)); break;
+          default: break;
+        }
+      }
+      LF.set(leaf, lf);
+      LS.set(leaf, startFor(leaf, lf));
+    }
+  } else {
+    // ---- scheduled from the project FINISH date: backward placement (as late as possible), the start is a RESULT, then a forward pass from it for the early dates / slack -------
+    const finishEx = lastDayEx(previousWorkDay(finishDay!, baseCal)); // exclusive finish of the last WORKING day on or before the typed one
+    for (let i = topo.length - 1; i >= 0; i--) {
+      const leaf = topo[i];
+      const dur = durOf(leaf);
+      const plan = planOf(leaf);
+      if (plan.manualStart !== null || plan.subFixed !== null) {
+        const s = snap(leaf, plan.manualStart ?? plan.subFixed!);
+        LS.set(leaf, s);
+        LF.set(leaf, finishOf(leaf, s));
+        continue;
+      }
+      let lf = limitFrom(leaf, dur <= 0 ? finishEx - DAY_MS : finishEx, (to) => LS.get(to), (to) => LF.get(to)); // a milestone sits ON the last day
+      const { type, dateMs: D } = plan.con;
+      if (D !== null) {
+        const sD = snap(leaf, D);
+        const endEx = dur <= 0 ? D : lastDayEx(D);
+        switch (type) {
+          case 'MSO': { const fx = finishOf(leaf, sD); if (lf < fx) conflict.set(leaf, honor ? 'constraintWins' : 'linkWins'); if (honor || lf > fx) lf = fx; break; }
+          case 'MFO': if (lf < endEx) conflict.set(leaf, honor ? 'constraintWins' : 'linkWins'); if (honor || lf > endEx) lf = endEx; break;
+          case 'SNLT': lf = Math.min(lf, finishOf(leaf, sD)); break;
+          case 'FNLT': lf = Math.min(lf, endEx); break;
+          case 'FNET': if (lf < endEx) { conflict.set(leaf, honor ? 'constraintWins' : 'linkWins'); if (honor) lf = endEx; } break;
+          case 'SNET': if (startFor(leaf, lf) < sD) { conflict.set(leaf, honor ? 'constraintWins' : 'linkWins'); if (honor) lf = finishOf(leaf, sD); } break;
+          default: break;
+        }
+      }
+      LF.set(leaf, lf);
+      LS.set(leaf, startFor(leaf, lf));
+    }
+    let s = Infinity;
+    for (const leaf of topo) s = Math.min(s, LS.get(leaf)!);
+    if (s !== Infinity) projectStartMs = nextWorkDay(s, baseCal);
+    const fwd = forward(projectStartMs);
+    ES = fwd.ES;
+    EF = fwd.EF;
+    // the conflicts of the PLACEMENT are the ones shown; a cyclic leaf keeps its forward dates
+    projectFinishMs = finishEx;
+    for (const leaf of topo) projectFinishMs = Math.max(projectFinishMs, LF.get(leaf)!);
   }
 
   // ---- assemble leaves ----------------------------------------------------------------
   const rows: Record<string, PMScheduledRow> = {};
   for (const leaf of g.leaves) {
     const task = g.byGUID.get(leaf)!;
-    const s = ES.get(leaf)!;
-    const f = EF.get(leaf)!;
+    const json = task.rowJSON as PMTaskJSON;
+    const plan = planOf(leaf);
     const inCycle = cycleSet.has(leaf);
-    const floatDays = inCycle ? 0 : Math.max(0, diffDaysMs(LS.get(leaf) ?? s, s));
-    const dur = durationOf(task);
-    rows[leaf] = {
+    const dur = durOf(leaf);
+    const early = ES.get(leaf)!;
+    const earlyEnd = EF.get(leaf)!;
+    // the placed dates: early (from start) / late (from finish), except a cyclic leaf and a task that asked for As Soon As Possible
+    const useLate = finishMode && !inCycle && !(plan.con.type === 'ASAP' && !plan.con.implicit && plan.manualStart === null);
+    const s = useLate ? LS.get(leaf)! : early;
+    const f = useLate ? LF.get(leaf)! : earlyEnd;
+    const slack = inCycle ? 0 : diffDaysMs(LS.get(leaf) ?? early, early);
+    const row: PMScheduledRow = {
       startAt: new Date(s).toISOString(),
       finishAt: new Date(f).toISOString(),
       startMs: s,
@@ -492,10 +762,31 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       isSummary: false,
       isMilestone: dur === 0,
       progress: clampProgress(task.rowProgress),
-      totalFloatDays: floatDays,
-      isCritical: !inCycle && floatDays <= 0,
+      totalFloatDays: Math.max(0, slack),
+      isCritical: !inCycle && slack <= 0,
       inCycle,
+      slackDays: slack,
+      earlyStartMs: early,
+      lateStartMs: LS.get(leaf) ?? early,
     };
+    if (plan.manualStart !== null) row.isManual = true;
+    else if (!plan.con.implicit) row.constraintType = plan.con.type;
+    const cf = conflict.get(leaf);
+    if (cf) {
+      row.constraintConflict = cf;
+      const eng = engine.get(leaf);
+      if (eng !== undefined) row.engineStartMs = eng;
+    }
+    if (plan.splits.length && dur > 0) row.segments = splitSegments(s, dur, plan.splits, plan.cal);
+    if (plan.ext.length) row.hasExternal = true;
+    if (input.deadlineEnabled && json?.taskDeadline) {
+      const dl = Date.parse(json.taskDeadline);
+      if (Number.isFinite(dl)) {
+        row.deadlineMs = utcMidnight(dl);
+        row.deadlineMissed = (dur <= 0 ? s : f - DAY_MS) > row.deadlineMs;
+      }
+    }
+    rows[leaf] = row;
   }
 
   // ---- roll up summaries (post-order) ---------------------------------------------------
@@ -509,8 +800,10 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
     let weighted = 0;
     let weight = 0;
     let minFloat = Infinity;
+    let minSlack = Infinity;
     let critical = false;
     let inCycle = false;
+    let conflictKind: 'constraintWins' | 'linkWins' | undefined;
     for (const leaf of g.leavesUnder(guid)) {
       const r = rows[leaf];
       s = Math.min(s, r.startMs);
@@ -519,8 +812,10 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       weighted += r.progress * w;
       weight += w;
       minFloat = Math.min(minFloat, r.totalFloatDays);
+      minSlack = Math.min(minSlack, r.slackDays ?? r.totalFloatDays);
       critical = critical || r.isCritical;
       inCycle = inCycle || r.inCycle;
+      if (r.constraintConflict && !conflictKind) conflictKind = r.constraintConflict;
     }
     const leaves = g.leavesUnder(guid);
     const progress = weight > 0 ? weighted / weight : leaves.length ? leaves.reduce((a, l) => a + rows[l].progress, 0) / leaves.length : clampProgress(task.rowProgress);
@@ -529,26 +824,45 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       finishAt: new Date(f).toISOString(),
       startMs: s,
       finishMs: f,
-      durationDays: workDaysBetween(s, f, cal),
+      durationDays: workDaysBetween(s, f, baseCal),
       isSummary: true,
       isMilestone: false,
       progress: Math.round(progress * 10) / 10,
       totalFloatDays: minFloat === Infinity ? 0 : minFloat,
       isCritical: critical,
       inCycle,
+      slackDays: minSlack === Infinity ? 0 : minSlack,
+      ...(conflictKind ? { constraintConflict: conflictKind } : {}),
     };
   };
   for (const r of tree.childrenById[ROOT_KEY]) rollUp(r);
 
   // empty stages (no children yet) are leaves above; show them as a 1-day placeholder
-  for (const t of input.tasks) {
+  for (const t of planTasks) {
     if (t.rowJSON?.rowKind === 'stage' && !g.isSummary(t.rowGUID) && rows[t.rowGUID]) {
       rows[t.rowGUID].isSummary = true;
       rows[t.rowGUID].isMilestone = false;
     }
   }
 
-  return { rows, projectStartMs, projectFinishMs, cycleGUIDs: cyclic };
+  // A14 inactive rows: their own dates (start no earlier than / the project start, their duration), not part of any roll-up, critical path or progress
+  for (const t of inactiveTasks) {
+    const json = t.rowJSON as PMTaskJSON;
+    const dur = durationOf(t);
+    const con = constraintOf(json, false);
+    const cal = ((json?.taskCalendarId as string | null | undefined) && input.calendars?.[json.taskCalendarId as string]) || baseCal;
+    const s = nextWorkDay(Math.max(projectStartMs, con.dateMs ?? 0), cal);
+    const f = addWorkDays(s, dur, cal);
+    rows[t.rowGUID] = {
+      startAt: new Date(s).toISOString(), finishAt: new Date(f).toISOString(), startMs: s, finishMs: f, durationDays: dur,
+      isSummary: json?.rowKind === 'stage', isMilestone: dur === 0 && json?.rowKind !== 'stage', progress: clampProgress(t.rowProgress),
+      totalFloatDays: 0, isCritical: false, inCycle: false, slackDays: 0, isInactive: true,
+    };
+  }
+
+  const result: PMScheduleResult = { rows, projectStartMs, projectFinishMs, cycleGUIDs: cyclic };
+  if (finishMode) result.projectStartInPast = projectStartMs < todayUTC();
+  return result;
 }
 
 // =====================================================================================
@@ -576,7 +890,7 @@ export function computeProjectProgress(rows: Record<string, PMScheduledRow>): nu
   let weighted = 0;
   let weight = 0;
   for (const r of Object.values(rows)) {
-    if (r.isSummary) continue;
+    if (r.isSummary || r.isInactive) continue;
     const w = progressWeight(r.durationDays);
     weighted += r.progress * w;
     weight += w;
