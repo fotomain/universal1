@@ -51,7 +51,7 @@ const LINK_TYPE_TIP: Record<string, string> = { FS: 'Finish → Start', SS: 'Sta
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
 import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
-import { openFillFromTemplate, openSaveToTemplate, PMTaskTemplateWindows } from '../../tasktemplate';
+import { openFillFromTemplate, openSaveToTemplate, openSavedTemplates, PMTaskTemplateWindows } from '../../tasktemplate';
 
 export default function PMProjectTaskInfo(props: { taskGUID: string; projectGUID?: string }) {
   const language = usePMLanguage();
@@ -116,6 +116,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
             { icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(taskGUID) },
             { icon: 'bookmark-plus-outline', label: 'Save to template', onPress: () => openSaveToTemplate(taskGUID) },
             { icon: 'content-paste', label: 'Fill from template', onPress: () => openFillFromTemplate(taskGUID) },
+            { icon: 'bookmark-multiple-outline', label: 'Templates saved', onPress: () => openSavedTemplates(taskGUID) },
             { icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(taskGUID) },
           ]
         : null,

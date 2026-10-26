@@ -18,18 +18,23 @@ export interface PMTaskTemplateSavePrompt {
 export interface PMTaskTemplateStoreState {
   savePrompt: PMTaskTemplateSavePrompt | null;
   fillPickerTaskGUID: string | null;
+  /** "Templates saved": the list of the templates saved from this task */
+  savedListTaskGUID: string | null;
   /** a save / fill / delete is running */
   busy: boolean;
   setSavePrompt: (prompt: PMTaskTemplateSavePrompt | null) => void;
   setFillPickerTaskGUID: (taskGUID: string | null) => void;
+  setSavedListTaskGUID: (taskGUID: string | null) => void;
   setBusy: (busy: boolean) => void;
 }
 
 export const usePMTaskTemplateStore = create<PMTaskTemplateStoreState>((set) => ({
   savePrompt: null,
   fillPickerTaskGUID: null,
+  savedListTaskGUID: null,
   busy: false,
   setSavePrompt: (savePrompt) => set({ savePrompt }),
   setFillPickerTaskGUID: (fillPickerTaskGUID) => set({ fillPickerTaskGUID }),
+  setSavedListTaskGUID: (savedListTaskGUID) => set({ savedListTaskGUID }),
   setBusy: (busy) => set({ busy }),
 }));

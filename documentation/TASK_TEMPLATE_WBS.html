@@ -172,9 +172,13 @@
     <h2>User interface</h2>
     <div class="card scroll"><table>
       <tr><th>Where</th><th>Control</th><th>What it does</th></tr>
-      <tr><td>Task context menu (right click on a tree row / Gantt bar, long press on touch), after Duplicate</td><td><b>Save to template</b></td><td>Opens the title window (the name of the task is the title, description optional), then <code>task_template_save</code></td></tr>
-      <tr><td>same, next item</td><td><b>Fill from template</b></td><td>Opens the picker of the templates of the organization</td></tr>
-      <tr><td>Main FAB of the dashboard (a task is selected) and the FAB of the task page</td><td>the same two items</td><td>the same windows</td></tr>
+      <tr><td>Task context menu (right click on a tree row / Gantt bar, long press on touch), after Duplicate</td><td>submenu <b>Templates</b></td><td>three items:</td></tr>
+      <tr><td>Templates →</td><td><b>Save to template…</b></td><td>Opens the title window (the name of the task is the title, description optional), then <code>task_template_save</code></td></tr>
+      <tr><td>Templates →</td><td><b>Fill from template…</b></td><td>Opens the picker of the templates of the organization</td></tr>
+      <tr><td>Templates →</td><td><b>Templates saved</b></td><td>The list of the templates saved from THIS task (<code>templateSourceTaskGUID</code> of the header; a template saved before this key existed is not in it): rename / delete of your own, Close. Same window as the picker, without Fill and Replace</td></tr>
+      <tr><td>Main FAB of the dashboard (a task is selected) and the FAB of the task page</td><td>the same three items, flat (the FAB has no submenus)</td><td>the same windows</td></tr>
+      <tr><td><b>Toolbar of the task lines table</b> (Finances view, after the "Create based on" and "Go to" icons)</td><td>icon button <b>Templates</b></td><td>opens the same submenu under the icon, for the task (not for a checked line)</td></tr>
+      <tr><td><b>Three dots menu of the task lines table</b> (Finances view of a task: dashboard Edit view, task window, task page), after Export and Share</td><td>the same submenu <b>Templates</b></td><td>for the task of the table (<code>ReusableTable</code> prop <code>barMenuItems</code>); the windows are mounted by the screen, also by the task window (<code>PMTaskEditWindow</code>)</td></tr>
       <tr><td>Picker</td><td>search · row · "Replace what the row has now" · Fill</td><td>one line per template: kind, rows, lines, project, day, creator. Your own templates have Rename and Delete (asks first)</td></tr>
     </table></div>
     <p class="sub">After a fill the project is read again (the scheduler writes the dates), the new lines come through Realtime; a snackbar says how many rows and lines were created and reminds of <b>Recalculate</b>.</p>

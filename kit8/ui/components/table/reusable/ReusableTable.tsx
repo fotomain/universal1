@@ -81,7 +81,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   const {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, onAdd, onRowOpen, openLabel, uxuiTable,
-    selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
+    selectionEnabled = true, searchEnabled = true, contextMenuEnabled = true, extraMenuItems, barMenuItems, rowHeight: rowHeightProp, tableMaxWidth,
     emptyText, testID = 'reusable-table', toolbarExtra, onSelectionChange, EditRowModalCard,
   } = props;
   const { themeColors: c, isDark } = useDesignSystem();
@@ -694,6 +694,7 @@ export default function ReusableTable(props: ReusableTableProps) {
               submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-export-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, false); } })) },
             { testID: `${testID}-more-share`, label: 'Share', icon: 'share', onPress: () => {},
               submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-share-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, true); } })) },
+            ...(barMenuItems ? barMenuItems(() => setBarMenu(null)) : []),
             // .env ENVIRONMENT_NAME=DEV_ENVIRONMENT: the name of the table (the redux entity) is the LAST item; a press copies it
             ...(isDevEnvironment() ? [{ testID: `${testID}-more-table-name`, label: entityName, icon: 'table_chart', onPress: () => { setBarMenu(null); Clipboard.setStringAsync(entityName).catch(() => {}); } }] : []),
           ]} />

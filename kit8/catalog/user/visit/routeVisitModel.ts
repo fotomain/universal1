@@ -57,6 +57,27 @@ export function topRouteVisits(rows: DefRow<any>[] | null | undefined, limit: nu
     .slice(0, Math.max(0, limit));
 }
 
+/** '/pm/project/dashboard', 'pm/project/dashboard/index' and '/pm/project/dashboard/' are the same screen -> the key '/pm/project/dashboard' ('' for the root) */
+export const routeKeyOf = (route: string | null | undefined): string => {
+  const parts = String(route ?? '').split(/[?#]/)[0].split('/').filter(Boolean);
+  if (parts[parts.length - 1] === 'index') parts.pop();
+  return parts.length ? `/${parts.join('/')}` : '';
+};
+
+/** route -> the name the hamburger menu shows for it; the FIRST entry of a route wins (menu rows before the screen titles) */
+export function buildRouteLabels(entries: Array<{ route?: string | null; label?: string | null }>): Record<string, string> {
+  const labels: Record<string, string> = {};
+  for (const e of entries) {
+    const key = routeKeyOf(e.route);
+    const label = String(e.label ?? '').trim();
+    if (key && label && !(key in labels)) labels[key] = label;
+  }
+  return labels;
+}
+
+/** the name of a route as in the hamburger menu; a route the menu does not know keeps its path */
+export const routeLabelOf = (route: string, labels?: Record<string, string> | null): string => labels?.[routeKeyOf(route)] || route;
+
 /** a route that can be opened again (a route with ':id' needs a record) */
 export const isOpenableRoute = (route: string): boolean => !!route && !route.includes(':');
 

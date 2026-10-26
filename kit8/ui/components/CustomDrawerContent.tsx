@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './common/IconApp';
 import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
+import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
 
 interface MenuItem {
   id: string;
@@ -181,6 +182,14 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }],
     },
   ];
+
+  // route -> name for the Top 5 of the pinned part: the rows of this menu first (leaves of the groups too), then the title of every other screen of the drawer
+  const flatten = (items: MenuItem[]): MenuItem[] => items.flatMap((i) => (i.children ? flatten(i.children) : i.divider ? [] : [i]));
+  const screenTitles = ((props as any).state?.routes || []).map((r: any) => {
+    const o = (props as any).descriptors?.[r.key]?.options;
+    return { route: r.name, label: typeof o?.drawerLabel === 'string' ? o.drawerLabel : o?.title };
+  });
+  const routeLabels = buildRouteLabels([...flatten(mainNavItems), ...screenTitles]);
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
@@ -412,8 +421,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         {mainNavItems.map(renderNavEntry)}
       </DrawerContentScrollView>
 
-      {/* Pinned bottom section of the left menu: user profile, settings, language, theme */}
-      <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} />
+      {/* Pinned bottom section of the left menu: Top 5 visited routes, user profile, settings, language, theme */}
+      <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} routeLabels={routeLabels} />
     </View>
   );
 }

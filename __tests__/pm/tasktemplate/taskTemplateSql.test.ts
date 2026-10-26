@@ -45,6 +45,12 @@ describe('access: the whole organization reads, nobody writes but the RPCs', () 
   });
 });
 
+describe('the task a template was saved from', () => {
+  it("the header remembers it (the list \"Templates saved\" of the task menu filters by it)", () => {
+    expect(code40).toContain("'templateSourceTaskGUID', v_src.\"rowGUID\",");
+  });
+});
+
 describe('what is not copied', () => {
   it('the keys of ONE project are cut from the tasks, the posting state and the sums in the project currencies from the lines', () => {
     for (const k of ['startAt', 'manualStartAt', 'lastEditPlace', 'customColumns', 'taskIsSubproject', 'taskSubprojectGUID']) expect(code40).toContain(`- '${k}'`);

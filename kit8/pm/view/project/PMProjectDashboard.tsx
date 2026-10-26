@@ -44,7 +44,7 @@ import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
-import { openFillFromTemplate, openSaveToTemplate, PMTaskTemplateWindows } from '../../tasktemplate';
+import { openFillFromTemplate, openSaveToTemplate, openSavedTemplates, PMTaskTemplateWindows } from '../../tasktemplate';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 import { useDashboardDeepLink } from './useDashboardDeepLink';
@@ -177,6 +177,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
       a.push({ icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(sel) });
       a.push({ icon: 'bookmark-plus-outline', label: 'Save to template', onPress: () => openSaveToTemplate(sel) });
       a.push({ icon: 'content-paste', label: 'Fill from template', onPress: () => openFillFromTemplate(sel) });
+      a.push({ icon: 'bookmark-multiple-outline', label: 'Templates saved', onPress: () => openSavedTemplates(sel) });
       a.push({ icon: 'content-copy', label: 'Copy task info', onPress: () => crud.copyTaskInfo(sel) });
       a.push({ icon: 'fingerprint', label: 'Copy GUID', onPress: () => crud.copyTaskGUID(sel) });
       a.push({ icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(sel) });

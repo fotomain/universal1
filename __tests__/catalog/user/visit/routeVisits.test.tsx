@@ -52,6 +52,13 @@ describe('RouteVisitsTop', () => {
     expect(items.map((e) => e.textContent)).toEqual(['/b9', '/g8', '/d6', '/c4', '/e3']);
   });
 
+  it('shows the name of the hamburger menu for a route it knows, the path for the others', () => {
+    mockRows = [row('/pm/project/dashboard', 9), row('/other/screen', 2)];
+    mount(<RouteVisitsTop routeLabels={{ '/pm/project/dashboard': 'Project Dashboard' }} />);
+    expect(q('route-visits-top-g/pm/project/dashboard')!.textContent).toBe('Project Dashboard9');
+    expect(q('route-visits-top-g/other/screen')!.textContent).toBe('/other/screen2');
+  });
+
   it('a row with a route that can be opened calls onSelectRoute; a route with :id does not', () => {
     mockRows = [row('/b', 9), row('/p/edit/:id', 5)];
     const onSelectRoute = jest.fn();

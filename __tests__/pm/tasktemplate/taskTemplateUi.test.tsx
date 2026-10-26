@@ -31,7 +31,7 @@ const tpl = (guid: string, title: string, owner: string, json: Record<string, an
 
 beforeEach(() => {
   mockRows = [];
-  act(() => usePMTaskTemplateStore.setState({ savePrompt: null, fillPickerTaskGUID: null, busy: false }));
+  act(() => usePMTaskTemplateStore.setState({ savePrompt: null, fillPickerTaskGUID: null, savedListTaskGUID: null, busy: false }));
 });
 afterEach(() => {
   cleanupUI();
@@ -48,21 +48,34 @@ describe('the task menu', () => {
     act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 100, y: 80, source: 'tree' }));
     return t;
   }
-  it('has "Save to template" and "Fill from template", after Duplicate and before Copy task info', () => {
+  it('has the submenu "Templates" after Duplicate and before Copy task info, with Save to template… · Fill from template… · Templates saved', () => {
     openMenu();
-    expectInOrder(['pm-row-menu-duplicate', 'pm-row-menu-save-to-template', 'pm-row-menu-fill-from-template', 'pm-row-menu-copy-info']);
-    expect(textOf('pm-row-menu-save-to-template')).toContain('Save to template');
-    expect(textOf('pm-row-menu-fill-from-template')).toContain('Fill from template');
+    expectInOrder(['pm-row-menu-duplicate', 'pm-row-menu-templates', 'pm-row-menu-copy-info']);
+    expect(textOf('pm-row-menu-templates')).toContain('Templates');
+    expect(q('pm-row-menu-save-to-template')).toBeNull(); // inside the submenu
+    press('pm-row-menu-templates');
+    expectInOrder(['pm-row-menu-save-to-template', 'pm-row-menu-fill-from-template', 'pm-row-menu-templates-saved']);
+    expect(textOf('pm-row-menu-save-to-template')).toContain('Save to template…');
+    expect(textOf('pm-row-menu-fill-from-template')).toContain('Fill from template…');
+    expect(textOf('pm-row-menu-templates-saved')).toContain('Templates saved');
   });
-  it('Save to template opens the title window with the name of the task; Fill from template opens the picker for the task; the menu closes', () => {
+  it('Save to template opens the title window with the name of the task; Fill from template opens the picker; Templates saved opens the list of this task; each closes the menu', () => {
     const t = openMenu();
+    press('pm-row-menu-templates');
     press('pm-row-menu-save-to-template');
     expect(usePMStore.getState().rowMenu).toBeNull();
     expect(usePMTaskTemplateStore.getState().savePrompt).toEqual({ mode: 'save', taskGUID: t.rowGUID, title: t.rowJSON.taskDescription, description: '' });
     act(() => usePMTaskTemplateStore.getState().setSavePrompt(null));
     act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 100, y: 80, source: 'tree' }));
+    press('pm-row-menu-templates');
     press('pm-row-menu-fill-from-template');
     expect(usePMTaskTemplateStore.getState().fillPickerTaskGUID).toBe(t.rowGUID);
+    act(() => usePMTaskTemplateStore.getState().setFillPickerTaskGUID(null));
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 100, y: 80, source: 'tree' }));
+    press('pm-row-menu-templates');
+    press('pm-row-menu-templates-saved');
+    expect(usePMStore.getState().rowMenu).toBeNull();
+    expect(usePMTaskTemplateStore.getState().savedListTaskGUID).toBe(t.rowGUID);
   });
 });
 
@@ -176,5 +189,43 @@ describe('the "Fill from template" picker', () => {
     expect(mockCommands.openRename).toHaveBeenCalledWith(rows[0]);
     await act(async () => { press('pm-task-template-delete-a'); });
     expect(mockCommands.removeTemplate).toHaveBeenCalledWith(rows[0]);
+  });
+});
+
+describe('"Templates saved": the list of the templates saved from THIS task', () => {
+  const open = (rows: any[], taskGUID = 'task-9') => {
+    mockRows = rows;
+    seedStore();
+    renderUI(<PMTaskTemplateWindows ownerGUID={OWNER} projectGUID="p1" />);
+    act(() => usePMTaskTemplateStore.getState().setSavedListTaskGUID(taskGUID));
+  };
+  it('lists only the templates whose source task is this task; no Fill, no Replace; Close', () => {
+    open([tpl('a', 'From here', OWNER, { templateSourceTaskGUID: 'task-9' }), tpl('b', 'From elsewhere', OWNER, { templateSourceTaskGUID: 'task-1' }), tpl('c', 'Old one', OWNER)]);
+    expect(textOf('pm-task-template-saved-heading')).toBe('Templates saved');
+    expect(qa('pm-task-template-row-')).toEqual(['pm-task-template-row-a']);
+    expect(q('pm-task-template-fill-ok')).toBeNull();
+    expect(q('pm-task-template-replace')).toBeNull();
+    expect(textOf('pm-task-template-fill-cancel')).toBe('Close');
+  });
+  it('says so when nothing was saved from the task; your own templates can be renamed / deleted here too', async () => {
+    open([tpl('b', 'From elsewhere', OWNER, { templateSourceTaskGUID: 'task-1' })]);
+    expect(textOf('pm-task-template-empty')).toContain('Nothing was saved from this task');
+    cleanupUI();
+    const rows = [tpl('a', 'From here', OWNER, { templateSourceTaskGUID: 'task-9' })];
+    open(rows);
+    mockCommands.openRename = jest.fn();
+    mockCommands.removeTemplate = jest.fn(async () => true);
+    press('pm-task-template-rename-a');
+    expect(mockCommands.openRename).toHaveBeenCalledWith(rows[0]);
+    await act(async () => { press('pm-task-template-delete-a'); });
+    expect(mockCommands.removeTemplate).toHaveBeenCalledWith(rows[0]);
+  });
+  it('Close closes the list (not the fill picker)', () => {
+    open([]);
+    mockCommands.closeSavedList = jest.fn();
+    mockCommands.closeFillPicker = jest.fn();
+    press('pm-task-template-fill-cancel');
+    expect(mockCommands.closeSavedList).toHaveBeenCalled();
+    expect(mockCommands.closeFillPicker).not.toHaveBeenCalled();
   });
 });

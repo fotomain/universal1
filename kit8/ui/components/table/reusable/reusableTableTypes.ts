@@ -480,6 +480,8 @@ export interface ReusableTableProps {
    * uxuiTable.inlineEdit = false a click on a row does too. It gets EditRowModalCardProps.
    */
   EditRowModalCard?: ComponentType<EditRowModalCardProps>;
+  /** more commands in the three dots menu of the table bar (after Export / Share): the table of the lines of a task adds Save to template / Fill from template */
+  barMenuItems?: (close: () => void) => PMMenuItemProps[];
   /** more commands at the end of the row menu */
   extraMenuItems?: (row: ReusableTableRow, close: () => void) => PMMenuItemProps[];
   /** called after every change the user made (create / update / sql_for_delete / reorder) */

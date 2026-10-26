@@ -63,6 +63,8 @@ SELECT tt.eq((SELECT "rowJSON"->>'templateTitle' FROM public.task_template_heade
 SELECT tt.eq((SELECT ("rowJSON"->>'templateRowCount')::int FROM public.task_template_header WHERE "rowGUID" = :'tpl'), 3, 'the stage + its 2 tasks are saved (3 rows)');
 SELECT tt.eq((SELECT ("rowJSON"->>'templateLineCount')::int FROM public.task_template_header WHERE "rowGUID" = :'tpl'), 4, 'the 4 lines of the tasks are saved');
 SELECT tt.eq((SELECT "rowJSON"->>'templateKind' FROM public.task_template_header WHERE "rowGUID" = :'tpl'), 'stage', 'the kind of the top row is kept');
+SELECT tt.eq((SELECT "rowJSON"->>'templateSourceTaskGUID' FROM public.task_template_header WHERE "rowGUID" = :'tpl'), :'s', 'the template remembers the task it was saved from');
+SELECT tt.eq((SELECT count(*) FROM public.task_template_header WHERE "rowJSON"->>'templateSourceTaskGUID' = :'s'), 1::bigint, '... so "Templates saved" of that task finds exactly this one');
 SELECT tt.eq((SELECT count(*) FROM public.task_template_dependency WHERE "rowTemplateGUID" = :'tpl'), 1::bigint, 'the link inside the stage is saved, the link to a task outside it is not');
 SELECT tt.eq((SELECT count(*) FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowParentGUID" IS NULL), 1::bigint, 'one top row');
 SELECT tt.eq((SELECT "rowGUID" FROM public.task_template_task WHERE "rowTemplateGUID" = :'tpl' AND "rowParentGUID" IS NULL), :'s'::uuid, '... the row that was saved');

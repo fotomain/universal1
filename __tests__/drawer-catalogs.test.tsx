@@ -288,6 +288,14 @@ it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, setting
   expect(pinned).not.toBeNull();
   expect(pinned.querySelector('[data-testid="route-visits-top-mock"]')).not.toBeNull();
   expect(mockTopProps.length).toBeGreaterThan(0);
+  // the Top 5 stands FIRST in the pinned part, named like the menu rows
+  expect(pinned.firstElementChild!.getAttribute('data-testid')).toBe('route-visits-top-mock');
+  const labels = mockTopProps[mockTopProps.length - 1].routeLabels;
+  expect(labels['/pm/project/dashboard']).toBe('Project Dashboard');
+  expect(labels['/catalog/money/account']).toBe('Money accounts');
+  expect(labels['/user/visits']).toBe('Routes visits');
+  expect(labels['/user/userprofile']).toBe('menu.userProfile'); // signed in
+  expect(labels['/settings']).toBe('menu.settings');
   act(() => mockTopProps[mockTopProps.length - 1].onSelectRoute('/catalog/money/account'));
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });

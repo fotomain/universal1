@@ -22,6 +22,7 @@ import PMUndoProvider from '../../undo/PMUndoProvider';
 import PMApproveYesNoCancelModalWindow from '../../../inner/PMApproveYesNoCancelModalWindow';
 import { PMDialogButton } from '../../../inner/buttons';
 import { PMTooltipLayer } from '../../../inner/tooltip/PMTooltip';
+import { PMTaskTemplateWindows } from '../../../tasktemplate';
 import { pmT, usePMLanguage } from '../../../i18n/pmT';
 import PMTaskEditModal from '../PMTaskEditModal';
 import PMTaskEditView from '../finances/PMTaskEditView';
@@ -136,6 +137,8 @@ function PMTaskEditWindowInner({ taskGUID, projectGUID: projectHint, tab: initia
         </View>
       )}
       <PMApproveYesNoCancelModalWindow />
+      {/* task templates: the windows of "Save to template" / "Fill from template" (three dots menu of the lines table) */}
+      <PMTaskTemplateWindows ownerGUID={ownerGUID} projectGUID={projectGUID} />
       <PMTooltipLayer />
     </View>
   );

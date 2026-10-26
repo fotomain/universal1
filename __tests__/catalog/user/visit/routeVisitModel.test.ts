@@ -64,3 +64,26 @@ describe('route visits model', () => {
     expect(formatLastVisit('2026-10-26T14:05:00')).toBe('2026-10-26 14:05');
   });
 });
+
+describe('route names like the hamburger menu', () => {
+  const { routeKeyOf, buildRouteLabels, routeLabelOf } = require('../../../../kit8/catalog/user/visit/routeVisitModel');
+  it('routeKeyOf: the same screen written three ways has one key', () => {
+    expect(routeKeyOf('pm/project/dashboard')).toBe('/pm/project/dashboard');
+    expect(routeKeyOf('/pm/project/dashboard/')).toBe('/pm/project/dashboard');
+    expect(routeKeyOf('pm/project/dashboard/index')).toBe('/pm/project/dashboard');
+    expect(routeKeyOf('')).toBe('');
+  });
+  it('the first name of a route wins; an unknown route keeps its path', () => {
+    const labels = buildRouteLabels([
+      { route: 'pm/project/dashboard', label: 'Project Dashboard' },
+      { route: 'pm/project/dashboard/index', label: 'Projects' },
+      { route: 'user/signin/index', label: 'Sign In' },
+      { route: 'x', label: '' },
+    ]);
+    expect(routeLabelOf('/pm/project/dashboard', labels)).toBe('Project Dashboard');
+    expect(routeLabelOf('/user/signin', labels)).toBe('Sign In');
+    expect(routeLabelOf('/x', labels)).toBe('/x');
+    expect(routeLabelOf('/unknown/:id', labels)).toBe('/unknown/:id');
+    expect(routeLabelOf('/a', undefined)).toBe('/a');
+  });
+});

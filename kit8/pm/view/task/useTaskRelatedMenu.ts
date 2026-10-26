@@ -1,5 +1,5 @@
 // useTaskRelatedMenu - the two submenus of the Task context menu (PMTaskRowMenu) and of the line context menu of the Task Edit (Finances) table (PMProjectTaskInputCRUD), placed BEFORE "Delete":
-//   "Create based on this"   Fact input · Vendor Invoice · Purchase Order · Payment fact (a NEW draft for the task: the lines come from "Get from plan") · Time sheet (always a NEW draft of the user's work center for the current month, a line for the task) · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
+//   "Create based on this"   (Fact input · Vendor Invoice · Purchase Order - not in the Task menu, whose own items they are: directDocumentItems) Payment fact (a NEW draft for the task: the lines come from "Get from plan") · Time sheet (always a NEW draft of the user's work center for the current month, a line for the task) · Customer Invoice (only while the project switch customerInvoiceFunctionalityEnabled is on, made from the Deliverable = Revenue lines) · Subproject (only while the project switch subprojectsFunctionalityEnabled is on: it creates the project "Subproject of <task>", links it
 //                            to the task and opens its board in a new browser window - kit8/pm/subproject/useCreateSubproject)
 //   "Go to"                  Timeline data (the BUDGETS view of the dashboard - the posted days, on its Timeline tab - in a NEW browser window, filtered for the task line when the menu is a line menu:
 //                            /pm/project/dashboard?view=budgets&tab=TabPlanTimeline&lineGUID) · Vendor invoices · Customer invoices (switch on) · Payment facts · Purchase orders · Product receipts · Time sheets · Fact input (the document LISTS, in a NEW browser window on the web, filtered for the task - or for the task line when the menu is a line menu: /pm/vendor-invoice/list?taskGUID&taskLineGUID,
@@ -43,6 +43,8 @@ export interface TaskRelatedMenuCtx {
   projectRowJSON?: Record<string, any> | null;
   /** a revenue line has no vendor (and no purchase order) */
   noVendor?: boolean;
+  /** the Task menu has Facts input / Vendor Invoice / Purchase Order as items of its own: the submenu "Create based on this" does not repeat them (the line menu and the toolbar icon of the Finances table have no such items: they keep them) */
+  directDocumentItems?: boolean;
   /** the line menu may ask "this line / all the lines" first instead of creating the customer invoice of the line at once */
   onCustomerInvoice?: () => void;
 }
@@ -75,9 +77,9 @@ export function useTaskRelatedMenu() {
     const canCreateSub = !ctx.taskRowJSON && subprojectsOn && createSubprojectBlock(project?.rowJSON, task.rowJSON) !== 'notTask';
 
     const create: PMMenuItemProps[] = [
-      { testID: `${idPrefix}-create-fact`, label: 'Fact input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID, projectGUID, ...(taskLineGUID ? { taskLineGUID, genus } : {}) }, { newWindow: true })) },
-      ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-create-vendor-invoice`, label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => (ctx.onVendorInvoice ? ctx.onVendorInvoice() : void startVendorInvoice({ taskGUID, projectGUID }))) }]),
-      ...(ctx.noVendor ? [] : [{ testID: `${idPrefix}-create-purchase-order`, label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => (ctx.onPurchaseOrder ? ctx.onPurchaseOrder() : void startPurchaseOrder({ taskGUID, projectGUID }))) }]),
+      ...(ctx.directDocumentItems ? [] : [{ testID: `${idPrefix}-create-fact`, label: 'Fact input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID, projectGUID, ...(taskLineGUID ? { taskLineGUID, genus } : {}) }, { newWindow: true })) }]),
+      ...(ctx.noVendor || ctx.directDocumentItems ? [] : [{ testID: `${idPrefix}-create-vendor-invoice`, label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => (ctx.onVendorInvoice ? ctx.onVendorInvoice() : void startVendorInvoice({ taskGUID, projectGUID }))) }]),
+      ...(ctx.noVendor || ctx.directDocumentItems ? [] : [{ testID: `${idPrefix}-create-purchase-order`, label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => (ctx.onPurchaseOrder ? ctx.onPurchaseOrder() : void startPurchaseOrder({ taskGUID, projectGUID }))) }]),
       // Payment fact: a bank transaction that pays this task; the line menu of a Payments plan row is not here (the plan has its own tab)
       ...(!taskLineGUID ? [{ testID: `${idPrefix}-create-payment-fact`, label: 'Payment fact', icon: 'account_balance', onPress: run(() => { void startPaymentFact({ taskGUID, projectGUID }); }) }] : []),
       ...(customerOn ? [{ testID: `${idPrefix}-create-customer-invoice`, label: 'Customer Invoice', icon: 'payments', onPress: run(() => (ctx.onCustomerInvoice ? ctx.onCustomerInvoice() : void startCustomerInvoice({ taskGUID, projectGUID, ...(taskLineGUID ? { lineGUIDs: [taskLineGUID] } : {}) }))) }] : []),

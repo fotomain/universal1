@@ -7,6 +7,7 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import LanguageSelectorComponent from './LanguageSelectorComponent';
 import DarkThemeSwitchComponent from './DarkThemeSwitchComponent';
 import RouteVisitsTop from '../../catalog/user/visit/RouteVisitsTop';
+import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
 
 /** a row of the pinned part (same shape as a row of the scrolling part of the hamburger menu) */
 export interface UnmovableMenuItem {
@@ -23,13 +24,15 @@ interface HamburgerMenuUnmovableProps {
   onSelectLanguage?: () => void;
   /** a route of the Top 5 was pressed */
   onSelectRoute?: (route: string) => void;
+  /** route key -> the name of the menu row of the scrolling part (the rows of this part are added here) */
+  routeLabels?: Record<string, string>;
 }
 
 /**
- * The part of the hamburger menu that does NOT scroll with the navigation list: the user profile
- * (Sign In while signed out), Settings, the Top 5 of the most visited routes (kit8/catalog/user/visit), the language input and the dark / light theme switch.
+ * The part of the hamburger menu that does NOT scroll with the navigation list: FIRST the Top 5 of the most visited routes (kit8/catalog/user/visit,
+ * named like the menu rows), then the user profile (Sign In while signed out), Settings, the language input and the dark / light theme switch.
  */
-export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, onSelectRoute }: HamburgerMenuUnmovableProps) {
+export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, onSelectRoute, routeLabels }: HamburgerMenuUnmovableProps) {
   const { t } = useTranslation();
   const { themeColors } = useDesignSystem();
   const isLoggedIn = useSelector(selectIsLoggedIn);
@@ -42,10 +45,13 @@ export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, o
     { id: 'settings', label: t('menu.settings'), icon: 'settings', route: 'settings' },
   ];
 
+  // the names of this part first, then the rows of the scrolling part
+  const labels = buildRouteLabels([...items, ...Object.entries(routeLabels || {}).map(([route, label]) => ({ route, label }))]);
+
   return (
     <View testID="hamburger-unmovable" style={[styles.container, { borderTopColor: themeColors.border }]}>
+      <RouteVisitsTop onSelectRoute={onSelectRoute} routeLabels={labels} />
       {items.map(renderItem)}
-      <RouteVisitsTop onSelectRoute={onSelectRoute} />
       <View style={styles.language}>
         <LanguageSelectorComponent onSelectLanguage={onSelectLanguage} />
       </View>

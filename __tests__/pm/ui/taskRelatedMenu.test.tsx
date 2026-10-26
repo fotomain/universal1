@@ -69,24 +69,25 @@ describe('Task menu: the two submenus sit BEFORE Delete, "Go to" right after "Cr
 });
 
 describe('Create based on this', () => {
-  it('Fact input and Vendor Invoice (the project switch Subprojects is off: no Subproject)', () => {
+  it('the Task menu has Facts input / Vendor Invoice / Purchase Order as items of its own: the submenu does not repeat them (no Subproject while the switch is off)', () => {
     const t = open('Task 111');
     press('pm-row-menu-create');
-    expect(q('pm-row-menu-create-fact')).not.toBeNull();
-    expect(q('pm-row-menu-create-vendor-invoice')).not.toBeNull();
+    expect(q('pm-row-menu-create-fact')).toBeNull();
+    expect(q('pm-row-menu-create-vendor-invoice')).toBeNull();
+    expect(q('pm-row-menu-create-purchase-order')).toBeNull();
     expect(q('pm-row-menu-create-subproject')).toBeNull();
-    press('pm-row-menu-create-fact');
-    expect(mockFact).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID }, { newWindow: true });
-    expect(usePMStore.getState().rowMenu).toBeNull();            // the item closes the menu
+    expect(q('pm-row-menu-create-payment-fact')).not.toBeNull();
+    // the three are still one click away, in the menu itself
+    expect(q('pm-row-menu-facts-input')).not.toBeNull();
     act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
-    press('pm-row-menu-create');
-    press('pm-row-menu-create-vendor-invoice');
-    expect(mockInvoice).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID });
+    press('pm-row-menu-facts-input');
+    expect(mockFact).toHaveBeenCalledWith({ taskGUID: t.rowGUID });
     act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
-    press('pm-row-menu-create');
-    expect(q('pm-row-menu-create-purchase-order')).not.toBeNull();       // after Vendor Invoice
-    press('pm-row-menu-create-purchase-order');
-    expect(mockOrder).toHaveBeenCalledWith({ taskGUID: t.rowGUID, projectGUID: t.projectGUID });
+    press('pm-row-menu-vendor-invoice');
+    expect(mockInvoice).toHaveBeenCalledWith({ taskGUID: t.rowGUID });
+    act(() => usePMStore.getState().setRowMenu({ guid: t.rowGUID, x: 1, y: 1, source: 'tree' }));
+    press('pm-row-menu-purchase-order');
+    expect(mockOrder).toHaveBeenCalledWith({ taskGUID: t.rowGUID });
   });
   it('Subproject is there only while the project switch subprojectsFunctionalityEnabled is on; it creates and links the project of THIS task', () => {
     const t = open('Task 111', { project: { subprojectsFunctionalityEnabled: true } });
@@ -109,7 +110,7 @@ describe('Create based on this', () => {
     open('Task 111', { project: { subprojectsFunctionalityEnabled: true }, task: { rowKind: 'milestone' } });
     press('pm-row-menu-create');
     expect(q('pm-row-menu-create-subproject')).toBeNull();
-    expect(q('pm-row-menu-create-fact')).not.toBeNull();
+    expect(q('pm-row-menu-create-payment-fact')).not.toBeNull();
   });
 });
 
@@ -133,7 +134,7 @@ describe('Time sheet', () => {
   it('the Time sheet item comes after Purchase Order; a milestone has no time sheet', () => {
     open('Task 111');
     press('pm-row-menu-create');
-    expectInOrder(['pm-row-menu-create-purchase-order', 'pm-row-menu-create-timesheet']);
+    expectInOrder(['pm-row-menu-create-payment-fact', 'pm-row-menu-create-timesheet']);
   });
   it('a stage has no submenus at all', () => {
     open('Stage 1');
@@ -216,7 +217,7 @@ describe('Customer invoice (project switch customerInvoiceFunctionalityEnabled, 
   it('the switch OFF: neither item', () => {
     open('Task 111', { project: { customerInvoiceFunctionalityEnabled: false } });
     press('pm-row-menu-create');
-    expect(q('pm-row-menu-create-fact')).not.toBeNull();
+    expect(q('pm-row-menu-create-payment-fact')).not.toBeNull();
     expect(q('pm-row-menu-create-customer-invoice')).toBeNull();
     cleanupUI();
     open('Task 111', { project: { customerInvoiceFunctionalityEnabled: false } });
@@ -239,11 +240,11 @@ describe('Payment fact (a bank transaction that pays the task)', () => {
     press('pm-row-menu-goto-payment-facts');
     expect(mockPush).toHaveBeenLastCalledWith({ pathname: '/pm/payment-fact/list', params: { taskGUID: t.rowGUID } });
   });
-  it('the items come after Purchase Order and before Customer Invoice (Create), and after Customer invoices (Go to)', () => {
+  it('the items come before Customer Invoice (Create), and after Customer invoices (Go to)', () => {
     open('Task 111');
     press('pm-row-menu-create');
     const create = ids().filter((i) => /^pm-row-menu-create-/.test(i));
-    expect(create.indexOf('pm-row-menu-create-payment-fact')).toBeGreaterThan(create.indexOf('pm-row-menu-create-purchase-order'));
+    expect(create.indexOf('pm-row-menu-create-payment-fact')).toBe(0); // first: Fact input / Vendor Invoice / Purchase Order are items of the menu
     expect(create.indexOf('pm-row-menu-create-payment-fact')).toBeLessThan(create.indexOf('pm-row-menu-create-customer-invoice'));
   });
 });

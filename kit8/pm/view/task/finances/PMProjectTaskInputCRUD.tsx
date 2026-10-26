@@ -64,6 +64,7 @@ import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
 import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
+import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
 
 export interface PMProjectTaskInputCRUDProps {
@@ -94,12 +95,13 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const picker = usePMPicker();
   // line mode: the table's check boxes choose the line for the button "Select this line" (the row menu item does the same for one row)
   const [checkedLines, setCheckedLines] = useState<string[]>([]);
-  // the toolbar icons "Create based on" / "Go to" (after Recalculate): a menu under the icon with the items of useTaskRelatedMenu - for the ONE checked line when exactly one is checked, else for the task
-  const [toolbarMenu, setToolbarMenu] = useState<{ kind: 'create' | 'goto'; x: number; y: number } | null>(null);
+  // the toolbar icons "Create based on" / "Go to" / "Templates" (after Recalculate): a menu under the icon with the items of useTaskRelatedMenu - for the ONE checked line when exactly one is checked, else for the task
+  const [toolbarMenu, setToolbarMenu] = useState<{ kind: 'create' | 'goto' | 'templates'; x: number; y: number } | null>(null);
   const createAnchor = useRef<View>(null);
   const gotoAnchor = useRef<View>(null);
-  const openToolbarMenu = (kind: 'create' | 'goto') => {
-    const ref = kind === 'create' ? createAnchor : gotoAnchor;
+  const templatesAnchor = useRef<View>(null);
+  const openToolbarMenu = (kind: 'create' | 'goto' | 'templates') => {
+    const ref = kind === 'create' ? createAnchor : kind === 'goto' ? gotoAnchor : templatesAnchor;
     if (ref.current && (ref.current as any).measureInWindow) (ref.current as any).measureInWindow((x: number, y: number, _w: number, h: number) => setToolbarMenu({ kind, x, y: y + h + 4 }));
     else setToolbarMenu({ kind, x: 120, y: 120 });
   };
@@ -293,6 +295,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           key={def.genus}
           testID={`${testID}-table`}
           entityName={TASK_LINE_ENTITY}
+          // three dots menu of the table: the task as a template / a template into the task (kit8/pm/tasktemplate; the windows are mounted by the screen)
+          barMenuItems={(close) => [taskTemplatesSubmenu(testID, taskGUID, close)]}
           crudListTitle={pmT(def.title)}
           itemLabel="Line"
           listOwnerGUID={taskGUID}
@@ -359,6 +363,10 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
               <View ref={gotoAnchor} collapsable={false}>
                 <PMIconButton tipScope="app" testID={`${testID}-goto`} icon="arrow_forward" title={checkedLines.length === 1 ? pmT('Go to (documents of the checked line)') : pmT('Go to (documents of this task)')} color={c.text} onPress={() => openToolbarMenu('goto')} />
               </View>
+              {/* Templates: Save to template… · Fill from template… · Templates saved - of the TASK (kit8/pm/tasktemplate) */}
+              <View ref={templatesAnchor} collapsable={false}>
+                <PMIconButton tipScope="app" testID={`${testID}-templates`} icon="library_books" title={pmT('Templates of this task: save, fill, saved')} color={c.text} onPress={() => openToolbarMenu('templates')} />
+              </View>
             </>
           )}
           realtime
@@ -370,8 +378,10 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           taskGUID, projectGUID, ...(line ? { taskLineGUID: line.rowGUID, genus: def.genus, noVendor: def.genus === 'revenueGenus', onVendorInvoice: () => setVendorInvoiceLine(line.rowGUID), onPurchaseOrder: () => setPurchaseOrderLine(line.rowGUID) } : {}),
           idPrefix: `${testID}-toolbar`, close: () => setToolbarMenu(null),
         });
-        const shown = items.find((it) => it.testID.endsWith(toolbarMenu.kind === 'create' ? '-create' : '-goto'))?.submenu ?? [];
-        return shown.length ? <PMContextMenu testID={`${testID}-toolbar-menu`} x={toolbarMenu.x} y={toolbarMenu.y} caption={line ? pmT('Line') : pmT('Task')} items={shown} onClose={() => setToolbarMenu(null)} /> : null;
+        const shown = toolbarMenu.kind === 'templates'
+          ? taskTemplatesSubmenu(`${testID}-toolbar`, taskGUID, () => setToolbarMenu(null)).submenu ?? []
+          : items.find((it) => it.testID.endsWith(toolbarMenu.kind === 'create' ? '-create' : '-goto'))?.submenu ?? [];
+        return shown.length ? <PMContextMenu testID={`${testID}-toolbar-menu`} x={toolbarMenu.x} y={toolbarMenu.y} caption={toolbarMenu.kind === 'templates' ? pmT('Task') : line ? pmT('Line') : pmT('Task')} items={shown} onClose={() => setToolbarMenu(null)} /> : null;
       })()}
       <VendorInvoiceScopeModal
         testID={`${testID}-vendor-scope`}

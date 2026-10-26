@@ -20,6 +20,8 @@ export interface PMTaskTemplateJSON {
   templateDescription?: string;
   /** the kind of the top row */
   templateKind: PMTaskTemplateKind;
+  /** the task it was saved from ("Templates saved" of the task menu lists the templates of one task; a template saved before this key has none) */
+  templateSourceTaskGUID?: string;
   templateSourceTaskName?: string;
   templateSourceProjectGUID?: string;
   templateSourceProjectName?: string;

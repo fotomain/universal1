@@ -63,7 +63,7 @@ export default function Monitor01TaskMenu({ menu, onClose, testID = 'monitor01-t
     { testID: id('facts-input'), label: 'Facts input', icon: 'fact_check', onPress: run(() => openFactInput({ taskGUID, projectGUID })) },
     { testID: id('vendor-invoice'), label: 'Vendor Invoice', icon: 'receipt_long', onPress: run(() => { void startVendorInvoice({ taskGUID, projectGUID }); }) },
     { testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID, projectGUID }); }) },
-    ...(task ? related({ taskGUID, projectGUID, idPrefix: testID, close: onClose, taskRowJSON: task, projectRowJSON: project }) : []),
+    ...(task ? related({ taskGUID, projectGUID, idPrefix: testID, close: onClose, directDocumentItems: true, taskRowJSON: task, projectRowJSON: project }) : []),
   ];
   return <PMContextMenu testID={testID} x={menu.x} y={menu.y} caption={row.taskName} items={items} onClose={onClose} />;
 }

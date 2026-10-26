@@ -835,6 +835,23 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
     expect(mockCreateTimesheet).toHaveBeenCalledWith('t1', null);
     expect(q(`${T}-toolbar-menu`)).toBeNull();                                       // an item closes the menu
   });
+  it('the bar has the icon "Templates" (after "Go to"): a menu with Save to template… · Fill from template… · Templates saved, for the TASK', async () => {
+    const { usePMTaskTemplateStore } = require('../../../../../kit8/pm/tasktemplate/store/store_task_template');
+    mount({ lines: [line('a1', 'timeGenus', 1)] });
+    const ids = Array.from(document.querySelectorAll('[data-testid]')).map((e) => String(e.getAttribute('data-testid')));
+    expect(ids.indexOf(`${T}-templates`)).toBeGreaterThan(ids.indexOf(`${T}-goto`));
+    press(`${T}-templates`);
+    await settle();
+    expect(q(`${T}-toolbar-menu`)).not.toBeNull();
+    expect(q(`${T}-toolbar-create-fact`)).toBeNull();                                // not the Create based on menu
+    expect(q(`${T}-toolbar-save-to-template`)).not.toBeNull();
+    expect(q(`${T}-toolbar-fill-from-template`)).not.toBeNull();
+    expect(q(`${T}-toolbar-templates-saved`)).not.toBeNull();
+    press(`${T}-toolbar-templates-saved`);
+    expect(usePMTaskTemplateStore.getState().savedListTaskGUID).toBe('t1');
+    expect(q(`${T}-toolbar-menu`)).toBeNull();                                       // an item closes the menu
+    act(() => usePMTaskTemplateStore.getState().setSavedListTaskGUID(null));
+  });
   it('"Go to" opens the lists of the task (Time sheets ...)', async () => {
     mount({ lines: [line('a1', 'timeGenus', 1)] });
     press(`${T}-goto`);

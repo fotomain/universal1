@@ -1,6 +1,8 @@
 // Commands + list of the task templates (documentation/TASK_TEMPLATE_WBS.html).
 //   openSaveToTemplate(task)      "Save to template" of the task menus: opens the title window (plain functions: the menus need no providers)
 //   openFillFromTemplate(task)    "Fill from template": opens the picker
+//   openSavedTemplates(task)      "Templates saved": the list of the templates saved from this task
+//   taskTemplatesSubmenu(...)     the submenu "Templates" of the task menus (the three items above)
 //   useTaskTemplateCommands()     save · fill (asks first when it replaces) · rename · remove; refreshes the list / the project after it
 //   useTaskTemplatesQuery()       the templates of the organization (newest first)
 
@@ -13,6 +15,7 @@ import { usePMStore } from '../../store/store_pm';
 import { errorMessage } from '../../crud/api/apiUtils';
 import { pmKeys } from '../../crud/shared/queryShared';
 import { approvePM } from '../../inner/PMApproveYesNoCancelModalWindow';
+import type { PMMenuItemProps } from '../../inner/menu/PMMenuItem';
 import { createTaskTemplateApi, PMTaskTemplateApi } from '../api/taskTemplateApi';
 import { usePMTaskTemplateStore } from '../store/store_task_template';
 import { defaultTaskTemplateTitle, fillResultMessage, PMTaskTemplateFillResult, PMTaskTemplateRow, validateTaskTemplateTitle } from '../model/taskTemplateTypes';
@@ -41,6 +44,24 @@ export function openSaveToTemplate(taskGUID: string): void {
 /** "Fill from template": the picker of the templates of the organization. */
 export function openFillFromTemplate(taskGUID: string): void {
   usePMTaskTemplateStore.getState().setFillPickerTaskGUID(taskGUID);
+}
+
+/** "Templates saved": the list of the templates saved from this task (rename / delete of your own). */
+export function openSavedTemplates(taskGUID: string): void {
+  usePMTaskTemplateStore.getState().setSavedListTaskGUID(taskGUID);
+}
+
+/** The submenu "Templates" of the task menus: Save to template… · Fill from template… · Templates saved. `close` closes the menu first. */
+export function taskTemplatesSubmenu(idPrefix: string, taskGUID: string, close: () => void): PMMenuItemProps {
+  const run = (fn: (g: string) => void) => () => { close(); fn(taskGUID); };
+  return {
+    testID: `${idPrefix}-templates`, label: 'Templates', icon: 'library_books', onPress: () => {},
+    submenu: [
+      { testID: `${idPrefix}-save-to-template`, label: 'Save to template…', icon: 'library_add', onPress: run(openSaveToTemplate) },
+      { testID: `${idPrefix}-fill-from-template`, label: 'Fill from template…', icon: 'content_paste_go', onPress: run(openFillFromTemplate) },
+      { testID: `${idPrefix}-templates-saved`, label: 'Templates saved', icon: 'collections_bookmark', onPress: run(openSavedTemplates) },
+    ],
+  };
 }
 
 const snack = (message: string) => appDispatch(showSnackbar({ message }));
@@ -147,6 +168,7 @@ export function useTaskTemplateCommands(ownerGUID: string, projectGUID: string |
         st().setSavePrompt({ mode: 'rename', templateGUID: template.rowGUID, title: template.rowJSON.templateTitle, description: template.rowJSON.templateDescription ?? '' }),
       closeSavePrompt: () => st().setSavePrompt(null),
       closeFillPicker: () => st().setFillPickerTaskGUID(null),
+      closeSavedList: () => st().setSavedListTaskGUID(null),
       validateTitle: validateTaskTemplateTitle,
     };
   }, [api, qc, ownerGUID, projectGUID]);

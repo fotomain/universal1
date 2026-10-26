@@ -126,7 +126,11 @@ function SavePromptWindow({ commands }: { commands: PMTaskTemplateCommands }) {
 // ---- Fill from template ----------------------------------------------------------------------------------------------------------------------------------------------------------
 function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCommands; ownerGUID: string }) {
   const { themeColors: c } = useDesignSystem();
-  const taskGUID = usePMTaskTemplateStore((s) => s.fillPickerTaskGUID);
+  const fillGUID = usePMTaskTemplateStore((s) => s.fillPickerTaskGUID);
+  const savedGUID = usePMTaskTemplateStore((s) => s.savedListTaskGUID);
+  // "Templates saved" = the same window as a LIST of the templates saved from this task (no Replace, no Fill)
+  const saved = !!savedGUID;
+  const taskGUID = savedGUID ?? fillGUID;
   const busy = usePMTaskTemplateStore((s) => s.busy);
   const task = usePMStore((s) => (taskGUID ? s.tasksById[taskGUID] : undefined));
   const query = useTaskTemplatesQuery(!!taskGUID);
@@ -142,7 +146,8 @@ function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCom
     }
   }, [taskGUID]);
 
-  const rows = query.data?.rows ?? [];
+  const allRows = query.data?.rows ?? [];
+  const rows = useMemo(() => (saved ? allRows.filter((r) => r.rowJSON.templateSourceTaskGUID === taskGUID) : allRows), [allRows, saved, taskGUID]);
   const shown = useMemo(() => {
     const q = text.trim().toLowerCase();
     if (!q) return rows;
@@ -150,7 +155,7 @@ function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCom
   }, [rows, text]);
 
   if (!taskGUID) return null;
-  const close = () => commands.closeFillPicker();
+  const close = () => (saved ? commands.closeSavedList() : commands.closeFillPicker());
   const chosen: PMTaskTemplateRow | undefined = rows.find((r) => r.rowGUID === selected);
   const fill = async () => {
     if (!chosen || busy) return;
@@ -162,18 +167,19 @@ function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCom
     <Modal visible transparent animationType="fade" onRequestClose={close}>
       <View style={styles.overlay}>
         <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel={pmT('Cancel')} />
-        <View style={[styles.card, styles.pickerCard, { backgroundColor: c.surface, borderColor: c.border }]} testID="pm-task-template-fill-window">
+        <View style={[styles.card, styles.pickerCard, { backgroundColor: c.surface, borderColor: c.border }]} testID={saved ? 'pm-task-template-saved-window' : 'pm-task-template-fill-window'}>
           <View style={styles.header}>
             <View style={[styles.iconBubble, { backgroundColor: `${c.primary}1f` }]}>
               <IconApp testID="pm-task-template-fill-icon" name="content_paste_go" size={20} color={c.primary} />
             </View>
-            <Text style={[styles.title, { color: c.text }]} testID="pm-task-template-fill-heading">
-              {pmT('Fill from template')}
+            <Text style={[styles.title, { color: c.text }]} testID={saved ? 'pm-task-template-saved-heading' : 'pm-task-template-fill-heading'}>
+              {saved ? pmT('Templates saved') : pmT('Fill from template')}
             </Text>
           </View>
           <Text style={[styles.hint, { color: c.text }]}>
-            {task ? `${pmT('Into')}: ${task.rowJSON.taskDescription}. ` : ''}
-            {pmT('A template of one task adds its lines and data to the row; a template of a stage creates its rows inside the row.')}
+            {saved
+              ? `${task ? `${task.rowJSON.taskDescription}: ` : ''}${pmT('the templates saved from this task, for every user of the organization.')}`
+              : `${task ? `${pmT('Into')}: ${task.rowJSON.taskDescription}. ` : ''}${pmT('A template of one task adds its lines and data to the row; a template of a stage creates its rows inside the row.')}`}
           </Text>
           <TextInput
             testID="pm-task-template-search"
@@ -188,7 +194,7 @@ function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCom
             {query.data?.missing && <Text style={[styles.empty, { color: c.error }]}>{pmT('The task template tables are missing: run start1_sql_tables.sql and start2_sql_code.sql (PART 40).')}</Text>}
             {!query.isLoading && !query.data?.missing && shown.length === 0 && (
               <Text testID="pm-task-template-empty" style={[styles.empty, { color: c.text }]}>
-                {rows.length === 0 ? pmT('No task templates saved yet. Use "Save to template" in the menu of a task.') : pmT('Nothing found')}
+                {rows.length === 0 ? (saved ? pmT('Nothing was saved from this task yet. Use Templates → Save to template.') : pmT('No task templates saved yet. Use "Save to template" in the menu of a task.')) : pmT('Nothing found')}
               </Text>
             )}
             {shown.map((r) => {
@@ -223,19 +229,21 @@ function FillPickerWindow({ commands, ownerGUID }: { commands: PMTaskTemplateCom
               );
             })}
           </ScrollView>
-          {!!chosen && chosen.rowJSON.templateRowCount > PM_TASK_TEMPLATE_BIG_FROM && (
+          {!saved && !!chosen && chosen.rowJSON.templateRowCount > PM_TASK_TEMPLATE_BIG_FROM && (
             <Text testID="pm-task-template-big-note" style={[styles.hint, { color: c.text }]}>
               {pmT('A big template: filling it takes a few seconds.')}
             </Text>
           )}
-          <Pressable testID="pm-task-template-replace" onPress={() => setReplace(!replace)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: replace }}>
-            <IconApp name={replace ? 'check_box' : 'check_box_outline_blank'} size={22} color={replace ? c.primary : c.text} />
-            <Text style={[styles.checkText, { color: c.text }]}>{pmT('Replace what the row has now')}</Text>
-          </Pressable>
+          {!saved && (
+            <Pressable testID="pm-task-template-replace" onPress={() => setReplace(!replace)} style={styles.checkRow} accessibilityRole="checkbox" accessibilityState={{ checked: replace }}>
+              <IconApp name={replace ? 'check_box' : 'check_box_outline_blank'} size={22} color={replace ? c.primary : c.text} />
+              <Text style={[styles.checkText, { color: c.text }]}>{pmT('Replace what the row has now')}</Text>
+            </Pressable>
+          )}
           <View style={styles.actions}>
             <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-task-template-fill-cancel" kind="secondary" title={pmT('Cancel')} color={c.text} onPress={close} />
-            <PMDialogButton testID="pm-task-template-fill-ok" kind="primary" icon="content_paste_go" title={pmT('Fill')} loading={busy} disabled={busy || !chosen} onPress={fill} />
+            <PMDialogButton testID="pm-task-template-fill-cancel" kind="secondary" title={saved ? pmT('Close') : pmT('Cancel')} color={c.text} onPress={close} />
+            {!saved && <PMDialogButton testID="pm-task-template-fill-ok" kind="primary" icon="content_paste_go" title={pmT('Fill')} loading={busy} disabled={busy || !chosen} onPress={fill} />}
           </View>
         </View>
       </View>

@@ -1,4 +1,5 @@
-// RouteVisitsTop - the most visited routes of the user (top 5 of app_route_visits_turnover) as a short list: the route and its number of visits, nothing else.
+// RouteVisitsTop - the most visited routes of the user (top 5 of app_route_visits_turnover) as a short list: the route name and its number of visits, nothing else.
+// The route is shown by the name of the hamburger menu ("Project Dashboard", "Routes visits" ...): `routeLabels` (buildRouteLabels); a route the menu does not know shows its path.
 // Shown in the pinned part of the hamburger menu (kit8/ui/components/HamburgerMenuUnmovable). Draws nothing while signed out, while the Organization switch is off or while there is no visit.
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -6,17 +7,19 @@ import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { selectIsLoggedIn } from '../../../redux/activeUserSlice';
 import { useMyOrganization } from '../../organization/useMyOrganization';
-import { ROUTE_VISITS_TOP, isOpenableRoute, topRouteVisits } from './routeVisitModel';
+import { ROUTE_VISITS_TOP, isOpenableRoute, routeLabelOf, topRouteVisits } from './routeVisitModel';
 import { useRouteVisitData } from './useRouteVisitData';
 
 export interface RouteVisitsTopProps {
   limit?: number;
   /** a row was pressed (only a route that can be opened again) */
   onSelectRoute?: (route: string) => void;
+  /** route key -> the name the hamburger menu shows (buildRouteLabels) */
+  routeLabels?: Record<string, string>;
   testID?: string;
 }
 
-export default function RouteVisitsTop({ limit = ROUTE_VISITS_TOP, onSelectRoute, testID = 'route-visits-top' }: RouteVisitsTopProps) {
+export default function RouteVisitsTop({ limit = ROUTE_VISITS_TOP, onSelectRoute, routeLabels, testID = 'route-visits-top' }: RouteVisitsTopProps) {
   const { themeColors: c } = useDesignSystem();
   const isLoggedIn = useSelector(selectIsLoggedIn);
   const { numberOfVisitsEnabled } = useMyOrganization();
@@ -38,7 +41,7 @@ export default function RouteVisitsTop({ limit = ROUTE_VISITS_TOP, onSelectRoute
             onPress={() => onSelectRoute?.(item.route)}
             style={styles.row}
           >
-            <Text numberOfLines={1} style={[styles.route, { color: c.text }]}>{item.route}</Text>
+            <Text numberOfLines={1} style={[styles.route, { color: c.text }]}>{routeLabelOf(item.route, routeLabels)}</Text>
             <Text testID={`${testID}-${item.rowGUID}-count`} style={[styles.count, { color: c.primary }]}>{item.count}</Text>
           </TouchableOpacity>
         );
@@ -48,8 +51,8 @@ export default function RouteVisitsTop({ limit = ROUTE_VISITS_TOP, onSelectRoute
 }
 
 const styles = StyleSheet.create({
-  root: { paddingHorizontal: 16, paddingBottom: 4 },
+  root: { paddingHorizontal: 16, paddingBottom: 6 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 24 },
-  route: { flex: 1, fontSize: 12 },
-  count: { fontSize: 12, fontWeight: '700' },
+  route: { flex: 1, fontSize: 13 },
+  count: { fontSize: 13, fontWeight: '700' },
 });

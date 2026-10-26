@@ -63,12 +63,12 @@ const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTM
 const press = (id: string) => act(() => { const el = q(id); if (!el) throw new Error(`${id} not found`); el.click(); });
 const T = 'ft';
 const columns: VisualColumn[] = [{ key: 'n', title: '#', type: 'rowNumber' }, { key: 'name', title: 'Name', type: 'text', field: 'name' }];
-function mount() {
+function mount(extra: Record<string, any> = {}) {
   mockState = { uxuiState: { askBeforeDeletePost: false }, thing: { entityDataFromServer: [{ rowGUID: 'a', rowOwnerGUID: 'task', orderInList: 1, rowJSON: { name: 'x' } }], readSuccessful: 1 } };
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<ReusableTable testID={T} entityName="thing" listOwnerGUID="task" listParentGUID="*" visualColumns={columns} />));
+  act(() => root.render(<ReusableTable testID={T} entityName="thing" listOwnerGUID="task" listParentGUID="*" visualColumns={columns} {...extra} />));
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockEnv.dev = false; Object.keys(mockMenus).forEach((k) => delete mockMenus[k]); });
 
@@ -92,5 +92,22 @@ describe('the table name in the three dots menu', () => {
     mount();
     press(`${T}-more`);
     expect(mockMenus[`${T}-more-menu`].map((i) => i.testID)).toEqual([`${T}-more-export`, `${T}-more-share`]);
+  });
+});
+
+describe('barMenuItems: more commands in the three dots menu (the lines of a task: Save to template / Fill from template)', () => {
+  it('they come after Export and Share and before the table name; a press closes the menu first and then runs', () => {
+    mockEnv.dev = true;
+    const run = jest.fn();
+    mount({ barMenuItems: (close: () => void) => [{ testID: 'x-save', label: 'Save to template', icon: 'library_add', onPress: () => { close(); run('save'); } }, { testID: 'x-fill', label: 'Fill from template', icon: 'content_paste_go', onPress: () => run('fill') }] });
+    press(`${T}-more`);
+    expect(mockMenus[`${T}-more-menu`].map((i) => i.testID)).toEqual([`${T}-more-export`, `${T}-more-share`, 'x-save', 'x-fill', `${T}-more-table-name`]);
+    act(() => { mockMenus[`${T}-more-menu`].find((i) => i.testID === 'x-save').onPress(); });
+    expect(run).toHaveBeenCalledWith('save');
+  });
+  it('without the prop the menu is as before', () => {
+    mount();
+    press(`${T}-more`);
+    expect(mockMenus[`${T}-more-menu`]).toHaveLength(2);
   });
 });

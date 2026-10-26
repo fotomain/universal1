@@ -14514,6 +14514,7 @@ BEGIN
             'templateTitle', v_title,
             'templateDescription', COALESCE(btrim(p_description), ''),
             'templateKind', COALESCE(NULLIF(v_src."rowJSON"->>'rowKind', ''), 'task'),
+            'templateSourceTaskGUID', v_src."rowGUID",
             'templateSourceTaskName', v_src."rowJSON"->>'taskDescription',
             'templateSourceProjectGUID', v_src."projectGUID",
             'templateSourceProjectName', v_project,
