@@ -192,3 +192,46 @@ describe('external predecessors (B5)', () => {
     expect(externalGuidsOf([t(['B', 'a']), t(['A']), { rowJSON: {} }, { rowJSON: null }])).toEqual(['a', 'b']);
   });
 });
+
+describe('Extended tree columns position (A15 Priority auto visible)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { layoutTreeColumns } = jest.requireActual('../../../kit8/pm/view/tree/columns/treeColumns');
+  const defs = [{ key: 'cc_ext_priority', name: 'Priority', type: 'integer' }];
+  const order = ['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent'];
+  it('a new Extended column is placed right after "%", before the Kanban columns', () => {
+    const lay = layoutTreeColumns(900, order, { customColumns: defs });
+    const keys = lay.columns.map((c: any) => c.key);
+    expect(keys.indexOf('cc_ext_priority')).toBe(keys.indexOf('progress') + 1);
+  });
+  it('a column the user placed stays where the saved order has it', () => {
+    const saved = [...order, 'cc_ext_priority'];
+    const lay = layoutTreeColumns(900, saved, { customColumns: defs });
+    const keys = lay.columns.map((c: any) => c.key);
+    expect(keys[keys.length - 1]).toBe('cc_ext_priority');
+  });
+});
+
+describe('Extended columns can be dragged (A15 Priority)', () => {
+  const { layoutTreeColumns, moveTreeColumn } = jest.requireActual('../../../kit8/pm/view/tree/columns/treeColumns');
+  const { uxuiSettingsOf } = jest.requireActual('../../../kit8/pm/model/types');
+  const defs = [{ key: 'cc_ext_priority', name: 'Priority', type: 'integer' }];
+  const order = ['wbs', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent'];
+
+  it('the saved order keeps the key of an Extended column (it is not a column of project.customColumns)', () => {
+    const saved = ['wbs', 'cc_ext_priority', 'name', 'taskStartDate', 'taskFinishDate', 'taskDuration', 'progress', 'kanban', 'kanbanStageProgressPercent'];
+    expect(uxuiSettingsOf({ uxuiSettings: { treeColumnsOrder: saved } } as any).treeColumnsOrder).toEqual(saved);
+  });
+
+  it('a dragged Priority column stays where it was dropped', () => {
+    const lay = layoutTreeColumns(900, order, { customColumns: defs });
+    const next = moveTreeColumn(lay, 'cc_ext_priority', 0);
+    expect(next.indexOf('cc_ext_priority')).toBeLessThan(next.indexOf('wbs') + 1);
+    const lay2 = layoutTreeColumns(900, next, { customColumns: defs });
+    expect(lay2.columns.map((c: any) => c.key)).toEqual(next);
+  });
+
+  it('the key of a function that is switched off is dropped from the layout (no definition)', () => {
+    const lay = layoutTreeColumns(900, [...order, 'cc_ext_priority'], { customColumns: [] });
+    expect(lay.columns.map((c: any) => c.key)).not.toContain('cc_ext_priority');
+  });
+});

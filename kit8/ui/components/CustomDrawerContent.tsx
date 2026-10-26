@@ -18,6 +18,11 @@ interface MenuItem {
   children?: MenuItem[];
   /** a sub-row that is only a DIVIDER line between two parts of an accordion (no route, no label) */
   divider?: boolean;
+  /** pinned part: something at the end of the row (a count, a switch) and what a press does instead of opening the route */
+  right?: React.ReactNode;
+  onPress?: () => void;
+  /** a low row with a small regular text (the Top 5 of the pinned part) */
+  compact?: boolean;
 }
 
 /** height of an accordion sub-row (Catalogs -> Currencies ...) */
@@ -190,13 +195,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     return { route: r.name, label: typeof o?.drawerLabel === 'string' ? o.drawerLabel : o?.title };
   });
   const routeLabels = buildRouteLabels([...flatten(mainNavItems), ...screenTitles]);
+  const routeIcons = buildRouteLabels(flatten(mainNavItems).map((i) => ({ route: i.route, label: i.icon })));
 
   // ---- accordion groups: open / closed; a group opens by itself while one of its pages is shown ----
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
   const groupHasActive = (item: MenuItem) => !!item.children?.some((c) => !c.divider && (isCurrentRoute(c.route) || isCurrentRoute(c.route.replace(/\/list$/, '/edit'))));
   const isGroupOpen = (item: MenuItem) => openGroups[item.id] ?? groupHasActive(item);
   const pressItem = (item: MenuItem) => {
-    if (item.children) setOpenGroups((g) => ({ ...g, [item.id]: !isGroupOpen(item) }));
+    if (item.onPress) item.onPress();
+    else if (!item.route && !item.children) return;
+    else if (item.children) setOpenGroups((g) => ({ ...g, [item.id]: !isGroupOpen(item) }));
     else navigateAndClose(item.route);
   };
   /** tamagui paints the active row in the primary color -> white chevron there */
@@ -247,9 +255,32 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       renderDrawerItem(item)
     );
 
+  /** a low row, small regular text; its icon and text stand in the columns of the normal rows (paper / tamagui: 12 margin + 16 padding, icon box 24, 12 gap) */
+  const renderCompactItem = (item: MenuItem) => {
+    const wide = activeSystem === 'paper' || activeSystem === 'tamagui';
+    return (
+      <TouchableOpacity
+        key={item.id}
+        testID={`drawer-item-${item.id}`}
+        onPress={() => pressItem(item)}
+        activeOpacity={0.7}
+        style={{ flexDirection: 'row', alignItems: 'center', minHeight: 28, marginHorizontal: wide ? 12 : 0, paddingLeft: 16, paddingRight: 12 }}
+      >
+        <View style={{ width: wide ? 24 : 20, alignItems: 'center' }}>
+          <IconApp name={item.icon} size={16} color={themeColors.text} />
+        </View>
+        <Text numberOfLines={1} style={{ flex: 1, marginLeft: 12, fontSize: 13, fontWeight: '400', color: themeColors.text }}>
+          {item.label}
+        </Text>
+        {item.right}
+      </TouchableOpacity>
+    );
+  };
+
   const renderDrawerItem = (item: MenuItem) => {
+    if (item.compact) return renderCompactItem(item);
     // a group row is "active" (highlighted) only while closed and one of its pages is shown
-    const active = item.children ? !isGroupOpen(item) && groupHasActive(item) : isCurrentRoute(item.route);
+    const active = item.children ? !isGroupOpen(item) && groupHasActive(item) : !item.onPress && !!item.route && isCurrentRoute(item.route);
 
     switch (activeSystem) {
       case 'paper': {
@@ -260,7 +291,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             label={item.label}
             icon={(iconProps) => <IconApp testID="c42a9bde-7bf5-2cd4-6mr8-901234567e29" name={item.icon} size={iconProps.size} color={iconProps.color} />}
             active={active}
-            right={item.children ? () => groupChevron(item, themeColors.text) : undefined}
+            right={item.right ? () => <>{item.right}</> : item.children ? () => groupChevron(item, themeColors.text) : undefined}
             onPress={() => pressItem(item)}
           />
         );
@@ -291,6 +322,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               {item.label}
             </Text>
             {active && <IconApp testID="e64c1df0-9db7-4ef6-8ot0-123456789a31" name="check" size={16} color="#ffffff" />}
+            {item.right ? <View style={{ marginLeft: 'auto' }}>{item.right}</View> : null}
             {groupChevron(item, chevronColor(active))}
           </TouchableOpacity>
         );
@@ -317,6 +349,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <Text style={{ fontSize: 15, fontWeight: active ? '600' : '400', color: active ? themeColors.primary : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
+            {item.right ? <View style={{ marginLeft: 'auto' }}>{item.right}</View> : null}
             {groupChevron(item, chevronColor(active))}
           </TouchableOpacity>
         );
@@ -344,6 +377,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <Text style={{ fontSize: 15, fontWeight: '700', color: active ? '#ffffff' : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
+            {item.right ? <View style={{ marginLeft: 'auto' }}>{item.right}</View> : null}
             {groupChevron(item, chevronColor(active))}
           </TouchableOpacity>
         );
@@ -372,6 +406,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             <Text style={{ fontSize: 15, fontWeight: active ? '700' : '400', color: active ? themeColors.primary : themeColors.text }}>
               {item.label}
             </Text>
+            {item.right ? <View style={{ marginLeft: 'auto' }}>{item.right}</View> : null}
             {groupChevron(item, chevronColor(active))}
           </TouchableOpacity>
         );
@@ -381,7 +416,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   return (
     <View style={{ flex: 1, backgroundColor: themeColors.surface }}>
-      <DrawerContentScrollView {...props} contentContainerStyle={{ flexGrow: 1 }}>
+      <DrawerContentScrollView {...props} contentContainerStyle={{ flexGrow: 1, paddingStart: 0, paddingEnd: 0 }}>
         {/* Header Badge adapted to design system */}
         <View
           style={[
@@ -422,7 +457,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       </DrawerContentScrollView>
 
       {/* Pinned bottom section of the left menu: Top 5 visited routes, user profile, settings, language, theme */}
-      <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} routeLabels={routeLabels} />
+      <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} routeLabels={routeLabels} routeIcons={routeIcons} />
     </View>
   );
 }

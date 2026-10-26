@@ -157,12 +157,12 @@ export const isBuiltinTreeColumnKey = (k: unknown): k is PMBuiltinTreeColumnKey 
  * `customKeys`), missing built-in keys re-inserted at their default place, missing custom keys
  * appended at the end (a new custom column is the last one).
  */
-export function normalizeTreeColumnsOrder(value: unknown, customKeys: readonly string[] = []): PMTreeColumnKey[] {
+export function normalizeTreeColumnsOrder(value: unknown, customKeys: readonly string[] = [], keepExtendedKeys = false): PMTreeColumnKey[] {
   const src = Array.isArray(value) ? value : [];
   const out: PMTreeColumnKey[] = [];
   for (const k of src) {
     if (out.includes(k)) continue;
-    if (isBuiltinTreeColumnKey(k) || (isCustomColumnKey(k) && customKeys.includes(k))) out.push(k);
+    if (isBuiltinTreeColumnKey(k) || (isCustomColumnKey(k) && (customKeys.includes(k) || (keepExtendedKeys && k.startsWith('cc_ext_'))))) out.push(k);
   }
   const hasCol = (k: PMBuiltinTreeColumnKey) => {
     if (out.includes(k)) return true;
@@ -274,6 +274,14 @@ export function layoutTreeColumns(width: number, orderIn: readonly PMTreeColumnK
   const customByKey = new Map(customColumns.map((c) => [c.key as string, c]));
   const baseOrder = normalizeTreeColumnsOrder(orderIn, customColumns.map((c) => c.key));
   const order = [...baseOrder];
+  // Gantt Extended columns (cc_ext_*) the user never placed: right after "%" (not after the Kanban columns, where they would be off screen)
+  const given = new Set(Array.isArray(orderIn) ? (orderIn as string[]) : []);
+  const fresh = order.filter((k) => typeof k === 'string' && k.startsWith('cc_ext_') && !given.has(k));
+  if (fresh.length) {
+    for (const k of fresh) order.splice(order.indexOf(k), 1);
+    const at = order.indexOf('progress');
+    order.splice(at >= 0 ? at + 1 : order.length, 0, ...fresh);
+  }
 
   if (opts.planHour) {
     if (!order.includes('startHourStart')) {

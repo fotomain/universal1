@@ -19,6 +19,8 @@ export interface DarkThemeSwitchComponentProps {
   testID?: string;
   /** Layout: 'row' or 'column' */
   layout?: 'row' | 'column';
+  /** only the switch, no own row padding (the switch is the end part of a menu row) */
+  bare?: boolean;
 }
 
 export default function DarkThemeSwitchComponent({
@@ -27,6 +29,7 @@ export default function DarkThemeSwitchComponent({
   showIcon = true,
   testID = 'darkModeSwitch',
   layout = 'row',
+  bare = false,
 }: DarkThemeSwitchComponentProps) {
   const dispatch = useDispatch();
   const theme = useTheme();
@@ -71,7 +74,7 @@ export default function DarkThemeSwitchComponent({
   }
 
   return (
-    <View style={styles.rowContainer}>
+    <View style={bare ? undefined : styles.rowContainer}>
       {showLabel && (
         <View style={styles.labelContainer}>
           {showIcon && (

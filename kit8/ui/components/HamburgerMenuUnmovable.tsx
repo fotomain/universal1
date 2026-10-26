@@ -15,6 +15,11 @@ export interface UnmovableMenuItem {
   label: string;
   icon: string;
   route: string;
+  /** the end part of the row (a count, a switch) and what a press does instead of opening the route */
+  right?: React.ReactNode;
+  onPress?: () => void;
+  /** a low row with a small regular text */
+  compact?: boolean;
 }
 
 interface HamburgerMenuUnmovableProps {
@@ -26,13 +31,15 @@ interface HamburgerMenuUnmovableProps {
   onSelectRoute?: (route: string) => void;
   /** route key -> the name of the menu row of the scrolling part (the rows of this part are added here) */
   routeLabels?: Record<string, string>;
+  /** route key -> the icon of the menu row (the Top 5 rows show it) */
+  routeIcons?: Record<string, string>;
 }
 
 /**
  * The part of the hamburger menu that does NOT scroll with the navigation list: FIRST the Top 5 of the most visited routes (kit8/catalog/user/visit,
  * named like the menu rows), then the user profile (Sign In while signed out), Settings, the language input and the dark / light theme switch.
  */
-export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, onSelectRoute, routeLabels }: HamburgerMenuUnmovableProps) {
+export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, onSelectRoute, routeLabels, routeIcons }: HamburgerMenuUnmovableProps) {
   const { t } = useTranslation();
   const { themeColors } = useDesignSystem();
   const isLoggedIn = useSelector(selectIsLoggedIn);
@@ -47,20 +54,22 @@ export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, o
 
   // the names of this part first, then the rows of the scrolling part
   const labels = buildRouteLabels([...items, ...Object.entries(routeLabels || {}).map(([route, label]) => ({ route, label }))]);
+  const icons = buildRouteLabels([...items.map((i) => ({ route: i.route, label: i.icon })), ...Object.entries(routeIcons || {}).map(([route, label]) => ({ route, label }))]);
 
   return (
     <View testID="hamburger-unmovable" style={[styles.container, { borderTopColor: themeColors.border }]}>
-      <RouteVisitsTop onSelectRoute={onSelectRoute} routeLabels={labels} />
+      <RouteVisitsTop onSelectRoute={onSelectRoute} routeLabels={labels} routeIcons={icons} renderItem={renderItem} />
       {items.map(renderItem)}
       <View style={styles.language}>
         <LanguageSelectorComponent onSelectLanguage={onSelectLanguage} />
       </View>
-      <DarkThemeSwitchComponent testID="darkModeSwitch1" />
+      {/* a row like the others: the icon and the text stand in the same columns, the switch at the end */}
+      {renderItem({ id: 'darkmode', label: t('menu.darkMode', { defaultValue: 'Dark mode' }), icon: 'dark_mode', route: '', right: <DarkThemeSwitchComponent showLabel={false} bare testID="darkModeSwitch1" /> })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { borderTopWidth: 1, paddingBottom: 12, paddingTop: 8 },
-  language: { paddingHorizontal: 12, marginVertical: 6 },
+  language: { marginHorizontal: 12, marginVertical: 6 },
 });

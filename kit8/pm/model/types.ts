@@ -514,7 +514,8 @@ export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSet
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',
     showTreeHierarchyNumbers: u.showTreeHierarchyNumbers !== false,
     dragAndDropTaskInTree: u.dragAndDropTaskInTree !== false,
-    treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key)),
+    // the Gantt Extended columns (cc_ext_*) are virtual (not in project.customColumns) but the user can place them: keep them in the saved order
+    treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key), true),
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
     projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),
     projectGanttChartContextCommandsMode: contextCommandsModeOf(u.projectGanttChartContextCommandsMode),

@@ -2,10 +2,10 @@
 // Project settings → Gantt: the master switch, and (while it is on) one switch per Extended function, grouped, with the short text and "more…".
 import './pmUiTestKit';
 import React from 'react';
-import { cleanupUI, press, q, qa, renderUI, toggleSwitch } from './pmUiTestKit';
+import { cleanupUI, press, q, qa, renderUI, toggleSwitch, typeInto } from './pmUiTestKit';
 
 const PMProjectGanttTab = require('../../../kit8/pm/view/project/settings/PMProjectGanttTab').default;
-const { ganttValuesOf } = require('../../../kit8/pm/view/project/settings/PMProjectGanttTab');
+const { ganttValuesOf, extendedFeatureMatches } = require('../../../kit8/pm/view/project/settings/PMProjectGanttTab');
 const { PM_EXTENDED_FEATURES } = require('../../../kit8/pm/extended/extendedModel');
 
 afterEach(() => { cleanupUI(); jest.clearAllMocks(); });
@@ -36,5 +36,24 @@ describe('PMProjectGanttTab', () => {
   it('a function that needs another one is disabled until it is on', () => {
     expect(ganttValuesOf({}).ganttTrackingBarsEnabled).toBe(false);
     expect(ganttValuesOf({ ganttDeadlineEnabled: true }).ganttDeadlineEnabled).toBe(true);
+  });
+
+  it('the search lists only the functions that contain the text (id, title, key, description), case-insensitive', () => {
+    renderUI(<PMProjectGanttTab values={{ ganttExtendedFunctionalityEnabled: true }} onChange={jest.fn()} />);
+    typeInto('pm-project-gantt-search', 'RECURRING');
+    expect(q('pm-project-gantt-ganttRecurringTasksEnabled')).not.toBeNull();
+    expect(q('pm-project-gantt-ganttManualSchedulingEnabled')).toBeNull();
+    expect(q('pm-project-gantt-found')!.textContent).toContain('1');
+    typeInto('pm-project-gantt-search', 'a13');
+    expect(q('pm-project-gantt-ganttRecurringTasksEnabled')).not.toBeNull();
+    typeInto('pm-project-gantt-search', '');
+    expect(qa('pm-project-gantt-gantt').length).toBe(PM_EXTENDED_FEATURES.length);
+  });
+
+  it('matching helper', () => {
+    const f = PM_EXTENDED_FEATURES.find((x: any) => x.id === 'A5');
+    expect(extendedFeatureMatches(f, 'deadline')).toBe(true);
+    expect(extendedFeatureMatches(f, 'zzzz')).toBe(false);
+    expect(extendedFeatureMatches(f, '  ')).toBe(true);
   });
 });

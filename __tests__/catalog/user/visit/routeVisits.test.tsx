@@ -8,6 +8,7 @@ let mockPath = '/home';
 let mockOrg = { organizationGUID: 'org1', loaded: true, numberOfVisitsEnabled: true };
 const mockRpc = jest.fn(() => Promise.resolve({ data: 1, error: null }));
 const mockDataHook = jest.fn();
+const mockTipTexts: string[] = [];
 
 jest.mock('expo-router', () => ({ usePathname: () => mockPath }));
 jest.mock('react-redux', () => ({ useSelector: (sel: any) => sel({}) }));
@@ -17,6 +18,13 @@ jest.mock('../../../../kit8/providers/WithSupabase', () => {
   return { useSupabase: () => ({ supabase: client }) };
 });
 jest.mock('../../../../kit8/providers/WithDesignSystem', () => ({ useDesignSystem: () => ({ themeColors: { text: '#000', primary: '#00f' } }) }));
+jest.mock('../../../../kit8/pm/inner/tooltip/PMTooltip', () => ({
+  usePMTip: (text: string) => (mockTipTexts.push(text), { ref: null, accessibilityHint: text, onHoverIn: undefined, onHoverOut: undefined, onPressIn: undefined, onLongPress: undefined, delayLongPress: 350 }),
+}));
+jest.mock('../../../../kit8/pm/inner/buttons/PMIconButton', () => {
+  const R = require('react');
+  return { PMIconButton: ({ testID, title, onPress, disabled }: any) => R.createElement('button', { 'data-testid': testID, title, disabled, onClick: (e: any) => { e.stopPropagation(); onPress(); } }) };
+});
 jest.mock('../../../../kit8/catalog/organization/useMyOrganization', () => ({ useMyOrganization: () => mockOrg }));
 jest.mock('../../../../kit8/catalog/user/visit/useRouteVisitData', () => ({
   useRouteVisitData: (enabled: boolean) => { mockDataHook(enabled); return { rows: enabled ? mockRows : [], loaded: true, error: '', reload: jest.fn() }; },
@@ -48,7 +56,7 @@ describe('RouteVisitsTop', () => {
   it('shows the 5 most visited routes with their counts, the biggest first - and nothing else', () => {
     mockRows = [row('/a', 1), row('/b', 9), row('/c', 4), row('/d', 6), row('/e', 3), row('/f', 2), row('/g', 8)];
     mount(<RouteVisitsTop />);
-    const items = Array.from(document.querySelectorAll('[data-testid^="route-visits-top-g"]')).filter((e) => !e.getAttribute('data-testid')!.endsWith('-count'));
+    const items = Array.from(document.querySelectorAll('[data-testid^="route-visits-top-g"]')).filter((e) => !/-(count(-tip)?|close-slot|delete)$/.test(e.getAttribute('data-testid')!));
     expect(items.map((e) => e.textContent)).toEqual(['/b9', '/g8', '/d6', '/c4', '/e3']);
   });
 
@@ -67,6 +75,29 @@ describe('RouteVisitsTop', () => {
     expect(onSelectRoute).toHaveBeenCalledWith('/b');
     act(() => { q('route-visits-top-g/p/edit/:id')!.click(); });
     expect(onSelectRoute).toHaveBeenCalledTimes(1);
+  });
+
+  it('the number has the tip "Total visits"', () => {
+    mockRows = [row('/b', 9)];
+    mount(<RouteVisitsTop />);
+    expect(q('route-visits-top-g/b-count-tip')).not.toBeNull();
+    expect(mockTipTexts).toContain('Total visits');
+  });
+
+  it('a Close icon button shows only while the row is hovered and deletes the visits of that route', async () => {
+    mockRows = [row('/b', 9), row('/c', 4)];
+    const onSelectRoute = jest.fn();
+    mount(<RouteVisitsTop onSelectRoute={onSelectRoute} />);
+    expect(q('route-visits-top-g/b-close-slot')!.getAttribute('aria-hidden')).toBe('true');
+    const rowEl = q('route-visits-top-g/b')!;
+    act(() => { document.dispatchEvent(new MouseEvent('mousemove', { bubbles: true })); rowEl.dispatchEvent(new MouseEvent('mouseenter')); });
+    expect(q('route-visits-top-g/b-close-slot')!.getAttribute('aria-hidden')).not.toBe('true');
+    expect(q('route-visits-top-g/c-close-slot')!.getAttribute('aria-hidden')).toBe('true');
+    await act(async () => { q('route-visits-top-g/b-delete')!.click(); await Promise.resolve(); });
+    expect(mockRpc).toHaveBeenCalledWith('route_visits_clear', { p_route: '/b' });
+    expect(onSelectRoute).not.toHaveBeenCalled();
+    act(() => { rowEl.dispatchEvent(new MouseEvent('mouseleave')); });
+    expect(q('route-visits-top-g/b-close-slot')!.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('draws nothing while signed out, while the Organization switch is off, or without visits', () => {
