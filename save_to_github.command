@@ -1,8 +1,10 @@
-®#!/bin/zsh
+#!/bin/zsh
 # =========================================================================
-# UNIVERSAL1 Expo App — Save to Branch of universal1: expo-YYYY-MM-DD-HH-MM
+# UNIVERSAL1 Expo App — Save to Branch of universal1
 # Target Remote : https://github.com/fotomain/universal1.git
-# Target Branch : expo-YYYY-MM-DD-HH-MM
+# Target Branch : asked at the start; Enter (empty) = expo-YYYY-MM-DD-HH-MM (the time moment)
+#                 a name you type is used exactly as typed and must be NEW (a branch that already exists is refused: it would be overwritten)
+#                 no terminal (NON_INTERACTIVE=1, a pipe) = the automatic name, nothing is asked
 # =========================================================================
 
 set -eo pipefail
@@ -17,7 +19,38 @@ REPO_DIR="$(pwd)"
 REMOTE_NAME="origin"
 REMOTE_URL="https://github.com/fotomain/universal1.git"
 TIMESTAMP=$(date +'%Y-%m-%d-%H-%M')
-BRANCH_NAME="expo-${TIMESTAMP}"
+AUTO_BRANCH_NAME="expo-${TIMESTAMP}"
+BRANCH_NAME="$AUTO_BRANCH_NAME"
+
+# Ask for the branch name (interactive only). Enter on an empty line = the automatic name of this time moment.
+# A typed name: trimmed, spaces become '-', must be a valid git branch name and must not exist yet (locally or on origin) -
+# `git checkout -B` below would otherwise move an existing branch to the current commit.
+if [ -t 0 ] && [ -z "${NON_INTERACTIVE:-}" ]; then
+    CURRENT_BRANCH="$(git symbolic-ref --short -q HEAD 2>/dev/null || true)"
+    while true; do
+        printf "Branch name (Enter = %s): " "$AUTO_BRANCH_NAME"
+        IFS= read -r TYPED_NAME || TYPED_NAME=""
+        TYPED_NAME="$(printf '%s' "$TYPED_NAME" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/[[:space:]][[:space:]]*/-/g')"
+        if [ -z "$TYPED_NAME" ]; then
+            BRANCH_NAME="$AUTO_BRANCH_NAME"
+            break
+        fi
+        if ! git check-ref-format --branch "$TYPED_NAME" >/dev/null 2>&1; then
+            echo "      '${TYPED_NAME}' is not a valid git branch name. Try again, or press Enter for ${AUTO_BRANCH_NAME}."
+            continue
+        fi
+        if [ "$TYPED_NAME" != "$CURRENT_BRANCH" ] && git show-ref --verify --quiet "refs/heads/${TYPED_NAME}"; then
+            echo "      Branch '${TYPED_NAME}' already exists here. Type another name, or press Enter for ${AUTO_BRANCH_NAME}."
+            continue
+        fi
+        if git ls-remote --exit-code --heads "$REMOTE_URL" "$TYPED_NAME" >/dev/null 2>&1; then
+            echo "      Branch '${TYPED_NAME}' already exists on GitHub. Type another name, or press Enter for ${AUTO_BRANCH_NAME}."
+            continue
+        fi
+        BRANCH_NAME="$TYPED_NAME"
+        break
+    done
+fi
 
 echo "=============================================================================="
 echo "  UNIVERSAL1 -> GITHUB SAVE UTILITY"
@@ -118,9 +151,9 @@ else
 fi
 
 # -------------------------------------------------------------------------
-# Step 2: Create and switch to target branch expo-YYYY-MM-DD-HH-MM
+# Step 2: Create and switch to the target branch (typed name, or expo-YYYY-MM-DD-HH-MM)
 # -------------------------------------------------------------------------
-echo "[2/5] Creating and switching to chronological branch: ${BRANCH_NAME}..."
+echo "[2/5] Creating and switching to branch: ${BRANCH_NAME}..."
 if ! git checkout -B "$BRANCH_NAME" 2>&1; then
     echo "      Checkout encountered issue. Healing index and retrying..."
     repair_corrupt_index
@@ -185,7 +218,7 @@ else
 fi
 
 # -------------------------------------------------------------------------
-# Step 5: Push to universal1 on branch expo-YYYY-MM-DD-HH-MM
+# Step 5: Push to universal1 on the target branch
 # -------------------------------------------------------------------------
 echo "[5/5] Pushing branch '${BRANCH_NAME}' to ${REMOTE_NAME} (universal1)..."
 
