@@ -87,19 +87,19 @@ describe('start2_sql_code.sql has everything else, and no table definition', () 
 
 describe('the two files carry the same parts', () => {
   const parts = (src: string) => Array.from(src.matchAll(/^-- PART (\d+): (\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-  it('the code file has every part, 1..41, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
+  it('the code file has every part, 1..42, ascending; the tables file has the parts that have tables, with the same titles, ascending', () => {
     const code = parts(codeSql);
     const tables = parts(tablesSql);
-    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 41 }, (_, i) => i + 1));
+    expect(code.map(([n]) => n)).toEqual(Array.from({ length: 42 }, (_, i) => i + 1));
     const nums = tables.map(([n]) => n);
     expect(nums).toEqual([...nums].sort((a, b) => a - b));
     expect(tables.length).toBeGreaterThan(15);
     for (const [n, title] of tables) expect(code).toContainEqual([n, title]);
   });
-  it('the number lists at the top of both files name the same 41 parts as the banners', () => {
+  it('the number lists at the top of both files name the same 42 parts as the banners', () => {
     for (const src of [tablesSql, codeSql]) {
       const list = Array.from(src.slice(0, src.indexOf('-- PART 1:')).matchAll(/^--\s+(\d+)\. ((?:create|update|insert)_\S+)/gm)).map((m) => [Number(m[1]), m[2]] as const);
-      expect(list.length).toBe(41);
+      expect(list.length).toBe(42);
       for (const [n, title] of list) expect(codeSql).toContain(`-- PART ${n}: ${title}`);
     }
   });

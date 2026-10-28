@@ -447,3 +447,125 @@
 447|Se olvidarán {{count}} paso(s) de rehacer. El proyecto no cambia.
 448|Nada que deshacer
 449|clic derecho / pulsación larga: menú
+450|Nivelar
+451|Optimización de recursos: nivelar los recursos reservados por más horas de las que permite su calendario
+452|Optimización de recursos
+453|No se pudieron resolver {{n}} conflicto(s)
+454|… y {{n}} más
+455|{{n}} tarea(s) contabilizada(s) deben moverse
+456|Mover una tarea contabilizada anula la contabilización de sus líneas y pagos. ¿Qué hacer con ellas?
+457|{{name}}: {{from}} → {{to}}
+458|Anular la contabilización y mover
+459|Las tareas se mueven y quedan sin contabilizar hasta que las contabilice.
+460|Mover y contabilizar de nuevo
+461|Las tareas se mueven y se contabilizan de nuevo, pero solo si se contabilizan sin conflictos; si no, se quedan donde están.
+462|Mantener sus fechas
+463|Las tareas contabilizadas no se mueven; el plan se rehace sin ellas.
+464|antes
+465|después
+466|Optimización de recursos – Suavizado
+467|Optimización de recursos – Nivelación
+468|Sobrecargados ahora
+469|Sin resolver tras la ejecución
+470|Tareas movidas
+471|Inicio del proyecto
+472|Fin del proyecto
+473|Tareas contabilizadas que se mueven
+474|El proyecto se planifica desde su fecha de fin: las tareas se adelantan, la fecha de fin se mantiene.
+475|Ninguna tarea necesita moverse.
+476|{{from}} → {{to}} ({{days}} día(s) laborable(s) {{when}})
+477|Borrar la nivelación
+478|Optimización de recursos – ejecuciones
+479|Aún no hay ejecuciones.
+480|{{n}} tarea(s) movida(s)
+481|{{n}} sin resolver
+482|Deshacer la ejecución
+483|Deshecho
+484|Día a día
+485|El plan cuenta días laborables, como ahora.
+486|Hora a hora
+487|Fase 2: el modelo de hora del día aún no está disponible.
+488|Hora
+489|Manual
+490|Optimizar a petición, con vista previa.
+491|Automático
+492|Optimizar tras cada cambio.
+493|Nivelación
+494|Las fechas pueden pasar de la holgura; el fin del proyecto puede cambiar.
+495|Suavizado
+496|Solo se usa la holgura; el fin del proyecto no cambia.
+497|Estándar
+498|Prioridad, Estándar
+499|Solo ID
+500|Preguntarme
+501|Recursos
+502|Modelo de planificación (resourceOptimizationMode)
+503|Unidad de carga de recursos (resourceGrainUnit)
+504|La unidad en que se muestran las horas de un recurso y el periodo en que se compara la carga con el calendario. En el modelo día a día, un día laborable es el periodo más fino.
+505|Optimización de recursos (resourceLevelingFunctionalityEnabled)
+506|Activado: los recursos reservados por más horas de las que permite su calendario pueden nivelarse (las tareas se retrasan o se dividen) o suavizarse. Desactivado: nada cambia.
+507|Optimizar (resourceLevelingMode)
+508|Método (resourceLevelingWithinSlackOnly)
+509|Orden de nivelación (resourceLevelingOrder)
+510|Modo rápido (resourceLevelingFunctionalityFastModeEnabled)
+511|Activado: cambiar los datos directamente en pantalla: arrastrar una barra, escribir horas en una celda, mover una tarea a otro recurso, resolver un conflicto con un clic.
+512|Tareas contabilizadas
+513|Las tareas contabilizadas pueden moverse (resourceLevelingPostedTasksMovementEnabled)
+514|Activado: una tarea contabilizada puede moverse, pero nunca sin preguntar: moverla anula la contabilización de sus líneas y pagos. Desactivado: las tareas contabilizadas mantienen sus fechas.
+515|Cuando una tarea contabilizada debe moverse (resourceLevelingPostedTasksAction)
+516|Opciones
+517|Borrar los valores de nivelación antes de nivelar (resourceLevelingClearBeforeLeveling)
+518|Activado: nivelar desde el plan sin los retrasos anteriores. Siempre activado en modo automático.
+519|La nivelación puede crear divisiones (resourceLevelingCanSplit)
+520|Activado: una tarea puede interrumpirse en lugar de moverse. Solo funciona con la función Gantt Extended «Dividir tareas».
+521|Nivelar tareas programadas manualmente (resourceLevelingManualTasks)
+522|Activado: las tareas programadas manualmente también pueden moverse. Solo funciona con la función Gantt Extended «Tareas programadas manualmente».
+523|Respetar los otros proyectos (resourceLevelingIncludeOtherProjects)
+524|Activado: las horas contabilizadas de los otros proyectos de la organización cuentan como carga que no se puede mover.
+525|Mostrar la barra de retraso de nivelación (resourceLevelingShowDelayBar)
+526|Activado: el diagrama de Gantt dibuja el retraso antes de una tarea movida.
+527|Mostrar recursos sobrecargados (resourceLevelingShowOverallocation)
+528|Activado: una marca en el árbol de tareas y en la barra donde un recurso está reservado por más horas de las que tiene.
+529|Conservar el historial de ejecuciones (resourceLevelingKeepHistory)
+530|Activado: cada ejecución se guarda, así que puede deshacerse más tarde.
+531|Prioridad más baja que la tarea que conserva el recurso
+532|Más holgura que la tarea que conserva el recurso
+533|Empieza más tarde que la tarea que conserva el recurso
+534|Viene después de la tarea que conserva el recurso
+535|El recurso está ocupado por otros proyectos
+536|La tarea está contabilizada y mantiene sus fechas
+537|La tarea ha empezado o ha terminado
+538|La tarea tiene un real contabilizado
+539|La tarea tiene prioridad 1000: nunca se mueve
+540|La tarea debe empezar o terminar en una fecha
+541|La tarea está programada manualmente
+542|La tarea no está en esta ejecución
+543|Mover necesita más que la holgura (el suavizado mantiene las fechas del proyecto)
+544|Ningún día posterior tiene hueco
+545|La tarea sola necesita más horas de las que tiene el recurso: divídala o use otro recurso
+546|El calendario del recurso no tiene fila para ese día
+547|Los otros proyectos ocupan el recurso
+548|La ejecución se detuvo por su contador de seguridad
+549|No se pudo resolver
+550|{{resource}}: {{hours}} h el {{day}}, el calendario no tiene capacidad para ese día
+551|{{resource}}: {{hours}} h el {{day}}, capacidad {{capacity}} h
+552|Ninguna tarea tiene una línea de tiempo con un recurso en horas: nada que optimizar
+553|Ningún recurso está sobrecargado
+554|Las tareas contabilizadas mantienen sus fechas: este es el plan sin ellas
+555|Optimizado: {{n}} tarea(s) movida(s). Contabilizando de nuevo {{posted}} tarea(s) ...
+556|Optimizado: {{n}} tarea(s) movida(s), {{posted}} tarea(s) sin contabilizar: use «Contabilizar tareas sin contabilizar»
+557|Optimizado: {{n}} tarea(s) movida(s)
+558|Una tarea cambió después de leer el plan. Nivele de nuevo.
+559|Ninguna tarea tiene retraso de nivelación
+560|¿Borrar la nivelación?
+561|Se quita el retraso de nivelación de {{n}} tarea(s); {{posted}} de ellas están contabilizadas y pierden su contabilización porque sus fechas se mueven.
+562|Se quita el retraso de nivelación de {{n}} tarea(s).
+563|Nivelación borrada
+564|¿Deshacer esta ejecución?
+565|Los retrasos de nivelación vuelven a lo que eran antes de la ejecución. Las tareas contabilizadas cuyas fechas se mueven pierden su contabilización.
+566|Deshecho: {{n}} tarea(s) restaurada(s), {{skipped}} cambiada(s) desde entonces y dejada(s) como están
+567|Deshecho: {{n}} tarea(s) restaurada(s)
+568|No hay ninguna ejecución que deshacer
+569|Nivelar ahora
+570|Deshacer la última ejecución
+571|Historial de ejecuciones

@@ -323,6 +323,16 @@ export interface PMScheduleInput {
   externalEnabled?: boolean;
   /** B5 the stored dates of tasks of OTHER projects (task GUID -> start / exclusive finish). */
   externalDates?: Record<string, { startMs: number; finishMs: number }>;
+  /**
+   * Resource optimization (kit8/pm/resourceleveling): the LEVELING DELAY of a task (rowJSON.taskLevelingDelayDays, working days of the task calendar) is honored while true.
+   * The delay moves a task AWAY FROM THE ANCHOR: later when the project is planned from its start, earlier when it is planned from its finish (Q5). Default false:
+   * the plan is exactly what it was before the function existed.
+   */
+  levelingEnabled?: boolean;
+  /** ... a manually scheduled task is moved by its delay too (resourceLevelingManualTasks) */
+  levelingManualTasks?: boolean;
+  /** ... the delays to use INSTEAD of the rowJSON values (the engine tries delays without writing rows): task GUID -> working days */
+  levelingDelays?: Record<string, number>;
 }
 
 export interface PMScheduleResult {
@@ -499,6 +509,8 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
     splits: PMSplit[];
     gaps: number;
     ext: { dates: { startMs: number; finishMs: number }; type: PMLinkType; lag: number }[];
+    /** leveling delay in working days of `cal` (0 = none) */
+    delay: number;
   }
   const plans = new Map<string, Plan>();
   for (const leaf of g.leaves) {
@@ -519,6 +531,14 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       }
     }
     const calId = (json?.taskCalendarId as string | null | undefined) || null;
+    // the leveling delay never applies to a stage, a subproject task, a milestone, a task fixed by Must Start / Finish On (honored), or a manual task unless allowed
+    let delay = 0;
+    if (input.levelingEnabled && !stage && !sub && dur > 0) {
+      const raw = input.levelingDelays ? input.levelingDelays[leaf] : json?.taskLevelingDelayDays;
+      delay = Math.max(0, Math.round(Number(raw) || 0));
+      if (delay > 0 && manual !== null && !input.levelingManualTasks) delay = 0;
+      if (delay > 0 && honor && (con.type === 'MSO' || con.type === 'MFO')) delay = 0;
+    }
     plans.set(leaf, {
       manualStart: manual === null ? null : utcMidnight(manual),
       con,
@@ -528,6 +548,7 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       splits,
       gaps: splits.reduce((a, s) => a + s.gap, 0),
       ext,
+      delay,
     });
   }
   const planOf = (leaf: string) => plans.get(leaf)!;
@@ -621,6 +642,8 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
         }
       }
       es = snap(leaf, es);
+      // Resource optimization: the delay is added to the position the links and the constraint gave (planned from the finish the delay is taken from the late side instead)
+      if (plan.delay > 0 && !finishMode) es = snap(leaf, shiftWorkDays(es, plan.delay, plan.cal));
       ES.set(leaf, es);
       EF.set(leaf, finishOf(leaf, es));
     }
@@ -704,12 +727,14 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
       const dur = durOf(leaf);
       const plan = planOf(leaf);
       if (plan.manualStart !== null || plan.subFixed !== null) {
-        const s = snap(leaf, plan.manualStart ?? plan.subFixed!);
+        let s = snap(leaf, plan.manualStart ?? plan.subFixed!);
+        if (plan.delay > 0) s = snap(leaf, shiftWorkDays(s, -plan.delay, plan.cal));
         LS.set(leaf, s);
         LF.set(leaf, finishOf(leaf, s));
         continue;
       }
       let lf = limitFrom(leaf, dur <= 0 ? finishEx - DAY_MS : finishEx, (to) => LS.get(to), (to) => LF.get(to)); // a milestone sits ON the last day
+      if (plan.delay > 0) lf = shiftWorkDays(lf, -plan.delay, plan.cal); // Resource optimization: earlier than the latest position, away from the finish anchor
       const { type, dateMs: D } = plan.con;
       if (D !== null) {
         const sD = snap(leaf, D);
@@ -771,6 +796,7 @@ export function scheduleProject(input: PMScheduleInput): PMScheduleResult {
     };
     if (plan.manualStart !== null) row.isManual = true;
     else if (!plan.con.implicit) row.constraintType = plan.con.type;
+    if (plan.delay > 0) row.levelingDelayDays = plan.delay;
     const cf = conflict.get(leaf);
     if (cf) {
       row.constraintConflict = cf;

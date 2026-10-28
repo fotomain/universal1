@@ -72,6 +72,7 @@ import PMProjectCustomerTab, { customerValuesOf, type PMProjectCustomerValues } 
 import PMProjectProductTab, { productValuesOf, type PMProjectProductValues } from "../settings/PMProjectProductTab";
 import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } from "../settings/PMProjectSubprojectsTab";
 import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
+import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourceLevelingValues } from "../../../resourceleveling/PMResourceLevelingSettingsTab";
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
 import PMProjectGanttTab, { ganttValuesOf, type PMProjectGanttValues } from "../settings/PMProjectGanttTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
@@ -88,9 +89,9 @@ import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues, PMResourceLevelingValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -283,6 +284,7 @@ export default function PMRecentProjectsToolbar({
       ...productValuesOf(null),
       ...subprojectValuesOf(null),
       ...roiValuesOf(null),
+      ...resourceLevelingValuesOf(null),
       ...paymentsValuesOf(null),
       ...ganttValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
@@ -332,6 +334,7 @@ export default function PMRecentProjectsToolbar({
       ...productValuesOf(project.rowJSON),
       ...subprojectValuesOf(project.rowJSON),
       ...roiValuesOf(project.rowJSON),
+      ...resourceLevelingValuesOf(project.rowJSON),
       ...paymentsValuesOf(project.rowJSON),
       ...ganttValuesOf(project.rowJSON),
     });
@@ -451,6 +454,7 @@ export default function PMRecentProjectsToolbar({
             ...productValuesOf(draft),
             ...subprojectValuesOf(draft),
             ...roiValuesOf(draft),
+            ...resourceLevelingValuesOf(draft),
             ...paymentsValuesOf(draft),
             ...ganttValuesOf(draft),
           },
@@ -482,7 +486,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), paymentsValuesOf(draft), ganttValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), paymentsValuesOf(draft), ganttValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -782,6 +786,7 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabProduct' as const, label: 'Product', icon: 'inventory_2' },
                   { id: 'TabSubprojects' as const, label: 'Subprojects', icon: 'account_tree' },
                   { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
+                  { id: 'TabResources' as const, label: 'Resources', icon: 'engineering' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
@@ -939,6 +944,9 @@ export default function PMRecentProjectsToolbar({
                   <PMProjectGanttTab values={{ ...(projectsById[draft?.rowGUID ?? ''] ? projectsById[draft!.rowGUID!].rowJSON : {}), ...(draft || {}) } as any} onChange={(patch: any) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
+                {activeTab === 'TabResources' && (
+                  <PMResourceLevelingSettingsTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
                 {activeTab === 'TabROI' && (
                   <PMProjectRoiTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}

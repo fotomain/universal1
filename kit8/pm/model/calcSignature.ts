@@ -43,6 +43,7 @@ export function taskInputsOf(t: PMTaskRow): string {
     j.taskDeadline ?? '',
     JSON.stringify(j.taskSplits ?? ''),
     JSON.stringify(j.externalPredecessors ?? ''),
+    j.taskLevelingDelayDays ?? '',
   ].join('|');
 }
 
@@ -59,6 +60,8 @@ export function projectInputsOf(project: PMProjectRow | undefined | null): strin
     opt.projectCalendarId ?? '',
     o.scheduleFrom,
     o.projectFinishDayMs ?? '',
+    o.levelingEnabled ? 1 : 0,
+    o.levelingManualTasks ? 1 : 0,
   ].join('|');
 }
 

@@ -447,3 +447,125 @@
 447|Bus pamiršta grąžinimo žingsnių: {{count}}. Pats projektas nesikeičia.
 448|Nėra ką anuliuoti
 449|dešinysis spustelėjimas / ilgas palietimas: meniu
+450|Išlyginti
+451|Išteklių optimizavimas: išlyginkite išteklius, rezervuotus daugiau valandų, nei leidžia jų kalendorius
+452|Išteklių optimizavimas
+453|Nepavyko išspręsti konfliktų: {{n}}
+454|… ir dar {{n}}
+455|Reikia perkelti užregistruotų užduočių: {{n}}
+456|Užregistruotos užduoties perkėlimas panaikina jos eilučių ir mokėjimų registravimą. Ką su jomis daryti?
+457|{{name}}: {{from}} → {{to}}
+458|Panaikinti registravimą ir perkelti
+459|Užduotys perkeliamos ir lieka neužregistruotos, kol jų neužregistruosite.
+460|Perkelti ir užregistruoti iš naujo
+461|Užduotys perkeliamos ir užregistruojamos iš naujo, bet tik jei užsiregistruoja be konfliktų; kitaip lieka savo vietoje.
+462|Palikti jų datas
+463|Užregistruotos užduotys neperkeliamos; planas sudaromas iš naujo be jų.
+464|anksčiau
+465|vėliau
+466|Išteklių optimizavimas – Glotninimas
+467|Išteklių optimizavimas – Išlyginimas
+468|Dabar perkrauti
+469|Po paleidimo neišspręsta
+470|Perkeltos užduotys
+471|Projekto pradžia
+472|Projekto pabaiga
+473|Užregistruotos užduotys, kurios perkeliamos
+474|Projektas planuojamas nuo pabaigos datos: užduotys perkeliamos anksčiau, pabaigos data lieka.
+475|Jokios užduoties perkelti nereikia.
+476|{{from}} → {{to}} ({{days}} darbo d. {{when}})
+477|Išvalyti išlyginimą
+478|Išteklių optimizavimas – paleidimai
+479|Paleidimų dar nėra.
+480|Perkeltos užduotys: {{n}}
+481|Neišspręsta: {{n}}
+482|Atšaukti paleidimą
+483|Atšaukta
+484|Dieną po dienos
+485|Planas skaičiuoja darbo dienas, kaip dabar.
+486|Valandą po valandos
+487|2 etapas: paros laiko modelis dar nepasiekiamas.
+488|Valanda
+489|Rankinis
+490|Optimizuoti pagal komandą, su peržiūra.
+491|Automatinis
+492|Optimizuoti po kiekvieno pakeitimo.
+493|Išlyginimas
+494|Datos gali išeiti už rezervo ribų; projekto pabaiga gali pasikeisti.
+495|Glotninimas
+496|Naudojamas tik rezervas; projekto pabaiga nesikeičia.
+497|Standartinis
+498|Prioritetas, standartinis
+499|Tik ID
+500|Klausti manęs
+501|Ištekliai
+502|Planavimo modelis (resourceOptimizationMode)
+503|Išteklių apkrovos vienetas (resourceGrainUnit)
+504|Vienetas, kuriuo rodomos išteklių valandos, ir laikotarpis, per kurį apkrova lyginama su kalendoriumi. Modelyje diena po dienos mažiausias laikotarpis yra viena darbo diena.
+505|Išteklių optimizavimas (resourceLevelingFunctionalityEnabled)
+506|Įjungta: išteklius, rezervuotus daugiau valandų, nei leidžia kalendorius, galima išlyginti (užduotys atidedamos arba skaidomos) arba išglotninti. Išjungta: niekas nesikeičia.
+507|Optimizuoti (resourceLevelingMode)
+508|Metodas (resourceLevelingWithinSlackOnly)
+509|Išlyginimo tvarka (resourceLevelingOrder)
+510|Greitasis režimas (resourceLevelingFunctionalityFastModeEnabled)
+511|Įjungta: keiskite duomenis tiesiai ekrane: tempkite juostą, įrašykite valandas langelyje, perkelkite užduotį kitam ištekliui, išspręskite konfliktą vienu spustelėjimu.
+512|Užregistruotos užduotys
+513|Užregistruotas užduotis galima perkelti (resourceLevelingPostedTasksMovementEnabled)
+514|Įjungta: užregistruotą užduotį galima perkelti, bet niekada neatsiklausus: perkėlimas panaikina jos eilučių ir mokėjimų registravimą. Išjungta: užregistruotos užduotys išlaiko datas.
+515|Kai užregistruotą užduotį reikia perkelti (resourceLevelingPostedTasksAction)
+516|Parinktys
+517|Prieš išlyginant išvalyti išlyginimo reikšmes (resourceLevelingClearBeforeLeveling)
+518|Įjungta: išlyginti nuo plano be senų atidėjimų. Automatiniame režime visada įjungta.
+519|Išlyginimas gali sukurti pertraukas (resourceLevelingCanSplit)
+520|Įjungta: užduotį galima pertraukti vietoj perkėlimo. Veikia tik su Gantt Extended funkcija „Užduočių skaidymas“.
+521|Išlyginti rankiniu būdu suplanuotas užduotis (resourceLevelingManualTasks)
+522|Įjungta: rankiniu būdu suplanuotas užduotis irgi galima perkelti. Veikia tik su Gantt Extended funkcija „Rankiniu būdu suplanuotos užduotys“.
+523|Atsižvelgti į kitus projektus (resourceLevelingIncludeOtherProjects)
+524|Įjungta: kitų organizacijos projektų užregistruotos valandos laikomos apkrova, kurios perkelti negalima.
+525|Rodyti išlyginimo atidėjimo juostą (resourceLevelingShowDelayBar)
+526|Įjungta: Ganto diagrama piešia atidėjimą prieš perkeltą užduotį.
+527|Rodyti perkrautus išteklius (resourceLevelingShowOverallocation)
+528|Įjungta: žymė užduočių medyje ir ant juostos ten, kur išteklius rezervuotas daugiau valandų, nei jų turi.
+529|Saugoti paleidimų istoriją (resourceLevelingKeepHistory)
+530|Įjungta: kiekvienas paleidimas išsaugomas, kad jį būtų galima atšaukti vėliau.
+531|Žemesnis prioritetas nei užduoties, kuri pasilieka išteklių
+532|Daugiau rezervo nei užduoties, kuri pasilieka išteklių
+533|Prasideda vėliau nei užduotis, kuri pasilieka išteklių
+534|Eina po užduoties, kuri pasilieka išteklių
+535|Išteklių užėmę kiti projektai
+536|Užduotis užregistruota ir išlaiko savo datas
+537|Užduotis prasidėjo arba baigta
+538|Užduotis turi užregistruotą faktą
+539|Užduoties prioritetas 1000: ji niekada neperkeliama
+540|Užduotis turi prasidėti arba baigtis tam tikrą dieną
+541|Užduotis suplanuota rankiniu būdu
+542|Užduoties nėra šiame paleidime
+543|Perkėlimui reikia daugiau nei rezervo (glotninimas išlaiko projekto datas)
+544|Nė viena vėlesnė diena neturi vietos
+545|Vienai užduočiai reikia daugiau valandų, nei turi išteklius: padalykite ją arba naudokite kitą išteklių
+546|Išteklių kalendoriuje šiai dienai nėra eilutės
+547|Išteklių laiko kiti projektai
+548|Paleidimą sustabdė jo saugos skaitiklis
+549|Nepavyko išspręsti
+550|{{resource}}: {{hours}} val. {{day}}, kalendoriuje šiai dienai nėra pajėgumo
+551|{{resource}}: {{hours}} val. {{day}}, pajėgumas {{capacity}} val.
+552|Nė viena užduotis neturi laiko eilutės su ištekliumi valandomis: nėra ko optimizuoti
+553|Joks išteklius nėra perkrautas
+554|Užregistruotos užduotys išlaiko datas: tai planas be jų
+555|Optimizuota: perkeltos užduotys {{n}}. Iš naujo registruojamos užduotys {{posted}} ...
+556|Optimizuota: perkeltos užduotys {{n}}, neužregistruotos užduotys {{posted}}: naudokite „Užregistruoti neužregistruotas užduotis“
+557|Optimizuota: perkeltos užduotys {{n}}
+558|Perskaičius planą užduotis buvo pakeista. Išlyginkite iš naujo.
+559|Nė viena užduotis neturi išlyginimo atidėjimo
+560|Išvalyti išlyginimą?
+561|Išlyginimo atidėjimas pašalinamas užduotims: {{n}}; iš jų užregistruotos {{posted}} ir praranda registravimą, nes jų datos pasislenka.
+562|Išlyginimo atidėjimas pašalinamas užduotims: {{n}}.
+563|Išlyginimas išvalytas
+564|Atšaukti šį paleidimą?
+565|Išlyginimo atidėjimai grįžta į reikšmes prieš paleidimą. Užregistruotos užduotys, kurių datos pasislenka, praranda registravimą.
+566|Atšaukta: atkurtos užduotys {{n}}, nuo to laiko pakeistos {{skipped}} ir paliktos kaip yra
+567|Atšaukta: atkurtos užduotys {{n}}
+568|Nėra paleidimo, kurį būtų galima atšaukti
+569|Išlyginti dabar
+570|Atšaukti paskutinį paleidimą
+571|Paleidimų istorija

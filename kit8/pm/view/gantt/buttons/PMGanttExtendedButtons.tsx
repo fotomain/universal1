@@ -1,4 +1,4 @@
-// The Gantt bar buttons of the Extended functions: Calculate (A2), Scroll to task and Zoom to selection (E13), Details pane (E10).
+// The Gantt bar buttons of the Extended functions: Calculate (A2), Level (Resource optimization, only with its project switch), Scroll to task and Zoom to selection (E13), Details pane (E10).
 // Each exists only while its function is on (kit8/pm/extended); with everything off the bar is the one it always was.
 import React from 'react';
 import { usePMStore } from '../../../store/store_pm';
@@ -7,6 +7,7 @@ import { PMIconButton } from '../../../inner/buttons/PMIconButton';
 import { PMCrud } from '../../../crud/usePMCrud';
 import { extendedOptionsPatch } from '../../../extended/extendedOptions';
 import PMGanttCalculateButton from './PMGanttCalculateButton';
+import PMResourceLevelingBarButton from '../../../resourceleveling/PMResourceLevelingBarButton';
 import { pmT } from '../../../i18n/pmT';
 
 export default function PMGanttExtendedButtons({ crud, palette, scrollToTask, zoomToSelection }: { crud: PMCrud; palette: PMPalette; scrollToTask?: () => void; zoomToSelection?: () => void }) {
@@ -18,6 +19,7 @@ export default function PMGanttExtendedButtons({ crud, palette, scrollToTask, zo
   return (
     <>
       <PMGanttCalculateButton palette={palette} />
+      <PMResourceLevelingBarButton palette={palette} />
       {flags.ganttScrollToTaskEnabled && (
         <>
           <PMIconButton testID="pm-gantt-scroll-to-task" icon="my_location" title={pmT('Scroll to the bar of the selected task')} color={palette.text} disabled={!hasSelection} onPress={() => scrollToTask?.()} />

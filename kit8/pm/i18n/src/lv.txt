@@ -447,3 +447,125 @@
 447|Tiks aizmirsti {{count}} atkārtošanas soļi. Pats projekts nemainās.
 448|Nav ko atsaukt
 449|labais klikšķis / ilgs pieskāriens: izvēlne
+450|Izlīdzināt
+451|Resursu optimizācija: izlīdziniet resursus, kas rezervēti vairāk stundu, nekā atļauj to kalendārs
+452|Resursu optimizācija
+453|Nevarēja atrisināt konfliktus: {{n}}
+454|… un vēl {{n}}
+455|Jāpārbīda iegrāmatoti uzdevumi: {{n}}
+456|Iegrāmatota uzdevuma pārbīde atceļ tā rindu un maksājumu iegrāmatošanu. Ko ar tiem darīt?
+457|{{name}}: {{from}} → {{to}}
+458|Atcelt iegrāmatošanu un pārbīdīt
+459|Uzdevumi tiek pārbīdīti un paliek neiegrāmatoti, līdz jūs tos iegrāmatojat.
+460|Pārbīdīt un iegrāmatot vēlreiz
+461|Uzdevumi tiek pārbīdīti un iegrāmatoti vēlreiz, bet tikai tad, ja tos var iegrāmatot bez konfliktiem; citādi tie paliek savā vietā.
+462|Saglabāt to datumus
+463|Iegrāmatotie uzdevumi netiek pārbīdīti; plāns tiek veidots no jauna bez tiem.
+464|agrāk
+465|vēlāk
+466|Resursu optimizācija – Izlīdzināšana
+467|Resursu optimizācija – Līmeņošana
+468|Pašlaik pārslogoti
+469|Pēc palaišanas neatrisināti
+470|Pārbīdītie uzdevumi
+471|Projekta sākums
+472|Projekta beigas
+473|Iegrāmatotie uzdevumi, kas pārbīdās
+474|Projekts plānots no beigu datuma: uzdevumi pārbīdās agrāk, beigu datums paliek.
+475|Neviens uzdevums nav jāpārbīda.
+476|{{from}} → {{to}} ({{days}} darba dienas {{when}})
+477|Notīrīt līmeņošanu
+478|Resursu optimizācija – palaišanas
+479|Palaišanu vēl nav.
+480|Pārbīdīti uzdevumi: {{n}}
+481|Neatrisināti: {{n}}
+482|Atsaukt palaišanu
+483|Atsaukts
+484|Pa dienām
+485|Plāns skaita darba dienas, kā tagad.
+486|Pa stundām
+487|2. posms: dienas laika modelis vēl nav pieejams.
+488|Stunda
+489|Manuāli
+490|Optimizēt pēc komandas, ar priekšskatījumu.
+491|Automātiski
+492|Optimizēt pēc katras izmaiņas.
+493|Līmeņošana
+494|Datumi var iziet ārpus rezerves; projekta beigas var mainīties.
+495|Izlīdzināšana
+496|Tiek izmantota tikai rezerve; projekta beigas nemainās.
+497|Standarta
+498|Prioritāte, standarta
+499|Tikai ID
+500|Jautāt man
+501|Resursi
+502|Plānošanas modelis (resourceOptimizationMode)
+503|Resursu slodzes vienība (resourceGrainUnit)
+504|Vienība, kurā rāda resursa stundas, un periods, kurā slodzi salīdzina ar kalendāru. Modelī pa dienām mazākais periods ir viena darba diena.
+505|Resursu optimizācija (resourceLevelingFunctionalityEnabled)
+506|Ieslēgts: resursus, kas rezervēti vairāk stundu, nekā atļauj kalendārs, var līmeņot (uzdevumus kavē vai sadala) vai izlīdzināt. Izslēgts: nekas nemainās.
+507|Optimizēt (resourceLevelingMode)
+508|Metode (resourceLevelingWithinSlackOnly)
+509|Līmeņošanas secība (resourceLevelingOrder)
+510|Ātrais režīms (resourceLevelingFunctionalityFastModeEnabled)
+511|Ieslēgts: mainiet datus uzreiz ekrānā: velciet joslu, ierakstiet stundas šūnā, pārvietojiet uzdevumu uz citu resursu, novērsiet konfliktu ar vienu klikšķi.
+512|Iegrāmatotie uzdevumi
+513|Iegrāmatotos uzdevumus drīkst pārbīdīt (resourceLevelingPostedTasksMovementEnabled)
+514|Ieslēgts: iegrāmatotu uzdevumu var pārbīdīt, bet nekad bez jautājuma: pārbīde atceļ tā rindu un maksājumu iegrāmatošanu. Izslēgts: iegrāmatotie uzdevumi saglabā datumus.
+515|Kad iegrāmatots uzdevums jāpārbīda (resourceLevelingPostedTasksAction)
+516|Opcijas
+517|Notīrīt līmeņošanas vērtības pirms līmeņošanas (resourceLevelingClearBeforeLeveling)
+518|Ieslēgts: līmeņot no plāna bez vecajām aizkavēm. Automātiskajā režīmā vienmēr ieslēgts.
+519|Līmeņošana drīkst veidot pārtraukumus (resourceLevelingCanSplit)
+520|Ieslēgts: uzdevumu drīkst pārtraukt, nevis pārbīdīt. Darbojas tikai ar Gantt Extended funkciju “Uzdevumu sadalīšana”.
+521|Līmeņot manuāli plānotos uzdevumus (resourceLevelingManualTasks)
+522|Ieslēgts: manuāli plānotos uzdevumus drīkst pārbīdīt arī. Darbojas tikai ar Gantt Extended funkciju “Manuāli plānoti uzdevumi”.
+523|Ņemt vērā citus projektus (resourceLevelingIncludeOtherProjects)
+524|Ieslēgts: organizācijas citu projektu iegrāmatotās stundas tiek skaitītas kā slodze, ko nevar pārbīdīt.
+525|Rādīt līmeņošanas aizkaves joslu (resourceLevelingShowDelayBar)
+526|Ieslēgts: Ganta diagramma zīmē aizkavi pirms pārbīdītā uzdevuma.
+527|Rādīt pārslogotos resursus (resourceLevelingShowOverallocation)
+528|Ieslēgts: atzīme uzdevumu kokā un uz joslas, kur resurss rezervēts vairāk stundu, nekā tam ir.
+529|Saglabāt palaišanu vēsturi (resourceLevelingKeepHistory)
+530|Ieslēgts: katra palaišana tiek saglabāta, lai to varētu atsaukt vēlāk.
+531|Zemāka prioritāte nekā uzdevumam, kas patur resursu
+532|Vairāk rezerves nekā uzdevumam, kas patur resursu
+533|Sākas vēlāk nekā uzdevums, kas patur resursu
+534|Seko uzdevumam, kas patur resursu
+535|Resursu aizņem citi projekti
+536|Uzdevums ir iegrāmatots un saglabā savus datumus
+537|Uzdevums ir sācies vai pabeigts
+538|Uzdevumam ir iegrāmatots fakts
+539|Uzdevuma prioritāte ir 1000: tas nekad netiek pārbīdīts
+540|Uzdevumam jāsākas vai jābeidzas konkrētā datumā
+541|Uzdevums ir plānots manuāli
+542|Uzdevuma nav šajā palaišanā
+543|Pārbīdei vajag vairāk par rezervi (izlīdzināšana saglabā projekta datumus)
+544|Nevienai vēlākai dienai nav vietas
+545|Vienam uzdevumam vajag vairāk stundu, nekā resursam ir: sadaliet to vai izmantojiet citu resursu
+546|Resursa kalendārā nav rindas šai dienai
+547|Resursu tur citi projekti
+548|Palaišanu apturēja tās drošības skaitītājs
+549|Nevarēja atrisināt
+550|{{resource}}: {{hours}} h {{day}}, kalendārā šai dienai nav jaudas
+551|{{resource}}: {{hours}} h {{day}}, jauda {{capacity}} h
+552|Nevienam uzdevumam nav laika rindas ar resursu stundās: nav ko optimizēt
+553|Neviens resurss nav pārslogots
+554|Iegrāmatotie uzdevumi saglabā datumus: tas ir plāns bez tiem
+555|Optimizēts: pārbīdīti uzdevumi {{n}}. Atkārtoti tiek grāmatoti uzdevumi {{posted}} ...
+556|Optimizēts: pārbīdīti uzdevumi {{n}}, neiegrāmatoti uzdevumi {{posted}}: izmantojiet “Iegrāmatot neiegrāmatotos uzdevumus”
+557|Optimizēts: pārbīdīti uzdevumi {{n}}
+558|Pēc plāna nolasīšanas uzdevums tika mainīts. Līmeņojiet vēlreiz.
+559|Nevienam uzdevumam nav līmeņošanas aizkaves
+560|Notīrīt līmeņošanu?
+561|Līmeņošanas aizkave tiek noņemta uzdevumiem: {{n}}; no tiem iegrāmatoti ir {{posted}}, un tie zaudē iegrāmatojumu, jo to datumi pārbīdās.
+562|Līmeņošanas aizkave tiek noņemta uzdevumiem: {{n}}.
+563|Līmeņošana notīrīta
+564|Atsaukt šo palaišanu?
+565|Līmeņošanas aizkaves atgriežas pie vērtībām pirms palaišanas. Iegrāmatotie uzdevumi, kuru datumi pārbīdās, zaudē iegrāmatojumu.
+566|Atsaukts: atjaunoti uzdevumi {{n}}, kopš tā laika mainīti {{skipped}} un atstāti kā ir
+567|Atsaukts: atjaunoti uzdevumi {{n}}
+568|Nav palaišanas, ko atsaukt
+569|Izlīdzināt tagad
+570|Atsaukt pēdējo palaišanu
+571|Palaišanu vēsture

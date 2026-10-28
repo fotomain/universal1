@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Resource Leveling WBS</title>
+<title>Resource Optimization WBS</title>
 <style>
   :root {
     --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
@@ -50,96 +50,125 @@
 <body>
 <main>
 
-<h1>Resource Leveling – Work Breakdown Structure</h1>
-<p class="sub">Scope: the MS Project command <b>Resource &gt; Level</b> (item <b>A16</b> of <code>MORE_GANTT_INPUT.html</code>, “not built”) for the Gantt chart of <code>kit8/pm</code>. Source: the Google Doc “W1 Resource Leveling”. Planning document – <b>no code</b>, nothing in the repository was changed. Russian translation: <code>RESOURCE_LEVELING_WBS_RU.html</code>.</p>
+<h1>Resource Optimization (leveling and smoothing) – Work Breakdown Structure</h1>
+<p class="sub">Scope: <b>resource optimization</b> in the PMBOK sense (the techniques <b>resource leveling</b> and <b>resource smoothing</b>), built so that every MS Project term still works (<b>Resource &gt; Level</b>, the Level Resources dialog, Leveling Delay – item <b>A16</b> of <code>MORE_GANTT_INPUT.html</code>, “not built”) for the Gantt chart of <code>kit8/pm</code>. Source: the Google Doc “W1 Resource Leveling” and the owner’s answers of 2026-10-27 (section 18). Planning document – <b>no code</b> (the design; the build follows it, see section 19). Revised 2026-10-27, second round of answers the same day. Russian translation: <code>RESOURCE_LEVELING_WBS_RU.html</code>.</p>
 
 <h2>1. Goal</h2>
 <div class="card">
-  <p>A resource (a person, an equipment, a partner – in the app: a <b>work center</b>) can be booked for more hours on a day than its calendar allows. Today the app only <b>reports</b> this (the busy check at <b>Post</b>, <code>capacityModeWarn</code> / <code>capacityModeBlock</code>) – nothing is moved. <b>Resource leveling</b> moves (delays) or splits the tasks of the project, by priority and slack, until no resource is over-allocated – or tells exactly why a conflict cannot be removed.</p>
-  <p>The project owner chooses in the project settings whether leveling is <b>Automatic</b> (the plan is leveled after every edit) or <b>Manual</b> (the planner presses <b>Level now</b> and sees a preview first), and a <b>Fast mode</b> makes the in-line, on-screen user actions (drag a bar, edit an hour, fix one conflict) answer at once.</p>
+  <p>A resource (a person, an equipment, a partner – in the app: a <b>work center</b>) can be booked for more hours on a day than its calendar allows. Today the app only <b>reports</b> this (the busy check at <b>Post</b>, <code>capacityModeWarn</code> / <code>capacityModeBlock</code>) – nothing is moved. <b>Resource optimization</b> moves (delays) or splits the tasks of the project, by priority and slack, until no resource is over-allocated – or tells exactly why a conflict cannot be removed. It has two <b>methods</b> (PMBOK):</p>
+  <ul>
+    <li><b>Leveling</b> – dates may move beyond the slack; the critical path and the project finish may change. = MS Project “Level now”.</li>
+    <li><b>Smoothing</b> – only the slack is used; the critical path and the project finish do not change; a conflict that needs more stays and is reported. = MS Project “Level only within available slack”.</li>
+  </ul>
+  <p>The project owner chooses <b>Automatic</b> (the plan is optimized after every edit) or <b>Manual</b> (the planner presses <b>Level now</b> and sees a preview first). A <b>Fast mode</b> adds on-screen, in-place options to change the data (drag, edit hours, fix one conflict with one click) in the form that is the most comfortable for the user.</p>
 </div>
-<div class="callout warn"><b>Hard constraint:</b> everything is <b>off</b> while <code>resourceLevelingFunctionalityEnabled</code> was never saved. With it off the scheduler, the Gantt chart, Post, the busy check, the exports and every screen work exactly as today; no new button, column or banner is shown and no stored data changes.</div>
+<div class="callout warn"><b>Hard constraint:</b> everything is <b>off</b> while <code>resourceLevelingFunctionalityEnabled</code> was never saved. With it off the scheduler, the Gantt chart, Post, the busy check and every screen work exactly as today; no new button, column or banner is shown and no stored data changes.</div>
 
-<h2>2. Requirements overview (from the Google Doc)</h2>
+<h2>2. Requirements overview (from the Google Doc and the answers of 2026-10-27)</h2>
 <div class="tbl">
 <table>
-  <tr><th>#</th><th>Requirement</th><th>Source statement</th><th>Where answered</th></tr>
-  <tr><td class="id">R1</td><td>This document, <code>./documentation/RESOURCE_LEVELING_WBS.html</code>; no code.</td><td>“No code. Make … RESOURCE_LEVELING_WBS.html”</td><td>whole file</td></tr>
-  <tr><td class="id">R2</td><td>The list of all definitions, as in Microsoft Project.</td><td>“Make the list of the all definitions like in Microsoft project”</td><td>section 4</td></tr>
-  <tr><td class="id">R3</td><td>The list of business needs.</td><td>“Make the list of business needs”</td><td>section 5</td></tr>
-  <tr><td class="id">R4</td><td>How each business need will be met.</td><td>“Describe how each business need will be meet”</td><td>section 6 (+ design 7)</td></tr>
-  <tr><td class="id">R5</td><td>The solution WBS.</td><td>“Describe the solution WBS”</td><td>section 10, 11</td></tr>
-  <tr><td class="id">R6</td><td>Additional tables <code>project_resource_leveling_xxx</code> if needed.</td><td>“Use project_resource_reveling_xxx additional tables if needed”</td><td>section 8</td></tr>
-  <tr><td class="id">R7</td><td>The components are named <code>PMResourceLeveling</code> + <code>NNN</code>.</td><td>“Use PMResourceLeveling+NNN names of the components”</td><td>section 9</td></tr>
-  <tr><td class="id">R8</td><td>Check all of the interface and translate it to all languages.</td><td>“Check all of the interface and translate it to the all languages”</td><td>section 12</td></tr>
-  <tr><td class="id">R9</td><td>Project setting <code>resourceLevelingFunctionalityEnabled</code> with two ways: <b>Automatic</b> and <b>Manual</b>.</td><td>“Project settings – resourceLvelingFunctionalityEnabled. Automatic, Manual”</td><td>7.1, 7.5</td></tr>
-  <tr><td class="id">R10</td><td>Sub switches for the other options, where it is possible.</td><td>“sub switches for other options if it is possible”</td><td>7.1</td></tr>
-  <tr><td class="id">R11</td><td>A switch <code>resourceLevelingFunctionalityFastModeEnabled</code>: the most online and in-line user action patterns are needed.</td><td>“resourceLvelingFunctionalityFastModeEnabled: for MOST ONLINE AND IN LINE USER ACTION PATTERNS NEEDED”</td><td>7.6 (reading to confirm: Q2)</td></tr>
-</table>
-</div>
-<p>The spelling in the Google Doc (<code>resourceLveling…</code>, <code>reveling</code>) is taken as a typo: this document writes <code>resourceLeveling…</code> and <code>project_resource_leveling_…</code> (question Q1).</p>
-
-<h2>3. What the app has today (checked in the code, 2026-10-26)</h2>
-<div class="tbl">
-<table>
-  <tr><th>Area</th><th>What exists</th><th>Consequence for leveling</th></tr>
-  <tr><td>Scheduler</td><td>Client side, pure TypeScript: <code>scheduleProject</code> (<code>kit8/pm/view/project/scheduling.ts</code>) = CPM forward and backward pass, stage roll-up, links with lag, calendars. Options of the project: <code>model/scheduleOptions.ts</code>. The result is written back after 800 ms by <code>pm_apply_schedule</code>.</td><td>Leveling must be an <b>input of the scheduler</b> (a per-task delay, like a lag), so the Gantt chart, the critical path, the stages and the versions follow the same rules. The engine can be pure TypeScript and testable.</td></tr>
-  <tr><td>Demand of a resource</td><td>A <b>Time line</b> of a task has a resource (person / equipment / work center, <code>taskResourceItem</code>), a quantity in <b>hours</b> and a distribution. <b>Post</b> spreads the hours over the working days of the task (<code>calculateTaskLinePlan</code>) into <code>task_line_plan_movements</code> (one row per line and day).</td><td>Before Post the demand per day can be calculated from the lines with the same function (no Post needed to level). After Post the posted rows of <b>other</b> projects are the foreign load.</td></tr>
-  <tr><td>Capacity</td><td>The resource calendar = hours per day (PART 21, <code>organization_resource_capacity</code>); person / equipment / work center / contract calendars; a day without a calendar row is “unknown”, never guessed.</td><td>The only source of capacity. Leveling reads it through an RPC; the calendar rules are <b>not</b> re-implemented in TypeScript.</td></tr>
-  <tr><td>Busy check</td><td>PART 22: <code>resource_occupancy_x_movement</code> (abstract occupancy), <code>organization_resource_busy_check(task, organization)</code>, mode per organization <code>resourceCapacityStrongMode</code> (<code>capacityModeOff</code> / <code>Warn</code> / <code>Block</code>), the window <code>BusyConflictsWindow</code>. “Equal is not busy.”</td><td>The same definition of over-allocation (booked &gt; capacity). A leveled plan must pass this check at Post. The check stays the authority.</td></tr>
-  <tr><td>Task fields (Gantt Extended)</td><td>A15 priority <code>taskPriority</code> (0–1000, default 500); A12 splits <code>taskSplits</code>; A1 manual tasks; A3 constraints; A5 deadline; A6 task type / work / units; A10 / A11 calendars; A14 inactive; A2 calculation Manual (F9); slack <code>totalFloatDays</code> / <code>slackDays</code>.</td><td>Leveling reads them when the function is on and ignores them when it is off.</td></tr>
-  <tr><td>Reactions to a moved date</td><td>A changed start / finish day <b>unposts</b> the task lines and the payments of the task (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>) and rewrites the user calendar entry.</td><td>The most dangerous side effect. Leveling must not silently unpost posted work: freeze rules and a preview (7.7).</td></tr>
-  <tr><td>Resource leveling itself</td><td><b>Nothing.</b> <code>MORE_GANTT_INPUT.html</code> A16: “Missing … nothing is moved”.</td><td>New feature.</td></tr>
+  <tr><th>#</th><th>Requirement</th><th>Source</th><th>Where answered</th></tr>
+  <tr><td class="id">R1</td><td>This document, <code>./documentation/RESOURCE_LEVELING_WBS.html</code>, built around “Resource optimization”; all MS Project terms keep working; no code.</td><td>Doc; answer 3</td><td>whole file, section 4</td></tr>
+  <tr><td class="id">R2</td><td>The list of all definitions as in Microsoft Project (and the PMBOK terms).</td><td>Doc</td><td>section 4</td></tr>
+  <tr><td class="id">R3</td><td>The list of business needs.</td><td>Doc</td><td>section 5</td></tr>
+  <tr><td class="id">R4</td><td>How each business need will be met.</td><td>Doc</td><td>section 6 (+ design 7)</td></tr>
+  <tr><td class="id">R5</td><td>The solution WBS.</td><td>Doc</td><td>sections 10, 11</td></tr>
+  <tr><td class="id">R6</td><td>Additional tables <code>project_resource_leveling_xxx</code> if needed.</td><td>Doc; Q1 = yes</td><td>section 8</td></tr>
+  <tr><td class="id">R7</td><td>Component names: <code>PMResourceLeveling</code> + a <b>text name</b> (not a number): <code>PMResourceLevelingComponentName</code>.</td><td>Answer 1</td><td>section 9</td></tr>
+  <tr><td class="id">R8</td><td>Check all of the interface and translate it to all languages.</td><td>Doc</td><td>section 12</td></tr>
+  <tr><td class="id">R9</td><td>Project settings: the tab is titled <b>“Resources”</b>; inside it the text / section <b>“Resource optimization”</b>. Key <code>resourceLevelingFunctionalityEnabled</code> with the ways <b>Automatic</b> and <b>Manual</b>.</td><td>Doc; answer 2</td><td>7.1, 7.5</td></tr>
+  <tr><td class="id">R10</td><td>Sub switches for the other options, where possible.</td><td>Doc</td><td>7.1</td></tr>
+  <tr><td class="id">R11</td><td><code>resourceLevelingFunctionalityFastModeEnabled</code>: the screen options that change the data in place; the more comfortable UX/UI version.</td><td>Doc; answer 6</td><td>7.6</td></tr>
+  <tr><td class="id">R12</td><td>Option <code>resourceLevelingPostedTasksMovementEnabled</code>, <b>true by default</b>. A posted task <b>never loses its posting silently</b>: the app asks – unpost, move and post again without conflicts, or keep.</td><td>Answers 7 and 14</td><td>7.1, 7.7</td></tr>
+  <tr><td class="id">R13</td><td>Option <code>resourceGrainUnit</code>, <b>hour by default</b>; hours are needed.</td><td>Answer 10</td><td>7.9</td></tr>
+  <tr><td class="id">R14</td><td>Export to MS Project is <b>not needed now</b>.</td><td>Answer 4</td><td>15</td></tr>
+  <tr><td class="id">R15</td><td>Q5 (schedule from the project finish): decided by the most comfortable UX – it works, mirrored, no refusal.</td><td>Answer 15</td><td>7.8</td></tr>
+  <tr><td class="id">R16</td><td>Setting <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (the app works as it does now) | <code>hourByHourModel</code> (a time-of-day model); tables are added where needed.</td><td>Answer 16</td><td>7.10, 8</td></tr>
 </table>
 </div>
 
-<h2>4. Definitions – the Microsoft Project glossary and what it means here (R2)</h2>
-<p>Every term of the MS Project leveling feature (Resource &gt; Level Resources dialog, the fields, the views) with the meaning in the app.</p>
+<h2>3. What the app has today (checked in the code, 2026-10-26 / 27)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Area</th><th>What exists</th><th>Consequence</th></tr>
+  <tr><td>Scheduler</td><td>Client side, pure TypeScript: <code>scheduleProject</code> (<code>kit8/pm/view/project/scheduling.ts</code>) = CPM forward and backward pass, stage roll-up, links with lag, calendars, in <b>working days</b>. Options: <code>model/scheduleOptions.ts</code>. Written back after 800 ms by <code>pm_apply_schedule</code>.</td><td>Optimization is an <b>input of the scheduler</b> (a per-task delay, like a lag). The engine is pure TypeScript on the client (decision Q4).</td></tr>
+  <tr><td>Demand of a resource</td><td>A <b>Time line</b> has a resource (<code>taskResourceItem</code>: person / equipment / work center), a quantity in <b>hours</b> and a distribution. <b>Post</b> spreads the hours over the working days (<code>calculateTaskLinePlan</code>) into <code>task_line_plan_movements</code>, <b>one row per line and day</b> (<code>rowPeriodDatetime</code> = the day).</td><td>Before Post the demand per day is calculated from the lines with the same function. Posted rows of <b>other</b> projects = foreign load.</td></tr>
+  <tr><td>Capacity</td><td>The resource calendar (PART 21): its day rows carry <code>hours</code> (0..24) per day; <b>no clock times</b> (no from / to, no breaks).</td><td>The only source of capacity; read through an RPC. Hour-by-hour with clock times is not possible on today’s data (section 7.9).</td></tr>
+  <tr><td>Busy check</td><td>PART 22: <code>resource_occupancy_x_movement</code>, <code>organization_resource_busy_check</code>, mode <code>resourceCapacityStrongMode</code>, <code>BusyConflictsWindow</code>. “Equal is not busy.”</td><td>The same definition of over-allocation. An optimized plan must pass it at Post.</td></tr>
+  <tr><td>Task fields (Gantt Extended)</td><td>A15 <code>taskPriority</code> (0–1000, 500); A12 <code>taskSplits</code>; A1 manual; A3 constraints; A5 deadline; A6 type / work / units; A10 / A11 calendars; A14 inactive; A2 Calculation Manual (F9); slack.</td><td>Read when the function is on.</td></tr>
+  <tr><td>Reactions to a moved date</td><td>A changed start / finish day <b>unposts</b> the lines and payments of the task (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>).</td><td>The optimization must never unpost silently: it asks the user first (7.7).</td></tr>
+  <tr><td>Resource optimization</td><td><b>Nothing.</b> <code>MORE_GANTT_INPUT.html</code> A16: “Missing … nothing is moved”.</td><td>New feature.</td></tr>
+</table>
+</div>
+
+<h2>4. Definitions – PMBOK terms and MS Project terms (R2)</h2>
+<p>The feature is named by the PMBOK umbrella term <b>Resource optimization</b>; the screens and the menus keep the MS Project words (Level, Leveling Delay, Level Resources …) beside it, so a user of either vocabulary finds the command.</p>
+
+<h3>4.1 PMBOK (6th edition) terms → the app and MS Project</h3>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>PMBOK term</th><th>Meaning</th><th>In the app (MS Project word in brackets)</th></tr>
+  <tr><td class="id">P1</td><td>Resource optimization</td><td>The umbrella technique: balance the demand for resources against the supply. Methods: leveling, smoothing.</td><td><span class="tag new">New</span> the feature; the tab “Resources” → section “Resource optimization”; the menu title of the Level button.</td></tr>
+  <tr><td class="id">P2</td><td>Resource leveling</td><td>Dates are adjusted to resource constraints; may change the critical path and the finish.</td><td><span class="tag new">New</span> Method <b>Leveling</b> (Level Now).</td></tr>
+  <tr><td class="id">P3</td><td>Resource smoothing</td><td>Adjust within the float only; critical path and finish do not change.</td><td><span class="tag new">New</span> Method <b>Smoothing</b> = the key <code>resourceLevelingWithinSlackOnly</code> (“Level only within available slack”). One key, two names: the tab shows the Method; the Level Resources window shows the MS Project check box.</td></tr>
+  <tr><td class="id">P4</td><td>Resource requirements / resource demand</td><td>The resources a task needs.</td><td><span class="tag have">Have</span> the Time lines of a task (resource + hours).</td></tr>
+  <tr><td class="id">P5</td><td>Resource availability / supply</td><td>What the resource can give per period.</td><td><span class="tag have">Have</span> the resource calendar (hours per day) (Max units).</td></tr>
+  <tr><td class="id">P6</td><td>Resource histogram</td><td>A chart of the hours needed per period, with the limit.</td><td><span class="tag new">New</span> the Load graph (Resource Graph).</td></tr>
+  <tr><td class="id">P7</td><td>Resource calendar</td><td>When the resource can work.</td><td><span class="tag have">Have</span> PART 21 (Resource calendar).</td></tr>
+  <tr><td class="id">P8</td><td>Resource constraint / over-allocation</td><td>Demand above supply in a period.</td><td><span class="tag new">New</span> detector (Overallocation).</td></tr>
+  <tr><td class="id">P9</td><td>Float (slack), critical path</td><td>Time a task can slip; the longest path.</td><td><span class="tag have">Have</span> (Slack, Critical path).</td></tr>
+  <tr><td class="id">P10</td><td>Resource breakdown structure, resource pool</td><td>Resources by category; resources shared by projects.</td><td><span class="tag have">Have</span> work centers in folders (business units) and the organization (Resource pool).</td></tr>
+  <tr><td class="id">P11</td><td>Schedule compression (crashing, fast tracking)</td><td>Shorten the schedule.</td><td><span class="tag no">Not built</span> a different technique.</td></tr>
+  <tr><td class="id">P12</td><td>Control Resources / Develop Schedule (processes)</td><td>Where optimization is applied.</td><td>Planning: Level now; monitoring: the indicator, the Load graph, Automatic mode.</td></tr>
+</table>
+</div>
+
+<h3>4.2 MS Project terms (the Level Resources dialog, the fields, the views)</h3>
 <div class="tbl">
 <table>
   <tr><th>#</th><th>MS Project term</th><th>Meaning in MS Project</th><th>In the app</th></tr>
   <tr class="group"><td class="id">D</td><td colspan="3">Core terms</td></tr>
-  <tr><td class="id">D1</td><td>Resource leveling</td><td>Delaying or splitting tasks so that no resource works more than its availability.</td><td><span class="tag new">New</span> the engine of this document.</td></tr>
-  <tr><td class="id">D2</td><td>Overallocation / overallocated resource</td><td>A resource is assigned more work in a period than it can do (units &gt; max units).</td><td><span class="tag map">Maps</span> booked hours of a day &gt; hours of its calendar that day (same rule as the busy check; equal is not over-allocated).</td></tr>
-  <tr><td class="id">D3</td><td>Max units / resource availability</td><td>The % of full time a resource is available.</td><td><span class="tag map">Maps</span> the capacity in <b>hours per day</b> of the resource calendar (a part-time week = fewer hours). No % unit.</td></tr>
-  <tr><td class="id">D4</td><td>Peak units / Peak</td><td>The highest load of a resource in a period.</td><td><span class="tag new">New</span> “Peak hours” per resource and per run, in the Resource Load view.</td></tr>
-  <tr><td class="id">D5</td><td>Assignment / assignment units</td><td>A resource on a task with a % of its time.</td><td><span class="tag map">Maps</span> a <b>Time line</b> of the task (resource + hours). Daily hours = hours × distribution weight of the day. The A6 task <code>units</code> are not used by leveling in this version.</td></tr>
-  <tr><td class="id">D6</td><td>Work / remaining work</td><td>The hours of a task / the hours not done yet.</td><td><span class="tag map">Maps</span> the hours of the Time lines. Remaining work is <span class="tag no">not built</span>: a task that has started (progress &gt; 0) is frozen (7.3).</td></tr>
-  <tr><td class="id">D7</td><td>Resource calendar</td><td>Working days / hours of one resource.</td><td><span class="tag have">Have</span> PART 21 (person, equipment, work center, contract calendars).</td></tr>
-  <tr><td class="id">D8</td><td>Resource pool</td><td>Resources shared by several projects.</td><td><span class="tag have">Have</span> the <b>organization</b>: its projects share the work centers; the foreign load is the posted bookings of the other projects.</td></tr>
-  <tr><td class="id">D9</td><td>Booking type (proposed / committed)</td><td>A proposed resource may be ignored by leveling.</td><td><span class="tag map">Maps</span> no booking type exists. Own unposted lines always count; foreign load = posted lines. <span class="tag no">Not built</span> as a separate option.</td></tr>
+  <tr><td class="id">D1</td><td>Resource leveling</td><td>Delaying or splitting tasks so that no resource works more than its availability.</td><td><span class="tag new">New</span> = P2.</td></tr>
+  <tr><td class="id">D2</td><td>Overallocation / overallocated resource</td><td>Assigned work &gt; availability in a period.</td><td><span class="tag map">Maps</span> booked hours &gt; hours of its calendar (same rule as the busy check; equal is not over-allocated).</td></tr>
+  <tr><td class="id">D3</td><td>Max units / resource availability</td><td>% of full time available.</td><td><span class="tag map">Maps</span> capacity in <b>hours per day</b> of the calendar. No % unit.</td></tr>
+  <tr><td class="id">D4</td><td>Peak units / Peak</td><td>Highest load in a period.</td><td><span class="tag new">New</span> “Peak hours” per resource and run.</td></tr>
+  <tr><td class="id">D5</td><td>Assignment / assignment units</td><td>A resource on a task with a % of its time.</td><td><span class="tag map">Maps</span> a <b>Time line</b> (resource + hours; daily hours = hours × the weight of the day). A6 task <code>units</code> are not used in this version.</td></tr>
+  <tr><td class="id">D6</td><td>Work / remaining work</td><td>Hours of a task / hours not done.</td><td><span class="tag map">Maps</span> the hours of the Time lines. Remaining work <span class="tag no">not built</span>: a started task is frozen (7.3).</td></tr>
+  <tr><td class="id">D7</td><td>Resource calendar</td><td>Working days / hours of a resource.</td><td><span class="tag have">Have</span> PART 21.</td></tr>
+  <tr><td class="id">D8</td><td>Resource pool</td><td>Resources shared by projects.</td><td><span class="tag have">Have</span> the organization; foreign load = posted bookings of the other projects. Decision Q8: other projects are fixed obstacles.</td></tr>
+  <tr><td class="id">D9</td><td>Booking type (proposed / committed)</td><td>A proposed resource may be ignored.</td><td><span class="tag no">Not built</span> own unposted lines always count; foreign load = posted lines.</td></tr>
   <tr class="group"><td class="id">F</td><td colspan="3">Task fields</td></tr>
-  <tr><td class="id">D10</td><td>Leveling Delay</td><td>The delay (elapsed duration) leveling put in front of a task.</td><td><span class="tag new">New</span> <code>taskLevelingDelayDays</code> in <b>working days of the task calendar</b>; whole days only (the data has no time of day).</td></tr>
-  <tr><td class="id">D11</td><td>Leveling Can Split</td><td>Leveling may interrupt this task.</td><td><span class="tag new">New</span> <code>taskLevelingCanSplit</code> (default yes); uses the splits of A12 (<code>taskSplits</code>).</td></tr>
-  <tr><td class="id">D12</td><td>Priority (0–1000)</td><td>The importance of a task; 1000 = never level it; a low priority is delayed first.</td><td><span class="tag have">Have</span> A15 <code>taskPriority</code> (default 500). <span class="tag new">New</span> meaning: 1000 = do not level.</td></tr>
-  <tr><td class="id">D13</td><td>Slack (total / free)</td><td>How long a task can slip without moving the project finish / a successor.</td><td><span class="tag have">Have</span> <code>totalFloatDays</code>, <code>slackDays</code> (A3).</td></tr>
-  <tr><td class="id">D14</td><td>Critical task / critical path</td><td>Tasks without slack.</td><td><span class="tag have">Have</span>. Leveling can create a new critical path (the delay is part of the path).</td></tr>
-  <tr><td class="id">D15</td><td>Constraint</td><td>A date rule of the task.</td><td><span class="tag have">Have</span> A3. “Must start/finish on” and “always honor” tasks cannot be delayed (reported).</td></tr>
-  <tr><td class="id">D16</td><td>Manually scheduled task</td><td>A task whose dates the planner types.</td><td><span class="tag have">Have</span> A1. Not leveled unless <code>resourceLevelingManualTasks</code> is on.</td></tr>
-  <tr><td class="id">D17</td><td>Split task</td><td>A task with a gap in its work.</td><td><span class="tag have">Have</span> A12.</td></tr>
-  <tr><td class="id">D18</td><td>Task type / effort driven</td><td>Fixed units / duration / work.</td><td><span class="tag have">Have</span> A6; <span class="tag no">not used</span> by leveling (it never changes work or units).</td></tr>
-  <tr><td class="id">D19</td><td>Level assignments (“Level adjusts individual assignments on a task”)</td><td>Delay one assignment, not the whole task.</td><td><span class="tag no">Not built</span> a Time line has no dates of its own; the whole task moves (question Q6).</td></tr>
-  <tr><td class="id">D20</td><td>Deadline, baseline, status date</td><td>Watch dates / saved plan / “today” of the report.</td><td><span class="tag have">Have</span> A5, C1, C3. Leveling does not move a task over its deadline silently: the missed deadline is shown in the preview.</td></tr>
+  <tr><td class="id">D10</td><td>Leveling Delay</td><td>The delay leveling put before a task.</td><td><span class="tag new">New</span> <code>taskLevelingDelayDays</code> in <b>working days</b> of the task calendar (decision Q9).</td></tr>
+  <tr><td class="id">D11</td><td>Leveling Can Split</td><td>Leveling may interrupt the task.</td><td><span class="tag new">New</span> <code>taskLevelingCanSplit</code> (default yes); uses A12 <code>taskSplits</code>.</td></tr>
+  <tr><td class="id">D12</td><td>Priority (0–1000)</td><td>Importance; 1000 = never level.</td><td><span class="tag have">Have</span> A15. <span class="tag new">New</span> meaning of 1000.</td></tr>
+  <tr><td class="id">D13</td><td>Slack (total / free)</td><td>How long a task can slip.</td><td><span class="tag have">Have</span> <code>totalFloatDays</code>, <code>slackDays</code> (Float).</td></tr>
+  <tr><td class="id">D14</td><td>Critical task / path</td><td>Tasks without slack.</td><td><span class="tag have">Have</span>; Leveling may create a new critical path.</td></tr>
+  <tr><td class="id">D15</td><td>Constraint</td><td>A date rule.</td><td><span class="tag have">Have</span> A3: Must start / finish on and “always honor” cannot be delayed (reported).</td></tr>
+  <tr><td class="id">D16</td><td>Manually scheduled task</td><td>Dates typed by the planner.</td><td><span class="tag have">Have</span> A1; not moved unless <code>resourceLevelingManualTasks</code>.</td></tr>
+  <tr><td class="id">D17</td><td>Split task</td><td>A task with a gap.</td><td><span class="tag have">Have</span> A12.</td></tr>
+  <tr><td class="id">D18</td><td>Task type / effort driven</td><td>Fixed units / duration / work.</td><td><span class="tag have">Have</span> A6; <span class="tag no">not used</span> (hours and units are never changed by the engine).</td></tr>
+  <tr><td class="id">D19</td><td>Level assignments (“adjust individual assignments”)</td><td>Delay one assignment, not the task.</td><td><span class="tag no">Not built</span> decision Q6: the <b>full task</b> moves.</td></tr>
+  <tr><td class="id">D20</td><td>Deadline, baseline, status date</td><td>Watch dates.</td><td><span class="tag have">Have</span> A5, C1, C3; a missed deadline is shown in the preview.</td></tr>
   <tr class="group"><td class="id">O</td><td colspan="3">The “Level Resources” dialog</td></tr>
-  <tr><td class="id">D21</td><td>Leveling calculations: Automatic / Manual</td><td>Level at once after every change / only on command.</td><td><span class="tag new">New</span> <code>resourceLevelingMode</code> (section 7.5).</td></tr>
-  <tr><td class="id">D22</td><td>Look for overallocations on a [minute / hour / day / week / month] basis</td><td>The period in which load is compared with capacity.</td><td><span class="tag new">New</span> <code>resourceLevelingGrain</code> = <b>day</b> (default) or <b>week</b>. Hour and minute: <span class="tag no">not possible</span> – the posted days have no time of day (as in the busy check).</td></tr>
-  <tr><td class="id">D23</td><td>Clear leveling values before leveling</td><td>Forget old delays, level from the unleveled plan.</td><td><span class="tag new">New</span> <code>resourceLevelingClearBeforeLeveling</code> (default yes; always yes in Automatic).</td></tr>
-  <tr><td class="id">D24</td><td>Leveling range for [project]: Level entire project / Level from … to …</td><td>Which part of the plan is changed.</td><td><span class="tag new">New</span> run parameter: whole project · from–to dates · selected resources · selected tasks.</td></tr>
-  <tr><td class="id">D25</td><td>Leveling order: ID Only / Standard / Priority, Standard</td><td>Which task of a conflict is delayed first.</td><td><span class="tag new">New</span> <code>resourceLevelingOrder</code> = <code>idOnly</code> · <code>standard</code> (default) · <code>priorityStandard</code> (7.3).</td></tr>
-  <tr><td class="id">D26</td><td>Level only within available slack</td><td>Never move the project finish; a conflict that needs more is left.</td><td><span class="tag new">New</span> <code>resourceLevelingWithinSlackOnly</code> (default off).</td></tr>
+  <tr><td class="id">D21</td><td>Leveling calculations: Automatic / Manual</td><td>Level at once / on command.</td><td><span class="tag new">New</span> <code>resourceLevelingMode</code> (7.5).</td></tr>
+  <tr><td class="id">D22</td><td>Look for overallocations on a minute / hour / day / week / month basis</td><td>The period in which load is compared with capacity.</td><td><span class="tag new">New</span> <code>resourceGrainUnit</code> = <b>hour</b> (default) | day | week (7.9). Minute and month: not built.</td></tr>
+  <tr><td class="id">D23</td><td>Clear leveling values before leveling</td><td>Level from the unleveled plan.</td><td><span class="tag new">New</span> <code>resourceLevelingClearBeforeLeveling</code> (default yes; always yes in Automatic).</td></tr>
+  <tr><td class="id">D24</td><td>Leveling range: entire project / from … to …</td><td>Which part is changed.</td><td><span class="tag new">New</span> run parameter: project · dates · resources · tasks.</td></tr>
+  <tr><td class="id">D25</td><td>Leveling order: ID Only / Standard / Priority, Standard</td><td>Which task yields first.</td><td><span class="tag new">New</span> <code>resourceLevelingOrder</code> (7.3).</td></tr>
+  <tr><td class="id">D26</td><td>Level only within available slack</td><td>Never move the finish.</td><td><span class="tag new">New</span> = Method <b>Smoothing</b> (P3), <code>resourceLevelingWithinSlackOnly</code>.</td></tr>
   <tr><td class="id">D27</td><td>Leveling can create splits in remaining work</td><td>Allow interrupting tasks.</td><td><span class="tag new">New</span> <code>resourceLevelingCanSplit</code> (needs A12).</td></tr>
   <tr><td class="id">D28</td><td>Level resources with the proposed booking type</td><td>Include proposed resources.</td><td><span class="tag no">Not built</span> (D9).</td></tr>
   <tr><td class="id">D29</td><td>Level manually scheduled tasks</td><td>Allow moving manual tasks.</td><td><span class="tag new">New</span> <code>resourceLevelingManualTasks</code> (needs A1).</td></tr>
-  <tr><td class="id">D30</td><td>Level Now → Entire pool / Selected resources</td><td>The command.</td><td><span class="tag new">New</span> “Level now” (whole project) and “Level selected resources / tasks”.</td></tr>
-  <tr><td class="id">D31</td><td>Level Resource / Level Task / Level All</td><td>Ribbon commands.</td><td><span class="tag new">New</span> the same three, in the Level menu of the Gantt bar and in the Task and Resource menus.</td></tr>
-  <tr><td class="id">D32</td><td>Clear Leveling</td><td>Remove the delays of the selected tasks / of all tasks.</td><td><span class="tag new">New</span> + <b>Undo of a run</b> (history, section 8).</td></tr>
+  <tr><td class="id">D30</td><td>Level Now → entire pool / selected resources</td><td>The command.</td><td><span class="tag new">New</span> “Level now”, “Level selected resources / tasks”.</td></tr>
+  <tr><td class="id">D31</td><td>Level Resource / Level Task / Level All</td><td>Ribbon commands.</td><td><span class="tag new">New</span> in the Level menu, the Task menu and the Resource menus.</td></tr>
+  <tr><td class="id">D32</td><td>Clear Leveling</td><td>Remove the delays.</td><td><span class="tag new">New</span> + Undo of a run.</td></tr>
   <tr class="group"><td class="id">V</td><td colspan="3">Views and indicators</td></tr>
-  <tr><td class="id">D33</td><td>Leveling Gantt</td><td>Gantt chart showing the delay as a green bar before the task, and the unleveled plan.</td><td><span class="tag new">New</span> delay bar + before/after in the preview (PMResourceLeveling008, 004).</td></tr>
-  <tr><td class="id">D34</td><td>Resource Usage / Resource Graph</td><td>Hours per resource and period; the graph with the capacity line.</td><td><span class="tag new">New</span> PMResourceLeveling009 (graph) and 010 (grid).</td></tr>
-  <tr><td class="id">D35</td><td>Overallocated indicator (red person icon)</td><td>Marks a task / resource with a conflict.</td><td><span class="tag new">New</span> PMResourceLeveling006.</td></tr>
-  <tr><td class="id">D36</td><td>Leveling Delay column</td><td>The column of the delay.</td><td><span class="tag new">New</span> PMResourceLeveling007 (a virtual tree column, like <code>cc_ext_…</code>).</td></tr>
-  <tr><td class="id">D37</td><td>Undo leveling</td><td>Ctrl+Z after Level Now.</td><td><span class="tag new">New</span> Undo of a run (014); the run is one step of the project undo.</td></tr>
-  <tr><td class="id">D38</td><td>Contour (work contour)</td><td>How the work of an assignment is spread over time.</td><td><span class="tag have">Have</span> the <b>distribution</b> of a line (<code>distributionForBudgetTaskLine</code>); a moved or split task keeps it, stretched over its new working days.</td></tr>
+  <tr><td class="id">D33</td><td>Leveling Gantt</td><td>Delay as a green bar before the task.</td><td><span class="tag new">New</span> <code>PMResourceLevelingDelayBar</code> + before/after in <code>PMResourceLevelingPreviewWindow</code>.</td></tr>
+  <tr><td class="id">D34</td><td>Resource Usage / Resource Graph</td><td>Hours per resource and period; graph with the capacity line.</td><td><span class="tag new">New</span> <code>PMResourceLevelingLoadGraph</code>, <code>PMResourceLevelingUsageGrid</code>.</td></tr>
+  <tr><td class="id">D35</td><td>Overallocated indicator</td><td>Marks a task / resource with a conflict.</td><td><span class="tag new">New</span> <code>PMResourceLevelingOverallocationMark</code>.</td></tr>
+  <tr><td class="id">D36</td><td>Leveling Delay column</td><td>The column.</td><td><span class="tag new">New</span> <code>PMResourceLevelingDelayColumn</code> (virtual column, like <code>cc_ext_…</code>).</td></tr>
+  <tr><td class="id">D37</td><td>Undo leveling</td><td>Ctrl+Z after Level Now.</td><td><span class="tag new">New</span> Undo of a run.</td></tr>
+  <tr><td class="id">D38</td><td>Contour (work contour)</td><td>How work is spread in time.</td><td><span class="tag have">Have</span> the distribution of a line; a moved or split task keeps it, stretched over its new working days.</td></tr>
 </table>
 </div>
 
@@ -147,27 +176,28 @@
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Business need</th><th>Who / why</th></tr>
-  <tr><td class="id">BN1</td><td><b>See the problem</b>: which resources are over-allocated, on which days, by how many hours, by which tasks.</td><td>Planner: today only Post tells it, and only for one task.</td></tr>
-  <tr><td class="id">BN2</td><td><b>Remove over-allocation automatically</b> by delaying tasks, respecting links, calendars, constraints and the project dates.</td><td>Planner: moving tasks by hand on a big plan is slow and error prone.</td></tr>
-  <tr><td class="id">BN3</td><td><b>Important work keeps its dates</b>: leveling uses the task priority; priority 1000 is never moved.</td><td>Project manager.</td></tr>
-  <tr><td class="id">BN4</td><td><b>Do not move the project finish</b> if it can be avoided: leveling inside the slack only (option).</td><td>Customer promised a date.</td></tr>
-  <tr><td class="id">BN5</td><td><b>Split a task</b> so that it uses the free hours of a resource (option).</td><td>Long tasks of a scarce resource.</td></tr>
-  <tr><td class="id">BN6</td><td><b>Choose when it happens</b>: Automatic (after every edit) or Manual (on command, with a preview).</td><td>Small simple plans want Automatic; big plans want control.</td></tr>
-  <tr><td class="id">BN7</td><td><b>Undo and clear</b>: return to the unleveled plan; the original plan is never lost.</td><td>Trust in the tool.</td></tr>
-  <tr><td class="id">BN8</td><td><b>Level a part</b>: one resource, selected tasks, a date range.</td><td>Planner working on one team.</td></tr>
-  <tr><td class="id">BN9</td><td><b>Shared resources across projects</b>: a work center used by several projects of the organization is not over-booked by the other projects (they are fixed obstacles).</td><td>Organization: the resource pool.</td></tr>
-  <tr><td class="id">BN10</td><td><b>Posted and started work is protected</b>: no silent unposting of posted lines and payments; no moving of tasks that have started or finished.</td><td>Finance: posted plan, payments, facts.</td></tr>
-  <tr><td class="id">BN11</td><td><b>Respect the calendars and the capacity</b> of every kind of resource (person, equipment, partner work center; part-time; holidays; a day without a calendar row).</td><td>Resource managers.</td></tr>
-  <tr><td class="id">BN12</td><td><b>Make the result visible</b>: delay column, delay bar on the Gantt chart, overallocation marks, before/after comparison, a load graph with the capacity line.</td><td>Everyone who reads the plan.</td></tr>
-  <tr><td class="id">BN13</td><td><b>Explain every move</b> (why this task, because of which resource and day) and <b>list what could not be solved</b> and why.</td><td>Planner: a black box is not accepted.</td></tr>
-  <tr><td class="id">BN14</td><td><b>Fast in-line work</b>: the answer while dragging a bar or typing an hour, one-click fixes of one conflict, no waiting for a server.</td><td>Planner in front of the screen (Fast mode).</td></tr>
-  <tr><td class="id">BN15</td><td><b>Big plans</b>: thousands of tasks and many resources without freezing the screen.</td><td>Large projects (BUDGET1 has 450 rows; real ones more).</td></tr>
-  <tr><td class="id">BN16</td><td><b>Agree with Post</b>: a leveled plan passes the busy check at Post (same capacity, same rule).</td><td>Consistency; no second truth.</td></tr>
-  <tr><td class="id">BN17</td><td><b>Work together with the other Gantt functions</b>: manual tasks, constraints, schedule from finish, task calendars, inactive tasks, deadlines, Calculation Manual (F9), versions, subprojects, templates.</td><td>The Gantt Extended switches may be on in any combination.</td></tr>
-  <tr><td class="id">BN18</td><td><b>History and audit</b>: who leveled, when, with which options, what changed.</td><td>Project manager, auditors.</td></tr>
-  <tr><td class="id">BN19</td><td><b>Exchange</b>: the leveling delay, the priority and the split survive the MS Project export / import; task templates do not copy the result.</td><td>Planners who also use MS Project.</td></tr>
-  <tr><td class="id">BN20</td><td><b>The interface in all 15 languages of the app</b>, right-to-left included (Arabic, Farsi).</td><td>International users.</td></tr>
+  <tr><td class="id">BN1</td><td><b>See the problem</b>: which resources are over-allocated, on which days, by how many hours, by which tasks.</td><td>Planner: today only Post tells it, for one task.</td></tr>
+  <tr><td class="id">BN2</td><td><b>Remove over-allocation automatically</b> by delaying tasks, respecting links, calendars, constraints and the project dates.</td><td>Planner.</td></tr>
+  <tr><td class="id">BN3</td><td><b>Important work keeps its dates</b> (priority; 1000 never moves).</td><td>Project manager.</td></tr>
+  <tr><td class="id">BN4</td><td><b>Choose the method</b>: leveling (the finish may move) or smoothing (the finish never moves).</td><td>Customer promised a date.</td></tr>
+  <tr><td class="id">BN5</td><td><b>Split a task</b> to use the free hours of a resource (option).</td><td>Long tasks of a scarce resource.</td></tr>
+  <tr><td class="id">BN6</td><td><b>Choose when it happens</b>: Automatic or Manual with a preview.</td><td>Small plans want Automatic; big plans want control.</td></tr>
+  <tr><td class="id">BN7</td><td><b>Undo and clear</b>: the unleveled plan is never lost.</td><td>Trust.</td></tr>
+  <tr><td class="id">BN8</td><td><b>Optimize a part</b>: one resource, selected tasks, a date range.</td><td>Planner working on one team.</td></tr>
+  <tr><td class="id">BN9</td><td><b>Shared resources across projects</b>: the bookings of the other projects of the organization are respected (fixed obstacles).</td><td>Organization: the resource pool.</td></tr>
+  <tr><td class="id">BN10</td><td><b>Posted work is never unposted silently</b>: when posted tasks would move, the app asks (unpost and move / move and post again without conflicts / keep); tasks that have started or have posted facts are protected.</td><td>Finance.</td></tr>
+  <tr><td class="id">BN11</td><td><b>Respect calendars and capacity</b> of every kind of resource (part-time, holidays, a day without a calendar row).</td><td>Resource managers.</td></tr>
+  <tr><td class="id">BN12</td><td><b>Make the result visible</b>: delay column, delay bar, overallocation marks, before/after, load graph with the capacity line, in hours.</td><td>Everyone who reads the plan.</td></tr>
+  <tr><td class="id">BN13</td><td><b>Explain every move</b> and <b>list what could not be solved</b>, with reasons.</td><td>Planner.</td></tr>
+  <tr><td class="id">BN14</td><td><b>Change the data on the screen, in place</b>: drag a bar, type hours in a cell, move a task to another resource, fix one conflict in one click – comfortable on touch and with the mouse, with an instant answer.</td><td>Planner in front of the screen (Fast mode).</td></tr>
+  <tr><td class="id">BN15</td><td><b>Big plans</b> without freezing the screen.</td><td>Large projects.</td></tr>
+  <tr><td class="id">BN16</td><td><b>Agree with Post</b>: an optimized plan passes the busy check (same capacity, same rule).</td><td>No second truth.</td></tr>
+  <tr><td class="id">BN17</td><td><b>Work with the other Gantt functions</b>: manual tasks, constraints, schedule from finish, task calendars, inactive tasks, deadlines, Calculation Manual, versions, subprojects, templates.</td><td>The Gantt Extended switches may be on in any combination.</td></tr>
+  <tr><td class="id">BN18</td><td><b>History and audit</b>: who optimized, when, with which options, what changed.</td><td>Project manager, auditors.</td></tr>
+  <tr><td class="id">BN19</td><td><b>Versions and templates</b> stay correct: a version keeps the delay with its dates; a template does not copy the result. (MS Project export: not needed now.)</td><td>Planners.</td></tr>
+  <tr><td class="id">BN20</td><td><b>The interface in all 15 languages</b>, right-to-left included (Arabic, Farsi).</td><td>International users.</td></tr>
   <tr><td class="id">BN21</td><td><b>Nothing changes for those who do not use it</b>: off by default, per project, defaults per organization.</td><td>Safety of existing projects.</td></tr>
+  <tr><td class="id">BN22</td><td><b>Hours as the unit of work</b>: capacity, load, conflicts and delays-in-effect are shown in hours, the grain is an option (<code>resourceGrainUnit</code>).</td><td>Resource managers (hours are what they plan).</td></tr>
 </table>
 </div>
 
@@ -175,238 +205,288 @@
 <div class="tbl">
 <table>
   <tr><th>#</th><th>How</th><th>Work packages</th></tr>
-  <tr><td class="id">BN1</td><td>The overallocation detector (pure, twin of the busy check) feeds the indicator (006), the Resource Load graph (009), the grid (010) and the “before” part of the preview (004). It runs on the whole project, on every resource, with or without leveling switched on for moves – detection is read-only.</td><td>WP4, WP8, WP9</td></tr>
-  <tr><td class="id">BN2</td><td>The leveling engine (WP5): scheduled plan → demand per resource and day → walk the days → on a conflict delay the task that yields first → let the scheduler push the successors → repeat. The delay is stored per task as <code>taskLevelingDelayDays</code> and read by <code>scheduleProject</code> as a minimum offset after the link-driven start (WP6).</td><td>WP5, WP6</td></tr>
-  <tr><td class="id">BN3</td><td>Leveling order (D25): the task with the lowest priority yields first; priority 1000 never yields (A15). Without A15 every task has 500 and the order falls back to slack and date.</td><td>WP5</td></tr>
-  <tr><td class="id">BN4</td><td>Option <code>resourceLevelingWithinSlackOnly</code>: a delay is capped by the total slack of the task at that moment; the rest of the conflict is reported as unresolved (“needs N days more than the slack”).</td><td>WP5</td></tr>
-  <tr><td class="id">BN5</td><td>Option <code>resourceLevelingCanSplit</code> (needs A12) + the task flag <code>taskLevelingCanSplit</code>: instead of moving the whole task the engine inserts a gap into <code>taskSplits</code> at the conflict day and continues later. The split is a result of leveling and is cleared with it.</td><td>WP5, WP6</td></tr>
-  <tr><td class="id">BN6</td><td>The setting <code>resourceLevelingMode</code>: <b>Manual</b> = the engine runs on command and shows the preview; <b>Automatic</b> = the engine runs after every scheduler / demand input change (the signature of A2 is reused) and applies the result without a dialog, with freeze rules (7.5, 7.7).</td><td>WP7, WP10</td></tr>
-  <tr><td class="id">BN7</td><td>Every run is one row in <code>project_resource_leveling_run</code> with one row per changed task (<code>…_task</code>: values before and after). <b>Clear leveling</b> removes the delays; <b>Undo run</b> restores the “before” values of that run (if the task was not edited since – otherwise it asks).</td><td>WP3, WP7</td></tr>
-  <tr><td class="id">BN8</td><td>The run has a scope: project · date range · resources · tasks. Tasks outside the scope are fixed obstacles, exactly like the foreign load.</td><td>WP5, WP7</td></tr>
-  <tr><td class="id">BN9</td><td>One RPC returns, for the resources of the project and the range, the capacity per day and the <b>posted hours of the other projects</b> of the organization (no titles, only hours and, as in the busy check, the project / task GUIDs for “who holds it”). Option <code>resourceLevelingIncludeOtherProjects</code> (default on).</td><td>WP3, WP4</td></tr>
-  <tr><td class="id">BN10</td><td>Freeze rules: a posted task (any line <code>taskIsPosted</code>), a task with progress &gt; 0, a task that starts before today, and a task with a posted fact are <b>not moved</b> by default; option <code>resourceLevelingMovePostedTasks</code> (default off) allows moving a posted task <b>only in Manual mode and after the preview names the tasks that will be unposted</b>. Posted tasks still count as load.</td><td>WP5, WP7, WP10</td></tr>
-  <tr><td class="id">BN11</td><td>Capacity comes only from the SQL calendars (PART 21); a day with unknown capacity is treated like the busy check does: a conflict that is reported, never guessed or “fixed”.</td><td>WP3, WP4</td></tr>
-  <tr><td class="id">BN12</td><td>PMResourceLeveling006 – 010 (indicator, column, delay bar, graph, grid) plus 004 (before/after).</td><td>WP8, WP9</td></tr>
-  <tr><td class="id">BN13</td><td>Every moved task gets a <b>reason code</b> (<code>priorityYield</code>, <code>slackYield</code>, <code>laterStartYield</code>, <code>idYield</code>) with the resource and the first conflict day; every unresolved conflict gets a code (<code>frozenPosted</code>, <code>frozenStarted</code>, <code>priority1000</code>, <code>constraintHonored</code>, <code>manualTask</code>, <code>slackLimit</code>, <code>noCapacityInHorizon</code>, <code>capacityUnknown</code>, <code>foreignLoad</code>). Shown in 004 / 005 / 011 and stored in the task rows of the run.</td><td>WP5, WP7</td></tr>
-  <tr><td class="id">BN14</td><td><b>Fast mode</b> (7.6): incremental engine in memory, only the changed resources, a ghost preview while dragging, one-click in-line fixes (012), debounced write-back, no server round trip except the first load of the capacity / foreign load.</td><td>WP11</td></tr>
-  <tr><td class="id">BN15</td><td>The engine works on arrays indexed by resource and day (no per-day objects), only on resources that are over-allocated; a measured budget (7.6) and a bench script. The write is one RPC.</td><td>WP1, WP5, WP11, WP14</td></tr>
-  <tr><td class="id">BN16</td><td>A parity test: for generated plans the TypeScript detector and <code>organization_resource_busy_check</code> (Docker) give the same conflicts; after leveling the busy check returns no rows for the leveled project (unless the run reported an unresolved conflict).</td><td>WP4, WP14</td></tr>
-  <tr><td class="id">BN17</td><td>Section 7.8 – an explicit rule for each Gantt function; the scheduler change is one input (the delay) read where lags are read, so the other functions are not touched.</td><td>WP6</td></tr>
-  <tr><td class="id">BN18</td><td>The run tables + the window PMResourceLeveling014 (list of runs, details, Undo).</td><td>WP3, WP7</td></tr>
-  <tr><td class="id">BN19</td><td>MS Project XML: <code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code> written / read only while the function is on. <code>task_template_clean_task</code> strips <code>taskLevelingDelayDays</code> and the splits made by leveling (a template is not a leveled plan). Versions (<code>version_*</code>) store the delay with the dates.</td><td>WP12</td></tr>
-  <tr><td class="id">BN20</td><td>Every visible text goes through <code>pmT</code>; the dictionaries of the 14 other languages are completed in the same round; a Jest test fails when a key has no translation; RTL layout is checked (section 12).</td><td>WP13</td></tr>
-  <tr><td class="id">BN21</td><td>Master switch off by default (a value never saved = off, TS <code>=== true</code>, SQL <code>vendor_project_setting_on</code>); defaults per organization like <code>defaultProjectSettings</code>; with it off no code path of the feature runs.</td><td>WP2</td></tr>
+  <tr><td class="id">BN1</td><td>The overallocation detector (pure, twin of the busy check) feeds <code>PMResourceLevelingOverallocationMark</code>, <code>PMResourceLevelingLoadGraph</code>, <code>PMResourceLevelingUsageGrid</code> and the “before” part of <code>PMResourceLevelingPreviewWindow</code>. Detection is read-only and works on every resource.</td><td>WP4, WP8, WP9</td></tr>
+  <tr><td class="id">BN2</td><td>The engine (WP5): scheduled plan → demand per resource and day → walk the days → on a conflict delay the task that yields first → the scheduler pushes the successors → repeat. The delay is stored per task as <code>taskLevelingDelayDays</code> and read by <code>scheduleProject</code> as a minimum offset after the link-driven start (WP6).</td><td>WP5, WP6</td></tr>
+  <tr><td class="id">BN3</td><td>Leveling order (D25); priority 1000 never yields (A15); without A15 all tasks have 500 and slack / date decide.</td><td>WP5</td></tr>
+  <tr><td class="id">BN4</td><td>Method <b>Smoothing</b> (= <code>resourceLevelingWithinSlackOnly</code>): a delay is capped by the total slack of the task at that moment; the rest is reported as unresolved (“needs N days more than the slack”).</td><td>WP5</td></tr>
+  <tr><td class="id">BN5</td><td><code>resourceLevelingCanSplit</code> (needs A12) + <code>taskLevelingCanSplit</code>: the engine inserts a gap into <code>taskSplits</code> at the conflict day instead of moving the whole task. Marked as made by leveling; cleared with it.</td><td>WP5, WP6</td></tr>
+  <tr><td class="id">BN6</td><td><code>resourceLevelingMode</code>: Manual = on command with a preview; Automatic = after every scheduler / demand input change (the A2 signature is reused), without a dialog, with a toast and Undo (7.5).</td><td>WP7, WP10</td></tr>
+  <tr><td class="id">BN7</td><td>Every run = one row in <code>project_resource_leveling_run</code> + a row per changed task (<code>…_task</code>, before and after). Clear leveling removes the delays; Undo run restores the “before” values.</td><td>WP3, WP7</td></tr>
+  <tr><td class="id">BN8</td><td>The run has a scope: project · dates · resources · tasks. Tasks outside the scope are fixed obstacles like the foreign load.</td><td>WP5, WP7</td></tr>
+  <tr><td class="id">BN9</td><td>One RPC returns the capacity per day and the <b>posted hours of the other projects</b> (no titles, as in the busy check). Option <code>resourceLevelingIncludeOtherProjects</code> (default on). They are never moved (Q8 = no cross-project priority).</td><td>WP3, WP4</td></tr>
+  <tr><td class="id">BN10</td><td>Option <code>resourceLevelingPostedTasksMovementEnabled</code> (default true) makes posted tasks candidates; <code>resourceLevelingPostedTasksAction</code> (default <code>ask</code>) decides what happens: <code>PMResourceLevelingPostedTasksDialog</code> lists the tasks and offers <b>Unpost and move</b> · <b>Move and post again</b> (only if they post without conflicts, otherwise not moved) · <b>Keep their dates</b>. Automatic mode moves unposted tasks only and shows “N posted tasks wait for your decision”. Always frozen: progress &gt; 0, start before today, finished, a posted fact input, a posted payment fact on its payment plan.</td><td>WP1, WP5, WP7, WP10</td></tr>
+  <tr><td class="id">BN11</td><td>Capacity only from the SQL calendars (PART 21); a day with unknown capacity is a reported conflict, never guessed.</td><td>WP3, WP4</td></tr>
+  <tr><td class="id">BN12</td><td>The visual components of section 9, all in the unit of <code>resourceGrainUnit</code>.</td><td>WP8, WP9</td></tr>
+  <tr><td class="id">BN13</td><td>A <b>reason code</b> per moved task (<code>priorityYield</code>, <code>slackYield</code>, <code>laterStartYield</code>, <code>idYield</code>) with the resource and the first conflict day; a code per unresolved conflict (<code>frozenPosted</code>, <code>frozenStarted</code>, <code>priority1000</code>, <code>constraintHonored</code>, <code>manualTask</code>, <code>slackLimit</code>, <code>noCapacityInHorizon</code>, <code>capacityUnknown</code>, <code>foreignLoad</code>). Words in the preview, the conflicts list and the task section.</td><td>WP5, WP7</td></tr>
+  <tr><td class="id">BN14</td><td><b>Fast mode</b> (7.6): in-place editing on the screen, chosen for the UX: drag a bar, type hours in the usage grid, drag a task chip to another resource row, one-click fixes, live over-allocation while dragging, instant answer from memory, one Undo step per action.</td><td>WP11</td></tr>
+  <tr><td class="id">BN15</td><td>Arrays indexed by resource × day, only over-allocated resources, an incremental engine in Fast mode, one write RPC; a measured budget (7.6) and a bench.</td><td>WP1, WP5, WP11, WP14</td></tr>
+  <tr><td class="id">BN16</td><td>A parity test: for generated plans the TypeScript detector and <code>organization_resource_busy_check</code> (Docker) give the same conflicts; after optimization the check returns no rows unless a conflict was reported unresolved.</td><td>WP4, WP14</td></tr>
+  <tr><td class="id">BN17</td><td>Section 7.8 – one rule per Gantt function; the scheduler change is one input (the delay) read where lags are read.</td><td>WP6</td></tr>
+  <tr><td class="id">BN18</td><td>The run tables + <code>PMResourceLevelingRunHistory</code>.</td><td>WP3, WP7</td></tr>
+  <tr><td class="id">BN19</td><td>A version stores the delay with its dates (<code>scheduleVersion</code>); <code>task_template_clean_task</code> strips <code>taskLevelingDelayDays</code> and the splits made by leveling; a project copy keeps them.</td><td>WP12</td></tr>
+  <tr><td class="id">BN20</td><td>Every visible text through <code>pmT</code>; 14 dictionaries completed in the same round; a Jest test fails on a missing key; RTL checked (section 12).</td><td>WP13</td></tr>
+  <tr><td class="id">BN21</td><td>Master off by default (never saved = off: TS <code>=== true</code>, SQL <code>vendor_project_setting_on</code>); defaults per organization like <code>defaultProjectSettings</code>; with it off no code path of the feature runs.</td><td>WP2</td></tr>
+  <tr><td class="id">BN22</td><td><code>resourceGrainUnit</code> (hour default): all amounts in hours; the comparison period and its limits on today’s data are in 7.9; the true clock-hour model is a separate phase 2 (WP15).</td><td>WP2, WP4, WP15</td></tr>
 </table>
 </div>
 
-<h2>7. Proposed design (to confirm)</h2>
+<h2>7. Proposed design</h2>
 
-<h3>7.1 Settings (R9, R10, R11)</h3>
-<p>Project settings → new tab <b>Resource leveling</b> (after ROI), also in Organization edit → Projects → Settings (defaults for new projects). Keys in <code>project_table.rowJSON</code>; every one is off / default while never saved. The sub switches are editable only while the master is on, like the Time-cost switches.</p>
+<h3>7.1 Settings (R9, R10, R11, R12, R13)</h3>
+<p>Project settings → the tab <b>“Resources”</b> (after ROI), also in Organization edit → Projects → Settings (defaults for new projects). The tab has two parts: at the top the general resource settings (<code>resourceGrainUnit</code>); then the section titled <b>“Resource optimization”</b> with everything below. Keys are in <code>project_table.rowJSON</code>; each is off / default while never saved; the sub switches are editable only while the master is on.</p>
 <div class="tbl">
 <table>
   <tr><th>Key</th><th>Type, default</th><th>Meaning</th><th>Needs</th></tr>
+  <tr class="group"><td colspan="4">Part “Resources”</td></tr>
+  <tr><td><code>resourceOptimizationMode</code></td><td><code>'dayByDayModel'</code> | <code>'hourByHourModel'</code>, <b>dayByDayModel</b></td><td>R16: the planning model. <code>dayByDayModel</code> = the app works as it does now (7.9). <code>hourByHourModel</code> = the time-of-day model (7.10); shown disabled with “phase 2” until it is built. Editable also while the master is off.</td><td>—</td></tr>
+  <tr><td><code>resourceGrainUnit</code></td><td><code>'hour'</code> | <code>'day'</code> | <code>'week'</code>, <b>hour</b></td><td>R13, D22: the unit and the period of resource load (7.9). Shared by all resource screens, not only by optimization; editable also while the master is off.</td><td>—</td></tr>
+  <tr class="group"><td colspan="4">Section “Resource optimization”</td></tr>
   <tr><td><code>resourceLevelingFunctionalityEnabled</code></td><td>boolean, <b>false</b></td><td>MASTER. Off = the feature does not exist for this project.</td><td>—</td></tr>
-  <tr><td><code>resourceLevelingMode</code></td><td><code>'manual'</code> | <code>'automatic'</code>, <b>manual</b></td><td>R9: the two ways. Shown as a two-choice control under the master.</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingFunctionalityFastModeEnabled</code></td><td>boolean, false</td><td>R11: in-line / on-line behavior (7.6).</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingGrain</code></td><td><code>'day'</code> | <code>'week'</code>, day</td><td>D22: compare load with capacity per day or per week.</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingMode</code></td><td><code>'manual'</code> | <code>'automatic'</code>, <b>manual</b></td><td>R9: the two ways (two-choice control under the master).</td><td>master</td></tr>
+  <tr><td>Method (presentation of <code>resourceLevelingWithinSlackOnly</code>)</td><td><b>Leveling</b> = false (default) | <b>Smoothing</b> = true</td><td>PMBOK method. The Level Resources window shows the same key with the MS Project text “Level only within available slack”.</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingFunctionalityFastModeEnabled</code></td><td>boolean, false</td><td>R11: in-place on-screen data options (7.6).</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingPostedTasksMovementEnabled</code></td><td>boolean, <b>true</b></td><td>R12: posted tasks are candidates for moving. False = posted tasks are frozen (same as the action <code>keep</code>).</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingPostedTasksAction</code></td><td><code>ask</code> | <code>unpostAndMove</code> | <code>moveAndPostAgain</code> | <code>keep</code>, <b>ask</b></td><td>What to do with a posted task that must move (7.7). <code>ask</code> = the dialog every time; the others remember the answer.</td><td>master + the option above</td></tr>
   <tr><td><code>resourceLevelingOrder</code></td><td><code>idOnly</code> | <code>standard</code> | <code>priorityStandard</code>, standard</td><td>D25.</td><td>master (priority: A15)</td></tr>
   <tr><td><code>resourceLevelingClearBeforeLeveling</code></td><td>boolean, true</td><td>D23. Forced on in Automatic.</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingWithinSlackOnly</code></td><td>boolean, false</td><td>D26.</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingCanSplit</code></td><td>boolean, false</td><td>D27: the engine may create splits (task flag <code>taskLevelingCanSplit</code>, default yes).</td><td>master + A12 <code>ganttSplitTasksEnabled</code></td></tr>
+  <tr><td><code>resourceLevelingCanSplit</code></td><td>boolean, false</td><td>D27 (task flag <code>taskLevelingCanSplit</code>, default yes).</td><td>master + A12</td></tr>
   <tr><td><code>resourceLevelingManualTasks</code></td><td>boolean, false</td><td>D29.</td><td>master + A1</td></tr>
-  <tr><td><code>resourceLevelingIncludeOtherProjects</code></td><td>boolean, true</td><td>BN9: the posted hours of the other projects of the organization are obstacles.</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingMovePostedTasks</code></td><td>boolean, false</td><td>BN10: posted tasks may be moved (Manual mode, after a named preview).</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingIncludeOtherProjects</code></td><td>boolean, true</td><td>BN9.</td><td>master</td></tr>
   <tr><td><code>resourceLevelingShowDelayBar</code></td><td>boolean, true</td><td>Draw the delay bar (D33).</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingShowOverallocation</code></td><td>boolean, true</td><td>The indicator in the tree and the chart (D35).</td><td>master</td></tr>
-  <tr><td><code>resourceLevelingKeepHistory</code></td><td>boolean, true</td><td>Write the run tables (BN18). Off = only the task values, no Undo of a run.</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingShowOverallocation</code></td><td>boolean, true</td><td>The indicator in the tree and on the chart (D35).</td><td>master</td></tr>
+  <tr><td><code>resourceLevelingKeepHistory</code></td><td>boolean, true</td><td>Write the run tables (BN18). Off = no Undo of a run.</td><td>master</td></tr>
 </table>
 </div>
-<p>Pure module <code>resourceLevelingSettings.ts</code>: <code>resourceLevelingValuesOf(json)</code> (normalizes, applies <i>Needs</i>), like <code>roiValuesOf</code>. A new key must be added to the project / organization <code>normalize…</code> functions or the edit form drops it on save (pitfall of section 7 of KNOW_HOW).</p>
+<p>Pure module <code>resourceLevelingSettings.ts</code>: <code>resourceLevelingValuesOf(json)</code> (normalizes, applies <i>Needs</i>), like <code>roiValuesOf</code>. A new key must be added to the project / organization <code>normalize…</code> functions or the edit form drops it on save (KNOW_HOW pitfall). The tab text “Resources” and the section text “Resource optimization” go through <code>pmT</code>.</p>
 
 <h3>7.2 The model: demand, capacity, foreign load</h3>
 <ul>
-  <li><b>Resource key</b> = kind + GUID (person, equipment, workCenter) – the same key as <code>resource_occupancy_x_movement</code>. A partner work center is a resource too.</li>
-  <li><b>Demand</b> D[resource][day] = the sum over the Time lines of the project’s tasks (in the hours unit) of <code>hours × coefficient(day)</code>, where the coefficients are those of <code>calculateTaskLinePlan</code> (distribution over the <b>active days of the calendar</b> between the task start and finish). Computed from the lines, so unposted lines count. A line in days or pieces is ignored (as in the occupancy view).</li>
-  <li><b>Capacity</b> C[resource][day] from SQL (<code>organization_resource_capacity</code>); null = unknown.</li>
-  <li><b>Foreign load</b> F[resource][day] = posted hours of the other projects of the organization (the occupancy view without this project). Fixed.</li>
-  <li><b>Over-allocation</b> = D + F &gt; C (strictly); with grain <code>week</code>: the sums of the week. Unknown capacity = a conflict that cannot be solved by moving a task within the known days.</li>
-  <li><b>Horizon</b>: the last day for which the calendar has rows (a delay never goes beyond it: <code>noCapacityInHorizon</code>).</li>
+  <li><b>Resource key</b> = kind + GUID (person, equipment, workCenter) – as in <code>resource_occupancy_x_movement</code>. A partner work center is a resource too.</li>
+  <li><b>Demand</b> D[resource][day] = the sum over the Time lines (hours unit) of <code>hours × coefficient(day)</code>, with the coefficients of <code>calculateTaskLinePlan</code> (distribution over the <b>active days of the calendar</b> between the task start and finish). Calculated from the lines: unposted lines count. Lines in days or pieces are ignored.</li>
+  <li><b>Capacity</b> C[resource][day] from SQL (<code>organization_resource_capacity</code>, hours); null = unknown.</li>
+  <li><b>Foreign load</b> F[resource][day] = posted hours of the other projects of the organization. Fixed.</li>
+  <li><b>Over-allocation</b> = D + F &gt; C (strictly), in the period of <code>resourceGrainUnit</code> (7.9). Unknown capacity = a conflict that moving cannot solve inside the known days.</li>
+  <li><b>Horizon</b>: the last day for which the calendar has rows (<code>noCapacityInHorizon</code>).</li>
 </ul>
 
-<h3>7.3 The leveling algorithm (concept, no code)</h3>
+<h3>7.3 The algorithm (concept, no code)</h3>
 <div class="flow">1. S0  = scheduleProject(plan with every leveling delay cleared)        the unleveled plan
 2. D   = demand(S0), C, F                                                      7.2
-3. for each day t ascending, for each resource r with D[r][t] + F[r][t] > C[r][t]:
-     contenders = tasks active on t that use r
+3. for each period t ascending, for each resource r with D[r][t] + F[r][t] > C[r][t]:
+     contenders = tasks active in t that use r
      fixed      = frozen / priority 1000 / constraint-honored / manual (unless allowed) / out of scope
      keep tasks (fixed first, then by the leveling order) while the hours fit; the rest "yield"
      the first yielding task X is delayed to the first working day where all its resources fit
          (or, if it may split: a gap is inserted at t and it continues when r has room)
-         limit: total slack (option within slack only), the horizon
+         limit: total slack (Method Smoothing), the horizon
      if X cannot be moved: record the unresolved conflict with its reason code
 4. S1  = scheduleProject(plan with the new delays)        successors, stages, critical path, finish follow
 5. repeat from 2 for the changed resources and days only, until no new move is made
    (each move increases a delay or adds a gap: it ends; a safety counter stops a run and reports it)
 6. result = per task: delay, splits, reason; per resource: conflicts before / after; project finish before / after</div>
-<p><b>Leveling order</b> (which task yields first in a conflict): <code>idOnly</code> – the task with the higher row number; <code>standard</code> – more total slack first, then the later early start, then the higher row number; <code>priorityStandard</code> – the lower priority first, then the standard order. Priority 1000 never yields. Deterministic: the same plan gives the same result.</p>
-<p><b>Frozen</b> (not moved, but still load): posted task (unless <code>resourceLevelingMovePostedTasks</code>), progress &gt; 0, start before today, finished, inactive, milestone, stage (summary), subproject origin task, a task with a constraint Must Start On / Must Finish On or with “always honor” constraints, a manual task (unless <code>resourceLevelingManualTasks</code>), priority 1000, a task out of the run scope.</p>
-<p><b>Not done on purpose</b>: the engine never changes hours, units, task type, resources of the lines or the duration. It only delays or splits.</p>
+<p><b>Leveling order</b>: <code>idOnly</code> – the task with the higher row number yields; <code>standard</code> – more total slack first, then the later early start, then the higher row number; <code>priorityStandard</code> – the lower priority first, then standard. Priority 1000 never yields. Deterministic: the same plan gives the same result.</p>
+<p><b>Frozen</b> (not moved, but still load): progress &gt; 0, start before today, finished, a posted fact input (used hours), a posted payment fact on its payment plan, inactive, milestone, stage, subproject origin task, Must Start On / Must Finish On or “always honor” constraints, a manual task (unless <code>resourceLevelingManualTasks</code>), priority 1000, a task out of the run scope; and a <b>posted</b> task unless the user chose to move it (7.7).</p>
+<p><b>Not done on purpose</b>: the engine never changes hours, units, task type, the resources of the lines or the duration. It only delays or splits. (The user may change them in place in Fast mode, 7.6.)</p>
 
 <h3>7.4 Where the result lives</h3>
 <ul>
-  <li><b>On the task</b> (<code>project_task_table.rowJSON</code>): <code>taskLevelingDelayDays</code> (number ≥ 0, absent = 0) and <code>taskLevelingCanSplit</code> (boolean, default true; priority is the existing <code>taskPriority</code>). Splits made by leveling are written into the existing <code>taskSplits</code> with a mark so that “Clear leveling” removes only them (<code>taskSplitsByLeveling</code>).</li>
-  <li><b>The scheduler</b> reads the delay like a lag: start = max(start from the links, constraints) + delay in the calendar of the task (a manual task: only when allowed). The signature of A2 (<code>calcSignature.ts</code>) includes it, so Calculation Manual sees a changed delay as a pending edit.</li>
-  <li><b>History</b>: tables of section 8.</li>
+  <li><b>On the task</b> (<code>project_task_table.rowJSON</code>): <code>taskLevelingDelayDays</code> (≥ 0, working days; absent = 0) and <code>taskLevelingCanSplit</code> (default true; priority = <code>taskPriority</code>). Splits made by leveling go into <code>taskSplits</code> with a mark (<code>taskSplitsByLeveling</code>) so Clear leveling removes only them.</li>
+  <li><b>The scheduler</b> reads the delay like a lag: start = max(links, constraints) + delay in the calendar of the task. The A2 signature (<code>calcSignature.ts</code>) includes it.</li>
+  <li><b>History</b>: section 8.</li>
 </ul>
 
 <h3>7.5 Automatic and Manual</h3>
 <div class="tbl">
 <table>
   <tr><th></th><th>Manual (default)</th><th>Automatic</th></tr>
-  <tr><td>When</td><td>The user presses <b>Level now</b> / <b>Level selected</b> / <b>Clear leveling</b>.</td><td>After every change of an input of the scheduler or of the demand: a duration, a link, a start, a Time line (resource, hours, distribution), a priority, a calendar, a resource calendar change. Detected by comparing the input signature (the way A2 does it); a change of the leveling result itself is not an input (no loop).</td></tr>
-  <tr><td>Preview</td><td>Always (004): moved tasks, before/after dates, finish, unresolved conflicts, tasks that would be unposted. Apply / Cancel.</td><td>None for ordinary moves. A move of a posted task is never done in Automatic (frozen). A toast shows “Leveled: N tasks moved” with Undo.</td></tr>
-  <tr><td>Clear before</td><td>Option.</td><td>Always (the plan is re-leveled from the unleveled plan, so a deleted conflict gives the dates back).</td></tr>
-  <tr><td>With Calculation Manual (A2)</td><td>Level now calculates first (as Post does), then levels.</td><td>Leveling follows <b>Calculate (F9)</b>: it is part of that command; no automatic run while pending edits exist.</td></tr>
-  <tr><td>Write</td><td>One RPC <code>project_resource_leveling_apply</code>, then the usual schedule write-back.</td><td>The same RPC, debounced like the write-back (800 ms); only the tasks whose delay changed.</td></tr>
+  <tr><td>When</td><td>The user presses <b>Level now</b> / <b>Level selected</b> / <b>Clear leveling</b>.</td><td>After every change of an input of the scheduler or of the demand (duration, link, start, Time line, priority, calendar). Detected by comparing the input signature (as A2); the leveling result itself is not an input (no loop).</td></tr>
+  <tr><td>Preview</td><td>Always (<code>PMResourceLevelingPreviewWindow</code>): moved tasks, before/after, finish, unresolved conflicts. Posted tasks that must move: the question of 7.7 first. Apply / Cancel.</td><td>None for unposted tasks. A toast: “Optimized: N tasks moved” with Undo. Posted tasks are left where they are and the status chip says “N posted tasks wait for your decision”.</td></tr>
+  <tr><td>Posted tasks</td><td>The dialog of 7.7 (or the remembered action).</td><td>Never moved without the answer; the chip opens the dialog; a remembered action is applied silently and named in the toast.</td></tr>
+  <tr><td>Clear before</td><td>Option.</td><td>Always.</td></tr>
+  <tr><td>With Calculation Manual (A2)</td><td>Level now calculates first, then optimizes.</td><td>Follows <b>Calculate (F9)</b>; no run while pending edits exist.</td></tr>
+  <tr><td>Write</td><td>One RPC <code>project_resource_leveling_apply</code>, then the usual write-back.</td><td>The same RPC, debounced like the write-back (800 ms); only tasks whose delay changed.</td></tr>
 </table>
 </div>
 
-<h3>7.6 Fast mode (R11) – reading to confirm (Q2)</h3>
-<p>“Most online and in-line user action patterns needed” is read as: the leveling answers the actions of the user <b>on the screen, at once, without a dialog and without waiting for the server</b>. Switch <code>resourceLevelingFunctionalityFastModeEnabled</code> (needs the master). What it changes:</p>
+<h3>7.6 Fast mode (R11) – decided: in-place data options, the most comfortable UX/UI version</h3>
+<p>Switch <code>resourceLevelingFunctionalityFastModeEnabled</code> (needs the master). Fast mode is the set of <b>on-screen options that change the data in place</b>; where two ways are possible the one most comfortable on the screen is built (direct manipulation first, a menu as the fallback, big touch targets, no dialog for a normal action, an instant answer from memory, one Undo step per action). The engine itself never changes hours or resources: only the user’s explicit action does.</p>
 <div class="tbl">
 <table>
-  <tr><th>Pattern</th><th>Normal mode</th><th>Fast mode</th></tr>
-  <tr><td>Engine</td><td>Full run over the scope; iterates until no move is left; report.</td><td><b>Incremental</b>: only the resources and the days that the edit changed; a single greedy pass from the changed day forward; the full run stays available as a button.</td></tr>
-  <tr><td>Drag a bar / change a duration</td><td>Over-allocation is shown after the drop.</td><td>While dragging, the <b>ghost</b> over-allocation of the touched resources is drawn live (indicator 006, graph 009); on drop the leveling result of the neighbors is shown at once.</td></tr>
-  <tr><td>Edit hours of a Time line, change its resource</td><td>The indicator updates after the write.</td><td>The indicator and the graph update on every keystroke (from the in-memory demand).</td></tr>
-  <tr><td>One conflict</td><td>Level the project or the resource.</td><td><b>In-line fix menu</b> on the indicator (012): “Delay this task to the next free day”, “Split here”, “Delay the other task”, “Raise priority of this task”, “Ignore this conflict”.</td></tr>
-  <tr><td>Data</td><td>Capacity and foreign load are loaded when a run starts.</td><td>Loaded once when the project opens and refreshed by Realtime (the resource calendar and the posted lines of the organization); no request while editing.</td></tr>
-  <tr><td>Write</td><td>On Apply.</td><td>Debounced (800 ms), only changed tasks; one Undo step per user action.</td></tr>
-  <tr><td>Budget (to measure, WP1)</td><td>A run on 2 000 tasks: seconds are accepted.</td><td>An edit: p95 &lt; 50 ms for the engine on 2 000 tasks; the frame while dragging &lt; 16 ms for the indicator.</td></tr>
+  <tr><th>Pattern</th><th>Normal mode</th><th>Fast mode (in place)</th></tr>
+  <tr><td>Engine</td><td>Full run over the scope; report.</td><td><b>Incremental</b>: only the resources and periods the edit changed; one greedy pass forward; the full run stays as a button.</td></tr>
+  <tr><td>Drag a task bar</td><td>Over-allocation is shown after the drop.</td><td>The over-allocation of the touched resources is drawn <b>live while dragging</b> (the mark, the Load graph); the drop writes the start (as today) and shows the effect on the neighbors at once.</td></tr>
+  <tr><td>Hours</td><td>Edit the Time line in the task window.</td><td><b>Type hours in a cell of the Usage grid</b> (<code>PMResourceLevelingUsageGrid</code>): the cell writes the hours of the Time line (the line is chosen in the same click when the cell sums several); the graph answers on every keystroke.</td></tr>
+  <tr><td>Resource</td><td>Change the resource in the task window.</td><td><b>Drag a task chip to another resource row</b> of the Usage grid (or pick “Use another work center…” in the quick-fix menu): the Time line gets the new work center; the rules of the line (role, contract) are checked and a refusal is shown in place.</td></tr>
+  <tr><td>One conflict</td><td>Level the project or the resource.</td><td><b>Quick-fix menu</b> on the mark (<code>PMResourceLevelingQuickFixMenu</code>): Delay to the next free day · Delay by N working days (typed) · Split here · Delay the other task · Priority up / down (a number field) · Do not level this task (priority 1000) · Use another work center · Ignore this conflict.</td></tr>
+  <tr><td>Data</td><td>Capacity and foreign load are loaded when a run starts.</td><td>Loaded once when the project opens, refreshed by Realtime (calendars, posted lines of the organization); no request while editing.</td></tr>
+  <tr><td>Write</td><td>On Apply.</td><td>Debounced (800 ms), only changed rows; one Undo / Redo step per user action; keyboard: arrows move the cell, Enter writes, Esc cancels.</td></tr>
+  <tr><td>Budget (to measure, WP1)</td><td>A run on 2 000 tasks: seconds accepted.</td><td>An edit: p95 &lt; 50 ms for the engine on 2 000 tasks; the frame while dragging &lt; 16 ms for the mark.</td></tr>
 </table>
 </div>
-<p>Fast mode works in both Manual and Automatic mode; in Manual mode it only gives the live indicator and the in-line fixes (nothing is moved without a click).</p>
+<p>Fast mode works with Manual and Automatic. With Manual it adds the live mark and the in-place actions; nothing moves unless the user clicks. Each in-place action that changes a posted task states that its posting is lost, in the same toast.</p>
 
-<h3>7.7 Posting and facts</h3>
+<h3>7.7 Posting and facts – a posted task never loses its posting silently</h3>
 <ul>
-  <li>A moved date unposts the lines and payments of that task (existing triggers). Therefore Automatic mode never moves a posted task; Manual mode with <code>resourceLevelingMovePostedTasks</code> lists the tasks that will be unposted in the preview and asks.</li>
-  <li>Tasks with a posted fact input / invoice (the register has <code>used</code> / <code>invoiced</code> rows) are frozen whatever the switch says.</li>
-  <li>After a run the planner presses <b>Post unposted tasks</b> (project Actions) as after any date change; the preview and the toast say so. The cost totals and Monitor01 follow the usual path. A move changes the rate and exchange rate of the days (contracts and rates are by date): the sums of the Time lines may change; the user presses Recalculate as after any date change.</li>
-  <li>At Post the busy check (<code>capacityModeWarn</code> / <code>Block</code>) stays as it is.</li>
+  <li>A moved start / finish day unposts the lines and payments of that task (existing triggers). Therefore the optimization <b>never moves a posted task without asking</b>. When a run needs to move posted tasks, <code>PMResourceLevelingPostedTasksDialog</code> lists them and offers three choices:
+    <ol>
+      <li><b>Unpost and move</b> – the listed tasks are unposted (lines and payments) and moved; they stay unposted until Post (the item “Post unposted tasks” of the project Actions is offered in the result).</li>
+      <li><b>Move and post again</b> – the tasks are moved and posted again by the app in the same step with the normal Post (calculation, busy check). Only if the new plan posts <b>without conflicts</b>: a task that cannot be posted cleanly is <b>not moved</b>, and the result says why. Nothing is left half done.</li>
+      <li><b>Keep their dates</b> – the posted tasks are not moved; they stay as load and the conflict they cause is listed as unresolved with the code <code>frozenPosted</code>.</li>
+    </ol></li>
+  <li><code>resourceLevelingPostedTasksAction</code> = <code>ask</code> (default) asks every time; <code>unpostAndMove</code> / <code>moveAndPostAgain</code> / <code>keep</code> apply a remembered answer (named in the result). <code>resourceLevelingPostedTasksMovementEnabled</code> = false is the same as <code>keep</code>.</li>
+  <li><b>Automatic mode</b> asks without interrupting: it moves only the unposted tasks, leaves the posted ones where they are, and the status chip shows “N posted tasks wait for your decision”; a click opens the dialog.</li>
+  <li>Never moved whatever the answer: tasks that have started, finished tasks, tasks with a posted fact input, tasks whose payment plan has a posted payment fact (an unposted plan under a posted fact would break the Paid / Open of the payment plan – checked in WP1.3).</li>
+  <li>Undo of a run restores the dates; the question is asked again for the tasks that were posted again.</li>
+  <li>Moving dates changes the contract rate and the exchange rate of the days: the sums of Time lines may change; the user presses Recalculate as after any date change.</li>
+  <li>At Post the busy check stays as it is.</li>
 </ul>
 
 <h3>7.8 Interplay with the other Gantt functions</h3>
 <div class="tbl">
 <table>
   <tr><th>Function</th><th>Rule</th></tr>
-  <tr><td>A1 manual tasks</td><td>Not moved unless <code>resourceLevelingManualTasks</code>; then the manual start is moved by the delay.</td></tr>
+  <tr><td>A1 manual tasks</td><td>Not moved unless <code>resourceLevelingManualTasks</code>; then the manual start moves by the delay.</td></tr>
   <tr><td>A2 Calculation Manual</td><td>7.5.</td></tr>
-  <tr><td>A3 constraints</td><td>SNET / FNET are minimums: a delay is allowed. SNLT / FNLT: a delay beyond the date is refused (reported) unless the option “constraints are always honored” is off. MSO / MFO: never moved.</td></tr>
-  <tr><td>A4 schedule from the project finish</td><td>tasks are placed as late as possible, so a task that yields must move <i>earlier</i>, not later; the delay would be a lead taken from the late side. The rule is not designed yet: WP6 either makes it consistent or the engine refuses to level such a project with a message (question Q5).</td></tr>
+  <tr><td>A3 constraints</td><td>SNET / FNET are minimums: a delay is allowed. SNLT / FNLT: a delay beyond the date is refused (reported) unless “constraints are always honored” is off. MSO / MFO: never moved.</td></tr>
+  <tr><td>A4 schedule from the project finish</td><td><b>Decided (Q5, the most comfortable for the user): it works, mirrored; nothing is refused.</b> The finish date is the anchor; the day scan runs from the finish backward and a yielding task moves <b>earlier</b> (the same key <code>taskLevelingDelayDays</code> means “working days away from the anchor”). The project start is a result and may move earlier: the preview shows “Project start: 3 Mar → 24 Feb” and warns when it falls before today. Method Smoothing: a task may move earlier only within its float (up to its early start). The column header reads “Leveling delay (earlier)” in such a project.</td></tr>
   <tr><td>A5 deadline</td><td>Not an obstacle; a missed deadline is marked in the preview.</td></tr>
-  <tr><td>A10 / A11 calendars</td><td>The delay is counted in working days of the task calendar; demand days are the active days of that calendar.</td></tr>
+  <tr><td>A10 / A11 calendars</td><td>The delay is in working days of the task calendar; demand days are the active days of that calendar.</td></tr>
   <tr><td>A12 splits</td><td>Used for BN5; user splits are kept, leveling splits are marked.</td></tr>
-  <tr><td>A14 inactive</td><td>Not in the plan: no demand, not moved.</td></tr>
-  <tr><td>Subprojects</td><td>A subproject is another project: its tasks are foreign load for the origin project’s run; the origin task is never moved (it follows the subproject dates).</td></tr>
+  <tr><td>A14 inactive</td><td>No demand, not moved.</td></tr>
+  <tr><td>Subprojects</td><td>A subproject’s tasks are foreign load for the origin project; the origin task is never moved.</td></tr>
   <tr><td>Versions, templates</td><td>A version stores the delay with its dates; a template drops it.</td></tr>
-  <tr><td>Kanban</td><td>No effect.</td></tr>
 </table>
 </div>
+
+<h3>7.9 The grain: <code>resourceGrainUnit</code> = hour by default (R13)</h3>
+<p>The option has three values: <b>hour</b> (default), <b>day</b>, <b>week</b>. It sets (a) the unit of every amount and axis of the resource screens and (b) the period in which load is compared with capacity.</p>
+<div class="tbl">
+<table>
+  <tr><th>Value</th><th>Unit shown</th><th>Period compared (v1, today’s data)</th></tr>
+  <tr><td><b>hour</b> (default)</td><td>hours (0.25 step), e.g. “11 h on 12 Mar, capacity 8 h”</td><td>one working day – the finest period the plan has</td></tr>
+  <tr><td>day</td><td>resource-days (hours ÷ the capacity hours of that day)</td><td>one working day</td></tr>
+  <tr><td>week</td><td>hours (or days)</td><td>the sum of the week against the weekly capacity (a lighter check, as MS Project “week by week”)</td></tr>
+</table>
+</div>
+<div class="callout warn"><b>Limit, stated openly.</b> In the <b>dayByDayModel</b> (the app as it is) the plan has <b>no time of day</b>: the resource calendar gives hours per day (no from / to, no breaks), Post writes one row per line and day, the scheduler counts working days. Therefore there the values <b>hour</b> and <b>day</b> find the <b>same conflicts</b> (they differ in the unit shown). True hour-by-hour optimization is the <b>hourByHourModel</b> (section 7.10, phase 2): the owner decided “yes, it needs a time-of-day model”, selected by <code>resourceOptimizationMode</code>.</div>
+
+<h3>7.10 The time-of-day model: <code>resourceOptimizationMode</code> = <code>hourByHourModel</code> (R16)</h3>
+<p>One project setting chooses the planning model: <code>dayByDayModel</code> (default, the app works as it does today, nothing below applies) or <code>hourByHourModel</code>. Decisions taken for the most comfortable use (the owner may change them):</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Decision</th><th>Stored in</th></tr>
+  <tr><td class="id">H1</td><td>Work windows in the calendar?</td><td>Yes: windows per day; a calendar without them keeps working (7.10).</td></tr>
+  <tr><td class="id">H2</td><td>A task start time of day?</td><td>Yes: <code>taskStartMinute</code> (7.10).</td></tr>
+  <tr><td class="id">H3</td><td>A duration in hours?</td><td>Yes: <code>taskDurationHours</code> in this model (7.10).</td></tr>
+  <tr><td class="id">H4</td><td>Hour rows in Post?</td><td>Day rows stay; new table <code>task_line_plan_hour_movements</code> (PART 43) (7.10).</td></tr>
+  <tr><td class="id">H5</td><td>A delay in hours?</td><td>Yes, in working minutes (7.10).</td></tr>
+  <tr><td class="id">Q11</td><td>A setting for the model?</td><td><b>Yes:</b> <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (the app as is) | <code>hourByHourModel</code>; tables where needed (7.10, R16).</td></tr>
+</table>
+</div>
+<ul>
+  <li><b>Phases.</b> 2a: windows, start times, hour durations and the hour scheduler. 2b: hour Post and the hour busy check. 2c: hour leveling, the hour axis in the load graph and the usage grid (clock times such as “13:00–17:00”). Until 2a lands, <code>hourByHourModel</code> is shown disabled with the text “phase 2”.</li>
+  <li><b>Switching.</b> A project switched to <code>hourByHourModel</code> keeps its days; times start at the day start. Switching back is allowed (times are ignored, not deleted); the app asks before either switch and says that posted lines must be posted again.</li>
+  <li><b>Check first (WP15.1):</b> the project settings already have the plan units <code>planDay / planHour / planMinute / planSecond</code> (date input); WP15.1 reads what they really do today and reuses them if they fit.</li>
+</ul>
 
 <h2>8. Tables (R6)</h2>
 <p>New <b>PART 42</b> in <code>start1_sql_tables.sql</code> (tables) and <code>start2_sql_code.sql</code> (RLS, RPCs), and a part in <code>delete_sql_structure.sql</code>. Written only by RPCs (<code>SECURITY DEFINER</code>); the client has SELECT; RLS by <code>pm_owns_project(project)</code>. No seeds, no worker, no pg_cron job.</p>
 <div class="tbl">
 <table>
   <tr><th>Table</th><th>One row is</th><th>Main columns</th></tr>
-  <tr><td><code>project_resource_leveling_run</code></td><td>one leveling command (level, clear, undo)</td><td><code>rowGUID</code> · <code>rowProjectGUID</code> · <code>rowOwnerGUID</code> (user) · <code>runKind</code> (level | clear | undo) · <code>runMode</code> (manual | automatic | fast) · <code>runScope</code> (jsonb: project | range | resources | tasks) · <code>runOptions</code> (jsonb snapshot of the settings) · counts (moved, split, unresolved, conflicts before / after) · project finish before / after · <code>undoneByGUID</code> · <code>created_at</code></td></tr>
-  <tr><td><code>project_resource_leveling_task</code></td><td>one task changed by a run</td><td><code>rowParentGUID</code> (run) · <code>rowTaskGUID</code> · delay before / after · start / finish before / after · splits before / after (jsonb) · <code>reasonCode</code> · resource kind + GUID of the first conflict · first conflict day</td></tr>
-  <tr><td><code>project_resource_leveling_conflict</code></td><td>one over-allocated resource-day (before or after a run)</td><td><code>rowParentGUID</code> (run) · <code>phase</code> (before | after) · resource kind + GUID · day · capacity · booked here · booked foreign · <code>unresolvedCode</code>. Only conflict days are stored (small). Phase 2.</td></tr>
+  <tr><td><code>project_resource_leveling_run</code></td><td>one command (level, clear, undo)</td><td><code>rowGUID</code> · <code>rowProjectGUID</code> · <code>rowOwnerGUID</code> (user) · <code>runKind</code> (level | clear | undo) · <code>runMode</code> (manual | automatic | fast) · <code>runMethod</code> (leveling | smoothing) · <code>runScope</code> (jsonb) · <code>runOptions</code> (jsonb snapshot) · counts (moved, split, unposted, unresolved, conflicts before / after) · finish before / after · <code>undoneByGUID</code> · <code>created_at</code></td></tr>
+  <tr><td><code>project_resource_leveling_task</code></td><td>one task changed by a run</td><td><code>rowParentGUID</code> (run) · <code>rowTaskGUID</code> · delay before / after · start / finish before / after · splits before / after (jsonb) · <code>wasPosted</code> · <code>reasonCode</code> · resource kind + GUID and day of the first conflict</td></tr>
+  <tr><td><code>project_resource_leveling_conflict</code></td><td>one over-allocated resource-period (before / after a run)</td><td><code>rowParentGUID</code> (run) · <code>phase</code> · resource kind + GUID · period · capacity · booked here · booked foreign · <code>unresolvedCode</code>. Only conflict periods. Phase 2 of the work.</td></tr>
 </table>
 </div>
-<p><b>RPCs</b> (names to confirm at build): <code>project_resource_leveling_inputs(project, from, to)</code> – capacity and foreign load per resource and day, no titles; <code>project_resource_leveling_apply(project, run jsonb)</code> – checks the owner, locks the project, re-checks that the tasks are not changed since the plan was read (version stamp), writes the delays and splits to the tasks, the run rows, in one transaction; <code>project_resource_leveling_clear(project, scope)</code>; <code>project_resource_leveling_undo(run)</code>; <code>project_resource_leveling_runs(project)</code>. The task update uses the bulk switch (<code>app.task_bulk</code>) so the per-row progress triggers run once at the end (the lesson of the task templates); the dates are written by the usual write-back afterwards.</p>
-<p>A trigger on the task rows refuses a negative delay and a delay on a stage, a milestone or a subproject origin task. <code>task_template_clean_task</code> strips the new keys.</p>
+<p><b>RPCs</b> (names to confirm at build): <code>project_resource_leveling_inputs(project, from, to)</code> – capacity and foreign load per resource and day, no titles; <code>project_resource_leveling_apply(project, run jsonb)</code> – checks the owner, locks the project, re-checks that the tasks did not change since the plan was read (version stamp), writes delays and splits, the run rows, in one transaction; <code>…_clear</code>, <code>…_undo</code>, <code>…_runs</code>. The task update uses <code>app.task_bulk</code> so the per-row progress triggers run once at the end (lesson of the task templates); the dates are written by the usual write-back. A trigger refuses a negative delay and a delay on a stage, a milestone or a subproject origin task. <code>task_template_clean_task</code> strips the new keys.</p>
 
-<h2>9. Components – <code>PMResourceLeveling</code> + NNN (R7)</h2>
-<p>Folder <code>kit8/pm/resourceleveling/</code>. The visible components are named as asked; the non-visual files (pure model, engine, hooks, API) keep ordinary names with the prefix <code>resourceLeveling…</code> so the NNN list stays a list of screens. All texts through <code>pmT</code>; all sizes and colors from the design system; every component works on web, iOS and Android.</p>
+<h2>9. Components – <code>PMResourceLeveling</code> + <code>ComponentName</code> (R7)</h2>
+<p>Folder <code>kit8/pm/resourceleveling/</code>. Each visible component is named <code>PMResourceLeveling</code> followed by a <b>text name</b> of what it is. The non-visual files (pure model, engine, hooks, API) keep ordinary names with the prefix <code>resourceLeveling…</code>. All texts through <code>pmT</code>; sizes and colors from the design system; web, iOS, Android.</p>
 <div class="tbl">
 <table>
   <tr><th>Name</th><th>What</th><th>Where it is mounted</th></tr>
-  <tr><td><code>PMResourceLeveling001</code></td><td>Project settings tab <b>Resource leveling</b>: master, Automatic / Manual, Fast mode, all sub switches with hints. Also the Organization defaults tab.</td><td>Project settings window; Organization edit → Projects → Settings</td></tr>
-  <tr><td><code>PMResourceLeveling002</code></td><td>The <b>Level</b> button of the Gantt bar with its menu: Level now · Level selected resources · Level selected tasks · Clear leveling · Undo last run · Options… · Run history. Shown only while the master is on.</td><td>Gantt bar (<code>PMGanttExtendedButtons</code> area)</td></tr>
-  <tr><td><code>PMResourceLeveling003</code></td><td>The <b>Level Resources</b> window = the MS Project dialog: mode, grain, clear before, range (project / dates), order, within slack, splits, manual tasks, other projects, posted tasks; buttons Level now · Clear leveling · Cancel.</td><td>Opened by 002</td></tr>
-  <tr><td><code>PMResourceLeveling004</code></td><td><b>Preview and result</b>: summary (tasks moved, split, unresolved, finish before / after, tasks to unpost), list of moved tasks with before / after dates and the reason, Apply / Cancel; in Automatic the same list as the toast detail.</td><td>Opened by 003, 002, 012</td></tr>
-  <tr><td><code>PMResourceLeveling005</code></td><td><b>Unresolved conflicts</b> list: resource, day, hours over, reason code in words, “Open task”, “Open resource”.</td><td>Inside 004 and 009</td></tr>
-  <tr><td><code>PMResourceLeveling006</code></td><td><b>Overallocation indicator</b>: icon in the tree row (and a mark on the bar) with a tip “Anna Sulg: 11 h on 12 Mar, capacity 8 h”; click opens 005 for that task.</td><td>Task tree; Gantt chart</td></tr>
-  <tr><td><code>PMResourceLeveling007</code></td><td>Tree column <b>Leveling delay</b> (days; virtual column like <code>cc_ext_…</code>; sortable, filterable).</td><td>Task tree columns</td></tr>
-  <tr><td><code>PMResourceLeveling008</code></td><td><b>Delay bar</b> layer of the Gantt chart (thin bar before the task for the delay; the segments of a leveling split in another color).</td><td>Gantt chart layers</td></tr>
-  <tr><td><code>PMResourceLeveling009</code></td><td><b>Resource Load</b> graph: per resource a column per day / week, the capacity line, the over-allocated part in red, the foreign load hatched; before / after switch.</td><td>New view button on the Gantt bar; Task window</td></tr>
-  <tr><td><code>PMResourceLeveling010</code></td><td><b>Resource Usage</b> grid: resource × period (hours), over-allocated cells marked, expand a resource to its tasks. A plain grid (not <code>ReusableTable</code>: the columns are the days).</td><td>Same view as 009 (tab)</td></tr>
-  <tr><td><code>PMResourceLeveling011</code></td><td>Section <b>Leveling</b> of the Task window → Advanced: Priority (A15), “Leveling can split”, Leveling delay (read only), “Why was this task moved”, button “Clear leveling of this task”.</td><td><code>PMTaskAdvancedTab</code></td></tr>
-  <tr><td><code>PMResourceLeveling012</code></td><td><b>In-line fix menu</b> (Fast mode) of one conflict: Delay to the next free day · Split here · Delay the other task · Raise priority · Ignore this conflict.</td><td>Opened by 006 and by the bars</td></tr>
-  <tr><td><code>PMResourceLeveling013</code></td><td><b>Status chip</b>: “Leveling: Manual / Automatic · Fast”, number of over-allocated resources, “Leveled by a run of 14:32”.</td><td>Project bar next to the calculation chip</td></tr>
-  <tr><td><code>PMResourceLeveling014</code></td><td><b>Run history</b>: list of runs (who, when, mode, scope, counts), details (the changed tasks), Undo of a run.</td><td>Opened by 002</td></tr>
-  <tr><td><code>PMResourceLeveling015</code></td><td>Items in the existing menus: Project Actions (Level now, Clear leveling), Task menu (Level this task, Clear leveling, Select its resources), Resource-related menus; the web key (proposal <code>Alt+Shift+L</code>, Ctrl+L belongs to the browser).</td><td><code>PMProjectActionsButton</code>, <code>PMTaskRowMenu</code></td></tr>
+  <tr><td><code>PMResourceLevelingSettingsTab</code></td><td>Project settings tab titled <b>“Resources”</b>: the part “Resources” (<code>resourceOptimizationMode</code>, <code>resourceGrainUnit</code>) and the section <b>“Resource optimization”</b> (master, Automatic / Manual, Method, Fast mode, posted tasks and the action, all sub switches with hints). Also the Organization defaults tab.</td><td>Project settings window; Organization edit → Projects → Settings</td></tr>
+  <tr><td><code>PMResourceLevelingBarButton</code></td><td>The <b>Level</b> button of the Gantt bar with the menu titled “Resource optimization”: Level now · Level selected resources · Level selected tasks · Clear leveling · Undo last run · Options… · Run history. Only while the master is on.</td><td>Gantt bar</td></tr>
+  <tr><td><code>PMResourceLevelingOptionsWindow</code></td><td>The <b>Level Resources</b> window = the MS Project dialog: mode, Method, grain, clear before, range, order, “Level only within available slack”, splits, manual tasks, other projects, posted tasks; Level now · Clear leveling · Cancel.</td><td>Opened by the bar button</td></tr>
+  <tr><td><code>PMResourceLevelingPreviewWindow</code></td><td><b>Preview and result</b>: summary (moved, split, unposted, unresolved, finish before / after), the moved tasks with before / after and the reason, the tasks that lose their posting; Apply / Cancel.</td><td>Opened by the options window, the bar button, the quick-fix menu</td></tr>
+  <tr><td><code>PMResourceLevelingPostedTasksDialog</code></td><td>The <b>question about posted tasks</b> (7.7): the list of the posted tasks that must move, with the three choices <b>Unpost and move</b> · <b>Move and post again</b> · <b>Keep their dates</b>, and “Remember my answer”.</td><td>Opened by the preview window and by the status chip</td></tr>
+  <tr><td><code>PMResourceLevelingConflictsList</code></td><td>The <b>unresolved conflicts</b>: resource, period, hours over, reason in words, “Open task”, “Open resource”.</td><td>Inside the preview window and the load graph</td></tr>
+  <tr><td><code>PMResourceLevelingOverallocationMark</code></td><td>The <b>overallocation indicator</b>: icon in the tree row and a mark on the bar, with a tip “Anna Sulg: 11 h on 12 Mar, capacity 8 h”; click opens the conflicts list (Fast mode: the quick-fix menu).</td><td>Task tree; Gantt chart</td></tr>
+  <tr><td><code>PMResourceLevelingDelayColumn</code></td><td>Tree column <b>Leveling delay</b> (working days; virtual column like <code>cc_ext_…</code>).</td><td>Task tree columns</td></tr>
+  <tr><td><code>PMResourceLevelingDelayBar</code></td><td>The <b>delay bar</b> layer (thin bar before the task; leveling-split segments in another color).</td><td>Gantt chart layers</td></tr>
+  <tr><td><code>PMResourceLevelingLoadGraph</code></td><td>The <b>Resource Load</b> graph (PMBOK resource histogram): per resource a column per period, the capacity line, the over-allocated part red, the foreign load hatched; before / after switch.</td><td>View button on the Gantt bar; task window</td></tr>
+  <tr><td><code>PMResourceLevelingUsageGrid</code></td><td>The <b>Resource Usage</b> grid: resource × period in the grain unit, over-allocated cells marked, expand a resource to its tasks; Fast mode: type hours in a cell, drag a task chip to another resource row. A plain grid (the columns are periods, not a <code>ReusableTable</code>).</td><td>Same view as the load graph (tab)</td></tr>
+  <tr><td><code>PMResourceLevelingTaskSection</code></td><td>Section <b>Leveling</b> of the task window → Advanced: Priority (A15), “Leveling can split”, Leveling delay (read only), “Why was this task moved”, “Clear leveling of this task”.</td><td><code>PMTaskAdvancedTab</code></td></tr>
+  <tr><td><code>PMResourceLevelingQuickFixMenu</code></td><td>The <b>quick-fix menu</b> of one conflict (Fast mode), the actions of 7.6.</td><td>Opened by the mark and the bars</td></tr>
+  <tr><td><code>PMResourceLevelingStatusChip</code></td><td>The <b>status chip</b>: “Resource optimization: Manual / Automatic · Leveling / Smoothing · Fast”, the number of over-allocated resources, “Optimized by a run of 14:32”.</td><td>Project bar next to the calculation chip</td></tr>
+  <tr><td><code>PMResourceLevelingRunHistory</code></td><td>The <b>run history</b>: runs (who, when, mode, method, scope, counts), details, Undo of a run.</td><td>Opened by the bar button</td></tr>
+  <tr><td><code>PMResourceLevelingMenuItems</code></td><td>Items in the existing menus: project Actions (Level now, Clear leveling), Task menu (Level this task, Clear leveling, Select its resources), the resource-related menus; the web key <code>Alt+Shift+L</code> (Q10 = ok).</td><td><code>PMProjectActionsButton</code>, <code>PMTaskRowMenu</code></td></tr>
 </table>
 </div>
-<p>Non-visual files (planned): <code>resourceLevelingSettings.ts</code>, <code>resourceLevelingModel.ts</code> (types, reason codes), <code>resourceLevelingDemand.ts</code>, <code>resourceLevelingDetect.ts</code>, <code>resourceLevelingEngine.ts</code>, <code>resourceLevelingIncremental.ts</code> (Fast), <code>resourceLevelingApi.ts</code>, <code>useResourceLevelingInputs.ts</code>, <code>useResourceLeveling.ts</code>, <code>README.md</code>.</p>
+<p>Non-visual files (planned): <code>resourceLevelingSettings.ts</code>, <code>resourceLevelingModel.ts</code>, <code>resourceLevelingDemand.ts</code>, <code>resourceLevelingDetect.ts</code>, <code>resourceLevelingEngine.ts</code>, <code>resourceLevelingIncremental.ts</code>, <code>resourceLevelingApi.ts</code>, <code>useResourceLevelingInputs.ts</code>, <code>useResourceLeveling.ts</code>, <code>README.md</code>.</p>
 
 <h2>10. Work breakdown structure (R5)</h2>
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Work package / task</th><th>Result</th><th>Tests</th></tr>
   <tr class="group"><td class="id">WP1</td><td colspan="3">Analysis and measurement</td></tr>
-  <tr><td class="id">1.1</td><td>Answer the questions of section 14; fix the names (Q1) and the reading of Fast mode (Q2).</td><td>Decisions written into this document (section “Decisions”).</td><td>—</td></tr>
+  <tr><td class="id">1.1</td><td>Record the decisions (section 18); settle Q5 and the questions H1–H5 (or defer them).</td><td>Decisions in this document.</td><td>—</td></tr>
   <tr><td class="id">1.2</td><td>Measure <code>scheduleProject</code> on 450 (BUDGET1), 2 000, 10 000 tasks; measure the demand build.</td><td>The numbers that fix the Fast budget.</td><td>bench script</td></tr>
-  <tr><td class="id">1.3</td><td>Check in Docker that a date move unposts exactly what 7.7 says.</td><td>List of side effects.</td><td>Docker</td></tr>
+  <tr><td class="id">1.3</td><td>Check in Docker what a date move unposts (lines, payments) and that an unposted payment plan under a posted payment fact is handled (decides the frozen rule of 7.7).</td><td>List of side effects.</td><td>Docker</td></tr>
   <tr class="group"><td class="id">WP2</td><td colspan="3">Settings</td></tr>
-  <tr><td class="id">2.1</td><td><code>resourceLevelingSettings.ts</code> (keys, defaults, needs).</td><td>Pure module.</td><td>Jest</td></tr>
+  <tr><td class="id">2.1</td><td><code>resourceLevelingSettings.ts</code> (keys, defaults, needs, Method presentation, <code>resourceGrainUnit</code>).</td><td>Pure module.</td><td>Jest</td></tr>
   <tr><td class="id">2.2</td><td>Project and organization normalize functions; Organization defaults.</td><td>Keys survive save.</td><td>Jest</td></tr>
-  <tr><td class="id">2.3</td><td>PMResourceLeveling001 + hook into the project settings window and Organization edit.</td><td>The tab.</td><td>Jest UI</td></tr>
+  <tr><td class="id">2.3</td><td><code>PMResourceLevelingSettingsTab</code> (tab “Resources”, section “Resource optimization”) and its hook into the settings window and Organization edit.</td><td>The tab.</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP3</td><td colspan="3">SQL – PART 42</td></tr>
   <tr><td class="id">3.1</td><td>Tables of section 8 in start1; RLS, grants, realtime (task rows only) in start2.</td><td>Idempotent install.</td><td><code>test_sql.sh</code>, Jest SQL files</td></tr>
-  <tr><td class="id">3.2</td><td>RPCs inputs / apply / clear / undo / runs; version stamp check; bulk switch.</td><td>One transaction per command.</td><td>Docker test (next free number, 100)</td></tr>
+  <tr><td class="id">3.2</td><td>RPCs inputs / apply / clear / undo / runs; version stamp; bulk switch.</td><td>One transaction per command.</td><td>Docker test <code>tests/31_resource_leveling.sql</code></td></tr>
   <tr><td class="id">3.3</td><td><code>task_template_clean_task</code>, delete part, task trigger.</td><td>—</td><td>Docker, Jest</td></tr>
   <tr class="group"><td class="id">WP4</td><td colspan="3">Demand, capacity, detection (pure + hook)</td></tr>
-  <tr><td class="id">4.1</td><td>Demand per resource and day from the lines (reuse the distribution and the calendar days).</td><td>Arrays by resource × day.</td><td>Jest</td></tr>
-  <tr><td class="id">4.2</td><td>Hook that loads capacity + foreign load; Realtime refresh.</td><td>Inputs.</td><td>Jest (mock client)</td></tr>
-  <tr><td class="id">4.3</td><td>Detector (day, week); parity with <code>organization_resource_busy_check</code>.</td><td>Conflict list.</td><td>Jest + Docker parity</td></tr>
+  <tr><td class="id">4.1</td><td>Demand per resource and day from the lines (distribution + calendar days).</td><td>Arrays by resource × day.</td><td>Jest</td></tr>
+  <tr><td class="id">4.2</td><td>Hook for capacity + foreign load; Realtime refresh.</td><td>Inputs.</td><td>Jest</td></tr>
+  <tr><td class="id">4.3</td><td>Detector by the grain unit (hour / day = working day, week = sums); parity with <code>organization_resource_busy_check</code>.</td><td>Conflict list.</td><td>Jest + Docker parity</td></tr>
   <tr class="group"><td class="id">WP5</td><td colspan="3">Engine (pure)</td></tr>
   <tr><td class="id">5.1</td><td>Orders, frozen rules, reason codes.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">5.2</td><td>Delay search, slack limit, horizon, scope, fixed obstacles.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">5.2</td><td>Delay search, Method Smoothing (slack cap), horizon, scope, fixed obstacles.</td><td>—</td><td>Jest</td></tr>
   <tr><td class="id">5.3</td><td>Splits.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">5.4</td><td>Properties: no conflict left except the reported ones; links, constraints, calendars respected; deterministic; idempotent; a second run changes nothing; terminates.</td><td>Property tests on generated plans.</td><td>Jest</td></tr>
+  <tr><td class="id">5.4</td><td>Properties: no conflict left except the reported ones; links, constraints, calendars respected; deterministic; idempotent; terminates; Smoothing never changes the finish.</td><td>Property tests.</td><td>Jest</td></tr>
   <tr class="group"><td class="id">WP6</td><td colspan="3">Scheduler integration</td></tr>
-  <tr><td class="id">6.1</td><td><code>scheduleOptions</code> + <code>scheduleProject</code> read <code>taskLevelingDelayDays</code> and the leveling splits; with the function off the result is byte-identical to today.</td><td>—</td><td>Jest: golden plans before / after</td></tr>
-  <tr><td class="id">6.2</td><td>Signature (A2), versions (<code>scheduleVersion</code>), subproject propagation, Gantt critical path.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">6.3</td><td>Schedule from finish (A4): decide and build or refuse (Q5).</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">6.1</td><td><code>scheduleOptions</code> + <code>scheduleProject</code> read <code>taskLevelingDelayDays</code> and the leveling splits; function off = byte-identical to today.</td><td>—</td><td>Jest golden plans</td></tr>
+  <tr><td class="id">6.2</td><td>A2 signature, versions (<code>scheduleVersion</code>), subproject propagation, critical path.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">6.3</td><td>Schedule from finish (A4): decide (Q5); build or keep the refusal message.</td><td>—</td><td>Jest</td></tr>
   <tr class="group"><td class="id">WP7</td><td colspan="3">Manual mode and the commands</td></tr>
-  <tr><td class="id">7.1</td><td>002, 003, 004, 005, 013, 015.</td><td>Level now / selected / clear.</td><td>Jest UI</td></tr>
-  <tr><td class="id">7.2</td><td>Apply: RPC, write-back, Undo step, Post hint.</td><td>—</td><td>Jest, Docker</td></tr>
-  <tr><td class="id">7.3</td><td>014 history and Undo of a run.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">7.1</td><td><code>PMResourceLevelingBarButton</code>, <code>…OptionsWindow</code>, <code>…PreviewWindow</code>, <code>…PostedTasksDialog</code>, <code>…ConflictsList</code>, <code>…StatusChip</code>, <code>…MenuItems</code>.</td><td>Level now / selected / clear.</td><td>Jest UI</td></tr>
+  <tr><td class="id">7.2</td><td>Apply: RPC, write-back, Undo step, “unposted” list, Post hint.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">7.3</td><td><code>PMResourceLevelingRunHistory</code> and Undo of a run.</td><td>—</td><td>Jest, Docker</td></tr>
   <tr class="group"><td class="id">WP8</td><td colspan="3">Visual marks</td></tr>
-  <tr><td class="id">8.1</td><td>006 indicator, 007 column, 008 delay bar.</td><td>—</td><td>Jest UI</td></tr>
-  <tr><td class="id">8.2</td><td>011 Task window section.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">8.1</td><td><code>…OverallocationMark</code>, <code>…DelayColumn</code>, <code>…DelayBar</code>.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">8.2</td><td><code>…TaskSection</code>.</td><td>—</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP9</td><td colspan="3">Load views</td></tr>
-  <tr><td class="id">9.1</td><td>009 Resource Load graph (SVG, mock in Jest like Monitor03).</td><td>—</td><td>Jest UI</td></tr>
-  <tr><td class="id">9.2</td><td>010 Resource Usage grid.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">9.1</td><td><code>…LoadGraph</code> (SVG; mock in Jest as Monitor03).</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">9.2</td><td><code>…UsageGrid</code> (read only first).</td><td>—</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP10</td><td colspan="3">Automatic mode</td></tr>
-  <tr><td class="id">10.1</td><td>Input signature, trigger, debounce, no loop, freeze rules, toast with Undo.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">10.1</td><td>Input signature, trigger, debounce, no loop, posted-task rule, toast with Undo.</td><td>—</td><td>Jest</td></tr>
   <tr><td class="id">10.2</td><td>With Calculation Manual: run at Calculate.</td><td>—</td><td>Jest</td></tr>
-  <tr class="group"><td class="id">WP11</td><td colspan="3">Fast mode</td></tr>
+  <tr class="group"><td class="id">WP11</td><td colspan="3">Fast mode (in-place data options)</td></tr>
   <tr><td class="id">11.1</td><td>Incremental engine.</td><td>Budget met.</td><td>Jest + bench</td></tr>
-  <tr><td class="id">11.2</td><td>Live indicator while dragging; 012 in-line fixes.</td><td>—</td><td>Jest UI</td></tr>
-  <tr class="group"><td class="id">WP12</td><td colspan="3">Exchange</td></tr>
-  <tr><td class="id">12.1</td><td>MS Project XML export / import of the delay, can-split, priority.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">12.2</td><td>Versions, templates, copy of a project.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">11.2</td><td>Live mark while dragging; <code>…QuickFixMenu</code>.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">11.3</td><td>Usage grid editing: hours in a cell, drag a chip to another resource; keyboard; Undo / Redo steps; touch targets.</td><td>—</td><td>Jest UI</td></tr>
+  <tr class="group"><td class="id">WP12</td><td colspan="3">Versions, templates, copy</td></tr>
+  <tr><td class="id">12.1</td><td>Versions keep the delay; templates strip it; project copy keeps it.</td><td>—</td><td>Jest, Docker</td></tr>
   <tr class="group"><td class="id">WP13</td><td colspan="3">Translation (section 12)</td></tr>
-  <tr><td class="id">13.1</td><td>Audit of every visible text and every accessibility label of the new components and the touched ones.</td><td>List of keys.</td><td>—</td></tr>
+  <tr><td class="id">13.1</td><td>Audit of every visible text and accessibility label of the new and the touched components (incl. “Resources” and “Resource optimization”).</td><td>List of keys.</td><td>—</td></tr>
   <tr><td class="id">13.2</td><td>14 dictionaries; regenerate <code>PM_KEYS</code> and the locale files.</td><td>—</td><td>Jest: every key in every language</td></tr>
-  <tr><td class="id">13.3</td><td>RTL (ar, fa) and long-text check of the windows.</td><td>—</td><td>Jest UI + browser look</td></tr>
+  <tr><td class="id">13.3</td><td>RTL (ar, fa) and long-text check.</td><td>—</td><td>Jest UI + browser look</td></tr>
   <tr class="group"><td class="id">WP14</td><td colspan="3">Finish</td></tr>
-  <tr><td class="id">14.1</td><td>README of <code>kit8/pm/resourceleveling</code>; row in KNOW_HOW section 6; A16 of <code>MORE_GANTT_INPUT.html</code> set to built; this document: “Implementation status”.</td><td>—</td><td>—</td></tr>
-  <tr><td class="id">14.2</td><td>Bench <code>bench_resource_leveling</code> and the Docker parity test; run the whole Jest baseline and compare FAIL lines.</td><td>—</td><td>—</td></tr>
+  <tr><td class="id">14.1</td><td>README of <code>kit8/pm/resourceleveling</code>; row in KNOW_HOW section 6; A16 of <code>MORE_GANTT_INPUT.html</code> set to built; “Implementation status” here.</td><td>—</td><td>—</td></tr>
+  <tr><td class="id">14.2</td><td>Bench <code>bench_resource_leveling</code>, Docker parity test, full Jest baseline compare.</td><td>—</td><td>—</td></tr>
   <tr><td class="id">14.3</td><td>Security review (RLS, foreign load without titles), accessibility.</td><td>—</td><td>—</td></tr>
+  <tr class="group"><td class="id">WP15</td><td colspan="3"><b>Phase 2 – the time-of-day model</b> (<code>hourByHourModel</code>, 7.10)</td></tr>
+  <tr><td class="id">15.1</td><td>Read what <code>planHour / planMinute</code> do today; confirm H1–H5; a separate WBS document for 2a–2c.</td><td>Decision + document.</td><td>—</td></tr>
+  <tr><td class="id">15.2</td><td>2a: calendar windows + editor, task start time, hour duration, the hour scheduler; <code>resourceOptimizationMode</code> enabled.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">15.3</td><td>2b: PART 43 (<code>task_line_plan_hour_movements</code>, the hour occupancy view), hour Post, hour busy check.</td><td>—</td><td>Docker</td></tr>
+  <tr><td class="id">15.4</td><td>2c: hour leveling (delay in minutes), clock axis in the graph and the grid.</td><td>—</td><td>Jest + bench</td></tr>
 </table>
 </div>
 
@@ -415,94 +495,139 @@
           └──► WP3 ───────────┘                 │         │
                                                  ├──► WP10 (needs 7)
                                                  └──► WP11 (needs 5, 8, 9)
-WP12 after WP6 · WP13 runs through all work (keys are added with each component) · WP14 last</div>
+WP12 after WP6 · WP13 runs through all work (keys are added with each component) · WP14 last · WP15 = 2a, 2b, 2c one after the other, after Phase 1</div>
 <ul>
-  <li>First usable slice: WP1–WP7 = Manual mode, day grain, delay only (no splits, no Fast, no Automatic). Everything after it adds a switch.</li>
-  <li>SQL and TypeScript meet at the RPC <code>project_resource_leveling_inputs</code>: build and test it before the engine.</li>
+  <li>First usable slice: WP1–WP7 = Manual mode, delay only (no splits, no Fast, no Automatic), the grain option present with the limit of 7.9. Every later package adds a switch.</li>
+  <li>SQL and TypeScript meet at <code>project_resource_leveling_inputs</code>: build and test it before the engine.</li>
 </ul>
 
 <h2>12. Interface check and translation to all languages (R8)</h2>
 <ul>
   <li><b>Languages</b> (<code>LANGUAGES</code>, <code>kit8/i18n/i18n.ts</code>): English is the key; dictionaries in <code>kit8/pm/i18n/locales</code> for <b>zh, hi, es, ar, fr, bn, pt, ru, de, nl, lv, fa, lt, et</b> (14).</li>
-  <li><b>Rule</b>: every text of the new components goes through <code>pmT('English text {{n}}')</code> (placeholder <code>{{n}}</code>); no text in a constant that is built at import time (it would not follow a language change); enum labels (modes, orders, reason codes) are looked up by code and translated at render time.</li>
-  <li><b>What is checked</b>: labels, hints, tips, button texts, empty states, errors and warnings, toasts, window titles, column titles, menu items, accessibility labels, the sentence of a conflict (with the placeholders for resource, day and hours), date and number formats (use the app formats, not hard-coded).</li>
-  <li><b>Touched existing screens</b> are audited too: Project settings tabs, Gantt bar, Task window Advanced tab, Task menu, Project Actions menu, Busy conflicts window (the texts the leveling reuses), Organization edit.</li>
-  <li><b>Procedure</b>: add the texts → regenerate <code>PM_KEYS</code> and the dictionaries with the tool in <code>kit8/pm/i18n/src</code> (<code>build.py</code>, see <code>kit8/pm/README.md</code>) → a Jest test lists the keys of the new files and fails when a key is missing in one of the 14 files.</li>
-  <li><b>RTL</b> (ar, fa): the windows and the delay bar are checked for mirrored layout; numbers and dates stay left-to-right; the graph 009 keeps the time axis left-to-right.</li>
-  <li><b>Quality</b>: the dictionaries are machine-prepared; the terms (over-allocation, leveling, slack, split) are listed once in a glossary table of the work package so the languages use one word each; a native check is recommended for ru, de, fr, es before release.</li>
-  <li>This document itself is translated to Russian: <code>RESOURCE_LEVELING_WBS_RU.html</code>.</li>
+  <li><b>Rule</b>: every text goes through <code>pmT('English text {{n}}')</code>; no text in a constant built at import time; labels of enums (mode, method, order, grain, reason codes) are looked up by code at render time. The two titles “Resources” and “Resource optimization” and every MS Project word (Level now, Leveling delay …) are translation keys.</li>
+  <li><b>Checked</b>: labels, hints, tips, buttons, empty states, errors, toasts, window and column titles, menu items, accessibility labels, the conflict sentence (placeholders for resource, period, hours), date / number formats (the app’s own).</li>
+  <li><b>Touched existing screens</b> are audited too: Project settings tabs, Gantt bar, task window Advanced tab, Task menu, project Actions menu, Busy conflicts window, Organization edit.</li>
+  <li><b>Procedure</b>: add the texts → regenerate <code>PM_KEYS</code> and the dictionaries with <code>kit8/pm/i18n/src/build.py</code> → a Jest test fails when a key is missing in one of the 14 files.</li>
+  <li><b>RTL</b> (ar, fa): windows, the delay bar and the grid are mirrored; numbers and dates stay left-to-right; the time axis of the graph stays left-to-right.</li>
+  <li><b>Quality</b>: one glossary for the terms (over-allocation, leveling, smoothing, slack, split) so each language uses one word; a native check of ru, de, fr, es before release.</li>
+  <li>This document is translated to Russian: <code>RESOURCE_LEVELING_WBS_RU.html</code>.</li>
 </ul>
 
 <h2>13. Acceptance criteria</h2>
 <ol>
-  <li>With the master off, a Jest run of the scheduler on golden plans gives byte-identical results; no new element is rendered; no new request is made.</li>
-  <li>A plan with two tasks that need one person for 8 h each on the same day (capacity 8 h) is leveled by delaying the lower-priority task by one working day; after it the busy check returns no rows.</li>
-  <li>Priority 1000 and frozen tasks are never moved; the conflict is listed with its reason code.</li>
-  <li>“Within slack only” never changes the project finish; the remainder is unresolved.</li>
-  <li>Successors of a delayed task move; the critical path and the stage roll-up are recalculated by the scheduler.</li>
-  <li>With splits on, a long task is interrupted instead of moved when this solves the conflict with a smaller finish delay.</li>
-  <li>Manual mode: nothing changes before Apply; Cancel changes nothing; Apply is one transaction and one Undo step.</li>
-  <li>Automatic mode: an edit that creates a conflict is leveled after the debounce; no loop; posted tasks are not moved.</li>
-  <li>Clear leveling returns the dates of the unleveled plan; Undo of a run restores the values before that run.</li>
-  <li>Another project’s posted booking of the same work center is respected and is not moved.</li>
-  <li>A day without a calendar row is reported, never leveled over.</li>
-  <li>Fast mode: the numbers of 7.6 are met on 2 000 tasks (bench).</li>
-  <li>MS Project export contains <code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code> only while the function is on; import restores them.</li>
-  <li>All new texts exist in the 14 dictionaries; Arabic and Farsi windows are mirrored without overlaps.</li>
-  <li>The Jest baseline shows no new failing suite; the Docker scripts pass; <code>test_sql.sh</code> still passes (install twice, delete leaves nothing).</li>
+  <li>Master off: scheduler golden plans byte-identical; no new element; no new request.</li>
+  <li>Two tasks need one person 8 h each on the same day (capacity 8 h): Leveling delays the lower-priority task by one working day; afterwards the busy check returns no rows.</li>
+  <li>Priority 1000 and frozen tasks never move; the conflict is listed with its reason.</li>
+  <li>Method Smoothing never changes the project finish; the rest is unresolved.</li>
+  <li>Successors of a delayed task move; critical path and stage roll-up are recalculated by the scheduler.</li>
+  <li>With splits on, a long task is interrupted instead of moved when this gives a smaller finish delay.</li>
+  <li>Manual: nothing changes before Apply; Cancel changes nothing; Apply = one transaction, one Undo step.</li>
+  <li>Automatic: an edit that creates a conflict is optimized after the debounce; no loop; posted tasks are left and the chip says how many wait for a decision; Undo restores the dates.</li>
+  <li>A posted task is never unposted silently: the dialog offers Unpost and move / Move and post again / Keep; “Move and post again” moves a task only if it posts without conflicts; with the option off or “Keep” the task is frozen and still load. A task with a posted fact input is never moved.</li>
+  <li>Clear leveling returns the unleveled dates; Undo of a run restores the values before it.</li>
+  <li>A posted booking of the same work center in another project is respected and not moved.</li>
+  <li>A day without a calendar row is reported, never optimized over.</li>
+  <li><code>resourceGrainUnit</code> defaults to hour; hour / day / week change the unit and period as in 7.9; the screens show hours. <code>resourceOptimizationMode</code> defaults to <code>dayByDayModel</code> and then nothing changes.</li><li>Schedule from the project finish: the same buttons work; yielding tasks move earlier; the preview shows the new project start.</li>
+  <li>Fast mode: the budget of 7.6 on 2 000 tasks; hours typed in a grid cell write the Time line; a dragged chip changes its resource; each action is one Undo step.</li>
+  <li>All new texts exist in the 14 dictionaries; Arabic and Farsi windows mirror without overlap.</li>
+  <li>Jest baseline: no new failing suite; Docker scripts pass; <code>test_sql.sh</code> still passes.</li>
 </ol>
 
-<h2>14. Questions for the owner (the answers change the design)</h2>
+<h2>14. Questions and decisions</h2>
 <div class="tbl">
 <table>
-  <tr><th>#</th><th>Question</th><th>Proposal in this document</th></tr>
-  <tr><td class="id">Q1</td><td>Names: the Google Doc has <code>resourceLvelingFunctionalityEnabled</code> and <code>project_resource_reveling_xxx</code>. Typos?</td><td>Yes – <code>resourceLevelingFunctionalityEnabled</code>, <code>…FastModeEnabled</code>, <code>project_resource_leveling_xxx</code>.</td></tr>
-  <tr><td class="id">Q2</td><td>Fast mode: is “most online and in-line user action patterns” = the live, on-screen, incremental behavior of 7.6?</td><td>Yes. If you meant a server-side fast algorithm, say so: the engine would move to SQL.</td></tr>
-  <tr><td class="id">Q3</td><td>Automatic mode and posted tasks: never move a posted task (proposal), or move and unpost?</td><td>Never move in Automatic; allow in Manual after a named preview.</td></tr>
-  <tr><td class="id">Q4</td><td>Where does the engine run?</td><td>Client (TypeScript, pure) – same place as the scheduler, live preview, easy tests. Alternative: SQL – one place for all users, no live preview, a second scheduler to keep in step (not recommended).</td></tr>
-  <tr><td class="id">Q5</td><td>Leveling when the project is scheduled from the finish date (A4)?</td><td>Build it if it is consistent in WP6, otherwise refuse with a message.</td></tr>
-  <tr><td class="id">Q6</td><td>Level a single Time line (assignment) instead of the whole task (MS “adjust individual assignments”)? Needs dates per line.</td><td>Not now; the whole task moves.</td></tr>
-  <tr><td class="id">Q7</td><td>Hour grain (resource busy hour by hour)? The posted data has no time of day.</td><td>Day and week only; hour needs a time of day in the plan first.</td></tr>
-  <tr><td class="id">Q8</td><td>Priority across projects of the organization: should a higher-priority task of another project win?</td><td>No: other projects are fixed obstacles; the planner of that project levels it.</td></tr>
-  <tr><td class="id">Q9</td><td>The leveling delay unit: working days of the task calendar (proposal) or calendar days?</td><td>Working days.</td></tr>
-  <tr><td class="id">Q10</td><td>Web key of Level now.</td><td><code>Alt+Shift+L</code>.</td></tr>
+  <tr><th>#</th><th>Question</th><th>Answer (2026-10-27)</th></tr>
+  <tr><td class="id">Q1</td><td>Names without the typos?</td><td><b>Yes.</b></td></tr>
+  <tr><td class="id">Q2</td><td>Fast mode = ?</td><td>Screen options that change the data in place, and the more comfortable UX/UI version (7.6).</td></tr>
+  <tr><td class="id">Q3</td><td>Automatic and posted tasks?</td><td>Second answer: <b>posted tasks must not lose their posting</b> – the app asks (unpost / post again without conflicts / keep). Options <code>resourceLevelingPostedTasksMovementEnabled</code> (true) and <code>resourceLevelingPostedTasksAction</code> (<code>ask</code>) (7.7).</td></tr>
+  <tr><td class="id">Q4</td><td>Where does the engine run?</td><td>The more comfortable UX/UI version = <b>client</b> (TypeScript), live preview.</td></tr>
+  <tr><td class="id">Q5</td><td>Schedule from the project finish (A4)?</td><td><b>Decided:</b> the most comfortable for the user – it works, mirrored (7.8).</td></tr>
+  <tr><td class="id">Q6</td><td>Level one Time line or the whole task?</td><td><b>The full task.</b></td></tr>
+  <tr><td class="id">Q7</td><td>Hour grain?</td><td>Separate option <code>resourceGrainUnit</code>, <b>hour</b> by default; hours needed (7.9). True clock-hour = phase 2 (H1–H5).</td></tr>
+  <tr><td class="id">Q8</td><td>Priority across projects?</td><td><b>No.</b></td></tr>
+  <tr><td class="id">Q9</td><td>Unit of the delay?</td><td><b>Working days.</b></td></tr>
+  <tr><td class="id">Q10</td><td>Web key?</td><td><b>Ok</b> (<code>Alt+Shift+L</code>).</td></tr>
+  <tr><td class="id">H1</td><td>Does a resource calendar get work windows (from / to) and breaks, or only a day start + hours?</td><td>Open (phase 2). Proposal: <code>workFrom</code> + hours, no breaks first.</td></tr>
+  <tr><td class="id">H2</td><td>Does a task get a start time of day?</td><td>Open (phase 2). Proposal: a start in minutes of the day, absent = the start of the work window.</td></tr>
+  <tr><td class="id">H3</td><td>Is the duration of a task in hours possible (a task shorter than a day)?</td><td>Open (phase 2); A8 units today are d / w / mo.</td></tr>
+  <tr><td class="id">H4</td><td>Does Post store hours per hour or still per day?</td><td>Open (phase 2). Proposal: per day, the hourly profile is derived.</td></tr>
+  <tr><td class="id">H5</td><td>Is a delay in hours (not whole working days) wanted once H1–H4 exist?</td><td>Open (phase 2); Q9 is working days for now.</td></tr>
 </table>
 </div>
 
 <h2>15. Out of scope (this version)</h2>
 <ul>
-  <li>Changing hours, units, resources or durations to solve a conflict (“resource substitution”, “add a person”). A later idea: in-line fix “Use another work center of the same role”.</li>
-  <li>Hour / minute leveling, remaining-work leveling, per-assignment delay, proposed booking type.</li>
-  <li>Cost optimisation, leveling across the whole organization in one run, automatic priority of projects.</li>
-  <li>Native push of a conflict to a colleague (the Share mail of the busy check stays as it is).</li>
+  <li><b>Export / import to MS Project</b> (<code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code>): not needed now (decision 4). The task keys are already named like the MS Project fields, so it can be added later.</li>
+  <li>The engine changing hours, units, resources or durations by itself (“add a person”). Only the user does it, in place (Fast mode).</li>
+  <li>Minute and month grain; the hour-by-hour model comes in phase 2 (WP15), not in Phase 1; remaining-work leveling; per-assignment delay; proposed booking type.</li>
+  <li>Cost optimization; optimization of the whole organization in one run; priority across projects.</li>
+  <li>Schedule compression (crashing, fast tracking) – a different PMBOK technique.</li>
 </ul>
 
 <h2>16. Risks</h2>
 <div class="tbl">
 <table>
   <tr><th>Risk</th><th>Answer</th></tr>
-  <tr><td>Silent unposting of posted work</td><td>Freeze rules, named preview, Automatic never moves posted tasks (7.7).</td></tr>
-  <tr><td>Two truths about capacity (TypeScript vs SQL)</td><td>Capacity only from SQL; the detector has a parity test with the busy check.</td></tr>
-  <tr><td>Loops in Automatic mode (leveling result retriggers leveling)</td><td>The delay is not an input of the signature of the demand; a run stamp; a counter.</td></tr>
+  <tr><td>Posted tasks lose their posting</td><td>Never silently: the dialog asks (Unpost and move / Move and post again without conflicts / Keep); Automatic leaves posted tasks and shows a chip; frozen rule for started tasks and tasks with facts.</td></tr>
+  <tr><td>Unposting a payment plan that has a posted payment fact</td><td>Such tasks are frozen; WP1.3 checks the exact behavior before the rule is final.</td></tr>
+  <tr><td>Hour grain looks accurate but the data are per day</td><td>The limit is written on the screen and in 7.9; in the dayByDayModel the comparison is per working day; the hourByHourModel (7.10) is built in phases 2a–2c and is disabled until then.</td></tr>
+  <tr><td>The hour model touches the scheduler, the calendars and Post</td><td>It is a separate mode with its own keys; dayByDayModel stays byte-identical; phases 2a–2c each with golden tests and Docker tests.</td></tr>
+  <tr><td>Two truths about capacity</td><td>Capacity only from SQL; parity test with the busy check.</td></tr>
+  <tr><td>Loops in Automatic mode</td><td>The delay is not an input of the demand signature; a run stamp; a counter.</td></tr>
   <tr><td>Slow on big plans</td><td>Arrays by resource × day; only over-allocated resources; incremental engine; bench from WP1.</td></tr>
-  <tr><td>Wrong or surprising results</td><td>Deterministic rules, reason codes, preview, Undo, history.</td></tr>
-  <tr><td>Interplay with the many Gantt switches</td><td>One input (the delay) in the scheduler; the table 7.8; golden tests for the switch combinations.</td></tr>
-  <tr><td>The write of many tasks fires per-row triggers</td><td>The bulk switch and one write (lesson of the task templates); measure with the bench.</td></tr>
-  <tr><td>Translation quality</td><td>Glossary, native check of the main languages, RTL check.</td></tr>
+  <tr><td>In-place editing changes data by mistake</td><td>Each action is one Undo step; posting loss is stated; a refusal of a line rule is shown in place.</td></tr>
+  <tr><td>Many Gantt switches</td><td>One input (the delay); the table of 7.8; golden tests for combinations.</td></tr>
+  <tr><td>Per-row triggers on a big write</td><td>The bulk switch and one write; the bench.</td></tr>
+  <tr><td>Translation quality</td><td>Glossary, native check, RTL check.</td></tr>
   <tr><td>Running start2 on a live database drops triggers for seconds</td><td>The usual note in the update steps.</td></tr>
 </table>
 </div>
 
 <h2>17. Update steps when it is built (preview)</h2>
 <ol>
-  <li>Run <code>kit8/sql/start/start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> in the Supabase SQL Editor (PART 42). <code>start3</code>, <code>start4</code>, <code>start5</code> are not needed (no job, no seed).</li>
+  <li>Run <code>kit8/sql/start/start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> in the Supabase SQL Editor (PART 42). <code>start3</code>, <code>start4</code>, <code>start5</code> are not needed.</li>
   <li>No <code>.env</code> change.</li>
   <li>Restart Expo with a cleared cache: <code>npx expo start --web -c</code>.</li>
-  <li>Verify: Project settings → Resource leveling → switch on; give two tasks a Time line of the same person on the same day; press Level in the Gantt bar → Level now → preview → Apply.</li>
+  <li>Verify: Project settings → Resources → Resource optimization → switch on; give two tasks a Time line of the same person on the same day; Level in the Gantt bar → Level now → preview → Apply.</li>
 </ol>
 
-<h2>18. Decisions</h2>
-<p>Empty until the owner answers section 14.</p>
+<h2>18. Decisions (owner, 2026-10-27)</h2>
+<p><b>Round 1.</b></p>
+<ol>
+  <li>Component names: <code>PMResourceLeveling</code> + a text name (section 9).</li>
+  <li>Settings tab title “Resources”; the text “Resource optimization” inside it (7.1, 9).</li>
+  <li>The document is built around “Resource optimization” (PMBOK); every MS Project term keeps working (section 4).</li>
+  <li>Export to MS Project: not needed now (15).</li>
+  <li>Q1 yes – corrected names. Q2 – in-place data options + the comfortable UX/UI (7.6). Q4 – client engine. Q6 – the full task. Q7 – <code>resourceGrainUnit</code> = hour by default. Q8 – no cross-project priority. Q9 – working days. Q10 – <code>Alt+Shift+L</code>.</li>
+</ol>
+<p><b>Round 2 (the same day; replaces the Q3 answer of round 1).</b></p>
+<ol>
+  <li><b>Posted tasks must not lose their posting.</b> The app asks the user to unpost or not, or posts again without conflicts (7.7). Options <code>resourceLevelingPostedTasksMovementEnabled</code> (true) and <code>resourceLevelingPostedTasksAction</code> (<code>ask</code>).</li>
+  <li><b>Q5:</b> the most comfortable solution for the UX/UI and start to build: mirrored leveling for schedule-from-finish projects (7.8).</li>
+  <li><b>Hour-by-hour: yes.</b> Clock-hour optimization needs a time-of-day model: <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (the app as is) | <code>hourByHourModel</code>; tables added where needed (7.10, PART 43). Built in phase 2 (WP15); Phase 1 starts now.</li>
+</ol>
+
+<h2>19. Implementation status (2026-10-27)</h2>
+<p>Phase 1 – Manual mode – is built and tested; the rest is listed honestly. Details of the code: <code>kit8/pm/resourceleveling/README.md</code>.</p>
+<div class="tbl">
+<table>
+  <tr><th>Part</th><th>State</th></tr>
+  <tr><td>WP2 settings: keys, tab <b>Resources</b> / section <b>Resource optimization</b>, organization defaults</td><td><span class="tag have">Built</span> <code>PMResourceLevelingSettingsTab</code>, <code>resourceLevelingSettings.ts</code>. The hour-by-hour model is shown disabled (“Phase 2”).</td></tr>
+  <tr><td>WP3 SQL PART 42: <code>project_resource_leveling_run / _task</code>, RPCs inputs / apply / clear / undo, check trigger, template strip</td><td><span class="tag have">Built</span> Docker <code>tests/31_resource_leveling.sql</code> (52 checks) and <code>test_sql.sh</code> pass. <code>project_resource_leveling_conflict</code> (phase 2 of the tables) is not created.</td></tr>
+  <tr><td>WP4 demand, capacity, detection (day, week)</td><td><span class="tag have">Built</span> <code>resourceLevelingDemand / Detect / Env</code>. The posting calendar is approximated by the working days of the task calendar.</td></tr>
+  <tr><td>WP5 engine: orders, leveling, smoothing, reasons, foreign load, forward and <b>backward</b> (Q5)</td><td><span class="tag have">Built</span> with property tests (12 seeds). <span class="tag no">Not built:</span> splits by leveling (<code>resourceLevelingCanSplit</code> is stored, the engine does not split yet).</td></tr>
+  <tr><td>WP6 scheduler reads the delay (forward and from the finish), signature, options</td><td><span class="tag have">Built</span> function off = identical plan (test).</td></tr>
+  <tr><td>WP7 Manual mode: Level button, preview, <b>question about posted tasks</b>, Apply, Clear, Undo, run history</td><td><span class="tag have">Built</span> <code>PMResourceLevelingBarButton</code>, <code>…PreviewWindow</code>, <code>…PostedTasksDialog</code>, <code>…ConflictsList</code>, <code>…RunHistory</code>, <code>useResourceLeveling</code>. Not built: <code>…OptionsWindow</code> (the options are in the settings tab), <code>…StatusChip</code>, <code>…MenuItems</code> (Task / Actions menus, key <code>Alt+Shift+L</code>). “Move and post again” posts with the normal Post after the plan on the screen has the new dates; a task that cannot post stays unposted and the Post message says why.</td></tr>
+  <tr><td>WP8 visual marks: delay column, delay bar, over-allocation mark, task section</td><td><span class="tag no">Not built</span></td></tr>
+  <tr><td>WP9 Load graph, Usage grid</td><td><span class="tag no">Not built</span></td></tr>
+  <tr><td>WP10 Automatic mode</td><td><span class="tag no">Not built</span> (the setting is stored; the mode behaves as Manual).</td></tr>
+  <tr><td>WP11 Fast mode: in-place data options</td><td><span class="tag no">Not built</span> (the switch is stored).</td></tr>
+  <tr><td>WP12 versions, templates, copy</td><td>Templates: <span class="tag have">built</span> (the delay is stripped). Versions keep the delay with the row (<code>version_*</code> rows copy <code>rowJSON</code>); not tested separately.</td></tr>
+  <tr><td>WP13 translation</td><td><span class="tag have">Built</span> 122 new texts × 14 languages (machine prepared, not reviewed by native speakers); a test fails when a text of the feature has no key or no translation.</td></tr>
+  <tr><td>WP15 hour-by-hour model (<code>resourceOptimizationMode = hourByHourModel</code>, PART 43)</td><td><span class="tag no">Not built</span> phase 2; <code>resourceGrainUnit</code> = hour behaves as day (7.9).</td></tr>
+</table>
+</div>
+<p><b>Known limits.</b> The fact-input check (<code>frozenFact</code>) reads the posted fact documents; a posted <i>payment</i> fact on the payment plan is not read yet (WP1.3 decides the rule). The week period compares weekly sums; hour and day compare one working day.</p>
 
 </main>
 </body>

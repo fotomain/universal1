@@ -447,3 +447,125 @@
 447|{{count}} stap(pen) voor opnieuw worden vergeten. Het project zelf verandert niet.
 448|Niets om ongedaan te maken
 449|rechtsklik / lang indrukken: menu
+450|Nivelleren
+451|Resource-optimalisatie: nivelleer de resources die voor meer uren zijn geboekt dan hun kalender toestaat
+452|Resource-optimalisatie
+453|{{n}} conflict(en) konden niet worden opgelost
+454|… en {{n}} meer
+455|{{n}} geboekte taak/taken moet(en) verschuiven
+456|Een geboekte taak verschuiven heft de boeking van haar regels en betalingen op. Wat moet ermee gebeuren?
+457|{{name}}: {{from}} → {{to}}
+458|Boeking opheffen en verschuiven
+459|De taken worden verschoven en blijven ongeboekt tot u ze boekt.
+460|Verschuiven en opnieuw boeken
+461|De taken worden verschoven en opnieuw geboekt, maar alleen als ze zonder conflicten kunnen worden geboekt; anders blijven ze waar ze zijn.
+462|Hun data behouden
+463|De geboekte taken verschuiven niet; de planning wordt zonder hen opnieuw gemaakt.
+464|eerder
+465|later
+466|Resource-optimalisatie – Afvlakken
+467|Resource-optimalisatie – Nivelleren
+468|Nu overbelast
+469|Na de run niet opgelost
+470|Verschoven taken
+471|Projectstart
+472|Projecteinde
+473|Geboekte taken die verschuiven
+474|Het project is gepland vanaf de einddatum: de taken schuiven naar voren, de einddatum blijft.
+475|Er hoeft geen taak te verschuiven.
+476|{{from}} → {{to}} ({{days}} werkdag(en) {{when}})
+477|Nivellering wissen
+478|Resource-optimalisatie – runs
+479|Nog geen run.
+480|{{n}} taak/taken verschoven
+481|{{n}} niet opgelost
+482|Run ongedaan maken
+483|Ongedaan gemaakt
+484|Dag voor dag
+485|De planning telt werkdagen, zoals nu.
+486|Uur voor uur
+487|Fase 2: het model van het tijdstip van de dag is nog niet beschikbaar.
+488|Uur
+489|Handmatig
+490|Optimaliseren op commando, met voorbeeld.
+491|Automatisch
+492|Optimaliseren na elke wijziging.
+493|Nivelleren
+494|Data mogen de speling overschrijden; het projecteinde kan veranderen.
+495|Afvlakken
+496|Alleen de speling wordt gebruikt; het projecteinde verandert niet.
+497|Standaard
+498|Prioriteit, Standaard
+499|Alleen ID
+500|Vraag het mij
+501|Resources
+502|Planningsmodel (resourceOptimizationMode)
+503|Eenheid van resourcebelasting (resourceGrainUnit)
+504|De eenheid waarin de uren van een resource worden getoond en de periode waarin de belasting met de kalender wordt vergeleken. In het dag-voor-dagmodel is één werkdag de kleinste periode.
+505|Resource-optimalisatie (resourceLevelingFunctionalityEnabled)
+506|Aan: resources die voor meer uren zijn geboekt dan hun kalender toestaat kunnen worden genivelleerd (taken worden vertraagd of gesplitst) of afgevlakt. Uit: niets verandert.
+507|Optimaliseren (resourceLevelingMode)
+508|Methode (resourceLevelingWithinSlackOnly)
+509|Nivelleervolgorde (resourceLevelingOrder)
+510|Snelle modus (resourceLevelingFunctionalityFastModeEnabled)
+511|Aan: wijzig de gegevens direct op het scherm: sleep een balk, typ uren in een cel, verplaats een taak naar een andere resource, los een conflict met één klik op.
+512|Geboekte taken
+513|Geboekte taken mogen verschuiven (resourceLevelingPostedTasksMovementEnabled)
+514|Aan: een geboekte taak kan verschuiven, maar nooit zonder te vragen: verschuiven heft de boeking van haar regels en betalingen op. Uit: geboekte taken behouden hun data.
+515|Wanneer een geboekte taak moet verschuiven (resourceLevelingPostedTasksAction)
+516|Opties
+517|Nivelleerwaarden wissen vóór het nivelleren (resourceLevelingClearBeforeLeveling)
+518|Aan: nivelleer vanuit de planning zonder de oude vertragingen. In Automatisch altijd aan.
+519|Nivelleren mag splitsingen maken (resourceLevelingCanSplit)
+520|Aan: een taak mag worden onderbroken in plaats van verschoven. Werkt alleen met de Gantt Extended-functie “Taken splitsen”.
+521|Handmatig geplande taken nivelleren (resourceLevelingManualTasks)
+522|Aan: handmatig geplande taken mogen ook verschuiven. Werkt alleen met de Gantt Extended-functie “Handmatig geplande taken”.
+523|Andere projecten respecteren (resourceLevelingIncludeOtherProjects)
+524|Aan: de geboekte uren van de andere projecten van de organisatie tellen als belasting die niet kan verschuiven.
+525|Nivelleervertragingsbalk tonen (resourceLevelingShowDelayBar)
+526|Aan: het Gantt-diagram tekent de vertraging vóór een verschoven taak.
+527|Overbelaste resources tonen (resourceLevelingShowOverallocation)
+528|Aan: een markering in de takenboom en op de balk waar een resource voor meer uren is geboekt dan ze heeft.
+529|Historie van de runs bewaren (resourceLevelingKeepHistory)
+530|Aan: elke run wordt opgeslagen, zodat hij later ongedaan kan worden gemaakt.
+531|Lagere prioriteit dan de taak die de resource houdt
+532|Meer speling dan de taak die de resource houdt
+533|Begint later dan de taak die de resource houdt
+534|Komt na de taak die de resource houdt
+535|De resource wordt door andere projecten bezet
+536|De taak is geboekt en behoudt haar data
+537|De taak is begonnen of afgerond
+538|De taak heeft een geboekte realisatie
+539|De taak heeft prioriteit 1000: ze verschuift nooit
+540|De taak moet op een datum beginnen of eindigen
+541|De taak is handmatig gepland
+542|De taak zit niet in deze run
+543|Verschuiven vraagt meer dan de speling (afvlakken behoudt de projectdata)
+544|Geen latere dag heeft ruimte
+545|De taak alleen vraagt meer uren dan de resource heeft: splits haar of gebruik een andere resource
+546|De kalender van de resource heeft geen regel voor de dag
+547|De andere projecten bezetten de resource
+548|De run is gestopt door zijn veiligheidsteller
+549|Kon niet worden opgelost
+550|{{resource}}: {{hours}} u op {{day}}, de kalender heeft geen capaciteit voor deze dag
+551|{{resource}}: {{hours}} u op {{day}}, capaciteit {{capacity}} u
+552|Geen taak heeft een tijdregel met een resource in uren: niets te optimaliseren
+553|Geen resource is overbelast
+554|De geboekte taken behouden hun data: dit is de planning zonder hen
+555|Geoptimaliseerd: {{n}} taak/taken verschoven. {{posted}} taak/taken worden opnieuw geboekt ...
+556|Geoptimaliseerd: {{n}} taak/taken verschoven, {{posted}} taak/taken ongeboekt: gebruik “Ongeboekte taken boeken”
+557|Geoptimaliseerd: {{n}} taak/taken verschoven
+558|Een taak is gewijzigd nadat de planning was gelezen. Nivelleer opnieuw.
+559|Geen taak heeft een nivelleervertraging
+560|Nivellering wissen?
+561|De nivelleervertraging van {{n}} taak/taken wordt verwijderd; {{posted}} daarvan zijn geboekt en verliezen hun boeking omdat hun data verschuiven.
+562|De nivelleervertraging van {{n}} taak/taken wordt verwijderd.
+563|Nivellering gewist
+564|Deze run ongedaan maken?
+565|De nivelleervertragingen gaan terug naar wat ze vóór de run waren. Geboekte taken waarvan de data verschuiven, verliezen hun boeking.
+566|Ongedaan gemaakt: {{n}} taak/taken hersteld, {{skipped}} sindsdien gewijzigd en gelaten zoals ze zijn
+567|Ongedaan gemaakt: {{n}} taak/taken hersteld
+568|Er is geen run om ongedaan te maken
+569|Nu nivelleren
+570|Laatste run ongedaan maken
+571|Historie van de runs

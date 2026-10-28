@@ -447,3 +447,125 @@
 447|Unustatakse {{count}} uuestitegemise sammu. Projekt ise ei muutu.
 448|Pole midagi tagasi võtta
 449|paremklõps / pikk puudutus: menüü
+450|Tasandada
+451|Ressursside optimeerimine: tasandage ressursid, mis on broneeritud rohkemateks tundideks, kui nende kalender lubab
+452|Ressursside optimeerimine
+453|Lahendamata konflikte: {{n}}
+454|… ja veel {{n}}
+455|Nihutada tuleb postitatud ülesandeid: {{n}}
+456|Postitatud ülesande nihutamine tühistab selle ridade ja maksete postitamise. Mida nendega teha?
+457|{{name}}: {{from}} → {{to}}
+458|Tühista postitus ja nihuta
+459|Ülesanded nihutatakse ja jäävad postitamata, kuni te need postitate.
+460|Nihuta ja postita uuesti
+461|Ülesanded nihutatakse ja postitatakse uuesti, kuid ainult siis, kui need postitatakse konfliktideta; muidu jäävad need oma kohale.
+462|Jäta nende kuupäevad
+463|Postitatud ülesandeid ei nihutata; plaan tehakse uuesti ilma nendeta.
+464|varem
+465|hiljem
+466|Ressursside optimeerimine – Silumine
+467|Ressursside optimeerimine – Tasandamine
+468|Praegu ülekoormatud
+469|Pärast käivitust lahendamata
+470|Nihutatud ülesanded
+471|Projekti algus
+472|Projekti lõpp
+473|Postitatud ülesanded, mis nihkuvad
+474|Projekt on planeeritud lõppkuupäevast: ülesanded nihkuvad varasemaks, lõppkuupäev jääb.
+475|Ühtegi ülesannet ei ole vaja nihutada.
+476|{{from}} → {{to}} ({{days}} tööpäeva {{when}})
+477|Tühjenda tasandus
+478|Ressursside optimeerimine – käivitused
+479|Käivitusi veel ei ole.
+480|Nihutatud ülesandeid: {{n}}
+481|Lahendamata: {{n}}
+482|Võta käivitus tagasi
+483|Tagasi võetud
+484|Päev päeva haaval
+485|Plaan loeb tööpäevi, nagu praegu.
+486|Tund tunni haaval
+487|2. etapp: kellaaja mudel ei ole veel saadaval.
+488|Tund
+489|Käsitsi
+490|Optimeeri käsul, eelvaatega.
+491|Automaatne
+492|Optimeeri pärast iga muudatust.
+493|Tasandamine
+494|Kuupäevad võivad minna varust kaugemale; projekti lõpp võib muutuda.
+495|Silumine
+496|Kasutatakse ainult varu; projekti lõpp ei muutu.
+497|Tavaline
+498|Prioriteet, tavaline
+499|Ainult ID
+500|Küsi minult
+501|Ressursid
+502|Planeerimismudel (resourceOptimizationMode)
+503|Ressursi koormuse ühik (resourceGrainUnit)
+504|Ühik, milles ressursi tunde näidatakse, ja periood, milles koormust kalendriga võrreldakse. Päev päeva haaval mudelis on kõige väiksem periood üks tööpäev.
+505|Ressursside optimeerimine (resourceLevelingFunctionalityEnabled)
+506|Sees: ressursse, mis on broneeritud rohkemateks tundideks, kui kalender lubab, saab tasandada (ülesandeid viivitatakse või jagatakse) või siluda. Väljas: miski ei muutu.
+507|Optimeeri (resourceLevelingMode)
+508|Meetod (resourceLevelingWithinSlackOnly)
+509|Tasandamise järjekord (resourceLevelingOrder)
+510|Kiirrežiim (resourceLevelingFunctionalityFastModeEnabled)
+511|Sees: muutke andmeid otse ekraanil: lohistage riba, sisestage tunnid lahtrisse, viige ülesanne teisele ressursile, parandage konflikt ühe klõpsuga.
+512|Postitatud ülesanded
+513|Postitatud ülesandeid tohib nihutada (resourceLevelingPostedTasksMovementEnabled)
+514|Sees: postitatud ülesannet saab nihutada, kuid mitte kunagi küsimata: nihutamine tühistab selle ridade ja maksete postitamise. Väljas: postitatud ülesanded säilitavad kuupäevad.
+515|Kui postitatud ülesannet tuleb nihutada (resourceLevelingPostedTasksAction)
+516|Valikud
+517|Tühjenda tasandusväärtused enne tasandamist (resourceLevelingClearBeforeLeveling)
+518|Sees: tasanda plaanist ilma vanade viivitusteta. Automaatrežiimis alati sees.
+519|Tasandamine võib luua katkestusi (resourceLevelingCanSplit)
+520|Sees: ülesande võib nihutamise asemel katkestada. Töötab ainult Gantt Extended funktsiooniga „Ülesannete jagamine“.
+521|Tasanda käsitsi planeeritud ülesanded (resourceLevelingManualTasks)
+522|Sees: käsitsi planeeritud ülesandeid võib samuti nihutada. Töötab ainult Gantt Extended funktsiooniga „Käsitsi planeeritud ülesanded“.
+523|Arvesta teisi projekte (resourceLevelingIncludeOtherProjects)
+524|Sees: organisatsiooni teiste projektide postitatud tunde loetakse koormuseks, mida ei saa nihutada.
+525|Näita tasandusviivituse riba (resourceLevelingShowDelayBar)
+526|Sees: Gantti diagramm joonistab viivituse enne nihutatud ülesannet.
+527|Näita ülekoormatud ressursse (resourceLevelingShowOverallocation)
+528|Sees: märge ülesannete puus ja ribal seal, kus ressurss on broneeritud rohkemateks tundideks, kui tal on.
+529|Hoia käivituste ajalugu (resourceLevelingKeepHistory)
+530|Sees: iga käivitus salvestatakse, et seda saaks hiljem tagasi võtta.
+531|Madalam prioriteet kui ülesandel, mis ressursi endale jätab
+532|Rohkem varu kui ülesandel, mis ressursi endale jätab
+533|Algab hiljem kui ülesanne, mis ressursi endale jätab
+534|Tuleb pärast ülesannet, mis ressursi endale jätab
+535|Ressurssi hoiavad teised projektid
+536|Ülesanne on postitatud ja säilitab oma kuupäevad
+537|Ülesanne on alanud või lõppenud
+538|Ülesandel on postitatud fakt
+539|Ülesande prioriteet on 1000: seda ei nihutata kunagi
+540|Ülesanne peab algama või lõppema kindlal kuupäeval
+541|Ülesanne on planeeritud käsitsi
+542|Ülesanne ei ole selles käivituses
+543|Nihutamiseks on vaja rohkem kui varu (silumine säilitab projekti kuupäevad)
+544|Ühelgi hilisemal päeval ei ole ruumi
+545|Üksi vajab ülesanne rohkem tunde, kui ressursil on: jagage see või kasutage teist ressurssi
+546|Ressursi kalendris ei ole selle päeva rida
+547|Ressurssi hoiavad teised projektid
+548|Käivituse peatas selle turvaloendur
+549|Ei õnnestunud lahendada
+550|{{resource}}: {{hours}} h kuupäeval {{day}}, kalendris ei ole sellel päeval mahtu
+551|{{resource}}: {{hours}} h kuupäeval {{day}}, maht {{capacity}} h
+552|Ühelgi ülesandel ei ole ressursiga ajarida tundides: pole midagi optimeerida
+553|Ükski ressurss ei ole ülekoormatud
+554|Postitatud ülesanded säilitavad kuupäevad: see on plaan ilma nendeta
+555|Optimeeritud: nihutatud ülesandeid {{n}}. Postitatakse uuesti ülesandeid {{posted}} ...
+556|Optimeeritud: nihutatud ülesandeid {{n}}, postitamata ülesandeid {{posted}}: kasutage „Postita postitamata ülesanded“
+557|Optimeeritud: nihutatud ülesandeid {{n}}
+558|Ülesannet muudeti pärast plaani lugemist. Tasandage uuesti.
+559|Ühelgi ülesandel ei ole tasandusviivitust
+560|Tühjenda tasandus?
+561|Tasandusviivitus eemaldatakse ülesannetelt: {{n}}; neist postitatud on {{posted}} ja need kaotavad postituse, sest nende kuupäevad nihkuvad.
+562|Tasandusviivitus eemaldatakse ülesannetelt: {{n}}.
+563|Tasandus tühjendatud
+564|Võtta see käivitus tagasi?
+565|Tasandusviivitused naasevad väärtustele enne käivitust. Postitatud ülesanded, mille kuupäevad nihkuvad, kaotavad postituse.
+566|Tagasi võetud: taastatud ülesandeid {{n}}, sestsaadik muudetud {{skipped}} ja jäetud nii, nagu on
+567|Tagasi võetud: taastatud ülesandeid {{n}}
+568|Pole käivitust, mida tagasi võtta
+569|Tasanda kohe
+570|Võta viimane käivitus tagasi
+571|Käivituste ajalugu

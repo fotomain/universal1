@@ -447,3 +447,125 @@
 447|{{count}} Wiederholen-Schritt(e) werden vergessen. Das Projekt selbst ändert sich nicht.
 448|Nichts rückgängig zu machen
 449|Rechtsklick / langes Drücken: Menü
+450|Ausgleichen
+451|Ressourcenoptimierung: Ressourcen ausgleichen, die mit mehr Stunden belegt sind, als ihr Kalender erlaubt
+452|Ressourcenoptimierung
+453|{{n}} Konflikt(e) konnten nicht gelöst werden
+454|… und {{n}} weitere
+455|{{n}} gebuchte Aufgabe(n) müssen verschoben werden
+456|Das Verschieben einer gebuchten Aufgabe hebt die Buchung ihrer Zeilen und Zahlungen auf. Was soll damit geschehen?
+457|{{name}}: {{from}} → {{to}}
+458|Buchung aufheben und verschieben
+459|Die Aufgaben werden verschoben und bleiben ungebucht, bis Sie sie buchen.
+460|Verschieben und erneut buchen
+461|Die Aufgaben werden verschoben und erneut gebucht, aber nur, wenn sie ohne Konflikte gebucht werden können; sonst bleiben sie, wo sie sind.
+462|Termine beibehalten
+463|Die gebuchten Aufgaben werden nicht verschoben; der Plan wird ohne sie neu erstellt.
+464|früher
+465|später
+466|Ressourcenoptimierung – Glättung
+467|Ressourcenoptimierung – Ausgleich
+468|Jetzt überlastet
+469|Nach dem Lauf nicht gelöst
+470|Verschobene Aufgaben
+471|Projektbeginn
+472|Projektende
+473|Gebuchte Aufgaben, die sich verschieben
+474|Das Projekt ist vom Endtermin aus geplant: die Aufgaben rücken nach vorn, der Endtermin bleibt.
+475|Keine Aufgabe muss verschoben werden.
+476|{{from}} → {{to}} ({{days}} Arbeitstag(e) {{when}})
+477|Ausgleich löschen
+478|Ressourcenoptimierung – Läufe
+479|Noch kein Lauf.
+480|{{n}} Aufgabe(n) verschoben
+481|{{n}} nicht gelöst
+482|Lauf rückgängig machen
+483|Rückgängig gemacht
+484|Tageweise
+485|Der Plan zählt Arbeitstage, wie bisher.
+486|Stundenweise
+487|Phase 2: Das Tageszeitmodell ist noch nicht verfügbar.
+488|Stunde
+489|Manuell
+490|Auf Befehl optimieren, mit Vorschau.
+491|Automatisch
+492|Nach jeder Änderung optimieren.
+493|Ausgleich
+494|Termine dürfen über den Puffer hinaus verschoben werden; das Projektende kann sich ändern.
+495|Glättung
+496|Nur der Puffer wird genutzt; das Projektende ändert sich nicht.
+497|Standard
+498|Priorität, Standard
+499|Nur ID
+500|Mich fragen
+501|Ressourcen
+502|Planungsmodell (resourceOptimizationMode)
+503|Einheit der Ressourcenauslastung (resourceGrainUnit)
+504|Die Einheit, in der die Stunden einer Ressource angezeigt werden, und der Zeitraum, in dem die Auslastung mit dem Kalender verglichen wird. Im Tagesmodell ist ein Arbeitstag der kleinste Zeitraum.
+505|Ressourcenoptimierung (resourceLevelingFunctionalityEnabled)
+506|Ein: Ressourcen, die mit mehr Stunden belegt sind, als ihr Kalender erlaubt, können ausgeglichen (Aufgaben werden verzögert oder unterbrochen) oder geglättet werden. Aus: nichts ändert sich.
+507|Optimieren (resourceLevelingMode)
+508|Methode (resourceLevelingWithinSlackOnly)
+509|Ausgleichsreihenfolge (resourceLevelingOrder)
+510|Schnellmodus (resourceLevelingFunctionalityFastModeEnabled)
+511|Ein: Daten direkt am Bildschirm ändern: Balken ziehen, Stunden in eine Zelle tippen, Aufgabe auf eine andere Ressource legen, einen Konflikt mit einem Klick beheben.
+512|Gebuchte Aufgaben
+513|Gebuchte Aufgaben dürfen verschoben werden (resourceLevelingPostedTasksMovementEnabled)
+514|Ein: Eine gebuchte Aufgabe kann verschoben werden, aber nie ohne Rückfrage: das Verschieben hebt die Buchung ihrer Zeilen und Zahlungen auf. Aus: gebuchte Aufgaben behalten ihre Termine.
+515|Wenn eine gebuchte Aufgabe verschoben werden muss (resourceLevelingPostedTasksAction)
+516|Optionen
+517|Ausgleichswerte vor dem Ausgleich löschen (resourceLevelingClearBeforeLeveling)
+518|Ein: vom Plan ohne die alten Verzögerungen ausgleichen. Im Automatikmodus immer ein.
+519|Ausgleich darf Unterbrechungen erzeugen (resourceLevelingCanSplit)
+520|Ein: Eine Aufgabe darf unterbrochen statt verschoben werden. Funktioniert nur mit der Gantt-Extended-Funktion „Aufgaben unterbrechen“.
+521|Manuell geplante Aufgaben ausgleichen (resourceLevelingManualTasks)
+522|Ein: Manuell geplante Aufgaben dürfen ebenfalls verschoben werden. Funktioniert nur mit der Gantt-Extended-Funktion „Manuell geplante Aufgaben“.
+523|Andere Projekte berücksichtigen (resourceLevelingIncludeOtherProjects)
+524|Ein: Die gebuchten Stunden der anderen Projekte der Organisation zählen als Last, die nicht verschoben werden kann.
+525|Balken der Ausgleichsverzögerung anzeigen (resourceLevelingShowDelayBar)
+526|Ein: Das Gantt-Diagramm zeichnet die Verzögerung vor einer verschobenen Aufgabe.
+527|Überlastete Ressourcen anzeigen (resourceLevelingShowOverallocation)
+528|Ein: eine Markierung im Aufgabenbaum und am Balken, wo eine Ressource mit mehr Stunden belegt ist, als sie hat.
+529|Verlauf der Läufe aufbewahren (resourceLevelingKeepHistory)
+530|Ein: Jeder Lauf wird gespeichert, damit er später rückgängig gemacht werden kann.
+531|Niedrigere Priorität als die Aufgabe, die die Ressource behält
+532|Mehr Puffer als die Aufgabe, die die Ressource behält
+533|Beginnt später als die Aufgabe, die die Ressource behält
+534|Kommt nach der Aufgabe, die die Ressource behält
+535|Die Ressource ist von anderen Projekten belegt
+536|Die Aufgabe ist gebucht und behält ihre Termine
+537|Die Aufgabe hat begonnen oder ist beendet
+538|Die Aufgabe hat eine gebuchte Rückmeldung
+539|Die Aufgabe hat Priorität 1000: sie wird nie verschoben
+540|Die Aufgabe muss an einem Datum beginnen oder enden
+541|Die Aufgabe ist manuell geplant
+542|Die Aufgabe gehört nicht zu diesem Lauf
+543|Das Verschieben braucht mehr als den Puffer (die Glättung behält die Projekttermine)
+544|Kein späterer Tag hat Platz
+545|Die Aufgabe allein braucht mehr Stunden, als die Ressource hat: unterbrechen Sie sie oder nehmen Sie eine andere Ressource
+546|Der Kalender der Ressource hat für den Tag keine Zeile
+547|Die anderen Projekte belegen die Ressource
+548|Der Lauf wurde durch seinen Sicherheitszähler gestoppt
+549|Konnte nicht gelöst werden
+550|{{resource}}: {{hours}} Std. am {{day}}, der Kalender hat für diesen Tag keine Kapazität
+551|{{resource}}: {{hours}} Std. am {{day}}, Kapazität {{capacity}} Std.
+552|Keine Aufgabe hat eine Zeitzeile mit einer Ressource in Stunden: nichts zu optimieren
+553|Keine Ressource ist überlastet
+554|Die gebuchten Aufgaben behalten ihre Termine: das ist der Plan ohne sie
+555|Optimiert: {{n}} Aufgabe(n) verschoben. {{posted}} Aufgabe(n) werden erneut gebucht ...
+556|Optimiert: {{n}} Aufgabe(n) verschoben, {{posted}} Aufgabe(n) sind ungebucht: nutzen Sie „Ungebuchte Aufgaben buchen“
+557|Optimiert: {{n}} Aufgabe(n) verschoben
+558|Eine Aufgabe wurde nach dem Lesen des Plans geändert. Bitte erneut ausgleichen.
+559|Keine Aufgabe hat eine Ausgleichsverzögerung
+560|Ausgleich löschen?
+561|Die Ausgleichsverzögerung von {{n}} Aufgabe(n) wird entfernt; {{posted}} davon sind gebucht und verlieren ihre Buchung, weil sich ihre Termine verschieben.
+562|Die Ausgleichsverzögerung von {{n}} Aufgabe(n) wird entfernt.
+563|Ausgleich gelöscht
+564|Diesen Lauf rückgängig machen?
+565|Die Ausgleichsverzögerungen kehren auf die Werte vor dem Lauf zurück. Gebuchte Aufgaben, deren Termine sich verschieben, verlieren ihre Buchung.
+566|Rückgängig gemacht: {{n}} Aufgabe(n) wiederhergestellt, {{skipped}} seitdem geändert und unverändert gelassen
+567|Rückgängig gemacht: {{n}} Aufgabe(n) wiederhergestellt
+568|Es gibt keinen Lauf zum Rückgängigmachen
+569|Jetzt ausgleichen
+570|Letzten Lauf rückgängig machen
+571|Verlauf der Läufe

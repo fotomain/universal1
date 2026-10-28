@@ -20,6 +20,9 @@ export interface PMScheduleOptions {
   deadlineEnabled: boolean;
   lagPercentEnabled: boolean;
   externalEnabled: boolean;
+  /** Resource optimization: the leveling delay of a task is honored (project switch resourceLevelingFunctionalityEnabled); manual tasks too only with resourceLevelingManualTasks */
+  levelingEnabled: boolean;
+  levelingManualTasks: boolean;
   /** task calendars by id (A10); empty while the function is off */
   calendars: Record<string, PMCalendar>;
   /** the calendar of the whole project (A11), null = the Mon-Fri / 7-day week of the project settings */
@@ -46,6 +49,8 @@ export function scheduleOptionsOf(projectJSON: ProjectJSONLike): PMScheduleOptio
     deadlineEnabled: ext.ganttDeadlineEnabled === true,
     lagPercentEnabled: ext.ganttLagPercentEnabled === true,
     externalEnabled: ext.ganttCrossProjectLinksEnabled === true,
+    levelingEnabled: projectJSON?.resourceLevelingFunctionalityEnabled === true,
+    levelingManualTasks: projectJSON?.resourceLevelingFunctionalityEnabled === true && projectJSON?.resourceLevelingManualTasks === true && ext.ganttManualSchedulingEnabled === true,
     calendars: ext.ganttTaskCalendarEnabled || ext.ganttCalendarExceptionsEnabled ? calendarsOf(o.calendars, ext.ganttCalendarExceptionsEnabled === true) : {},
     projectCalendar: projectDef ? calendarOfDef(projectDef, true) : null,
   };

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Выравнивание ресурсов – WBS</title>
+<title>Оптимизация ресурсов – WBS</title>
 <style>
   :root {
     --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
@@ -50,96 +50,125 @@
 <body>
 <main>
 
-<h1>Выравнивание ресурсов – структура декомпозиции работ (WBS)</h1>
-<p class="sub">Область: команда MS Project <b>Ресурс &gt; Выровнять</b> (<b>Resource &gt; Level</b>, пункт <b>A16</b> файла <code>MORE_GANTT_INPUT.html</code>, «не построено») для диаграммы Ганта в <code>kit8/pm</code>. Источник: Google Doc «W1 Resource Leveling». Плановый документ – <b>без кода</b>, в репозитории ничего не менялось. Перевод на русский язык документа <code>RESOURCE_LEVELING_WBS.html</code> (оригинал – английский; при расхождении верен оригинал).</p>
+<h1>Оптимизация ресурсов (выравнивание и сглаживание) – структура декомпозиции работ (WBS)</h1>
+<p class="sub">Область: <b>оптимизация ресурсов</b> (resource optimization) в смысле PMBOK (методы <b>выравнивание ресурсов</b> – resource leveling и <b>сглаживание ресурсов</b> – resource smoothing), построенная так, чтобы все термины MS Project продолжали работать (<b>Resource &gt; Level</b>, диалог Level Resources, Leveling Delay – пункт <b>A16</b> файла <code>MORE_GANTT_INPUT.html</code>, «не построено») для диаграммы Ганта в <code>kit8/pm</code>. Источник: Google Doc «W1 Resource Leveling» и ответы владельца от 2026-10-27 (раздел 18). Плановый документ – <b>без кода</b> (проект; построение идёт по нему, см. раздел 19). Редакция 2026-10-27, второй раунд ответов в тот же день. Перевод документа <code>RESOURCE_LEVELING_WBS.html</code> (оригинал – английский; при расхождении верен оригинал).</p>
 
 <h2>1. Цель</h2>
 <div class="card">
-  <p>Ресурс (человек, оборудование, партнёр – в приложении: <b>рабочий центр</b>) может быть записан на день на большее число часов, чем позволяет его календарь. Сегодня приложение только <b>сообщает</b> об этом (проверка занятости при <b>Post</b>, <code>capacityModeWarn</code> / <code>capacityModeBlock</code>) – ничего не двигается. <b>Выравнивание ресурсов</b> сдвигает (задерживает) или разрывает задачи проекта, учитывая приоритет и запас времени, пока ни один ресурс не будет перегружен – или точно объясняет, почему конфликт устранить нельзя.</p>
-  <p>Владелец проекта выбирает в настройках проекта: выравнивание <b>Автоматическое</b> (план выравнивается после каждой правки) или <b>Ручное</b> (планировщик нажимает <b>Level now</b> и сначала видит предпросмотр). <b>Быстрый режим</b> (Fast mode) делает так, что действия пользователя прямо на экране (перетащить полосу, изменить часы, исправить один конфликт) получают ответ мгновенно.</p>
+  <p>Ресурс (человек, оборудование, партнёр – в приложении: <b>рабочий центр</b>) может быть записан на день на большее число часов, чем позволяет его календарь. Сегодня приложение только <b>сообщает</b> об этом (проверка занятости при <b>Post</b>, <code>capacityModeWarn</code> / <code>capacityModeBlock</code>) – ничего не двигается. <b>Оптимизация ресурсов</b> сдвигает (задерживает) или разрывает задачи проекта, учитывая приоритет и запас, пока ни один ресурс не будет перегружен – или точно объясняет, почему конфликт устранить нельзя. У неё два <b>метода</b> (PMBOK):</p>
+  <ul>
+    <li><b>Выравнивание (Leveling)</b> – даты могут уходить за пределы запаса; критический путь и окончание проекта могут измениться. = «Level now» в MS Project.</li>
+    <li><b>Сглаживание (Smoothing)</b> – используется только запас; критический путь и окончание проекта не меняются; конфликт, требующий большего, остаётся и сообщается. = «Level only within available slack» в MS Project.</li>
+  </ul>
+  <p>Владелец проекта выбирает <b>Automatic</b> (план оптимизируется после каждой правки) или <b>Manual</b> (планировщик нажимает <b>Level now</b> и сначала видит предпросмотр). <b>Fast mode</b> добавляет экранные варианты изменения данных прямо на месте (перетащить, ввести часы, исправить один конфликт одним щелчком) в наиболее удобной для пользователя форме.</p>
 </div>
-<div class="callout warn"><b>Жёсткое ограничение:</b> всё <b>выключено</b>, пока <code>resourceLevelingFunctionalityEnabled</code> ни разу не сохранялся. При выключенном ключе планировщик, диаграмма Ганта, Post, проверка занятости, экспорт и все экраны работают точно как сегодня; новых кнопок, колонок и баннеров нет, сохранённые данные не меняются.</div>
+<div class="callout warn"><b>Жёсткое ограничение:</b> всё <b>выключено</b>, пока <code>resourceLevelingFunctionalityEnabled</code> ни разу не сохранялся. При выключенном ключе планировщик, диаграмма Ганта, Post, проверка занятости и все экраны работают точно как сегодня; новых кнопок, колонок и баннеров нет, сохранённые данные не меняются.</div>
 
-<h2>2. Обзор требований (из Google Doc)</h2>
+<h2>2. Обзор требований (Google Doc и ответы от 2026-10-27)</h2>
 <div class="tbl">
 <table>
-  <tr><th>#</th><th>Требование</th><th>Формулировка источника</th><th>Где отвечено</th></tr>
-  <tr><td class="id">R1</td><td>Этот документ, <code>./documentation/RESOURCE_LEVELING_WBS.html</code>; без кода.</td><td>«No code. Make … RESOURCE_LEVELING_WBS.html»</td><td>весь файл</td></tr>
-  <tr><td class="id">R2</td><td>Список всех определений, как в Microsoft Project.</td><td>«Make the list of the all definitions like in Microsoft project»</td><td>раздел 4</td></tr>
-  <tr><td class="id">R3</td><td>Список бизнес-потребностей.</td><td>«Make the list of business needs»</td><td>раздел 5</td></tr>
-  <tr><td class="id">R4</td><td>Как будет удовлетворена каждая бизнес-потребность.</td><td>«Describe how each business need will be meet»</td><td>раздел 6 (+ проект 7)</td></tr>
-  <tr><td class="id">R5</td><td>WBS решения.</td><td>«Describe the solution WBS»</td><td>разделы 10, 11</td></tr>
-  <tr><td class="id">R6</td><td>Дополнительные таблицы <code>project_resource_leveling_xxx</code>, если нужны.</td><td>«Use project_resource_reveling_xxx additional tables if needed»</td><td>раздел 8</td></tr>
-  <tr><td class="id">R7</td><td>Компоненты называются <code>PMResourceLeveling</code> + <code>NNN</code>.</td><td>«Use PMResourceLeveling+NNN names of the components»</td><td>раздел 9</td></tr>
-  <tr><td class="id">R8</td><td>Проверить весь интерфейс и перевести его на все языки.</td><td>«Check all of the interface and translate it to the all languages»</td><td>раздел 12</td></tr>
-  <tr><td class="id">R9</td><td>Настройка проекта <code>resourceLevelingFunctionalityEnabled</code> с двумя способами: <b>Automatic</b> и <b>Manual</b>.</td><td>«Project settings – resourceLvelingFunctionalityEnabled. Automatic, Manual»</td><td>7.1, 7.5</td></tr>
-  <tr><td class="id">R10</td><td>Подпереключатели для остальных опций, где это возможно.</td><td>«sub switches for other options if it is possible»</td><td>7.1</td></tr>
-  <tr><td class="id">R11</td><td>Переключатель <code>resourceLevelingFunctionalityFastModeEnabled</code>: нужны самые онлайновые и «встроенные» (in-line) шаблоны действий пользователя.</td><td>«resourceLvelingFunctionalityFastModeEnabled: for MOST ONLINE AND IN LINE USER ACTION PATTERNS NEEDED»</td><td>7.6 (толкование нужно подтвердить: Q2)</td></tr>
-</table>
-</div>
-<p>Написание в Google Doc (<code>resourceLveling…</code>, <code>reveling</code>) принято за опечатку: в этом документе везде <code>resourceLeveling…</code> и <code>project_resource_leveling_…</code> (вопрос Q1).</p>
-
-<h2>3. Что есть в приложении сегодня (проверено по коду, 2026-10-26)</h2>
-<div class="tbl">
-<table>
-  <tr><th>Область</th><th>Что есть</th><th>Следствие для выравнивания</th></tr>
-  <tr><td>Планировщик</td><td>На клиенте, чистый TypeScript: <code>scheduleProject</code> (<code>kit8/pm/view/project/scheduling.ts</code>) = прямой и обратный проход CPM, свёртка этапов, связи с запаздыванием, календари. Опции проекта: <code>model/scheduleOptions.ts</code>. Результат записывается через 800 мс функцией <code>pm_apply_schedule</code>.</td><td>Выравнивание должно быть <b>входом планировщика</b> (задержка на задачу, как lag), чтобы диаграмма Ганта, критический путь, этапы и версии работали по тем же правилам. Движок может быть чистым TypeScript и тестируемым.</td></tr>
-  <tr><td>Спрос на ресурс</td><td><b>Строка времени</b> (Time line) задачи имеет ресурс (человек / оборудование / рабочий центр, <code>taskResourceItem</code>), количество в <b>часах</b> и распределение. <b>Post</b> раскладывает часы по рабочим дням задачи (<code>calculateTaskLinePlan</code>) в <code>task_line_plan_movements</code> (строка на линию и день).</td><td>До Post спрос по дням можно посчитать из строк той же функцией (для выравнивания Post не нужен). После Post проведённые строки <b>других</b> проектов – это чужая нагрузка.</td></tr>
-  <tr><td>Ёмкость (capacity)</td><td>Календарь ресурса = часы в день (PART 21, <code>organization_resource_capacity</code>); календари человека / оборудования / рабочего центра / контракта; день без строки календаря «неизвестен», его не угадывают.</td><td>Единственный источник ёмкости. Выравнивание читает её через RPC; правила календарей <b>не</b> дублируются в TypeScript.</td></tr>
-  <tr><td>Проверка занятости</td><td>PART 22: <code>resource_occupancy_x_movement</code> (абстрактная занятость), <code>organization_resource_busy_check(task, organization)</code>, режим организации <code>resourceCapacityStrongMode</code> (<code>capacityModeOff</code> / <code>Warn</code> / <code>Block</code>), окно <code>BusyConflictsWindow</code>. «Равно – не занято».</td><td>То же определение перегрузки (занято &gt; ёмкость). Выровненный план обязан проходить эту проверку при Post. Проверка остаётся главной.</td></tr>
-  <tr><td>Поля задачи (Gantt Extended)</td><td>A15 приоритет <code>taskPriority</code> (0–1000, по умолчанию 500); A12 разрывы <code>taskSplits</code>; A1 ручные задачи; A3 ограничения; A5 крайний срок; A6 тип задачи / работа / единицы; A10 / A11 календари; A14 неактивные; A2 расчёт Manual (F9); запас <code>totalFloatDays</code> / <code>slackDays</code>.</td><td>Выравнивание читает их, когда функция включена, и игнорирует, когда выключена.</td></tr>
-  <tr><td>Реакции на сдвиг даты</td><td>Изменение дня начала / окончания <b>снимает проведение</b> строк и платежей задачи (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>) и переписывает запись в календаре пользователя.</td><td>Самый опасный побочный эффект. Выравнивание не должно молча снимать проведение: правила заморозки и предпросмотр (7.7).</td></tr>
-  <tr><td>Само выравнивание</td><td><b>Ничего нет.</b> <code>MORE_GANTT_INPUT.html</code> A16: «Missing … nothing is moved».</td><td>Новая функция.</td></tr>
+  <tr><th>#</th><th>Требование</th><th>Источник</th><th>Где отвечено</th></tr>
+  <tr><td class="id">R1</td><td>Этот документ, <code>./documentation/RESOURCE_LEVELING_WBS.html</code>, построенный вокруг «Resource optimization»; все термины MS Project продолжают работать; без кода.</td><td>Doc; ответ 3</td><td>весь файл, раздел 4</td></tr>
+  <tr><td class="id">R2</td><td>Список всех определений как в Microsoft Project (и термины PMBOK).</td><td>Doc</td><td>раздел 4</td></tr>
+  <tr><td class="id">R3</td><td>Список бизнес-потребностей.</td><td>Doc</td><td>раздел 5</td></tr>
+  <tr><td class="id">R4</td><td>Как будет удовлетворена каждая бизнес-потребность.</td><td>Doc</td><td>раздел 6 (+ проект 7)</td></tr>
+  <tr><td class="id">R5</td><td>WBS решения.</td><td>Doc</td><td>разделы 10, 11</td></tr>
+  <tr><td class="id">R6</td><td>Дополнительные таблицы <code>project_resource_leveling_xxx</code>, если нужны.</td><td>Doc; Q1 = да</td><td>раздел 8</td></tr>
+  <tr><td class="id">R7</td><td>Имена компонентов: <code>PMResourceLeveling</code> + <b>текстовое имя</b> (не номер): <code>PMResourceLevelingComponentName</code>.</td><td>Ответ 1</td><td>раздел 9</td></tr>
+  <tr><td class="id">R8</td><td>Проверить весь интерфейс и перевести его на все языки.</td><td>Doc</td><td>раздел 12</td></tr>
+  <tr><td class="id">R9</td><td>Настройки проекта: вкладка называется <b>«Resources»</b>; внутри неё текст / раздел <b>«Resource optimization»</b>. Ключ <code>resourceLevelingFunctionalityEnabled</code> со способами <b>Automatic</b> и <b>Manual</b>.</td><td>Doc; ответ 2</td><td>7.1, 7.5</td></tr>
+  <tr><td class="id">R10</td><td>Подпереключатели для остальных опций, где возможно.</td><td>Doc</td><td>7.1</td></tr>
+  <tr><td class="id">R11</td><td><code>resourceLevelingFunctionalityFastModeEnabled</code>: экранные варианты изменения данных на месте; более удобная версия UX/UI.</td><td>Doc; ответ 6</td><td>7.6</td></tr>
+  <tr><td class="id">R12</td><td>Опция <code>resourceLevelingPostedTasksMovementEnabled</code>, <b>по умолчанию true</b>. Проведённая задача <b>никогда не теряет проведение молча</b>: приложение спрашивает – снять проведение, сдвинуть и провести заново без конфликтов, или оставить.</td><td>Ответы 7 и 14</td><td>7.1, 7.7</td></tr>
+  <tr><td class="id">R13</td><td>Опция <code>resourceGrainUnit</code>, <b>по умолчанию hour</b>; часы нужны.</td><td>Ответ 10</td><td>7.9</td></tr>
+  <tr><td class="id">R14</td><td>Экспорт в MS Project <b>сейчас не нужен</b>.</td><td>Ответ 4</td><td>15</td></tr>
+  <tr><td class="id">R15</td><td>Q5 (планирование от конца проекта): решено по принципу максимального удобства UX – работает, зеркально, без отказа.</td><td>Ответ 15</td><td>7.8</td></tr>
+  <tr><td class="id">R16</td><td>Настройка <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (приложение работает как сейчас) | <code>hourByHourModel</code> (модель времени суток); таблицы добавляются, где нужно.</td><td>Ответ 16</td><td>7.10, 8</td></tr>
 </table>
 </div>
 
-<h2>4. Определения – глоссарий Microsoft Project и что он значит здесь (R2)</h2>
-<p>Каждый термин функции выравнивания MS Project (диалог Ресурс &gt; Выровнять ресурсы, поля, представления) и его смысл в приложении.</p>
+<h2>3. Что есть в приложении сегодня (проверено по коду, 2026-10-26 / 27)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Область</th><th>Что есть</th><th>Следствие</th></tr>
+  <tr><td>Планировщик</td><td>На клиенте, чистый TypeScript: <code>scheduleProject</code> (<code>kit8/pm/view/project/scheduling.ts</code>) = прямой и обратный проход CPM, свёртка этапов, связи с запаздыванием, календари, в <b>рабочих днях</b>. Опции: <code>model/scheduleOptions.ts</code>. Записывается через 800 мс функцией <code>pm_apply_schedule</code>.</td><td>Оптимизация – <b>вход планировщика</b> (задержка на задачу, как lag). Движок – чистый TypeScript на клиенте (решение Q4).</td></tr>
+  <tr><td>Спрос на ресурс</td><td><b>Строка времени</b> (Time line) имеет ресурс (<code>taskResourceItem</code>: человек / оборудование / рабочий центр), количество в <b>часах</b> и распределение. <b>Post</b> раскладывает часы по рабочим дням (<code>calculateTaskLinePlan</code>) в <code>task_line_plan_movements</code>, <b>одна строка на линию и день</b> (<code>rowPeriodDatetime</code> = день).</td><td>До Post спрос по дням считается из строк той же функцией. Проведённые строки <b>других</b> проектов = чужая нагрузка.</td></tr>
+  <tr><td>Ёмкость</td><td>Календарь ресурса (PART 21): его строки дней несут <code>hours</code> (0..24) за день; <b>времени суток нет</b> (нет от / до, нет перерывов).</td><td>Единственный источник ёмкости; читается через RPC. Почасовой режим с временем суток на сегодняшних данных невозможен (раздел 7.9).</td></tr>
+  <tr><td>Проверка занятости</td><td>PART 22: <code>resource_occupancy_x_movement</code>, <code>organization_resource_busy_check</code>, режим <code>resourceCapacityStrongMode</code>, <code>BusyConflictsWindow</code>. «Равно – не занято».</td><td>То же определение перегрузки. Оптимизированный план обязан её проходить при Post.</td></tr>
+  <tr><td>Поля задачи (Gantt Extended)</td><td>A15 <code>taskPriority</code> (0–1000, 500); A12 <code>taskSplits</code>; A1 ручные; A3 ограничения; A5 крайний срок; A6 тип / работа / единицы; A10 / A11 календари; A14 неактивные; A2 расчёт Manual (F9); запас.</td><td>Читаются при включённой функции.</td></tr>
+  <tr><td>Реакции на сдвиг даты</td><td>Изменение дня начала / окончания <b>снимает проведение</b> строк и платежей задачи (<code>task_line_plan_unpost_on_dates</code>, <code>task_payment_plan_unpost_on_dates</code>).</td><td>Оптимизация никогда не снимает проведение молча: сначала она спрашивает пользователя (7.7).</td></tr>
+  <tr><td>Оптимизация ресурсов</td><td><b>Ничего нет.</b> <code>MORE_GANTT_INPUT.html</code> A16: «Missing … nothing is moved».</td><td>Новая функция.</td></tr>
+</table>
+</div>
+
+<h2>4. Определения – термины PMBOK и термины MS Project (R2)</h2>
+<p>Функция называется общим термином PMBOK <b>Resource optimization</b>; экраны и меню сохраняют рядом слова MS Project (Level, Leveling Delay, Level Resources …), чтобы пользователь любого словаря нашёл команду.</p>
+
+<h3>4.1 Термины PMBOK (6-е издание) → приложение и MS Project</h3>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Термин PMBOK</th><th>Значение</th><th>В приложении (слово MS Project в скобках)</th></tr>
+  <tr><td class="id">P1</td><td>Resource optimization (оптимизация ресурсов)</td><td>Общий приём: сбалансировать спрос на ресурсы с предложением. Методы: leveling, smoothing.</td><td><span class="tag new">Новое</span> функция; вкладка «Resources» → раздел «Resource optimization»; заголовок меню кнопки Level.</td></tr>
+  <tr><td class="id">P2</td><td>Resource leveling (выравнивание ресурсов)</td><td>Даты подгоняются под ограничения ресурсов; может изменить критический путь и окончание.</td><td><span class="tag new">Новое</span> Метод <b>Leveling</b> (Level Now).</td></tr>
+  <tr><td class="id">P3</td><td>Resource smoothing (сглаживание ресурсов)</td><td>Подгонка только в пределах резерва; критический путь и окончание не меняются.</td><td><span class="tag new">Новое</span> Метод <b>Smoothing</b> = ключ <code>resourceLevelingWithinSlackOnly</code> («Level only within available slack»). Один ключ, два названия: вкладка показывает Метод; окно Level Resources показывает флажок MS Project.</td></tr>
+  <tr><td class="id">P4</td><td>Resource requirements / resource demand (потребность)</td><td>Ресурсы, нужные задаче.</td><td><span class="tag have">Есть</span> строки времени задачи (ресурс + часы).</td></tr>
+  <tr><td class="id">P5</td><td>Resource availability / supply (доступность)</td><td>Сколько ресурс может дать за период.</td><td><span class="tag have">Есть</span> календарь ресурса (часы в день) (Max units).</td></tr>
+  <tr><td class="id">P6</td><td>Resource histogram (гистограмма ресурсов)</td><td>График часов по периодам с пределом.</td><td><span class="tag new">Новое</span> график Load (Resource Graph).</td></tr>
+  <tr><td class="id">P7</td><td>Resource calendar</td><td>Когда ресурс может работать.</td><td><span class="tag have">Есть</span> PART 21 (Resource calendar).</td></tr>
+  <tr><td class="id">P8</td><td>Resource constraint / over-allocation</td><td>Спрос выше предложения в периоде.</td><td><span class="tag new">Новое</span> детектор (Overallocation).</td></tr>
+  <tr><td class="id">P9</td><td>Float (запас), критический путь</td><td>Время, на которое задача может сдвинуться; самый длинный путь.</td><td><span class="tag have">Есть</span> (Slack, Critical path).</td></tr>
+  <tr><td class="id">P10</td><td>Resource breakdown structure, пул ресурсов</td><td>Ресурсы по категориям; ресурсы, общие для проектов.</td><td><span class="tag have">Есть</span> рабочие центры в папках (бизнес-единицы) и организация (Resource pool).</td></tr>
+  <tr><td class="id">P11</td><td>Schedule compression (crashing, fast tracking)</td><td>Сокращение графика.</td><td><span class="tag no">Не строится</span> другой приём.</td></tr>
+  <tr><td class="id">P12</td><td>Control Resources / Develop Schedule (процессы)</td><td>Где применяется оптимизация.</td><td>Планирование: Level now; мониторинг: индикатор, график Load, режим Automatic.</td></tr>
+</table>
+</div>
+
+<h3>4.2 Термины MS Project (диалог Level Resources, поля, представления)</h3>
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Термин MS Project</th><th>Значение в MS Project</th><th>В приложении</th></tr>
   <tr class="group"><td class="id">D</td><td colspan="3">Основные термины</td></tr>
-  <tr><td class="id">D1</td><td>Resource leveling (выравнивание ресурсов)</td><td>Задержка или разрыв задач, чтобы ни один ресурс не работал больше своей доступности.</td><td><span class="tag new">Новое</span> движок этого документа.</td></tr>
-  <tr><td class="id">D2</td><td>Overallocation / overallocated resource (перегрузка)</td><td>Ресурсу назначено в периоде больше работы, чем он может сделать (единицы &gt; max units).</td><td><span class="tag map">Соответствует</span> занятые часы дня &gt; часы его календаря в этот день (то же правило, что в проверке занятости; равно – не перегрузка).</td></tr>
-  <tr><td class="id">D3</td><td>Max units / resource availability (доступность)</td><td>% полной занятости, в котором ресурс доступен.</td><td><span class="tag map">Соответствует</span> ёмкость в <b>часах в день</b> календаря ресурса (неполная неделя = меньше часов). Единицы в % нет.</td></tr>
-  <tr><td class="id">D4</td><td>Peak units / Peak (пик)</td><td>Наибольшая нагрузка ресурса в периоде.</td><td><span class="tag new">Новое</span> «Peak hours» на ресурс и на запуск, в виде Resource Load.</td></tr>
-  <tr><td class="id">D5</td><td>Assignment / assignment units (назначение)</td><td>Ресурс на задаче с % его времени.</td><td><span class="tag map">Соответствует</span> <b>строка времени</b> задачи (ресурс + часы). Часы в день = часы × вес дня по распределению. Единицы <code>units</code> из A6 в этой версии выравниванием не используются.</td></tr>
-  <tr><td class="id">D6</td><td>Work / remaining work (работа / оставшаяся работа)</td><td>Часы задачи / ещё не выполненные часы.</td><td><span class="tag map">Соответствует</span> часы строк времени. Оставшаяся работа <span class="tag no">не строится</span>: начатая задача (progress &gt; 0) заморожена (7.3).</td></tr>
-  <tr><td class="id">D7</td><td>Resource calendar (календарь ресурса)</td><td>Рабочие дни / часы одного ресурса.</td><td><span class="tag have">Есть</span> PART 21 (календари человека, оборудования, рабочего центра, контракта).</td></tr>
-  <tr><td class="id">D8</td><td>Resource pool (пул ресурсов)</td><td>Ресурсы, общие для нескольких проектов.</td><td><span class="tag have">Есть</span> <b>организация</b>: её проекты делят рабочие центры; чужая нагрузка – проведённые брони других проектов.</td></tr>
-  <tr><td class="id">D9</td><td>Booking type (предложенный / утверждённый)</td><td>Предложенный ресурс выравнивание может игнорировать.</td><td><span class="tag map">Соответствует</span> типа брони нет. Свои непроведённые строки считаются всегда; чужая нагрузка = проведённые строки. <span class="tag no">Не строится</span> как отдельная опция.</td></tr>
+  <tr><td class="id">D1</td><td>Resource leveling</td><td>Задержка или разрыв задач, чтобы ни один ресурс не работал больше своей доступности.</td><td><span class="tag new">Новое</span> = P2.</td></tr>
+  <tr><td class="id">D2</td><td>Overallocation / overallocated resource</td><td>Назначенная работа &gt; доступности в периоде.</td><td><span class="tag map">Соответствует</span> занятые часы &gt; часы его календаря (то же правило, что в проверке занятости; равно – не перегрузка).</td></tr>
+  <tr><td class="id">D3</td><td>Max units / resource availability</td><td>% полной занятости.</td><td><span class="tag map">Соответствует</span> ёмкость в <b>часах в день</b> календаря. Единицы в % нет.</td></tr>
+  <tr><td class="id">D4</td><td>Peak units / Peak</td><td>Наибольшая нагрузка в периоде.</td><td><span class="tag new">Новое</span> «Peak hours» на ресурс и запуск.</td></tr>
+  <tr><td class="id">D5</td><td>Assignment / assignment units</td><td>Ресурс на задаче с % его времени.</td><td><span class="tag map">Соответствует</span> <b>строка времени</b> (ресурс + часы; часы в день = часы × вес дня). Единицы <code>units</code> из A6 в этой версии не используются.</td></tr>
+  <tr><td class="id">D6</td><td>Work / remaining work</td><td>Часы задачи / невыполненные часы.</td><td><span class="tag map">Соответствует</span> часы строк времени. Оставшаяся работа <span class="tag no">не строится</span>: начатая задача заморожена (7.3).</td></tr>
+  <tr><td class="id">D7</td><td>Resource calendar</td><td>Рабочие дни / часы ресурса.</td><td><span class="tag have">Есть</span> PART 21.</td></tr>
+  <tr><td class="id">D8</td><td>Resource pool</td><td>Ресурсы, общие для проектов.</td><td><span class="tag have">Есть</span> организация; чужая нагрузка = проведённые брони других проектов. Решение Q8: другие проекты – неподвижные препятствия.</td></tr>
+  <tr><td class="id">D9</td><td>Booking type (proposed / committed)</td><td>Предложенный ресурс можно игнорировать.</td><td><span class="tag no">Не строится</span> свои непроведённые строки считаются всегда; чужая нагрузка = проведённые строки.</td></tr>
   <tr class="group"><td class="id">F</td><td colspan="3">Поля задачи</td></tr>
-  <tr><td class="id">D10</td><td>Leveling Delay (задержка выравнивания)</td><td>Задержка (продолжительность), которую выравнивание поставило перед задачей.</td><td><span class="tag new">Новое</span> <code>taskLevelingDelayDays</code> в <b>рабочих днях календаря задачи</b>; только целые дни (во времени нет времени суток).</td></tr>
-  <tr><td class="id">D11</td><td>Leveling Can Split (можно разрывать)</td><td>Выравнивание может прерывать эту задачу.</td><td><span class="tag new">Новое</span> <code>taskLevelingCanSplit</code> (по умолчанию да); использует разрывы A12 (<code>taskSplits</code>).</td></tr>
-  <tr><td class="id">D12</td><td>Priority (0–1000)</td><td>Важность задачи; 1000 = никогда не выравнивать; низкий приоритет задерживается первым.</td><td><span class="tag have">Есть</span> A15 <code>taskPriority</code> (по умолчанию 500). <span class="tag new">Новое</span> смысл: 1000 = не выравнивать.</td></tr>
-  <tr><td class="id">D13</td><td>Slack (общий / свободный резерв)</td><td>На сколько задача может сдвинуться, не двигая конец проекта / преемника.</td><td><span class="tag have">Есть</span> <code>totalFloatDays</code>, <code>slackDays</code> (A3).</td></tr>
-  <tr><td class="id">D14</td><td>Critical task / critical path (критический путь)</td><td>Задачи без запаса.</td><td><span class="tag have">Есть</span>. Выравнивание может создать новый критический путь (задержка входит в путь).</td></tr>
-  <tr><td class="id">D15</td><td>Constraint (ограничение)</td><td>Правило даты задачи.</td><td><span class="tag have">Есть</span> A3. Задачи «Must start/finish on» и «всегда соблюдать» задерживать нельзя (сообщается).</td></tr>
-  <tr><td class="id">D16</td><td>Manually scheduled task (задача вручную)</td><td>Задача, даты которой вводит планировщик.</td><td><span class="tag have">Есть</span> A1. Не выравнивается, пока не включён <code>resourceLevelingManualTasks</code>.</td></tr>
-  <tr><td class="id">D17</td><td>Split task (разорванная задача)</td><td>Задача с паузой в работе.</td><td><span class="tag have">Есть</span> A12.</td></tr>
-  <tr><td class="id">D18</td><td>Task type / effort driven (тип задачи)</td><td>Фиксированные единицы / длительность / работа.</td><td><span class="tag have">Есть</span> A6; <span class="tag no">не используется</span> выравниванием (оно не меняет работу и единицы).</td></tr>
-  <tr><td class="id">D19</td><td>Level assignments («Leveling can adjust individual assignments on a task»)</td><td>Задерживать одно назначение, а не всю задачу.</td><td><span class="tag no">Не строится</span> у строки времени нет собственных дат; двигается вся задача (вопрос Q6).</td></tr>
-  <tr><td class="id">D20</td><td>Deadline, baseline, status date</td><td>Контрольная дата / сохранённый план / «сегодня» отчёта.</td><td><span class="tag have">Есть</span> A5, C1, C3. Выравнивание молча не сдвигает задачу за крайний срок: сорванный срок показан в предпросмотре.</td></tr>
-  <tr class="group"><td class="id">O</td><td colspan="3">Диалог «Выровнять ресурсы»</td></tr>
-  <tr><td class="id">D21</td><td>Leveling calculations: Automatic / Manual</td><td>Выравнивать сразу после каждого изменения / только по команде.</td><td><span class="tag new">Новое</span> <code>resourceLevelingMode</code> (раздел 7.5).</td></tr>
-  <tr><td class="id">D22</td><td>Look for overallocations on a [minute / hour / day / week / month] basis</td><td>Период, в котором нагрузка сравнивается с ёмкостью.</td><td><span class="tag new">Новое</span> <code>resourceLevelingGrain</code> = <b>day</b> (по умолчанию) или <b>week</b>. Час и минута: <span class="tag no">невозможно</span> – у проведённых дней нет времени суток (как в проверке занятости).</td></tr>
-  <tr><td class="id">D23</td><td>Clear leveling values before leveling</td><td>Забыть старые задержки, выравнивать с невыровненного плана.</td><td><span class="tag new">Новое</span> <code>resourceLevelingClearBeforeLeveling</code> (по умолчанию да; в Automatic всегда да).</td></tr>
-  <tr><td class="id">D24</td><td>Leveling range: Level entire project / Level from … to …</td><td>Какая часть плана меняется.</td><td><span class="tag new">Новое</span> параметр запуска: весь проект · даты от–до · выбранные ресурсы · выбранные задачи.</td></tr>
-  <tr><td class="id">D25</td><td>Leveling order: ID Only / Standard / Priority, Standard</td><td>Какая задача конфликта задерживается первой.</td><td><span class="tag new">Новое</span> <code>resourceLevelingOrder</code> = <code>idOnly</code> · <code>standard</code> (по умолчанию) · <code>priorityStandard</code> (7.3).</td></tr>
-  <tr><td class="id">D26</td><td>Level only within available slack</td><td>Не двигать конец проекта; конфликт, требующий большего, остаётся.</td><td><span class="tag new">Новое</span> <code>resourceLevelingWithinSlackOnly</code> (по умолчанию выкл.).</td></tr>
+  <tr><td class="id">D10</td><td>Leveling Delay</td><td>Задержка, поставленная выравниванием перед задачей.</td><td><span class="tag new">Новое</span> <code>taskLevelingDelayDays</code> в <b>рабочих днях</b> календаря задачи (решение Q9).</td></tr>
+  <tr><td class="id">D11</td><td>Leveling Can Split</td><td>Выравнивание может прерывать задачу.</td><td><span class="tag new">Новое</span> <code>taskLevelingCanSplit</code> (по умолчанию да); использует A12 <code>taskSplits</code>.</td></tr>
+  <tr><td class="id">D12</td><td>Priority (0–1000)</td><td>Важность; 1000 = никогда не выравнивать.</td><td><span class="tag have">Есть</span> A15. <span class="tag new">Новое</span> смысл 1000.</td></tr>
+  <tr><td class="id">D13</td><td>Slack (общий / свободный)</td><td>На сколько задача может сдвинуться.</td><td><span class="tag have">Есть</span> <code>totalFloatDays</code>, <code>slackDays</code> (Float).</td></tr>
+  <tr><td class="id">D14</td><td>Critical task / path</td><td>Задачи без запаса.</td><td><span class="tag have">Есть</span>; Leveling может создать новый критический путь.</td></tr>
+  <tr><td class="id">D15</td><td>Constraint</td><td>Правило даты.</td><td><span class="tag have">Есть</span> A3: Must start / finish on и «всегда соблюдать» задерживать нельзя (сообщается).</td></tr>
+  <tr><td class="id">D16</td><td>Manually scheduled task</td><td>Даты вводит планировщик.</td><td><span class="tag have">Есть</span> A1; не двигается, пока не включён <code>resourceLevelingManualTasks</code>.</td></tr>
+  <tr><td class="id">D17</td><td>Split task</td><td>Задача с паузой.</td><td><span class="tag have">Есть</span> A12.</td></tr>
+  <tr><td class="id">D18</td><td>Task type / effort driven</td><td>Фиксированные единицы / длительность / работа.</td><td><span class="tag have">Есть</span> A6; <span class="tag no">не используется</span> (часы и единицы движок не меняет никогда).</td></tr>
+  <tr><td class="id">D19</td><td>Level assignments («adjust individual assignments»)</td><td>Задерживать одно назначение, а не задачу.</td><td><span class="tag no">Не строится</span> решение Q6: двигается <b>вся задача</b>.</td></tr>
+  <tr><td class="id">D20</td><td>Deadline, baseline, status date</td><td>Контрольные даты.</td><td><span class="tag have">Есть</span> A5, C1, C3; сорванный срок показан в предпросмотре.</td></tr>
+  <tr class="group"><td class="id">O</td><td colspan="3">Диалог «Level Resources»</td></tr>
+  <tr><td class="id">D21</td><td>Leveling calculations: Automatic / Manual</td><td>Сразу / по команде.</td><td><span class="tag new">Новое</span> <code>resourceLevelingMode</code> (7.5).</td></tr>
+  <tr><td class="id">D22</td><td>Look for overallocations on a minute / hour / day / week / month basis</td><td>Период, в котором нагрузка сравнивается с ёмкостью.</td><td><span class="tag new">Новое</span> <code>resourceGrainUnit</code> = <b>hour</b> (по умолчанию) | day | week (7.9). Минута и месяц: не строятся.</td></tr>
+  <tr><td class="id">D23</td><td>Clear leveling values before leveling</td><td>Выравнивать с невыровненного плана.</td><td><span class="tag new">Новое</span> <code>resourceLevelingClearBeforeLeveling</code> (по умолчанию да; в Automatic всегда да).</td></tr>
+  <tr><td class="id">D24</td><td>Leveling range: entire project / from … to …</td><td>Какая часть меняется.</td><td><span class="tag new">Новое</span> параметр запуска: проект · даты · ресурсы · задачи.</td></tr>
+  <tr><td class="id">D25</td><td>Leveling order: ID Only / Standard / Priority, Standard</td><td>Какая задача уступает первой.</td><td><span class="tag new">Новое</span> <code>resourceLevelingOrder</code> (7.3).</td></tr>
+  <tr><td class="id">D26</td><td>Level only within available slack</td><td>Не двигать окончание.</td><td><span class="tag new">Новое</span> = Метод <b>Smoothing</b> (P3), <code>resourceLevelingWithinSlackOnly</code>.</td></tr>
   <tr><td class="id">D27</td><td>Leveling can create splits in remaining work</td><td>Разрешить прерывать задачи.</td><td><span class="tag new">Новое</span> <code>resourceLevelingCanSplit</code> (нужен A12).</td></tr>
   <tr><td class="id">D28</td><td>Level resources with the proposed booking type</td><td>Включать предложенные ресурсы.</td><td><span class="tag no">Не строится</span> (D9).</td></tr>
   <tr><td class="id">D29</td><td>Level manually scheduled tasks</td><td>Разрешить двигать ручные задачи.</td><td><span class="tag new">Новое</span> <code>resourceLevelingManualTasks</code> (нужен A1).</td></tr>
-  <tr><td class="id">D30</td><td>Level Now → Entire pool / Selected resources</td><td>Команда.</td><td><span class="tag new">Новое</span> «Level now» (весь проект) и «Level selected resources / tasks».</td></tr>
-  <tr><td class="id">D31</td><td>Level Resource / Level Task / Level All</td><td>Команды ленты.</td><td><span class="tag new">Новое</span> те же три, в меню Level панели Ганта и в меню задачи и ресурса.</td></tr>
-  <tr><td class="id">D32</td><td>Clear Leveling</td><td>Убрать задержки выбранных задач / всех задач.</td><td><span class="tag new">Новое</span> + <b>отмена запуска</b> (история, раздел 8).</td></tr>
+  <tr><td class="id">D30</td><td>Level Now → entire pool / selected resources</td><td>Команда.</td><td><span class="tag new">Новое</span> «Level now», «Level selected resources / tasks».</td></tr>
+  <tr><td class="id">D31</td><td>Level Resource / Level Task / Level All</td><td>Команды ленты.</td><td><span class="tag new">Новое</span> в меню Level, меню задачи и меню ресурсов.</td></tr>
+  <tr><td class="id">D32</td><td>Clear Leveling</td><td>Убрать задержки.</td><td><span class="tag new">Новое</span> + отмена запуска.</td></tr>
   <tr class="group"><td class="id">V</td><td colspan="3">Представления и индикаторы</td></tr>
-  <tr><td class="id">D33</td><td>Leveling Gantt</td><td>Диаграмма Ганта с задержкой в виде зелёной полосы перед задачей и с невыровненным планом.</td><td><span class="tag new">Новое</span> полоса задержки + до/после в предпросмотре (PMResourceLeveling008, 004).</td></tr>
-  <tr><td class="id">D34</td><td>Resource Usage / Resource Graph</td><td>Часы по ресурсам и периодам; график с линией ёмкости.</td><td><span class="tag new">Новое</span> PMResourceLeveling009 (график) и 010 (таблица).</td></tr>
-  <tr><td class="id">D35</td><td>Индикатор перегрузки (красный человечек)</td><td>Отмечает задачу / ресурс с конфликтом.</td><td><span class="tag new">Новое</span> PMResourceLeveling006.</td></tr>
-  <tr><td class="id">D36</td><td>Колонка Leveling Delay</td><td>Колонка задержки.</td><td><span class="tag new">Новое</span> PMResourceLeveling007 (виртуальная колонка дерева, как <code>cc_ext_…</code>).</td></tr>
-  <tr><td class="id">D37</td><td>Undo leveling (отмена выравнивания)</td><td>Ctrl+Z после Level Now.</td><td><span class="tag new">Новое</span> отмена запуска (014); запуск – один шаг отмены проекта.</td></tr>
-  <tr><td class="id">D38</td><td>Contour (профиль работы)</td><td>Как работа назначения распределена во времени.</td><td><span class="tag have">Есть</span> <b>распределение</b> строки (<code>distributionForBudgetTaskLine</code>); сдвинутая или разорванная задача сохраняет его, растянутое на новые рабочие дни.</td></tr>
+  <tr><td class="id">D33</td><td>Leveling Gantt</td><td>Задержка зелёной полосой перед задачей.</td><td><span class="tag new">Новое</span> <code>PMResourceLevelingDelayBar</code> + до/после в <code>PMResourceLevelingPreviewWindow</code>.</td></tr>
+  <tr><td class="id">D34</td><td>Resource Usage / Resource Graph</td><td>Часы по ресурсам и периодам; график с линией ёмкости.</td><td><span class="tag new">Новое</span> <code>PMResourceLevelingLoadGraph</code>, <code>PMResourceLevelingUsageGrid</code>.</td></tr>
+  <tr><td class="id">D35</td><td>Overallocated indicator</td><td>Отмечает задачу / ресурс с конфликтом.</td><td><span class="tag new">Новое</span> <code>PMResourceLevelingOverallocationMark</code>.</td></tr>
+  <tr><td class="id">D36</td><td>Колонка Leveling Delay</td><td>Колонка.</td><td><span class="tag new">Новое</span> <code>PMResourceLevelingDelayColumn</code> (виртуальная колонка, как <code>cc_ext_…</code>).</td></tr>
+  <tr><td class="id">D37</td><td>Undo leveling</td><td>Ctrl+Z после Level Now.</td><td><span class="tag new">Новое</span> отмена запуска.</td></tr>
+  <tr><td class="id">D38</td><td>Contour (профиль работы)</td><td>Как работа распределена во времени.</td><td><span class="tag have">Есть</span> распределение строки; сдвинутая или разорванная задача сохраняет его, растянутое на новые рабочие дни.</td></tr>
 </table>
 </div>
 
@@ -147,27 +176,28 @@
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Бизнес-потребность</th><th>Кто / зачем</th></tr>
-  <tr><td class="id">BN1</td><td><b>Увидеть проблему</b>: какие ресурсы перегружены, в какие дни, на сколько часов, какими задачами.</td><td>Планировщик: сегодня об этом говорит только Post, и только по одной задаче.</td></tr>
-  <tr><td class="id">BN2</td><td><b>Автоматически снять перегрузку</b> задержкой задач с учётом связей, календарей, ограничений и дат проекта.</td><td>Планировщик: двигать задачи вручную в большом плане медленно и чревато ошибками.</td></tr>
-  <tr><td class="id">BN3</td><td><b>Важная работа сохраняет свои даты</b>: выравнивание использует приоритет задачи; приоритет 1000 не двигается никогда.</td><td>Руководитель проекта.</td></tr>
-  <tr><td class="id">BN4</td><td><b>Не сдвигать конец проекта</b>, если можно избежать: выравнивание только в пределах запаса (опция).</td><td>Заказчику обещана дата.</td></tr>
-  <tr><td class="id">BN5</td><td><b>Разорвать задачу</b>, чтобы она использовала свободные часы ресурса (опция).</td><td>Длинные задачи дефицитного ресурса.</td></tr>
-  <tr><td class="id">BN6</td><td><b>Выбрать, когда это происходит</b>: Automatic (после каждой правки) или Manual (по команде, с предпросмотром).</td><td>Маленькие простые планы хотят Automatic; большие – контроль.</td></tr>
-  <tr><td class="id">BN7</td><td><b>Отмена и очистка</b>: вернуться к невыровненному плану; исходный план никогда не теряется.</td><td>Доверие к инструменту.</td></tr>
-  <tr><td class="id">BN8</td><td><b>Выровнять часть</b>: один ресурс, выбранные задачи, диапазон дат.</td><td>Планировщик, работающий с одной командой.</td></tr>
-  <tr><td class="id">BN9</td><td><b>Общие ресурсы разных проектов</b>: рабочий центр, который используют несколько проектов организации, не перегружается другими проектами (они – неподвижные препятствия).</td><td>Организация: пул ресурсов.</td></tr>
-  <tr><td class="id">BN10</td><td><b>Проведённая и начатая работа защищена</b>: без тихого снятия проведения строк и платежей; без сдвига начатых и завершённых задач.</td><td>Финансы: проведённый план, платежи, факты.</td></tr>
-  <tr><td class="id">BN11</td><td><b>Уважать календари и ёмкость</b> всех видов ресурсов (человек, оборудование, рабочий центр-партнёр; неполная занятость; праздники; день без строки календаря).</td><td>Менеджеры ресурсов.</td></tr>
-  <tr><td class="id">BN12</td><td><b>Сделать результат видимым</b>: колонка задержки, полоса задержки на диаграмме Ганта, отметки перегрузки, сравнение до/после, график нагрузки с линией ёмкости.</td><td>Все, кто читает план.</td></tr>
-  <tr><td class="id">BN13</td><td><b>Объяснять каждый сдвиг</b> (почему эта задача, из-за какого ресурса и дня) и <b>перечислять то, что решить не удалось</b>, и почему.</td><td>Планировщик: «чёрный ящик» не принимается.</td></tr>
-  <tr><td class="id">BN14</td><td><b>Быстрая встроенная работа</b>: ответ при перетаскивании полосы или вводе часа, исправление одного конфликта в один щелчок, без ожидания сервера.</td><td>Планировщик перед экраном (Fast mode).</td></tr>
-  <tr><td class="id">BN15</td><td><b>Большие планы</b>: тысячи задач и много ресурсов без зависания экрана.</td><td>Крупные проекты (в BUDGET1 450 строк; реальные больше).</td></tr>
-  <tr><td class="id">BN16</td><td><b>Согласие с Post</b>: выровненный план проходит проверку занятости при Post (та же ёмкость, то же правило).</td><td>Согласованность; без второй «правды».</td></tr>
-  <tr><td class="id">BN17</td><td><b>Работа вместе с остальными функциями Ганта</b>: ручные задачи, ограничения, планирование от конца, календари задач, неактивные задачи, крайние сроки, расчёт Manual (F9), версии, подпроекты, шаблоны.</td><td>Переключатели Gantt Extended могут быть включены в любом сочетании.</td></tr>
-  <tr><td class="id">BN18</td><td><b>История и аудит</b>: кто выравнивал, когда, с какими опциями, что изменилось.</td><td>Руководитель проекта, аудиторы.</td></tr>
-  <tr><td class="id">BN19</td><td><b>Обмен</b>: задержка выравнивания, приоритет и разрыв сохраняются при экспорте / импорте MS Project; шаблоны задач не копируют результат.</td><td>Планировщики, которые используют и MS Project.</td></tr>
-  <tr><td class="id">BN20</td><td><b>Интерфейс на всех 15 языках приложения</b>, включая письмо справа налево (арабский, фарси).</td><td>Международные пользователи.</td></tr>
-  <tr><td class="id">BN21</td><td><b>Ничего не меняется для тех, кто этим не пользуется</b>: по умолчанию выключено, на уровне проекта, значения по умолчанию – на уровне организации.</td><td>Безопасность существующих проектов.</td></tr>
+  <tr><td class="id">BN1</td><td><b>Увидеть проблему</b>: какие ресурсы перегружены, в какие дни, на сколько часов, какими задачами.</td><td>Планировщик: сегодня говорит только Post, по одной задаче.</td></tr>
+  <tr><td class="id">BN2</td><td><b>Автоматически снять перегрузку</b> задержкой задач с учётом связей, календарей, ограничений и дат проекта.</td><td>Планировщик.</td></tr>
+  <tr><td class="id">BN3</td><td><b>Важная работа сохраняет даты</b> (приоритет; 1000 не двигается).</td><td>Руководитель проекта.</td></tr>
+  <tr><td class="id">BN4</td><td><b>Выбрать метод</b>: выравнивание (окончание может сдвинуться) или сглаживание (окончание не сдвигается никогда).</td><td>Заказчику обещана дата.</td></tr>
+  <tr><td class="id">BN5</td><td><b>Разорвать задачу</b>, чтобы использовать свободные часы ресурса (опция).</td><td>Длинные задачи дефицитного ресурса.</td></tr>
+  <tr><td class="id">BN6</td><td><b>Выбрать, когда это происходит</b>: Automatic или Manual с предпросмотром.</td><td>Малые планы хотят Automatic; большие – контроль.</td></tr>
+  <tr><td class="id">BN7</td><td><b>Отмена и очистка</b>: невыровненный план не теряется никогда.</td><td>Доверие.</td></tr>
+  <tr><td class="id">BN8</td><td><b>Оптимизировать часть</b>: один ресурс, выбранные задачи, диапазон дат.</td><td>Планировщик, работающий с одной командой.</td></tr>
+  <tr><td class="id">BN9</td><td><b>Общие ресурсы проектов</b>: брони других проектов организации соблюдаются (неподвижные препятствия).</td><td>Организация: пул ресурсов.</td></tr>
+  <tr><td class="id">BN10</td><td><b>Проведение никогда не снимается молча</b>: когда проведённые задачи должны сдвинуться, приложение спрашивает (снять проведение и сдвинуть / сдвинуть и провести заново без конфликтов / оставить); начатые задачи и задачи с проведёнными фактами защищены.</td><td>Финансы.</td></tr>
+  <tr><td class="id">BN11</td><td><b>Уважать календари и ёмкость</b> всех видов ресурсов (неполная занятость, праздники, день без строки календаря).</td><td>Менеджеры ресурсов.</td></tr>
+  <tr><td class="id">BN12</td><td><b>Сделать результат видимым</b>: колонка задержки, полоса задержки, отметки перегрузки, до/после, график нагрузки с линией ёмкости, в часах.</td><td>Все, кто читает план.</td></tr>
+  <tr><td class="id">BN13</td><td><b>Объяснять каждый сдвиг</b> и <b>перечислять нерешённое</b> с причинами.</td><td>Планировщик.</td></tr>
+  <tr><td class="id">BN14</td><td><b>Менять данные на экране, на месте</b>: перетащить полосу, ввести часы в ячейке, перенести задачу на другой ресурс, исправить конфликт одним щелчком – удобно на касании и мышью, с мгновенным ответом.</td><td>Планировщик перед экраном (Fast mode).</td></tr>
+  <tr><td class="id">BN15</td><td><b>Большие планы</b> без зависания экрана.</td><td>Крупные проекты.</td></tr>
+  <tr><td class="id">BN16</td><td><b>Согласие с Post</b>: оптимизированный план проходит проверку занятости (та же ёмкость, то же правило).</td><td>Без второй «правды».</td></tr>
+  <tr><td class="id">BN17</td><td><b>Работа с другими функциями Ганта</b>: ручные задачи, ограничения, планирование от конца, календари задач, неактивные задачи, крайние сроки, расчёт Manual, версии, подпроекты, шаблоны.</td><td>Переключатели Gantt Extended могут быть в любом сочетании.</td></tr>
+  <tr><td class="id">BN18</td><td><b>История и аудит</b>: кто оптимизировал, когда, с какими опциями, что изменилось.</td><td>Руководитель проекта, аудиторы.</td></tr>
+  <tr><td class="id">BN19</td><td><b>Версии и шаблоны</b> остаются корректными: версия хранит задержку вместе с датами; шаблон не копирует результат. (Экспорт в MS Project: сейчас не нужен.)</td><td>Планировщики.</td></tr>
+  <tr><td class="id">BN20</td><td><b>Интерфейс на всех 15 языках</b>, включая письмо справа налево (арабский, фарси).</td><td>Международные пользователи.</td></tr>
+  <tr><td class="id">BN21</td><td><b>Ничего не меняется для тех, кто этим не пользуется</b>: по умолчанию выкл., на уровне проекта, умолчания – на уровне организации.</td><td>Безопасность существующих проектов.</td></tr>
+  <tr><td class="id">BN22</td><td><b>Часы как единица работы</b>: ёмкость, нагрузка и конфликты показываются в часах, зерно – опция (<code>resourceGrainUnit</code>).</td><td>Менеджеры ресурсов (планируют в часах).</td></tr>
 </table>
 </div>
 
@@ -175,125 +205,140 @@
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Как</th><th>Пакеты работ</th></tr>
-  <tr><td class="id">BN1</td><td>Детектор перегрузки (чистый, двойник проверки занятости) питает индикатор (006), график Resource Load (009), таблицу (010) и часть «до» предпросмотра (004). Он работает по всему проекту и всем ресурсам, независимо от того, включено ли выравнивание для сдвигов – обнаружение только читает.</td><td>WP4, WP8, WP9</td></tr>
-  <tr><td class="id">BN2</td><td>Движок выравнивания (WP5): рассчитанный план → спрос по ресурсам и дням → обход дней → при конфликте задерживается задача, которая уступает первой → планировщик сдвигает преемников → повтор. Задержка хранится на задаче как <code>taskLevelingDelayDays</code> и читается <code>scheduleProject</code> как минимальное смещение после начала по связям (WP6).</td><td>WP5, WP6</td></tr>
-  <tr><td class="id">BN3</td><td>Порядок выравнивания (D25): первой уступает задача с самым низким приоритетом; приоритет 1000 не уступает никогда (A15). Без A15 у всех задач 500, и порядок опирается на запас и дату.</td><td>WP5</td></tr>
-  <tr><td class="id">BN4</td><td>Опция <code>resourceLevelingWithinSlackOnly</code>: задержка ограничена общим запасом задачи в этот момент; остаток конфликта сообщается как нерешённый («нужно ещё N дней сверх запаса»).</td><td>WP5</td></tr>
-  <tr><td class="id">BN5</td><td>Опция <code>resourceLevelingCanSplit</code> (нужен A12) + флаг задачи <code>taskLevelingCanSplit</code>: вместо сдвига всей задачи движок вставляет паузу в <code>taskSplits</code> в день конфликта, и задача продолжается позже. Разрыв – результат выравнивания и очищается вместе с ним.</td><td>WP5, WP6</td></tr>
-  <tr><td class="id">BN6</td><td>Настройка <code>resourceLevelingMode</code>: <b>Manual</b> = движок запускается по команде и показывает предпросмотр; <b>Automatic</b> = движок запускается после каждого изменения входов планировщика / спроса (используется подпись A2) и применяет результат без диалога, с правилами заморозки (7.5, 7.7).</td><td>WP7, WP10</td></tr>
-  <tr><td class="id">BN7</td><td>Каждый запуск – одна строка в <code>project_resource_leveling_run</code> и по строке на каждую изменённую задачу (<code>…_task</code>: значения до и после). <b>Clear leveling</b> убирает задержки; <b>Undo run</b> восстанавливает значения «до» этого запуска (если задача после этого не правилась, иначе спрашивает).</td><td>WP3, WP7</td></tr>
-  <tr><td class="id">BN8</td><td>У запуска есть область: проект · диапазон дат · ресурсы · задачи. Задачи вне области – неподвижные препятствия, как и чужая нагрузка.</td><td>WP5, WP7</td></tr>
-  <tr><td class="id">BN9</td><td>Один RPC возвращает для ресурсов проекта и диапазона ёмкость по дням и <b>проведённые часы других проектов</b> организации (без названий, только часы и, как в проверке занятости, GUID проекта / задачи для «кто держит»). Опция <code>resourceLevelingIncludeOtherProjects</code> (по умолчанию вкл.).</td><td>WP3, WP4</td></tr>
-  <tr><td class="id">BN10</td><td>Правила заморозки: проведённая задача (любая строка <code>taskIsPosted</code>), задача с progress &gt; 0, задача, начинающаяся раньше сегодняшнего дня, и задача с проведённым фактом <b>по умолчанию не двигаются</b>; опция <code>resourceLevelingMovePostedTasks</code> (по умолчанию выкл.) разрешает двигать проведённую задачу <b>только в режиме Manual и после того, как предпросмотр назовёт задачи, у которых будет снято проведение</b>. Проведённые задачи по-прежнему считаются нагрузкой.</td><td>WP5, WP7, WP10</td></tr>
-  <tr><td class="id">BN11</td><td>Ёмкость берётся только из SQL-календарей (PART 21); день с неизвестной ёмкостью обрабатывается так же, как в проверке занятости: конфликт, о котором сообщается, а не угадывается и не «исправляется».</td><td>WP3, WP4</td></tr>
-  <tr><td class="id">BN12</td><td>PMResourceLeveling006 – 010 (индикатор, колонка, полоса задержки, график, таблица) плюс 004 (до/после).</td><td>WP8, WP9</td></tr>
-  <tr><td class="id">BN13</td><td>Каждая сдвинутая задача получает <b>код причины</b> (<code>priorityYield</code>, <code>slackYield</code>, <code>laterStartYield</code>, <code>idYield</code>) с ресурсом и первым днём конфликта; каждый нерешённый конфликт получает код (<code>frozenPosted</code>, <code>frozenStarted</code>, <code>priority1000</code>, <code>constraintHonored</code>, <code>manualTask</code>, <code>slackLimit</code>, <code>noCapacityInHorizon</code>, <code>capacityUnknown</code>, <code>foreignLoad</code>). Показываются в 004 / 005 / 011 и хранятся в строках задач запуска.</td><td>WP5, WP7</td></tr>
-  <tr><td class="id">BN14</td><td><b>Fast mode</b> (7.6): инкрементальный движок в памяти, только изменённые ресурсы, «призрачный» предпросмотр при перетаскивании, исправления в один щелчок (012), отложенная запись, без обращений к серверу, кроме первой загрузки ёмкости / чужой нагрузки.</td><td>WP11</td></tr>
-  <tr><td class="id">BN15</td><td>Движок работает с массивами, индексированными по ресурсу и дню (без объектов на каждый день), и только с перегруженными ресурсами; измеренный бюджет (7.6) и скрипт-бенчмарк. Запись – один RPC.</td><td>WP1, WP5, WP11, WP14</td></tr>
-  <tr><td class="id">BN16</td><td>Тест на совпадение: для сгенерированных планов детектор TypeScript и <code>organization_resource_busy_check</code> (Docker) дают одни и те же конфликты; после выравнивания проверка занятости не возвращает строк для выровненного проекта (кроме случаев, когда запуск сообщил о нерешённом конфликте).</td><td>WP4, WP14</td></tr>
-  <tr><td class="id">BN17</td><td>Раздел 7.8 – явное правило для каждой функции Ганта; изменение планировщика – это один вход (задержка), читаемый там же, где читаются lag, поэтому остальные функции не затрагиваются.</td><td>WP6</td></tr>
-  <tr><td class="id">BN18</td><td>Таблицы запусков + окно PMResourceLeveling014 (список запусков, подробности, Undo).</td><td>WP3, WP7</td></tr>
-  <tr><td class="id">BN19</td><td>MS Project XML: <code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code> пишутся / читаются только при включённой функции. <code>task_template_clean_task</code> убирает <code>taskLevelingDelayDays</code> и разрывы, сделанные выравниванием (шаблон – не выровненный план). Версии (<code>version_*</code>) хранят задержку вместе с датами.</td><td>WP12</td></tr>
-  <tr><td class="id">BN20</td><td>Каждый видимый текст проходит через <code>pmT</code>; словари 14 других языков дополняются в том же раунде; тест Jest падает, если у ключа нет перевода; проверяется RTL-вёрстка (раздел 12).</td><td>WP13</td></tr>
-  <tr><td class="id">BN21</td><td>Главный переключатель по умолчанию выключен (никогда не сохранённое значение = выкл., TS <code>=== true</code>, SQL <code>vendor_project_setting_on</code>); значения по умолчанию в организации, как <code>defaultProjectSettings</code>; при выключенном ключе ни один путь кода функции не выполняется.</td><td>WP2</td></tr>
+  <tr><td class="id">BN1</td><td>Детектор перегрузки (чистый, двойник проверки занятости) питает <code>PMResourceLevelingOverallocationMark</code>, <code>PMResourceLevelingLoadGraph</code>, <code>PMResourceLevelingUsageGrid</code> и часть «до» в <code>PMResourceLevelingPreviewWindow</code>. Обнаружение только читает и работает по каждому ресурсу.</td><td>WP4, WP8, WP9</td></tr>
+  <tr><td class="id">BN2</td><td>Движок (WP5): рассчитанный план → спрос по ресурсам и дням → обход дней → при конфликте задерживается уступающая первой задача → планировщик сдвигает преемников → повтор. Задержка хранится на задаче как <code>taskLevelingDelayDays</code> и читается <code>scheduleProject</code> как минимальное смещение после начала по связям (WP6).</td><td>WP5, WP6</td></tr>
+  <tr><td class="id">BN3</td><td>Порядок выравнивания (D25); приоритет 1000 не уступает (A15); без A15 у всех 500, решают запас и дата.</td><td>WP5</td></tr>
+  <tr><td class="id">BN4</td><td>Метод <b>Smoothing</b> (= <code>resourceLevelingWithinSlackOnly</code>): задержка ограничена общим запасом задачи в этот момент; остаток сообщается как нерешённый («нужно ещё N дней сверх запаса»).</td><td>WP5</td></tr>
+  <tr><td class="id">BN5</td><td><code>resourceLevelingCanSplit</code> (нужен A12) + <code>taskLevelingCanSplit</code>: движок вставляет паузу в <code>taskSplits</code> в день конфликта вместо сдвига всей задачи. Помечается как сделанная выравниванием; очищается вместе с ним.</td><td>WP5, WP6</td></tr>
+  <tr><td class="id">BN6</td><td><code>resourceLevelingMode</code>: Manual = по команде с предпросмотром; Automatic = после каждого изменения входов планировщика / спроса (подпись A2 переиспользуется), без диалога, с toast и Undo (7.5).</td><td>WP7, WP10</td></tr>
+  <tr><td class="id">BN7</td><td>Каждый запуск = строка в <code>project_resource_leveling_run</code> + строка на изменённую задачу (<code>…_task</code>, до и после). Clear leveling убирает задержки; Undo run восстанавливает значения «до».</td><td>WP3, WP7</td></tr>
+  <tr><td class="id">BN8</td><td>У запуска есть область: проект · даты · ресурсы · задачи. Задачи вне области – неподвижные препятствия, как чужая нагрузка.</td><td>WP5, WP7</td></tr>
+  <tr><td class="id">BN9</td><td>Один RPC возвращает ёмкость по дням и <b>проведённые часы других проектов</b> (без названий, как в проверке занятости). Опция <code>resourceLevelingIncludeOtherProjects</code> (по умолчанию вкл.). Их не двигают никогда (Q8 = приоритета между проектами нет).</td><td>WP3, WP4</td></tr>
+  <tr><td class="id">BN10</td><td>Опция <code>resourceLevelingPostedTasksMovementEnabled</code> (по умолчанию true) делает проведённые задачи кандидатами; <code>resourceLevelingPostedTasksAction</code> (по умолчанию <code>ask</code>) решает, что происходит: <code>PMResourceLevelingPostedTasksDialog</code> перечисляет задачи и предлагает <b>Unpost and move</b> · <b>Move and post again</b> (только если они проводятся без конфликтов, иначе не сдвигаются) · <b>Keep their dates</b>. Automatic двигает только непроведённые задачи и показывает «N posted tasks wait for your decision». Всегда заморожены: progress &gt; 0, начало раньше сегодняшнего дня, завершённые, проведённый ввод факта, проведённый платёжный факт по её плану платежей.</td><td>WP1, WP5, WP7, WP10</td></tr>
+  <tr><td class="id">BN11</td><td>Ёмкость только из SQL-календарей (PART 21); день с неизвестной ёмкостью – сообщаемый конфликт, не угадывается.</td><td>WP3, WP4</td></tr>
+  <tr><td class="id">BN12</td><td>Визуальные компоненты раздела 9, все в единице <code>resourceGrainUnit</code>.</td><td>WP8, WP9</td></tr>
+  <tr><td class="id">BN13</td><td><b>Код причины</b> на сдвинутую задачу (<code>priorityYield</code>, <code>slackYield</code>, <code>laterStartYield</code>, <code>idYield</code>) с ресурсом и первым днём конфликта; код на нерешённый конфликт (<code>frozenPosted</code>, <code>frozenStarted</code>, <code>priority1000</code>, <code>constraintHonored</code>, <code>manualTask</code>, <code>slackLimit</code>, <code>noCapacityInHorizon</code>, <code>capacityUnknown</code>, <code>foreignLoad</code>). Словами в предпросмотре, списке конфликтов и разделе задачи.</td><td>WP5, WP7</td></tr>
+  <tr><td class="id">BN14</td><td><b>Fast mode</b> (7.6): правка на месте на экране, в форме, удобной для UX: перетащить полосу, ввести часы в таблице использования, перетащить задачу на строку другого ресурса, исправления в один щелчок, живая перегрузка при перетаскивании, мгновенный ответ из памяти, один шаг Undo на действие.</td><td>WP11</td></tr>
+  <tr><td class="id">BN15</td><td>Массивы ресурс × день, только перегруженные ресурсы, инкрементальный движок в Fast mode, один RPC записи; измеренный бюджет (7.6) и бенчмарк.</td><td>WP1, WP5, WP11, WP14</td></tr>
+  <tr><td class="id">BN16</td><td>Тест на совпадение: для сгенерированных планов детектор TypeScript и <code>organization_resource_busy_check</code> (Docker) дают одни конфликты; после оптимизации проверка не возвращает строк, если конфликт не сообщён как нерешённый.</td><td>WP4, WP14</td></tr>
+  <tr><td class="id">BN17</td><td>Раздел 7.8 – по правилу на каждую функцию Ганта; изменение планировщика – один вход (задержка), читаемый там же, где читаются lag.</td><td>WP6</td></tr>
+  <tr><td class="id">BN18</td><td>Таблицы запусков + <code>PMResourceLevelingRunHistory</code>.</td><td>WP3, WP7</td></tr>
+  <tr><td class="id">BN19</td><td>Версия хранит задержку вместе с датами (<code>scheduleVersion</code>); <code>task_template_clean_task</code> убирает <code>taskLevelingDelayDays</code> и разрывы, сделанные выравниванием; копия проекта их сохраняет.</td><td>WP12</td></tr>
+  <tr><td class="id">BN20</td><td>Каждый видимый текст через <code>pmT</code>; 14 словарей дополняются в том же раунде; тест Jest падает при отсутствии ключа; проверяется RTL (раздел 12).</td><td>WP13</td></tr>
+  <tr><td class="id">BN21</td><td>Главный переключатель по умолчанию выкл. (не сохранён = выкл.: TS <code>=== true</code>, SQL <code>vendor_project_setting_on</code>); умолчания в организации, как <code>defaultProjectSettings</code>; при выключенном ключе путь кода функции не выполняется.</td><td>WP2</td></tr>
+  <tr><td class="id">BN22</td><td><code>resourceGrainUnit</code> (по умолчанию hour): все величины в часах; период сравнения и ограничения на сегодняшних данных – в 7.9; настоящая модель часов суток – отдельная фаза 2 (WP15).</td><td>WP2, WP4, WP15</td></tr>
 </table>
 </div>
 
-<h2>7. Предлагаемый проект (нужно подтвердить)</h2>
+<h2>7. Предлагаемый проект</h2>
 
-<h3>7.1 Настройки (R9, R10, R11)</h3>
-<p>Настройки проекта → новая вкладка <b>Resource leveling</b> (после ROI), а также Organization edit → Projects → Settings (значения по умолчанию для новых проектов). Ключи в <code>project_table.rowJSON</code>; каждый выключен / имеет значение по умолчанию, пока не сохранён. Подпереключатели доступны для изменения только при включённом главном, как переключатели Time-costs.</p>
+<h3>7.1 Настройки (R9, R10, R11, R12, R13)</h3>
+<p>Настройки проекта → вкладка <b>«Resources»</b> (после ROI), а также Organization edit → Projects → Settings (умолчания для новых проектов). У вкладки две части: сверху общие настройки ресурсов (<code>resourceGrainUnit</code>); ниже раздел с заголовком <b>«Resource optimization»</b> со всем остальным. Ключи в <code>project_table.rowJSON</code>; каждый выключен / по умолчанию, пока не сохранён; подпереключатели доступны только при включённом главном.</p>
 <div class="tbl">
 <table>
   <tr><th>Ключ</th><th>Тип, по умолчанию</th><th>Значение</th><th>Требует</th></tr>
+  <tr class="group"><td colspan="4">Часть «Resources»</td></tr>
+  <tr><td><code>resourceOptimizationMode</code></td><td><code>'dayByDayModel'</code> | <code>'hourByHourModel'</code>, <b>dayByDayModel</b></td><td>R16: модель планирования. <code>dayByDayModel</code> = приложение работает как сейчас (7.9). <code>hourByHourModel</code> = модель времени суток (7.10); показывается неактивной с пометкой «phase 2», пока не построена. Редактируется и при выключенном главном.</td><td>—</td></tr>
+  <tr><td><code>resourceGrainUnit</code></td><td><code>'hour'</code> | <code>'day'</code> | <code>'week'</code>, <b>hour</b></td><td>R13, D22: единица и период нагрузки ресурсов (7.9). Общий для всех экранов ресурсов, не только оптимизации; редактируется и при выключенном главном.</td><td>—</td></tr>
+  <tr class="group"><td colspan="4">Раздел «Resource optimization»</td></tr>
   <tr><td><code>resourceLevelingFunctionalityEnabled</code></td><td>boolean, <b>false</b></td><td>ГЛАВНЫЙ. Выкл. = функции для этого проекта не существует.</td><td>—</td></tr>
-  <tr><td><code>resourceLevelingMode</code></td><td><code>'manual'</code> | <code>'automatic'</code>, <b>manual</b></td><td>R9: два способа. Показывается как выбор из двух под главным переключателем.</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingFunctionalityFastModeEnabled</code></td><td>boolean, false</td><td>R11: поведение in-line / on-line (7.6).</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingGrain</code></td><td><code>'day'</code> | <code>'week'</code>, day</td><td>D22: сравнивать нагрузку с ёмкостью по дням или по неделям.</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingMode</code></td><td><code>'manual'</code> | <code>'automatic'</code>, <b>manual</b></td><td>R9: два способа (выбор из двух под главным переключателем).</td><td>главный</td></tr>
+  <tr><td>Метод (представление <code>resourceLevelingWithinSlackOnly</code>)</td><td><b>Leveling</b> = false (по умолчанию) | <b>Smoothing</b> = true</td><td>Метод PMBOK. Окно Level Resources показывает тот же ключ текстом MS Project «Level only within available slack».</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingFunctionalityFastModeEnabled</code></td><td>boolean, false</td><td>R11: экранные варианты изменения данных на месте (7.6).</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingPostedTasksMovementEnabled</code></td><td>boolean, <b>true</b></td><td>R12: проведённые задачи – кандидаты на сдвиг. False = проведённые задачи заморожены (то же, что действие <code>keep</code>).</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingPostedTasksAction</code></td><td><code>ask</code> | <code>unpostAndMove</code> | <code>moveAndPostAgain</code> | <code>keep</code>, <b>ask</b></td><td>Что делать с проведённой задачей, которую нужно сдвинуть (7.7). <code>ask</code> = диалог каждый раз; остальные запоминают ответ.</td><td>главный + опция выше</td></tr>
   <tr><td><code>resourceLevelingOrder</code></td><td><code>idOnly</code> | <code>standard</code> | <code>priorityStandard</code>, standard</td><td>D25.</td><td>главный (приоритет: A15)</td></tr>
   <tr><td><code>resourceLevelingClearBeforeLeveling</code></td><td>boolean, true</td><td>D23. В Automatic принудительно включено.</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingWithinSlackOnly</code></td><td>boolean, false</td><td>D26.</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingCanSplit</code></td><td>boolean, false</td><td>D27: движок может создавать разрывы (флаг задачи <code>taskLevelingCanSplit</code>, по умолчанию да).</td><td>главный + A12 <code>ganttSplitTasksEnabled</code></td></tr>
+  <tr><td><code>resourceLevelingCanSplit</code></td><td>boolean, false</td><td>D27 (флаг задачи <code>taskLevelingCanSplit</code>, по умолчанию да).</td><td>главный + A12</td></tr>
   <tr><td><code>resourceLevelingManualTasks</code></td><td>boolean, false</td><td>D29.</td><td>главный + A1</td></tr>
-  <tr><td><code>resourceLevelingIncludeOtherProjects</code></td><td>boolean, true</td><td>BN9: проведённые часы других проектов организации – препятствия.</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingMovePostedTasks</code></td><td>boolean, false</td><td>BN10: проведённые задачи можно двигать (режим Manual, после именованного предпросмотра).</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingIncludeOtherProjects</code></td><td>boolean, true</td><td>BN9.</td><td>главный</td></tr>
   <tr><td><code>resourceLevelingShowDelayBar</code></td><td>boolean, true</td><td>Рисовать полосу задержки (D33).</td><td>главный</td></tr>
   <tr><td><code>resourceLevelingShowOverallocation</code></td><td>boolean, true</td><td>Индикатор в дереве и на диаграмме (D35).</td><td>главный</td></tr>
-  <tr><td><code>resourceLevelingKeepHistory</code></td><td>boolean, true</td><td>Писать таблицы запусков (BN18). Выкл. = только значения задач, без Undo запуска.</td><td>главный</td></tr>
+  <tr><td><code>resourceLevelingKeepHistory</code></td><td>boolean, true</td><td>Писать таблицы запусков (BN18). Выкл. = нет Undo запуска.</td><td>главный</td></tr>
 </table>
 </div>
-<p>Чистый модуль <code>resourceLevelingSettings.ts</code>: <code>resourceLevelingValuesOf(json)</code> (нормализует, применяет <i>Требует</i>), как <code>roiValuesOf</code>. Новый ключ нужно добавить в функции <code>normalize…</code> проекта / организации, иначе форма редактирования теряет его при сохранении (ловушка из раздела 7 KNOW_HOW).</p>
+<p>Чистый модуль <code>resourceLevelingSettings.ts</code>: <code>resourceLevelingValuesOf(json)</code> (нормализует, применяет <i>Требует</i>), как <code>roiValuesOf</code>. Новый ключ нужно добавить в функции <code>normalize…</code> проекта / организации, иначе форма редактирования теряет его при сохранении (ловушка KNOW_HOW). Заголовок вкладки «Resources» и раздела «Resource optimization» проходят через <code>pmT</code>.</p>
 
 <h3>7.2 Модель: спрос, ёмкость, чужая нагрузка</h3>
 <ul>
-  <li><b>Ключ ресурса</b> = вид + GUID (person, equipment, workCenter) – тот же ключ, что в <code>resource_occupancy_x_movement</code>. Рабочий центр-партнёр – тоже ресурс.</li>
-  <li><b>Спрос</b> D[ресурс][день] = сумма по строкам времени задач проекта (в единице «часы») значений <code>часы × коэффициент(день)</code>, где коэффициенты – из <code>calculateTaskLinePlan</code> (распределение по <b>активным дням календаря</b> между началом и концом задачи). Считается из строк, поэтому непроведённые строки учитываются. Строка в днях или штуках игнорируется (как в представлении занятости).</li>
-  <li><b>Ёмкость</b> C[ресурс][день] из SQL (<code>organization_resource_capacity</code>); null = неизвестна.</li>
-  <li><b>Чужая нагрузка</b> F[ресурс][день] = проведённые часы других проектов организации (представление занятости без этого проекта). Неподвижна.</li>
-  <li><b>Перегрузка</b> = D + F &gt; C (строго); при grain <code>week</code>: суммы недели. Неизвестная ёмкость = конфликт, который нельзя решить сдвигом задачи внутри известных дней.</li>
-  <li><b>Горизонт</b>: последний день, для которого у календаря есть строки (задержка никогда не выходит за него: <code>noCapacityInHorizon</code>).</li>
+  <li><b>Ключ ресурса</b> = вид + GUID (person, equipment, workCenter) – как в <code>resource_occupancy_x_movement</code>. Рабочий центр-партнёр – тоже ресурс.</li>
+  <li><b>Спрос</b> D[ресурс][день] = сумма по строкам времени (единица «часы») значений <code>часы × коэффициент(день)</code> с коэффициентами <code>calculateTaskLinePlan</code> (распределение по <b>активным дням календаря</b> между началом и концом задачи). Считается из строк: непроведённые строки учитываются. Строки в днях или штуках игнорируются.</li>
+  <li><b>Ёмкость</b> C[ресурс][день] из SQL (<code>organization_resource_capacity</code>, часы); null = неизвестна.</li>
+  <li><b>Чужая нагрузка</b> F[ресурс][день] = проведённые часы других проектов организации. Неподвижна.</li>
+  <li><b>Перегрузка</b> = D + F &gt; C (строго), в периоде <code>resourceGrainUnit</code> (7.9). Неизвестная ёмкость = конфликт, который сдвиг не решает внутри известных дней.</li>
+  <li><b>Горизонт</b>: последний день, для которого у календаря есть строки (<code>noCapacityInHorizon</code>).</li>
 </ul>
 
-<h3>7.3 Алгоритм выравнивания (идея, без кода)</h3>
+<h3>7.3 Алгоритм (идея, без кода)</h3>
 <div class="flow">1. S0  = scheduleProject(план, где все задержки выравнивания сброшены)        невыровненный план
 2. D   = спрос(S0), C, F                                                        7.2
-3. для каждого дня t по возрастанию, для каждого ресурса r, где D[r][t] + F[r][t] > C[r][t]:
-     претенденты = задачи, активные в день t, использующие r
+3. для каждого периода t по возрастанию, для каждого ресурса r, где D[r][t] + F[r][t] > C[r][t]:
+     претенденты = задачи, активные в t, использующие r
      fixed       = замороженные / приоритет 1000 / ограничение соблюдается / ручные (если не разрешено) / вне области
      оставляем задачи (сначала fixed, затем по порядку выравнивания), пока часы помещаются; остальные "уступают"
      первая уступающая задача X задерживается до первого рабочего дня, где помещаются все её ресурсы
-         (или, если можно разрывать: в день t вставляется пауза, и она продолжается, когда у r есть место)
-         предел: общий запас (опция «только в пределах запаса»), горизонт
+         (или, если можно разрывать: в t вставляется пауза, и она продолжается, когда у r есть место)
+         предел: общий запас (Метод Smoothing), горизонт
      если X сдвинуть нельзя: записать нерешённый конфликт с кодом причины
 4. S1  = scheduleProject(план с новыми задержками)        преемники, этапы, критический путь, окончание следуют
 5. повтор с шага 2 только для изменившихся ресурсов и дней, пока не будет новых сдвигов
    (каждый сдвиг увеличивает задержку или добавляет паузу: цикл конечен; страховочный счётчик останавливает запуск и сообщает об этом)
 6. результат = по задачам: задержка, разрывы, причина; по ресурсам: конфликты до / после; окончание проекта до / после</div>
-<p><b>Порядок выравнивания</b> (какая задача конфликта уступает первой): <code>idOnly</code> – задача с большим номером строки; <code>standard</code> – сначала больший общий запас, затем более позднее раннее начало, затем больший номер строки; <code>priorityStandard</code> – сначала меньший приоритет, затем стандартный порядок. Приоритет 1000 не уступает никогда. Детерминированно: один и тот же план даёт один и тот же результат.</p>
-<p><b>Заморожено</b> (не двигается, но остаётся нагрузкой): проведённая задача (если не включён <code>resourceLevelingMovePostedTasks</code>), progress &gt; 0, начало раньше сегодняшнего дня, завершённая, неактивная, веха, этап (суммарная строка), исходная задача подпроекта, задача с ограничением Must Start On / Must Finish On или с «всегда соблюдать» ограничениями, ручная задача (если не включён <code>resourceLevelingManualTasks</code>), приоритет 1000, задача вне области запуска.</p>
-<p><b>Намеренно не делается</b>: движок никогда не меняет часы, единицы, тип задачи, ресурсы строк или длительность. Он только задерживает или разрывает.</p>
+<p><b>Порядок выравнивания</b>: <code>idOnly</code> – уступает задача с большим номером строки; <code>standard</code> – сначала больший общий запас, затем более позднее раннее начало, затем больший номер строки; <code>priorityStandard</code> – сначала меньший приоритет, затем стандартный. Приоритет 1000 не уступает никогда. Детерминированно: один план – один результат.</p>
+<p><b>Заморожено</b> (не двигается, но остаётся нагрузкой): progress &gt; 0, начало раньше сегодняшнего дня, завершённая, проведённый ввод факта (использованные часы), проведённый платёжный факт по её плану платежей, неактивная, веха, этап, исходная задача подпроекта, ограничения Must Start On / Must Finish On или «всегда соблюдать», ручная задача (если не включён <code>resourceLevelingManualTasks</code>), приоритет 1000, задача вне области запуска; а также <b>проведённая</b> задача, если пользователь не выбрал её сдвиг (7.7).</p>
+<p><b>Намеренно не делается</b>: движок никогда не меняет часы, единицы, тип задачи, ресурсы строк или длительность. Он только задерживает или разрывает. (Пользователь может изменить их на месте в Fast mode, 7.6.)</p>
 
 <h3>7.4 Где живёт результат</h3>
 <ul>
-  <li><b>На задаче</b> (<code>project_task_table.rowJSON</code>): <code>taskLevelingDelayDays</code> (число ≥ 0, отсутствует = 0) и <code>taskLevelingCanSplit</code> (boolean, по умолчанию true; приоритет – существующий <code>taskPriority</code>). Разрывы, сделанные выравниванием, пишутся в существующий <code>taskSplits</code> с пометкой, чтобы «Clear leveling» убирал только их (<code>taskSplitsByLeveling</code>).</li>
-  <li><b>Планировщик</b> читает задержку как lag: начало = max(начало по связям, ограничения) + задержка в календаре задачи (ручная задача: только когда разрешено). Подпись A2 (<code>calcSignature.ts</code>) включает её, поэтому расчёт Manual видит изменённую задержку как ожидающую правку.</li>
-  <li><b>История</b>: таблицы раздела 8.</li>
+  <li><b>На задаче</b> (<code>project_task_table.rowJSON</code>): <code>taskLevelingDelayDays</code> (≥ 0, рабочие дни; отсутствует = 0) и <code>taskLevelingCanSplit</code> (по умолчанию true; приоритет = <code>taskPriority</code>). Разрывы выравнивания пишутся в <code>taskSplits</code> с пометкой (<code>taskSplitsByLeveling</code>), чтобы Clear leveling убирал только их.</li>
+  <li><b>Планировщик</b> читает задержку как lag: начало = max(связи, ограничения) + задержка в календаре задачи. Подпись A2 (<code>calcSignature.ts</code>) её включает.</li>
+  <li><b>История</b>: раздел 8.</li>
 </ul>
 
 <h3>7.5 Automatic и Manual</h3>
 <div class="tbl">
 <table>
   <tr><th></th><th>Manual (по умолчанию)</th><th>Automatic</th></tr>
-  <tr><td>Когда</td><td>Пользователь нажимает <b>Level now</b> / <b>Level selected</b> / <b>Clear leveling</b>.</td><td>После каждого изменения входа планировщика или спроса: длительность, связь, начало, строка времени (ресурс, часы, распределение), приоритет, календарь, изменение календаря ресурса. Определяется сравнением подписи входов (как делает A2); изменение самого результата выравнивания входом не является (нет цикла).</td></tr>
-  <tr><td>Предпросмотр</td><td>Всегда (004): сдвинутые задачи, даты до/после, окончание, нерешённые конфликты, задачи, у которых снимется проведение. Apply / Cancel.</td><td>Для обычных сдвигов нет. Сдвиг проведённой задачи в Automatic не делается никогда (заморожена). Toast показывает «Leveled: N tasks moved» с Undo.</td></tr>
-  <tr><td>Очистка перед</td><td>Опция.</td><td>Всегда (план выравнивается заново с невыровненного, поэтому устранённый конфликт возвращает даты).</td></tr>
-  <tr><td>С расчётом Manual (A2)</td><td>Level now сначала считает (как Post), затем выравнивает.</td><td>Выравнивание идёт за командой <b>Calculate (F9)</b>: оно часть этой команды; пока есть ожидающие правки, автоматического запуска нет.</td></tr>
+  <tr><td>Когда</td><td>Пользователь нажимает <b>Level now</b> / <b>Level selected</b> / <b>Clear leveling</b>.</td><td>После каждого изменения входа планировщика или спроса (длительность, связь, начало, строка времени, приоритет, календарь). Определяется сравнением подписи входов (как A2); сам результат выравнивания входом не является (нет цикла).</td></tr>
+  <tr><td>Предпросмотр</td><td>Всегда (<code>PMResourceLevelingPreviewWindow</code>): сдвинутые задачи, до/после, окончание, нерешённые конфликты. Проведённые задачи, которые нужно сдвинуть: сначала вопрос из 7.7. Apply / Cancel.</td><td>Для непроведённых задач нет. Toast: «Optimized: N tasks moved» с Undo. Проведённые задачи остаются на месте, а чип состояния говорит «N posted tasks wait for your decision».</td></tr>
+  <tr><td>Проведённые задачи</td><td>Диалог из 7.7 (или запомненное действие).</td><td>Без ответа не двигаются никогда; чип открывает диалог; запомненное действие применяется молча и называется в toast.</td></tr>
+  <tr><td>Очистка перед</td><td>Опция.</td><td>Всегда.</td></tr>
+  <tr><td>С расчётом Manual (A2)</td><td>Level now сначала считает, затем оптимизирует.</td><td>Идёт за <b>Calculate (F9)</b>; пока есть ожидающие правки, запуска нет.</td></tr>
   <tr><td>Запись</td><td>Один RPC <code>project_resource_leveling_apply</code>, затем обычная запись расписания.</td><td>Тот же RPC, с отложением как у записи расписания (800 мс); только задачи, у которых задержка изменилась.</td></tr>
 </table>
 </div>
 
-<h3>7.6 Fast mode (R11) – толкование нужно подтвердить (Q2)</h3>
-<p>«Most online and in-line user action patterns needed» понимается так: выравнивание отвечает на действия пользователя <b>на экране, сразу, без диалога и без ожидания сервера</b>. Переключатель <code>resourceLevelingFunctionalityFastModeEnabled</code> (нужен главный). Что он меняет:</p>
+<h3>7.6 Fast mode (R11) – решено: варианты изменения данных на месте, самая удобная версия UX/UI</h3>
+<p>Переключатель <code>resourceLevelingFunctionalityFastModeEnabled</code> (нужен главный). Fast mode – набор <b>экранных вариантов, меняющих данные на месте</b>; где возможны два пути, строится тот, что удобнее на экране (сначала прямое манипулирование, меню как запасной путь, крупные области касания, без диалога для обычного действия, мгновенный ответ из памяти, один шаг Undo на действие). Сам движок часы и ресурсы не меняет: меняет только явное действие пользователя.</p>
 <div class="tbl">
 <table>
-  <tr><th>Шаблон</th><th>Обычный режим</th><th>Fast mode</th></tr>
-  <tr><td>Движок</td><td>Полный запуск по области; итерации, пока остаются сдвиги; отчёт.</td><td><b>Инкрементальный</b>: только ресурсы и дни, которые изменила правка; один жадный проход от изменённого дня вперёд; полный запуск остаётся доступным кнопкой.</td></tr>
-  <tr><td>Перетащить полосу / изменить длительность</td><td>Перегрузка показывается после отпускания.</td><td>Во время перетаскивания «призрачная» перегрузка затронутых ресурсов рисуется вживую (индикатор 006, график 009); при отпускании результат выравнивания соседей показывается сразу.</td></tr>
-  <tr><td>Изменить часы строки времени, сменить ресурс</td><td>Индикатор обновляется после записи.</td><td>Индикатор и график обновляются при каждом нажатии клавиши (из спроса в памяти).</td></tr>
-  <tr><td>Один конфликт</td><td>Выровнять проект или ресурс.</td><td><b>Меню исправления на месте</b> на индикаторе (012): «Delay this task to the next free day», «Split here», «Delay the other task», «Raise priority of this task», «Ignore this conflict».</td></tr>
-  <tr><td>Данные</td><td>Ёмкость и чужая нагрузка загружаются при старте запуска.</td><td>Загружаются один раз при открытии проекта и обновляются через Realtime (календарь ресурса и проведённые строки организации); во время правки запросов нет.</td></tr>
-  <tr><td>Запись</td><td>При Apply.</td><td>С отложением (800 мс), только изменённые задачи; один шаг Undo на действие пользователя.</td></tr>
-  <tr><td>Бюджет (измерить, WP1)</td><td>Запуск на 2 000 задач: секунды допустимы.</td><td>Правка: p95 &lt; 50 мс для движка на 2 000 задач; кадр при перетаскивании &lt; 16 мс для индикатора.</td></tr>
+  <tr><th>Шаблон</th><th>Обычный режим</th><th>Fast mode (на месте)</th></tr>
+  <tr><td>Движок</td><td>Полный запуск по области; отчёт.</td><td><b>Инкрементальный</b>: только ресурсы и периоды, которые изменила правка; один жадный проход вперёд; полный запуск остаётся кнопкой.</td></tr>
+  <tr><td>Перетащить полосу задачи</td><td>Перегрузка показывается после отпускания.</td><td>Перегрузка затронутых ресурсов рисуется <b>вживую при перетаскивании</b> (отметка, график Load); отпускание пишет начало (как сегодня) и сразу показывает эффект на соседей.</td></tr>
+  <tr><td>Часы</td><td>Правка строки времени в окне задачи.</td><td><b>Ввод часов в ячейке таблицы Usage</b> (<code>PMResourceLevelingUsageGrid</code>): ячейка пишет часы строки времени (строка выбирается тем же щелчком, если в ячейке сумма нескольких); график отвечает на каждое нажатие клавиши.</td></tr>
+  <tr><td>Ресурс</td><td>Смена ресурса в окне задачи.</td><td><b>Перетащить чип задачи на строку другого ресурса</b> таблицы Usage (или «Use another work center…» в меню быстрого исправления): строка времени получает новый рабочий центр; правила строки (роль, контракт) проверяются, отказ показывается на месте.</td></tr>
+  <tr><td>Один конфликт</td><td>Выровнять проект или ресурс.</td><td><b>Меню быстрого исправления</b> на отметке (<code>PMResourceLevelingQuickFixMenu</code>): Delay to the next free day · Delay by N working days (вводится) · Split here · Delay the other task · Priority up / down (числовое поле) · Do not level this task (приоритет 1000) · Use another work center · Ignore this conflict.</td></tr>
+  <tr><td>Данные</td><td>Ёмкость и чужая нагрузка загружаются при старте запуска.</td><td>Загружаются один раз при открытии проекта, обновляются через Realtime (календари, проведённые строки организации); во время правки запросов нет.</td></tr>
+  <tr><td>Запись</td><td>При Apply.</td><td>С отложением (800 мс), только изменённые строки; один шаг Undo / Redo на действие пользователя; клавиатура: стрелки двигают ячейку, Enter пишет, Esc отменяет.</td></tr>
+  <tr><td>Бюджет (измерить, WP1)</td><td>Запуск на 2 000 задач: секунды допустимы.</td><td>Правка: p95 &lt; 50 мс для движка на 2 000 задач; кадр при перетаскивании &lt; 16 мс для отметки.</td></tr>
 </table>
 </div>
-<p>Fast mode работает и в Manual, и в Automatic; в режиме Manual он даёт только живой индикатор и исправления на месте (без щелчка ничего не двигается).</p>
+<p>Fast mode работает с Manual и Automatic. С Manual он добавляет живую отметку и действия на месте; без щелчка ничего не двигается. Каждое действие на месте, меняющее проведённую задачу, сообщает о потере её проведения в том же toast.</p>
 
-<h3>7.7 Проведение и факты</h3>
+<h3>7.7 Проведение и факты – проведённая задача никогда не теряет проведение молча</h3>
 <ul>
-  <li>Сдвинутая дата снимает проведение строк и платежей этой задачи (существующие триггеры). Поэтому Automatic никогда не двигает проведённую задачу; Manual с <code>resourceLevelingMovePostedTasks</code> перечисляет в предпросмотре задачи, у которых будет снято проведение, и спрашивает.</li>
-  <li>Задачи с проведённым фактом / счётом (в регистре есть строки <code>used</code> / <code>invoiced</code>) заморожены независимо от переключателя.</li>
-  <li>После запуска планировщик нажимает <b>Post unposted tasks</b> (Actions проекта), как после любого изменения дат; предпросмотр и toast об этом говорят. Итоги стоимости и Monitor01 идут обычным путём. Сдвиг меняет ставку и курс по дням (контракты и ставки – по дате): суммы строк времени могут измениться; пользователь нажимает Recalculate, как после любого изменения дат.</li>
-  <li>При Post проверка занятости (<code>capacityModeWarn</code> / <code>Block</code>) остаётся как есть.</li>
+  <li>Сдвинутый день начала / окончания снимает проведение строк и платежей этой задачи (существующие триггеры). Поэтому оптимизация <b>никогда не двигает проведённую задачу, не спросив</b>. Когда запуску нужно сдвинуть проведённые задачи, <code>PMResourceLevelingPostedTasksDialog</code> перечисляет их и предлагает три выбора:
+    <ol>
+      <li><b>Unpost and move</b> – указанные задачи теряют проведение (строки и платежи) и сдвигаются; они остаются непроведёнными до Post (в результате предлагается пункт «Post unposted tasks» из Actions проекта).</li>
+      <li><b>Move and post again</b> – задачи сдвигаются и в том же шаге проводятся приложением заново обычным Post (расчёт, проверка занятости). Только если новый план проводится <b>без конфликтов</b>: задача, которую нельзя провести чисто, <b>не сдвигается</b>, и результат говорит почему. Ничего не остаётся недоделанным.</li>
+      <li><b>Keep their dates</b> – проведённые задачи не двигаются; они остаются нагрузкой, а вызываемый ими конфликт перечислен как нерешённый с кодом <code>frozenPosted</code>.</li>
+    </ol></li>
+  <li><code>resourceLevelingPostedTasksAction</code> = <code>ask</code> (по умолчанию) спрашивает каждый раз; <code>unpostAndMove</code> / <code>moveAndPostAgain</code> / <code>keep</code> применяют запомненный ответ (называется в результате). <code>resourceLevelingPostedTasksMovementEnabled</code> = false – то же, что <code>keep</code>.</li>
+  <li><b>Automatic</b> тоже спрашивает, но не прерывая работу: он двигает только непроведённые задачи, проведённые оставляет на месте, а чип состояния показывает «N posted tasks wait for your decision»; щелчок открывает диалог.</li>
+  <li>Не двигаются никогда, каким бы ни был ответ: начатые задачи, завершённые задачи, задачи с проведённым вводом факта, задачи, у плана платежей которых есть проведённый платёжный факт (план без проведения под проведённым фактом сломал бы Paid / Open плана платежей – проверяется в WP1.3).</li>
+  <li>Undo запуска возвращает даты; вопрос задаётся снова для задач, которые были проведены заново.</li>
+  <li>Сдвиг дат меняет ставку контракта и курс по дням: суммы строк времени могут измениться; пользователь нажимает Recalculate, как после любого изменения дат.</li>
+  <li>При Post проверка занятости остаётся как есть.</li>
 </ul>
 
 <h3>7.8 Взаимодействие с остальными функциями Ганта</h3>
@@ -302,111 +347,146 @@
   <tr><th>Функция</th><th>Правило</th></tr>
   <tr><td>A1 ручные задачи</td><td>Не двигаются, пока не включён <code>resourceLevelingManualTasks</code>; тогда ручное начало сдвигается на задержку.</td></tr>
   <tr><td>A2 расчёт Manual</td><td>7.5.</td></tr>
-  <tr><td>A3 ограничения</td><td>SNET / FNET – минимумы: задержка допустима. SNLT / FNLT: задержка за дату отклоняется (сообщается), если не выключена опция «ограничения всегда соблюдаются». MSO / MFO: не двигаются никогда.</td></tr>
-  <tr><td>A4 планирование от конца проекта</td><td>Задачи ставятся как можно позже, поэтому уступающая задача должна двигаться <i>раньше</i>, а не позже; задержка была бы опережением с поздней стороны. Правило ещё не спроектировано: WP6 либо делает его согласованным, либо движок отказывается выравнивать такой проект с сообщением (вопрос Q5).</td></tr>
+  <tr><td>A3 ограничения</td><td>SNET / FNET – минимумы: задержка допустима. SNLT / FNLT: задержка за дату отклоняется (сообщается), если не выключено «ограничения всегда соблюдаются». MSO / MFO: не двигаются никогда.</td></tr>
+  <tr><td>A4 планирование от конца проекта</td><td><b>Решено (Q5, максимально удобно для пользователя): работает, зеркально; ничего не отклоняется.</b> Дата окончания – якорь; обход дней идёт от конца назад, а уступающая задача двигается <b>раньше</b> (тот же ключ <code>taskLevelingDelayDays</code> означает «рабочих дней от якоря»). Начало проекта – результат и может сдвинуться раньше: предпросмотр показывает «Project start: 3 Mar → 24 Feb» и предупреждает, если оно оказывается раньше сегодняшнего дня. Метод Smoothing: задача может двигаться раньше только в пределах своего запаса (до раннего начала). В таком проекте заголовок колонки читается «Leveling delay (earlier)».</td></tr>
   <tr><td>A5 крайний срок</td><td>Не препятствие; сорванный срок отмечается в предпросмотре.</td></tr>
-  <tr><td>A10 / A11 календари</td><td>Задержка считается в рабочих днях календаря задачи; дни спроса – активные дни этого календаря.</td></tr>
+  <tr><td>A10 / A11 календари</td><td>Задержка в рабочих днях календаря задачи; дни спроса – активные дни этого календаря.</td></tr>
   <tr><td>A12 разрывы</td><td>Используются для BN5; разрывы пользователя сохраняются, разрывы выравнивания помечены.</td></tr>
-  <tr><td>A14 неактивные</td><td>Не в плане: нет спроса, не двигаются.</td></tr>
-  <tr><td>Подпроекты</td><td>Подпроект – другой проект: его задачи – чужая нагрузка для запуска исходного проекта; исходная задача не двигается никогда (она следует датам подпроекта).</td></tr>
+  <tr><td>A14 неактивные</td><td>Нет спроса, не двигаются.</td></tr>
+  <tr><td>Подпроекты</td><td>Задачи подпроекта – чужая нагрузка для исходного проекта; исходная задача не двигается никогда.</td></tr>
   <tr><td>Версии, шаблоны</td><td>Версия хранит задержку вместе с датами; шаблон её отбрасывает.</td></tr>
-  <tr><td>Kanban</td><td>Без влияния.</td></tr>
 </table>
 </div>
 
+<h3>7.9 Зерно: <code>resourceGrainUnit</code> = hour по умолчанию (R13)</h3>
+<p>У опции три значения: <b>hour</b> (по умолчанию), <b>day</b>, <b>week</b>. Она задаёт (а) единицу каждой величины и оси экранов ресурсов и (б) период, в котором нагрузка сравнивается с ёмкостью.</p>
+<div class="tbl">
+<table>
+  <tr><th>Значение</th><th>Единица на экране</th><th>Сравниваемый период (v1, сегодняшние данные)</th></tr>
+  <tr><td><b>hour</b> (по умолчанию)</td><td>часы (шаг 0.25), например «11 h on 12 Mar, capacity 8 h»</td><td>один рабочий день – самый мелкий период плана</td></tr>
+  <tr><td>day</td><td>ресурсо-дни (часы ÷ часы ёмкости этого дня)</td><td>один рабочий день</td></tr>
+  <tr><td>week</td><td>часы (или дни)</td><td>сумма недели против недельной ёмкости (более лёгкая проверка, как «week by week» в MS Project)</td></tr>
+</table>
+</div>
+<div class="callout warn"><b>Ограничение, сказанное открыто.</b> В <b>dayByDayModel</b> (приложение как есть) в плане <b>нет времени суток</b>: календарь ресурса даёт часы за день (нет от / до, нет перерывов), Post пишет строку на линию и день, планировщик считает рабочие дни. Поэтому там значения <b>hour</b> и <b>day</b> находят <b>одни и те же конфликты</b> (различаются единицей на экране). Настоящая почасовая оптимизация – это <b>hourByHourModel</b> (раздел 7.10, фаза 2): владелец решил «да, нужна модель времени суток»; она выбирается настройкой <code>resourceOptimizationMode</code>.</div>
+
+<h3>7.10 Модель времени суток: <code>resourceOptimizationMode</code> = <code>hourByHourModel</code> (R16)</h3>
+<p>Одна настройка проекта выбирает модель планирования: <code>dayByDayModel</code> (по умолчанию, приложение работает как сегодня, ничего из нижеследующего не применяется) или <code>hourByHourModel</code>. Решения, принятые из соображений максимального удобства (владелец может их изменить):</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Решение</th><th>Где хранится</th></tr>
+  <tr><td class="id">H1</td><td>Рабочие окна в календаре?</td><td>Да: окна по дням; календарь без них продолжает работать (7.10).</td></tr>
+  <tr><td class="id">H2</td><td>Время начала задачи в течение дня?</td><td>Да: <code>taskStartMinute</code> (7.10).</td></tr>
+  <tr><td class="id">H3</td><td>Длительность в часах?</td><td>Да: <code>taskDurationHours</code> в этой модели (7.10).</td></tr>
+  <tr><td class="id">H4</td><td>Часовые строки в Post?</td><td>Дневные строки остаются; новая таблица <code>task_line_plan_hour_movements</code> (PART 43) (7.10).</td></tr>
+  <tr><td class="id">H5</td><td>Задержка в часах?</td><td>Да, в рабочих минутах (7.10).</td></tr>
+  <tr><td class="id">Q11</td><td>Настройка для модели?</td><td><b>Да:</b> <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (приложение как есть) | <code>hourByHourModel</code>; таблицы, где нужно (7.10, R16).</td></tr>
+</table>
+</div>
+<ul>
+  <li><b>Фазы.</b> 2a: окна, время начала, длительность в часах и почасовой планировщик. 2b: почасовой Post и почасовая проверка занятости. 2c: почасовое выравнивание, ось часов в графике нагрузки и в таблице Usage (время суток вида «13:00–17:00»). Пока 2a не готова, <code>hourByHourModel</code> показывается неактивной с текстом «phase 2».</li>
+  <li><b>Переключение.</b> Проект, переключённый на <code>hourByHourModel</code>, сохраняет свои дни; время начинается с начала дня. Переключение обратно разрешено (время игнорируется, не удаляется); приложение спрашивает перед любым переключением и говорит, что проведённые строки придётся провести заново.</li>
+  <li><b>Сначала проверить (WP15.1):</b> в настройках проекта уже есть единицы плана <code>planDay / planHour / planMinute / planSecond</code> (ввод дат); WP15.1 читает, что они делают сегодня, и переиспользует их, если подходят.</li>
+</ul>
+
 <h2>8. Таблицы (R6)</h2>
-<p>Новая <b>PART 42</b> в <code>start1_sql_tables.sql</code> (таблицы) и <code>start2_sql_code.sql</code> (RLS, RPC), и часть в <code>delete_sql_structure.sql</code>. Пишутся только через RPC (<code>SECURITY DEFINER</code>); у клиента SELECT; RLS по <code>pm_owns_project(project)</code>. Без seed-данных, без воркера, без задания pg_cron.</p>
+<p>Новая <b>PART 42</b> в <code>start1_sql_tables.sql</code> (таблицы) и <code>start2_sql_code.sql</code> (RLS, RPC), и часть в <code>delete_sql_structure.sql</code>. Пишутся только через RPC (<code>SECURITY DEFINER</code>); у клиента SELECT; RLS по <code>pm_owns_project(project)</code>. Без seed, без воркера, без задания pg_cron.</p>
 <div class="tbl">
 <table>
   <tr><th>Таблица</th><th>Одна строка – это</th><th>Основные колонки</th></tr>
-  <tr><td><code>project_resource_leveling_run</code></td><td>одна команда выравнивания (level, clear, undo)</td><td><code>rowGUID</code> · <code>rowProjectGUID</code> · <code>rowOwnerGUID</code> (пользователь) · <code>runKind</code> (level | clear | undo) · <code>runMode</code> (manual | automatic | fast) · <code>runScope</code> (jsonb: project | range | resources | tasks) · <code>runOptions</code> (jsonb-снимок настроек) · счётчики (сдвинуто, разорвано, нерешено, конфликтов до / после) · окончание проекта до / после · <code>undoneByGUID</code> · <code>created_at</code></td></tr>
-  <tr><td><code>project_resource_leveling_task</code></td><td>одна задача, изменённая запуском</td><td><code>rowParentGUID</code> (запуск) · <code>rowTaskGUID</code> · задержка до / после · начало / окончание до / после · разрывы до / после (jsonb) · <code>reasonCode</code> · вид + GUID ресурса первого конфликта · первый день конфликта</td></tr>
-  <tr><td><code>project_resource_leveling_conflict</code></td><td>один перегруженный день ресурса (до или после запуска)</td><td><code>rowParentGUID</code> (запуск) · <code>phase</code> (before | after) · вид + GUID ресурса · день · ёмкость · занято здесь · занято чужими · <code>unresolvedCode</code>. Хранятся только дни конфликтов (немного). Фаза 2.</td></tr>
+  <tr><td><code>project_resource_leveling_run</code></td><td>одна команда (level, clear, undo)</td><td><code>rowGUID</code> · <code>rowProjectGUID</code> · <code>rowOwnerGUID</code> (пользователь) · <code>runKind</code> (level | clear | undo) · <code>runMode</code> (manual | automatic | fast) · <code>runMethod</code> (leveling | smoothing) · <code>runScope</code> (jsonb) · <code>runOptions</code> (jsonb-снимок) · счётчики (сдвинуто, разорвано, снято проведение, нерешено, конфликтов до / после) · окончание до / после · <code>undoneByGUID</code> · <code>created_at</code></td></tr>
+  <tr><td><code>project_resource_leveling_task</code></td><td>одна задача, изменённая запуском</td><td><code>rowParentGUID</code> (запуск) · <code>rowTaskGUID</code> · задержка до / после · начало / окончание до / после · разрывы до / после (jsonb) · <code>wasPosted</code> · <code>reasonCode</code> · вид + GUID ресурса и день первого конфликта</td></tr>
+  <tr><td><code>project_resource_leveling_conflict</code></td><td>один перегруженный период ресурса (до / после запуска)</td><td><code>rowParentGUID</code> (запуск) · <code>phase</code> · вид + GUID ресурса · период · ёмкость · занято здесь · занято чужими · <code>unresolvedCode</code>. Только периоды конфликтов. Фаза 2 работы.</td></tr>
 </table>
 </div>
-<p><b>RPC</b> (имена уточнить при разработке): <code>project_resource_leveling_inputs(project, from, to)</code> – ёмкость и чужая нагрузка по ресурсам и дням, без названий; <code>project_resource_leveling_apply(project, run jsonb)</code> – проверяет владельца, блокирует проект, повторно проверяет, что задачи не менялись с момента чтения плана (штамп версии), пишет задержки и разрывы в задачи, строки запуска, в одной транзакции; <code>project_resource_leveling_clear(project, scope)</code>; <code>project_resource_leveling_undo(run)</code>; <code>project_resource_leveling_runs(project)</code>. Обновление задач использует переключатель bulk (<code>app.task_bulk</code>), чтобы построчные триггеры прогресса отработали один раз в конце (урок шаблонов задач); даты затем пишет обычная запись расписания.</p>
-<p>Триггер на строках задач отклоняет отрицательную задержку и задержку на этапе, вехе или исходной задаче подпроекта. <code>task_template_clean_task</code> убирает новые ключи.</p>
+<p><b>RPC</b> (имена уточнить при разработке): <code>project_resource_leveling_inputs(project, from, to)</code> – ёмкость и чужая нагрузка по ресурсам и дням, без названий; <code>project_resource_leveling_apply(project, run jsonb)</code> – проверяет владельца, блокирует проект, повторно проверяет, что задачи не менялись с момента чтения плана (штамп версии), пишет задержки и разрывы, строки запуска, в одной транзакции; <code>…_clear</code>, <code>…_undo</code>, <code>…_runs</code>. Обновление задач использует <code>app.task_bulk</code>, чтобы построчные триггеры прогресса отработали один раз в конце (урок шаблонов задач); даты пишет обычная запись расписания. Триггер отклоняет отрицательную задержку и задержку на этапе, вехе или исходной задаче подпроекта. <code>task_template_clean_task</code> убирает новые ключи.</p>
 
-<h2>9. Компоненты – <code>PMResourceLeveling</code> + NNN (R7)</h2>
-<p>Папка <code>kit8/pm/resourceleveling/</code>. Видимые компоненты названы, как требуется; невизуальные файлы (чистая модель, движок, хуки, API) сохраняют обычные имена с префиксом <code>resourceLeveling…</code>, поэтому список NNN остаётся списком экранов. Все тексты через <code>pmT</code>; все размеры и цвета из дизайн-системы; каждый компонент работает на web, iOS и Android.</p>
+<h2>9. Компоненты – <code>PMResourceLeveling</code> + <code>ComponentName</code> (R7)</h2>
+<p>Папка <code>kit8/pm/resourceleveling/</code>. Каждый видимый компонент называется <code>PMResourceLeveling</code> и далее <b>текстовое имя</b> того, что он такое. Невизуальные файлы (чистая модель, движок, хуки, API) сохраняют обычные имена с префиксом <code>resourceLeveling…</code>. Все тексты через <code>pmT</code>; размеры и цвета из дизайн-системы; web, iOS, Android.</p>
 <div class="tbl">
 <table>
   <tr><th>Имя</th><th>Что это</th><th>Где подключён</th></tr>
-  <tr><td><code>PMResourceLeveling001</code></td><td>Вкладка настроек проекта <b>Resource leveling</b>: главный переключатель, Automatic / Manual, Fast mode, все подпереключатели с подсказками. Также вкладка умолчаний организации.</td><td>Окно настроек проекта; Organization edit → Projects → Settings</td></tr>
-  <tr><td><code>PMResourceLeveling002</code></td><td>Кнопка <b>Level</b> панели Ганта с меню: Level now · Level selected resources · Level selected tasks · Clear leveling · Undo last run · Options… · Run history. Показывается только при включённом главном.</td><td>Панель Ганта (область <code>PMGanttExtendedButtons</code>)</td></tr>
-  <tr><td><code>PMResourceLeveling003</code></td><td>Окно <b>Level Resources</b> = диалог MS Project: режим, grain, очистка перед, область (проект / даты), порядок, только в пределах запаса, разрывы, ручные задачи, другие проекты, проведённые задачи; кнопки Level now · Clear leveling · Cancel.</td><td>Открывается из 002</td></tr>
-  <tr><td><code>PMResourceLeveling004</code></td><td><b>Предпросмотр и результат</b>: сводка (сдвинуто, разорвано, нерешено, окончание до / после, задачи для снятия проведения), список сдвинутых задач с датами до / после и причиной, Apply / Cancel; в Automatic тот же список как деталь toast.</td><td>Открывается из 003, 002, 012</td></tr>
-  <tr><td><code>PMResourceLeveling005</code></td><td>Список <b>нерешённых конфликтов</b>: ресурс, день, часов сверх, код причины словами, «Open task», «Open resource».</td><td>Внутри 004 и 009</td></tr>
-  <tr><td><code>PMResourceLeveling006</code></td><td><b>Индикатор перегрузки</b>: значок в строке дерева (и отметка на полосе) с подсказкой «Anna Sulg: 11 h on 12 Mar, capacity 8 h»; щелчок открывает 005 для этой задачи.</td><td>Дерево задач; диаграмма Ганта</td></tr>
-  <tr><td><code>PMResourceLeveling007</code></td><td>Колонка дерева <b>Leveling delay</b> (дни; виртуальная колонка как <code>cc_ext_…</code>; сортируется, фильтруется).</td><td>Колонки дерева задач</td></tr>
-  <tr><td><code>PMResourceLeveling008</code></td><td>Слой <b>полосы задержки</b> диаграммы Ганта (тонкая полоса перед задачей на длину задержки; сегменты разрыва выравнивания другого цвета).</td><td>Слои диаграммы Ганта</td></tr>
-  <tr><td><code>PMResourceLeveling009</code></td><td>График <b>Resource Load</b>: на ресурс столбец на день / неделю, линия ёмкости, перегруженная часть красным, чужая нагрузка штриховкой; переключатель до / после.</td><td>Новая кнопка вида на панели Ганта; окно задачи</td></tr>
-  <tr><td><code>PMResourceLeveling010</code></td><td>Таблица <b>Resource Usage</b>: ресурс × период (часы), перегруженные ячейки отмечены, раскрытие ресурса до его задач. Простая сетка (не <code>ReusableTable</code>: колонки – дни).</td><td>Тот же вид, что 009 (вкладка)</td></tr>
-  <tr><td><code>PMResourceLeveling011</code></td><td>Раздел <b>Leveling</b> окна задачи → Advanced: Priority (A15), «Leveling can split», Leveling delay (только чтение), «Why was this task moved», кнопка «Clear leveling of this task».</td><td><code>PMTaskAdvancedTab</code></td></tr>
-  <tr><td><code>PMResourceLeveling012</code></td><td><b>Меню исправления на месте</b> (Fast mode) одного конфликта: Delay to the next free day · Split here · Delay the other task · Raise priority · Ignore this conflict.</td><td>Открывается из 006 и с полос</td></tr>
-  <tr><td><code>PMResourceLeveling013</code></td><td><b>Чип состояния</b>: «Leveling: Manual / Automatic · Fast», число перегруженных ресурсов, «Leveled by a run of 14:32».</td><td>Панель проекта рядом с чипом расчёта</td></tr>
-  <tr><td><code>PMResourceLeveling014</code></td><td><b>История запусков</b>: список запусков (кто, когда, режим, область, счётчики), подробности (изменённые задачи), Undo запуска.</td><td>Открывается из 002</td></tr>
-  <tr><td><code>PMResourceLeveling015</code></td><td>Пункты в существующих меню: Actions проекта (Level now, Clear leveling), меню задачи (Level this task, Clear leveling, Select its resources), меню, связанные с ресурсами; клавиша web (предложение <code>Alt+Shift+L</code>, Ctrl+L принадлежит браузеру).</td><td><code>PMProjectActionsButton</code>, <code>PMTaskRowMenu</code></td></tr>
+  <tr><td><code>PMResourceLevelingSettingsTab</code></td><td>Вкладка настроек проекта с заголовком <b>«Resources»</b>: часть «Resources» (<code>resourceOptimizationMode</code>, <code>resourceGrainUnit</code>) и раздел <b>«Resource optimization»</b> (главный переключатель, Automatic / Manual, Метод, Fast mode, проведённые задачи и действие, все подпереключатели с подсказками). Также вкладка умолчаний организации.</td><td>Окно настроек проекта; Organization edit → Projects → Settings</td></tr>
+  <tr><td><code>PMResourceLevelingBarButton</code></td><td>Кнопка <b>Level</b> панели Ганта с меню под заголовком «Resource optimization»: Level now · Level selected resources · Level selected tasks · Clear leveling · Undo last run · Options… · Run history. Только при включённом главном.</td><td>Панель Ганта</td></tr>
+  <tr><td><code>PMResourceLevelingOptionsWindow</code></td><td>Окно <b>Level Resources</b> = диалог MS Project: режим, Метод, зерно, очистка перед, область, порядок, «Level only within available slack», разрывы, ручные задачи, другие проекты, проведённые задачи; Level now · Clear leveling · Cancel.</td><td>Открывается кнопкой панели</td></tr>
+  <tr><td><code>PMResourceLevelingPreviewWindow</code></td><td><b>Предпросмотр и результат</b>: сводка (сдвинуто, разорвано, снято проведение, нерешено, окончание до / после), сдвинутые задачи с до / после и причиной, задачи, теряющие проведение; Apply / Cancel.</td><td>Открывается из окна опций, кнопки панели, меню быстрого исправления</td></tr>
+  <tr><td><code>PMResourceLevelingPostedTasksDialog</code></td><td><b>Вопрос о проведённых задачах</b> (7.7): список проведённых задач, которые нужно сдвинуть, с тремя выборами <b>Unpost and move</b> · <b>Move and post again</b> · <b>Keep their dates</b> и «Remember my answer».</td><td>Открывается окном предпросмотра и чипом состояния</td></tr>
+  <tr><td><code>PMResourceLevelingConflictsList</code></td><td><b>Нерешённые конфликты</b>: ресурс, период, часов сверх, причина словами, «Open task», «Open resource».</td><td>Внутри окна предпросмотра и графика нагрузки</td></tr>
+  <tr><td><code>PMResourceLevelingOverallocationMark</code></td><td><b>Индикатор перегрузки</b>: значок в строке дерева и отметка на полосе, с подсказкой «Anna Sulg: 11 h on 12 Mar, capacity 8 h»; щелчок открывает список конфликтов (Fast mode: меню быстрого исправления).</td><td>Дерево задач; диаграмма Ганта</td></tr>
+  <tr><td><code>PMResourceLevelingDelayColumn</code></td><td>Колонка дерева <b>Leveling delay</b> (рабочие дни; виртуальная колонка как <code>cc_ext_…</code>).</td><td>Колонки дерева задач</td></tr>
+  <tr><td><code>PMResourceLevelingDelayBar</code></td><td>Слой <b>полосы задержки</b> (тонкая полоса перед задачей; сегменты разрыва выравнивания другим цветом).</td><td>Слои диаграммы Ганта</td></tr>
+  <tr><td><code>PMResourceLevelingLoadGraph</code></td><td>График <b>Resource Load</b> (гистограмма ресурсов PMBOK): на ресурс столбец на период, линия ёмкости, перегруженная часть красная, чужая нагрузка штриховкой; переключатель до / после.</td><td>Кнопка вида на панели Ганта; окно задачи</td></tr>
+  <tr><td><code>PMResourceLevelingUsageGrid</code></td><td>Таблица <b>Resource Usage</b>: ресурс × период в единице зерна, перегруженные ячейки отмечены, раскрытие ресурса до задач; Fast mode: ввод часов в ячейке, перетаскивание чипа задачи на строку другого ресурса. Простая сетка (колонки – периоды, не <code>ReusableTable</code>).</td><td>Тот же вид, что график нагрузки (вкладка)</td></tr>
+  <tr><td><code>PMResourceLevelingTaskSection</code></td><td>Раздел <b>Leveling</b> окна задачи → Advanced: Priority (A15), «Leveling can split», Leveling delay (только чтение), «Why was this task moved», «Clear leveling of this task».</td><td><code>PMTaskAdvancedTab</code></td></tr>
+  <tr><td><code>PMResourceLevelingQuickFixMenu</code></td><td><b>Меню быстрого исправления</b> одного конфликта (Fast mode), действия из 7.6.</td><td>Открывается отметкой и полосами</td></tr>
+  <tr><td><code>PMResourceLevelingStatusChip</code></td><td><b>Чип состояния</b>: «Resource optimization: Manual / Automatic · Leveling / Smoothing · Fast», число перегруженных ресурсов, «Optimized by a run of 14:32».</td><td>Панель проекта рядом с чипом расчёта</td></tr>
+  <tr><td><code>PMResourceLevelingRunHistory</code></td><td><b>История запусков</b>: запуски (кто, когда, режим, метод, область, счётчики), подробности, Undo запуска.</td><td>Открывается кнопкой панели</td></tr>
+  <tr><td><code>PMResourceLevelingMenuItems</code></td><td>Пункты в существующих меню: Actions проекта (Level now, Clear leveling), меню задачи (Level this task, Clear leveling, Select its resources), меню, связанные с ресурсами; клавиша web <code>Alt+Shift+L</code> (Q10 = ок).</td><td><code>PMProjectActionsButton</code>, <code>PMTaskRowMenu</code></td></tr>
 </table>
 </div>
-<p>Невизуальные файлы (план): <code>resourceLevelingSettings.ts</code>, <code>resourceLevelingModel.ts</code> (типы, коды причин), <code>resourceLevelingDemand.ts</code>, <code>resourceLevelingDetect.ts</code>, <code>resourceLevelingEngine.ts</code>, <code>resourceLevelingIncremental.ts</code> (Fast), <code>resourceLevelingApi.ts</code>, <code>useResourceLevelingInputs.ts</code>, <code>useResourceLeveling.ts</code>, <code>README.md</code>.</p>
+<p>Невизуальные файлы (план): <code>resourceLevelingSettings.ts</code>, <code>resourceLevelingModel.ts</code>, <code>resourceLevelingDemand.ts</code>, <code>resourceLevelingDetect.ts</code>, <code>resourceLevelingEngine.ts</code>, <code>resourceLevelingIncremental.ts</code>, <code>resourceLevelingApi.ts</code>, <code>useResourceLevelingInputs.ts</code>, <code>useResourceLeveling.ts</code>, <code>README.md</code>.</p>
 
 <h2>10. Структура декомпозиции работ (R5)</h2>
 <div class="tbl">
 <table>
   <tr><th>#</th><th>Пакет работ / задача</th><th>Результат</th><th>Тесты</th></tr>
   <tr class="group"><td class="id">WP1</td><td colspan="3">Анализ и измерения</td></tr>
-  <tr><td class="id">1.1</td><td>Ответить на вопросы раздела 14; зафиксировать имена (Q1) и толкование Fast mode (Q2).</td><td>Решения записаны в этот документ (раздел «Решения»).</td><td>—</td></tr>
-  <tr><td class="id">1.2</td><td>Измерить <code>scheduleProject</code> на 450 (BUDGET1), 2 000, 10 000 задач; измерить построение спроса.</td><td>Числа, которые задают бюджет Fast.</td><td>скрипт-бенчмарк</td></tr>
-  <tr><td class="id">1.3</td><td>Проверить в Docker, что сдвиг даты снимает проведение ровно того, что сказано в 7.7.</td><td>Список побочных эффектов.</td><td>Docker</td></tr>
+  <tr><td class="id">1.1</td><td>Записать решения (раздел 18); решить Q5 и вопросы H1–H5 (или отложить).</td><td>Решения в этом документе.</td><td>—</td></tr>
+  <tr><td class="id">1.2</td><td>Измерить <code>scheduleProject</code> на 450 (BUDGET1), 2 000, 10 000 задач; измерить построение спроса.</td><td>Числа, задающие бюджет Fast.</td><td>скрипт-бенчмарк</td></tr>
+  <tr><td class="id">1.3</td><td>Проверить в Docker, что снимает проведение сдвиг даты (строки, платежи) и как обрабатывается план платежей без проведения под проведённым платёжным фактом (определяет правило заморозки из 7.7).</td><td>Список побочных эффектов.</td><td>Docker</td></tr>
   <tr class="group"><td class="id">WP2</td><td colspan="3">Настройки</td></tr>
-  <tr><td class="id">2.1</td><td><code>resourceLevelingSettings.ts</code> (ключи, умолчания, требования).</td><td>Чистый модуль.</td><td>Jest</td></tr>
+  <tr><td class="id">2.1</td><td><code>resourceLevelingSettings.ts</code> (ключи, умолчания, требования, представление Метода, <code>resourceGrainUnit</code>).</td><td>Чистый модуль.</td><td>Jest</td></tr>
   <tr><td class="id">2.2</td><td>Функции normalize проекта и организации; умолчания организации.</td><td>Ключи переживают сохранение.</td><td>Jest</td></tr>
-  <tr><td class="id">2.3</td><td>PMResourceLeveling001 + подключение к окну настроек проекта и Organization edit.</td><td>Вкладка.</td><td>Jest UI</td></tr>
+  <tr><td class="id">2.3</td><td><code>PMResourceLevelingSettingsTab</code> (вкладка «Resources», раздел «Resource optimization») и подключение к окну настроек и Organization edit.</td><td>Вкладка.</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP3</td><td colspan="3">SQL – PART 42</td></tr>
   <tr><td class="id">3.1</td><td>Таблицы раздела 8 в start1; RLS, права, realtime (только строки задач) в start2.</td><td>Идемпотентная установка.</td><td><code>test_sql.sh</code>, Jest SQL-файлов</td></tr>
-  <tr><td class="id">3.2</td><td>RPC inputs / apply / clear / undo / runs; проверка штампа версии; переключатель bulk.</td><td>Одна транзакция на команду.</td><td>Docker-тест (следующий свободный номер, 100)</td></tr>
+  <tr><td class="id">3.2</td><td>RPC inputs / apply / clear / undo / runs; штамп версии; переключатель bulk.</td><td>Одна транзакция на команду.</td><td>Docker-тест <code>tests/31_resource_leveling.sql</code></td></tr>
   <tr><td class="id">3.3</td><td><code>task_template_clean_task</code>, часть delete, триггер задачи.</td><td>—</td><td>Docker, Jest</td></tr>
   <tr class="group"><td class="id">WP4</td><td colspan="3">Спрос, ёмкость, обнаружение (чистый код + хук)</td></tr>
-  <tr><td class="id">4.1</td><td>Спрос по ресурсу и дню из строк (переиспользовать распределение и дни календаря).</td><td>Массивы ресурс × день.</td><td>Jest</td></tr>
-  <tr><td class="id">4.2</td><td>Хук, загружающий ёмкость + чужую нагрузку; обновление через Realtime.</td><td>Входы.</td><td>Jest (mock-клиент)</td></tr>
-  <tr><td class="id">4.3</td><td>Детектор (день, неделя); совпадение с <code>organization_resource_busy_check</code>.</td><td>Список конфликтов.</td><td>Jest + Docker-сверка</td></tr>
+  <tr><td class="id">4.1</td><td>Спрос по ресурсу и дню из строк (распределение + дни календаря).</td><td>Массивы ресурс × день.</td><td>Jest</td></tr>
+  <tr><td class="id">4.2</td><td>Хук ёмкости + чужой нагрузки; обновление через Realtime.</td><td>Входы.</td><td>Jest</td></tr>
+  <tr><td class="id">4.3</td><td>Детектор по единице зерна (hour / day = рабочий день, week = суммы); совпадение с <code>organization_resource_busy_check</code>.</td><td>Список конфликтов.</td><td>Jest + Docker-сверка</td></tr>
   <tr class="group"><td class="id">WP5</td><td colspan="3">Движок (чистый)</td></tr>
   <tr><td class="id">5.1</td><td>Порядки, правила заморозки, коды причин.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">5.2</td><td>Поиск задержки, предел запаса, горизонт, область, неподвижные препятствия.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">5.2</td><td>Поиск задержки, Метод Smoothing (предел запаса), горизонт, область, неподвижные препятствия.</td><td>—</td><td>Jest</td></tr>
   <tr><td class="id">5.3</td><td>Разрывы.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">5.4</td><td>Свойства: конфликтов не остаётся, кроме сообщённых; связи, ограничения, календари соблюдены; детерминированность; идемпотентность; второй запуск ничего не меняет; завершение.</td><td>Property-тесты на сгенерированных планах.</td><td>Jest</td></tr>
+  <tr><td class="id">5.4</td><td>Свойства: конфликтов не остаётся, кроме сообщённых; связи, ограничения, календари соблюдены; детерминированность; идемпотентность; завершение; Smoothing не меняет окончание.</td><td>Property-тесты.</td><td>Jest</td></tr>
   <tr class="group"><td class="id">WP6</td><td colspan="3">Интеграция с планировщиком</td></tr>
-  <tr><td class="id">6.1</td><td><code>scheduleOptions</code> + <code>scheduleProject</code> читают <code>taskLevelingDelayDays</code> и разрывы выравнивания; при выключенной функции результат побайтово совпадает с сегодняшним.</td><td>—</td><td>Jest: эталонные планы до / после</td></tr>
-  <tr><td class="id">6.2</td><td>Подпись (A2), версии (<code>scheduleVersion</code>), распространение на подпроекты, критический путь Ганта.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">6.3</td><td>Планирование от конца (A4): решить и построить либо отказать (Q5).</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">6.1</td><td><code>scheduleOptions</code> + <code>scheduleProject</code> читают <code>taskLevelingDelayDays</code> и разрывы выравнивания; функция выключена = побайтово как сегодня.</td><td>—</td><td>Jest эталонные планы</td></tr>
+  <tr><td class="id">6.2</td><td>Подпись A2, версии (<code>scheduleVersion</code>), распространение на подпроекты, критический путь.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">6.3</td><td>Планирование от конца (A4): решить (Q5); построить или оставить сообщение-отказ.</td><td>—</td><td>Jest</td></tr>
   <tr class="group"><td class="id">WP7</td><td colspan="3">Режим Manual и команды</td></tr>
-  <tr><td class="id">7.1</td><td>002, 003, 004, 005, 013, 015.</td><td>Level now / selected / clear.</td><td>Jest UI</td></tr>
-  <tr><td class="id">7.2</td><td>Apply: RPC, запись расписания, шаг Undo, подсказка про Post.</td><td>—</td><td>Jest, Docker</td></tr>
-  <tr><td class="id">7.3</td><td>014 история и Undo запуска.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">7.1</td><td><code>PMResourceLevelingBarButton</code>, <code>…OptionsWindow</code>, <code>…PreviewWindow</code>, <code>…PostedTasksDialog</code>, <code>…ConflictsList</code>, <code>…StatusChip</code>, <code>…MenuItems</code>.</td><td>Level now / selected / clear.</td><td>Jest UI</td></tr>
+  <tr><td class="id">7.2</td><td>Apply: RPC, запись расписания, шаг Undo, список «снято проведение», подсказка Post.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">7.3</td><td><code>PMResourceLevelingRunHistory</code> и Undo запуска.</td><td>—</td><td>Jest, Docker</td></tr>
   <tr class="group"><td class="id">WP8</td><td colspan="3">Визуальные отметки</td></tr>
-  <tr><td class="id">8.1</td><td>006 индикатор, 007 колонка, 008 полоса задержки.</td><td>—</td><td>Jest UI</td></tr>
-  <tr><td class="id">8.2</td><td>011 раздел окна задачи.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">8.1</td><td><code>…OverallocationMark</code>, <code>…DelayColumn</code>, <code>…DelayBar</code>.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">8.2</td><td><code>…TaskSection</code>.</td><td>—</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP9</td><td colspan="3">Виды нагрузки</td></tr>
-  <tr><td class="id">9.1</td><td>009 график Resource Load (SVG, mock в Jest, как Monitor03).</td><td>—</td><td>Jest UI</td></tr>
-  <tr><td class="id">9.2</td><td>010 таблица Resource Usage.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">9.1</td><td><code>…LoadGraph</code> (SVG; mock в Jest как Monitor03).</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">9.2</td><td><code>…UsageGrid</code> (сначала только чтение).</td><td>—</td><td>Jest UI</td></tr>
   <tr class="group"><td class="id">WP10</td><td colspan="3">Режим Automatic</td></tr>
-  <tr><td class="id">10.1</td><td>Подпись входов, триггер, отложение, без цикла, правила заморозки, toast с Undo.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">10.1</td><td>Подпись входов, триггер, отложение, без цикла, правило проведённых задач, toast с Undo.</td><td>—</td><td>Jest</td></tr>
   <tr><td class="id">10.2</td><td>С расчётом Manual: запуск при Calculate.</td><td>—</td><td>Jest</td></tr>
-  <tr class="group"><td class="id">WP11</td><td colspan="3">Fast mode</td></tr>
+  <tr class="group"><td class="id">WP11</td><td colspan="3">Fast mode (варианты изменения данных на месте)</td></tr>
   <tr><td class="id">11.1</td><td>Инкрементальный движок.</td><td>Бюджет выдержан.</td><td>Jest + бенчмарк</td></tr>
-  <tr><td class="id">11.2</td><td>Живой индикатор при перетаскивании; 012 исправления на месте.</td><td>—</td><td>Jest UI</td></tr>
-  <tr class="group"><td class="id">WP12</td><td colspan="3">Обмен</td></tr>
-  <tr><td class="id">12.1</td><td>Экспорт / импорт MS Project XML: задержка, can-split, приоритет.</td><td>—</td><td>Jest</td></tr>
-  <tr><td class="id">12.2</td><td>Версии, шаблоны, копия проекта.</td><td>—</td><td>Jest, Docker</td></tr>
+  <tr><td class="id">11.2</td><td>Живая отметка при перетаскивании; <code>…QuickFixMenu</code>.</td><td>—</td><td>Jest UI</td></tr>
+  <tr><td class="id">11.3</td><td>Правка в таблице Usage: часы в ячейке, перетаскивание чипа на другой ресурс; клавиатура; шаги Undo / Redo; области касания.</td><td>—</td><td>Jest UI</td></tr>
+  <tr class="group"><td class="id">WP12</td><td colspan="3">Версии, шаблоны, копия</td></tr>
+  <tr><td class="id">12.1</td><td>Версии хранят задержку; шаблоны её убирают; копия проекта сохраняет.</td><td>—</td><td>Jest, Docker</td></tr>
   <tr class="group"><td class="id">WP13</td><td colspan="3">Перевод (раздел 12)</td></tr>
-  <tr><td class="id">13.1</td><td>Аудит каждого видимого текста и каждой подписи доступности новых и затронутых компонентов.</td><td>Список ключей.</td><td>—</td></tr>
+  <tr><td class="id">13.1</td><td>Аудит каждого видимого текста и подписи доступности новых и затронутых компонентов (включая «Resources» и «Resource optimization»).</td><td>Список ключей.</td><td>—</td></tr>
   <tr><td class="id">13.2</td><td>14 словарей; пересоздать <code>PM_KEYS</code> и файлы локалей.</td><td>—</td><td>Jest: каждый ключ на каждом языке</td></tr>
-  <tr><td class="id">13.3</td><td>RTL (ar, fa) и проверка длинных текстов окон.</td><td>—</td><td>Jest UI + просмотр в браузере</td></tr>
+  <tr><td class="id">13.3</td><td>RTL (ar, fa) и проверка длинных текстов.</td><td>—</td><td>Jest UI + просмотр в браузере</td></tr>
   <tr class="group"><td class="id">WP14</td><td colspan="3">Завершение</td></tr>
-  <tr><td class="id">14.1</td><td>README в <code>kit8/pm/resourceleveling</code>; строка в разделе 6 KNOW_HOW; A16 в <code>MORE_GANTT_INPUT.html</code> отметить как построенный; этот документ: «Implementation status».</td><td>—</td><td>—</td></tr>
-  <tr><td class="id">14.2</td><td>Бенчмарк <code>bench_resource_leveling</code> и Docker-тест совпадения; полный прогон Jest и сравнение строк FAIL с базовой линией.</td><td>—</td><td>—</td></tr>
+  <tr><td class="id">14.1</td><td>README в <code>kit8/pm/resourceleveling</code>; строка в разделе 6 KNOW_HOW; A16 в <code>MORE_GANTT_INPUT.html</code> отметить построенным; «Implementation status» здесь.</td><td>—</td><td>—</td></tr>
+  <tr><td class="id">14.2</td><td>Бенчмарк <code>bench_resource_leveling</code>, Docker-тест совпадения, полный прогон Jest со сравнением с базовой линией.</td><td>—</td><td>—</td></tr>
   <tr><td class="id">14.3</td><td>Проверка безопасности (RLS, чужая нагрузка без названий), доступность.</td><td>—</td><td>—</td></tr>
+  <tr class="group"><td class="id">WP15</td><td colspan="3"><b>Фаза 2 – модель времени суток</b> (<code>hourByHourModel</code>, 7.10)</td></tr>
+  <tr><td class="id">15.1</td><td>Прочитать, что делают <code>planHour / planMinute</code> сегодня; подтвердить H1–H5; отдельный документ WBS для 2a–2c.</td><td>Решение + документ.</td><td>—</td></tr>
+  <tr><td class="id">15.2</td><td>2a: окна календаря + редактор, время начала задачи, длительность в часах, почасовой планировщик; включить <code>resourceOptimizationMode</code>.</td><td>—</td><td>Jest</td></tr>
+  <tr><td class="id">15.3</td><td>2b: PART 43 (<code>task_line_plan_hour_movements</code>, почасовое представление занятости), почасовой Post, почасовая проверка занятости.</td><td>—</td><td>Docker</td></tr>
+  <tr><td class="id">15.4</td><td>2c: почасовое выравнивание (задержка в минутах), ось часов в графике и в таблице.</td><td>—</td><td>Jest + бенчмарк</td></tr>
 </table>
 </div>
 
@@ -415,94 +495,139 @@
           └──► WP3 ───────────┘                 │         │
                                                  ├──► WP10 (нужен 7)
                                                  └──► WP11 (нужны 5, 8, 9)
-WP12 после WP6 · WP13 идёт через всю работу (ключи добавляются с каждым компонентом) · WP14 в конце</div>
+WP12 после WP6 · WP13 идёт через всю работу (ключи добавляются с каждым компонентом) · WP14 последним · WP15 = 2a, 2b, 2c одна за другой, после Фазы 1</div>
 <ul>
-  <li>Первый пригодный срез: WP1–WP7 = режим Manual, grain day, только задержка (без разрывов, без Fast, без Automatic). Всё после него добавляет переключатель.</li>
-  <li>SQL и TypeScript встречаются в RPC <code>project_resource_leveling_inputs</code>: построить и протестировать его до движка.</li>
+  <li>Первый пригодный срез: WP1–WP7 = режим Manual, только задержка (без разрывов, Fast, Automatic), опция зерна есть с ограничением из 7.9. Каждый следующий пакет добавляет переключатель.</li>
+  <li>SQL и TypeScript встречаются в <code>project_resource_leveling_inputs</code>: построить и протестировать его до движка.</li>
 </ul>
 
 <h2>12. Проверка интерфейса и перевод на все языки (R8)</h2>
 <ul>
   <li><b>Языки</b> (<code>LANGUAGES</code>, <code>kit8/i18n/i18n.ts</code>): ключ – английский текст; словари в <code>kit8/pm/i18n/locales</code> для <b>zh, hi, es, ar, fr, bn, pt, ru, de, nl, lv, fa, lt, et</b> (14).</li>
-  <li><b>Правило</b>: каждый текст новых компонентов проходит через <code>pmT('English text {{n}}')</code> (плейсхолдер <code>{{n}}</code>); никаких текстов в константах, собираемых при импорте (они не следуют смене языка); подписи перечислений (режимы, порядки, коды причин) ищутся по коду и переводятся при отрисовке.</li>
-  <li><b>Что проверяется</b>: подписи, подсказки, всплывающие тексты, тексты кнопок, пустые состояния, ошибки и предупреждения, toast, заголовки окон, заголовки колонок, пункты меню, подписи доступности, предложение о конфликте (с плейсхолдерами ресурса, дня и часов), форматы дат и чисел (использовать форматы приложения, не зашитые).</li>
-  <li><b>Затронутые существующие экраны</b> проверяются тоже: вкладки настроек проекта, панель Ганта, вкладка Advanced окна задачи, меню задачи, меню Actions проекта, окно Busy conflicts (тексты, которые использует выравнивание), Organization edit.</li>
-  <li><b>Порядок</b>: добавить тексты → пересоздать <code>PM_KEYS</code> и словари инструментом в <code>kit8/pm/i18n/src</code> (<code>build.py</code>, см. <code>kit8/pm/README.md</code>) → тест Jest перечисляет ключи новых файлов и падает, если ключа нет в одном из 14 файлов.</li>
-  <li><b>RTL</b> (ar, fa): окна и полоса задержки проверяются на зеркальную вёрстку; числа и даты остаются слева направо; график 009 сохраняет ось времени слева направо.</li>
-  <li><b>Качество</b>: словари подготовлены машинным способом; термины (перегрузка, выравнивание, запас, разрыв) сводятся в один глоссарий пакета работ, чтобы языки использовали по одному слову; перед выпуском рекомендуется проверка носителем для ru, de, fr, es.</li>
-  <li>Сам этот документ переведён на русский: <code>RESOURCE_LEVELING_WBS_RU.html</code> (эта страница).</li>
+  <li><b>Правило</b>: каждый текст через <code>pmT('English text {{n}}')</code>; никаких текстов в константах, собираемых при импорте; подписи перечислений (режим, метод, порядок, зерно, коды причин) ищутся по коду при отрисовке. Заголовки «Resources» и «Resource optimization» и каждое слово MS Project (Level now, Leveling delay …) – ключи перевода.</li>
+  <li><b>Проверяется</b>: подписи, подсказки, всплывающие тексты, кнопки, пустые состояния, ошибки, toast, заголовки окон и колонок, пункты меню, подписи доступности, предложение о конфликте (плейсхолдеры ресурса, периода, часов), форматы дат / чисел (собственные форматы приложения).</li>
+  <li><b>Затронутые существующие экраны</b> тоже проверяются: вкладки настроек проекта, панель Ганта, вкладка Advanced окна задачи, меню задачи, меню Actions проекта, окно Busy conflicts, Organization edit.</li>
+  <li><b>Порядок</b>: добавить тексты → пересоздать <code>PM_KEYS</code> и словари через <code>kit8/pm/i18n/src/build.py</code> → тест Jest падает, если ключа нет в одном из 14 файлов.</li>
+  <li><b>RTL</b> (ar, fa): окна, полоса задержки и таблица зеркалятся; числа и даты остаются слева направо; ось времени графика остаётся слева направо.</li>
+  <li><b>Качество</b>: единый глоссарий терминов (перегрузка, выравнивание, сглаживание, запас, разрыв), чтобы в каждом языке было по одному слову; проверка носителем ru, de, fr, es перед выпуском.</li>
+  <li>Этот документ переведён на русский: <code>RESOURCE_LEVELING_WBS_RU.html</code> (эта страница).</li>
 </ul>
 
 <h2>13. Критерии приёмки</h2>
 <ol>
-  <li>При выключенном главном переключателе прогон Jest планировщика на эталонных планах даёт побайтово одинаковые результаты; ни один новый элемент не отрисовывается; новых запросов нет.</li>
-  <li>План с двумя задачами, которым нужен один человек по 8 ч в один день (ёмкость 8 ч), выравнивается задержкой задачи с меньшим приоритетом на один рабочий день; после этого проверка занятости не возвращает строк.</li>
-  <li>Приоритет 1000 и замороженные задачи не двигаются никогда; конфликт перечислен с кодом причины.</li>
-  <li>«Только в пределах запаса» никогда не меняет конец проекта; остаток нерешён.</li>
+  <li>Главный выкл.: эталонные планы планировщика побайтово совпадают; нет нового элемента; нет нового запроса.</li>
+  <li>Двум задачам нужен один человек по 8 ч в один день (ёмкость 8 ч): Leveling задерживает задачу с меньшим приоритетом на один рабочий день; после этого проверка занятости не возвращает строк.</li>
+  <li>Приоритет 1000 и замороженные задачи не двигаются; конфликт перечислен с причиной.</li>
+  <li>Метод Smoothing никогда не меняет окончание проекта; остаток нерешён.</li>
   <li>Преемники задержанной задачи сдвигаются; критический путь и свёртка этапов пересчитываются планировщиком.</li>
-  <li>При включённых разрывах длинная задача прерывается вместо сдвига, когда это решает конфликт с меньшей задержкой окончания.</li>
-  <li>Manual: до Apply ничего не меняется; Cancel ничего не меняет; Apply – одна транзакция и один шаг Undo.</li>
-  <li>Automatic: правка, создающая конфликт, выравнивается после отложения; без цикла; проведённые задачи не двигаются.</li>
-  <li>Clear leveling возвращает даты невыровненного плана; Undo запуска восстанавливает значения до этого запуска.</li>
+  <li>При включённых разрывах длинная задача прерывается вместо сдвига, когда это даёт меньшую задержку окончания.</li>
+  <li>Manual: до Apply ничего не меняется; Cancel ничего не меняет; Apply = одна транзакция, один шаг Undo.</li>
+  <li>Automatic: правка, создающая конфликт, оптимизируется после отложения; без цикла; проведённые задачи остаются на месте, а чип говорит, сколько их ждёт решения; Undo возвращает даты.</li>
+  <li>Проведённая задача никогда не теряет проведение молча: диалог предлагает Unpost and move / Move and post again / Keep; «Move and post again» сдвигает задачу, только если она проводится без конфликтов; при выключенной опции или «Keep» задача заморожена и остаётся нагрузкой. Задача с проведённым вводом факта не двигается никогда.</li>
+  <li>Clear leveling возвращает невыровненные даты; Undo запуска восстанавливает значения до него.</li>
   <li>Проведённая бронь того же рабочего центра в другом проекте соблюдается и не двигается.</li>
-  <li>День без строки календаря сообщается, поверх него не выравнивается.</li>
-  <li>Fast mode: числа из 7.6 выдержаны на 2 000 задач (бенчмарк).</li>
-  <li>Экспорт MS Project содержит <code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code> только при включённой функции; импорт их восстанавливает.</li>
+  <li>День без строки календаря сообщается, поверх него не оптимизируется.</li>
+  <li><code>resourceGrainUnit</code> по умолчанию hour; hour / day / week меняют единицу и период как в 7.9; экраны показывают часы. <code>resourceOptimizationMode</code> по умолчанию <code>dayByDayModel</code>, и тогда ничего не меняется.</li><li>Планирование от конца проекта: те же кнопки работают; уступающие задачи двигаются раньше; предпросмотр показывает новое начало проекта.</li>
+  <li>Fast mode: бюджет из 7.6 на 2 000 задач; часы, введённые в ячейке таблицы, пишут строку времени; перетащенный чип меняет ресурс; каждое действие – один шаг Undo.</li>
   <li>Все новые тексты есть в 14 словарях; окна арабского и фарси зеркальны без наложений.</li>
-  <li>Базовая линия Jest не показывает новых падающих наборов; скрипты Docker проходят; <code>test_sql.sh</code> по-прежнему проходит (установка дважды, delete ничего не оставляет).</li>
+  <li>Базовая линия Jest: нет новых падающих наборов; скрипты Docker проходят; <code>test_sql.sh</code> по-прежнему проходит.</li>
 </ol>
 
-<h2>14. Вопросы владельцу (ответы меняют проект)</h2>
+<h2>14. Вопросы и решения</h2>
 <div class="tbl">
 <table>
-  <tr><th>#</th><th>Вопрос</th><th>Предложение в этом документе</th></tr>
-  <tr><td class="id">Q1</td><td>Имена: в Google Doc <code>resourceLvelingFunctionalityEnabled</code> и <code>project_resource_reveling_xxx</code>. Опечатки?</td><td>Да – <code>resourceLevelingFunctionalityEnabled</code>, <code>…FastModeEnabled</code>, <code>project_resource_leveling_xxx</code>.</td></tr>
-  <tr><td class="id">Q2</td><td>Fast mode: «most online and in-line user action patterns» = живое, экранное, инкрементальное поведение из 7.6?</td><td>Да. Если имелся в виду быстрый серверный алгоритм, скажите: движок переедет в SQL.</td></tr>
-  <tr><td class="id">Q3</td><td>Режим Automatic и проведённые задачи: не двигать проведённую задачу (предложение) или двигать и снимать проведение?</td><td>В Automatic не двигать; в Manual разрешать после именованного предпросмотра.</td></tr>
-  <tr><td class="id">Q4</td><td>Где работает движок?</td><td>На клиенте (TypeScript, чистый) – там же, где планировщик, живой предпросмотр, лёгкие тесты. Альтернатива: SQL – одно место для всех пользователей, нет живого предпросмотра, второй планировщик нужно держать согласованным (не рекомендуется).</td></tr>
-  <tr><td class="id">Q5</td><td>Выравнивание, когда проект планируется от даты окончания (A4)?</td><td>Построить, если в WP6 получится согласованно, иначе отказывать с сообщением.</td></tr>
-  <tr><td class="id">Q6</td><td>Выравнивать одну строку времени (назначение), а не всю задачу (MS «adjust individual assignments»)? Нужны даты у строк.</td><td>Пока нет; двигается вся задача.</td></tr>
-  <tr><td class="id">Q7</td><td>Почасовой grain (занятость ресурса по часам)? У проведённых данных нет времени суток.</td><td>Только день и неделя; для часа сначала нужно время суток в плане.</td></tr>
-  <tr><td class="id">Q8</td><td>Приоритет между проектами организации: должна ли побеждать задача другого проекта с более высоким приоритетом?</td><td>Нет: другие проекты – неподвижные препятствия; их проект выравнивает свой планировщик.</td></tr>
-  <tr><td class="id">Q9</td><td>Единица задержки выравнивания: рабочие дни календаря задачи (предложение) или календарные дни?</td><td>Рабочие дни.</td></tr>
-  <tr><td class="id">Q10</td><td>Клавиша web для Level now.</td><td><code>Alt+Shift+L</code>.</td></tr>
+  <tr><th>#</th><th>Вопрос</th><th>Ответ (2026-10-27)</th></tr>
+  <tr><td class="id">Q1</td><td>Имена без опечаток?</td><td><b>Да.</b></td></tr>
+  <tr><td class="id">Q2</td><td>Fast mode = ?</td><td>Экранные варианты, меняющие данные на месте, и более удобная версия UX/UI (7.6).</td></tr>
+  <tr><td class="id">Q3</td><td>Automatic и проведённые задачи?</td><td>Второй ответ: <b>проведённые задачи не должны терять проведение</b> – приложение спрашивает (снять / провести заново без конфликтов / оставить). Опции <code>resourceLevelingPostedTasksMovementEnabled</code> (true) и <code>resourceLevelingPostedTasksAction</code> (<code>ask</code>) (7.7).</td></tr>
+  <tr><td class="id">Q4</td><td>Где работает движок?</td><td>Более удобная версия UX/UI = <b>клиент</b> (TypeScript), живой предпросмотр.</td></tr>
+  <tr><td class="id">Q5</td><td>Планирование от даты окончания проекта (A4)?</td><td><b>Решено:</b> максимально удобно для пользователя – работает, зеркально (7.8).</td></tr>
+  <tr><td class="id">Q6</td><td>Выравнивать одну строку времени или всю задачу?</td><td><b>Всю задачу.</b></td></tr>
+  <tr><td class="id">Q7</td><td>Почасовое зерно?</td><td>Отдельная опция <code>resourceGrainUnit</code>, по умолчанию <b>hour</b>; часы нужны (7.9). Настоящие часы суток = фаза 2 (H1–H5).</td></tr>
+  <tr><td class="id">Q8</td><td>Приоритет между проектами?</td><td><b>Нет.</b></td></tr>
+  <tr><td class="id">Q9</td><td>Единица задержки?</td><td><b>Рабочие дни.</b></td></tr>
+  <tr><td class="id">Q10</td><td>Клавиша web?</td><td><b>Ок</b> (<code>Alt+Shift+L</code>).</td></tr>
+  <tr><td class="id">H1</td><td>Получает ли календарь ресурса рабочие окна (от / до) и перерывы или только начало дня + часы?</td><td>Открыто (фаза 2). Предложение: <code>workFrom</code> + часы, сначала без перерывов.</td></tr>
+  <tr><td class="id">H2</td><td>Получает ли задача время начала в течение дня?</td><td>Открыто (фаза 2). Предложение: начало в минутах дня, отсутствует = начало рабочего окна.</td></tr>
+  <tr><td class="id">H3</td><td>Возможна ли длительность задачи в часах (задача короче дня)?</td><td>Открыто (фаза 2); сегодня единицы A8 – d / w / mo.</td></tr>
+  <tr><td class="id">H4</td><td>Хранит ли Post часы по часам или по-прежнему по дням?</td><td>Открыто (фаза 2). Предложение: по дням, почасовой профиль выводится.</td></tr>
+  <tr><td class="id">H5</td><td>Нужна ли задержка в часах (не в целых рабочих днях), когда H1–H4 будут решены?</td><td>Открыто (фаза 2); Q9 пока рабочие дни.</td></tr>
 </table>
 </div>
 
 <h2>15. Вне области (эта версия)</h2>
 <ul>
-  <li>Изменение часов, единиц, ресурсов или длительностей для решения конфликта («замена ресурса», «добавить человека»). Идея на будущее: исправление на месте «Use another work center of the same role».</li>
-  <li>Выравнивание по часам / минутам, выравнивание оставшейся работы, задержка отдельного назначения, предложенный тип брони.</li>
-  <li>Оптимизация стоимости, выравнивание всей организации одним запуском, автоматический приоритет проектов.</li>
-  <li>Нативная отправка конфликта коллеге (почта Share из проверки занятости остаётся как есть).</li>
+  <li><b>Экспорт / импорт в MS Project</b> (<code>LevelingDelay</code>, <code>LevelingCanSplit</code>, <code>Priority</code>): сейчас не нужен (решение 4). Ключи задач уже названы как поля MS Project, поэтому добавить можно позже.</li>
+  <li>Движок, сам меняющий часы, единицы, ресурсы или длительности («добавить человека»). Это делает только пользователь, на месте (Fast mode).</li>
+  <li>Зерно минута и месяц; почасовая модель приходит в фазе 2 (WP15), не в Фазе 1; выравнивание оставшейся работы; задержка отдельного назначения; предложенный тип брони.</li>
+  <li>Оптимизация стоимости; оптимизация всей организации одним запуском; приоритет между проектами.</li>
+  <li>Сжатие графика (crashing, fast tracking) – другой приём PMBOK.</li>
 </ul>
 
 <h2>16. Риски</h2>
 <div class="tbl">
 <table>
   <tr><th>Риск</th><th>Ответ</th></tr>
-  <tr><td>Тихое снятие проведения проведённой работы</td><td>Правила заморозки, именованный предпросмотр, Automatic не двигает проведённые задачи (7.7).</td></tr>
-  <tr><td>Две «правды» о ёмкости (TypeScript и SQL)</td><td>Ёмкость только из SQL; у детектора есть тест на совпадение с проверкой занятости.</td></tr>
-  <tr><td>Циклы в Automatic (результат выравнивания снова запускает выравнивание)</td><td>Задержка не входит в подпись спроса; штамп запуска; счётчик.</td></tr>
+  <tr><td>Проведённые задачи теряют проведение</td><td>Никогда молча: диалог спрашивает (Unpost and move / Move and post again без конфликтов / Keep); Automatic оставляет проведённые задачи и показывает чип; правило заморозки для начатых задач и задач с фактами.</td></tr>
+  <tr><td>Снятие проведения плана платежей с проведённым платёжным фактом</td><td>Такие задачи заморожены; WP1.3 проверяет точное поведение до того, как правило станет окончательным.</td></tr>
+  <tr><td>Зерно hour выглядит точным, а данные по дням</td><td>Ограничение написано на экране и в 7.9; в dayByDayModel сравнение идёт по рабочему дню; hourByHourModel (7.10) строится в фазах 2a–2c и до этого неактивна.</td></tr>
+  <tr><td>Почасовая модель затрагивает планировщик, календари и Post</td><td>Это отдельный режим со своими ключами; dayByDayModel остаётся побайтово прежним; фазы 2a–2c каждая со своими эталонными и Docker-тестами.</td></tr>
+  <tr><td>Две «правды» о ёмкости</td><td>Ёмкость только из SQL; тест на совпадение с проверкой занятости.</td></tr>
+  <tr><td>Циклы в Automatic</td><td>Задержка не входит в подпись спроса; штамп запуска; счётчик.</td></tr>
   <tr><td>Медленно на больших планах</td><td>Массивы ресурс × день; только перегруженные ресурсы; инкрементальный движок; бенчмарк с WP1.</td></tr>
-  <tr><td>Неверные или неожиданные результаты</td><td>Детерминированные правила, коды причин, предпросмотр, Undo, история.</td></tr>
-  <tr><td>Взаимодействие с множеством переключателей Ганта</td><td>Один вход (задержка) в планировщике; таблица 7.8; эталонные тесты для сочетаний переключателей.</td></tr>
-  <tr><td>Запись многих задач запускает построчные триггеры</td><td>Переключатель bulk и одна запись (урок шаблонов задач); измерить бенчмарком.</td></tr>
-  <tr><td>Качество перевода</td><td>Глоссарий, проверка носителем основных языков, проверка RTL.</td></tr>
+  <tr><td>Правка на месте по ошибке меняет данные</td><td>Каждое действие – один шаг Undo; потеря проведения названа; отказ по правилу строки показан на месте.</td></tr>
+  <tr><td>Много переключателей Ганта</td><td>Один вход (задержка); таблица 7.8; эталонные тесты сочетаний.</td></tr>
+  <tr><td>Построчные триггеры при большой записи</td><td>Переключатель bulk и одна запись; бенчмарк.</td></tr>
+  <tr><td>Качество перевода</td><td>Глоссарий, проверка носителем, проверка RTL.</td></tr>
   <tr><td>Запуск start2 на живой базе на секунды снимает триггеры</td><td>Обычное замечание в шагах обновления.</td></tr>
 </table>
 </div>
 
 <h2>17. Шаги обновления после разработки (предварительно)</h2>
 <ol>
-  <li>Выполнить <code>kit8/sql/start/start1_sql_tables.sql</code>, затем <code>start2_sql_code.sql</code> в Supabase SQL Editor (PART 42). <code>start3</code>, <code>start4</code>, <code>start5</code> не нужны (нет задания, нет seed).</li>
+  <li>Выполнить <code>kit8/sql/start/start1_sql_tables.sql</code>, затем <code>start2_sql_code.sql</code> в Supabase SQL Editor (PART 42). <code>start3</code>, <code>start4</code>, <code>start5</code> не нужны.</li>
   <li>Изменений в <code>.env</code> нет.</li>
   <li>Перезапустить Expo с очисткой кэша: <code>npx expo start --web -c</code>.</li>
-  <li>Проверка: Настройки проекта → Resource leveling → включить; дать двум задачам строку времени одного человека на один день; нажать Level на панели Ганта → Level now → предпросмотр → Apply.</li>
+  <li>Проверка: Настройки проекта → Resources → Resource optimization → включить; дать двум задачам строку времени одного человека на один день; Level на панели Ганта → Level now → предпросмотр → Apply.</li>
 </ol>
 
-<h2>18. Решения</h2>
-<p>Пусто, пока владелец не ответит на раздел 14.</p>
+<h2>18. Решения (владелец, 2026-10-27)</h2>
+<p><b>Раунд 1.</b></p>
+<ol>
+  <li>Имена компонентов: <code>PMResourceLeveling</code> + текстовое имя (раздел 9).</li>
+  <li>Заголовок вкладки настроек «Resources»; текст «Resource optimization» внутри неё (7.1, 9).</li>
+  <li>Документ построен вокруг «Resource optimization» (PMBOK); каждый термин MS Project продолжает работать (раздел 4).</li>
+  <li>Экспорт в MS Project: сейчас не нужен (15).</li>
+  <li>Q1 да – исправленные имена. Q2 – варианты изменения данных на месте + удобный UX/UI (7.6). Q4 – движок на клиенте. Q6 – вся задача. Q7 – <code>resourceGrainUnit</code> = hour по умолчанию. Q8 – приоритета между проектами нет. Q9 – рабочие дни. Q10 – <code>Alt+Shift+L</code>.</li>
+</ol>
+<p><b>Раунд 2 (в тот же день; заменяет ответ Q3 раунда 1).</b></p>
+<ol>
+  <li><b>Проведённые задачи не должны терять проведение.</b> Приложение спрашивает пользователя: снять проведение или нет, либо провести заново без конфликтов (7.7). Опции <code>resourceLevelingPostedTasksMovementEnabled</code> (true) и <code>resourceLevelingPostedTasksAction</code> (<code>ask</code>).</li>
+  <li><b>Q5:</b> самое удобное для UX/UI решение и начать строить: зеркальное выравнивание для проектов, спланированных от конца (7.8).</li>
+  <li><b>Почасовой режим: да.</b> Оптимизация по часам суток требует модели времени суток: <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> (приложение как есть) | <code>hourByHourModel</code>; таблицы добавляются, где нужно (7.10, PART 43). Строится в фазе 2 (WP15); Фаза 1 начинается сейчас.</li>
+</ol>
+
+<h2>19. Статус реализации (2026-10-27)</h2>
+<p>Фаза 1 – режим Manual – построена и протестирована; остальное перечислено честно. Подробности кода: <code>kit8/pm/resourceleveling/README.md</code>.</p>
+<div class="tbl">
+<table>
+  <tr><th>Часть</th><th>Состояние</th></tr>
+  <tr><td>WP2 настройки: ключи, вкладка <b>Resources</b> / раздел <b>Resource optimization</b>, умолчания организации</td><td><span class="tag have">Построено</span> <code>PMResourceLevelingSettingsTab</code>, <code>resourceLevelingSettings.ts</code>. Почасовая модель показана неактивной («Phase 2»).</td></tr>
+  <tr><td>WP3 SQL PART 42: <code>project_resource_leveling_run / _task</code>, RPC inputs / apply / clear / undo, триггер проверки, очистка шаблона</td><td><span class="tag have">Построено</span> Docker <code>tests/31_resource_leveling.sql</code> (52 проверки) и <code>test_sql.sh</code> проходят. <code>project_resource_leveling_conflict</code> (фаза 2 таблиц) не создана.</td></tr>
+  <tr><td>WP4 спрос, ёмкость, обнаружение (день, неделя)</td><td><span class="tag have">Построено</span> <code>resourceLevelingDemand / Detect / Env</code>. Календарь проведения приближён рабочими днями календаря задачи.</td></tr>
+  <tr><td>WP5 движок: порядки, выравнивание, сглаживание, причины, чужая нагрузка, вперёд и <b>назад</b> (Q5)</td><td><span class="tag have">Построено</span> с property-тестами (12 seed). <span class="tag no">Не построено:</span> разрывы выравнивания (<code>resourceLevelingCanSplit</code> хранится, движок пока не разрывает).</td></tr>
+  <tr><td>WP6 планировщик читает задержку (вперёд и от конца), подпись, опции</td><td><span class="tag have">Построено</span> функция выключена = тот же план (тест).</td></tr>
+  <tr><td>WP7 режим Manual: кнопка Level, предпросмотр, <b>вопрос о проведённых задачах</b>, Apply, Clear, Undo, история запусков</td><td><span class="tag have">Построено</span> <code>PMResourceLevelingBarButton</code>, <code>…PreviewWindow</code>, <code>…PostedTasksDialog</code>, <code>…ConflictsList</code>, <code>…RunHistory</code>, <code>useResourceLeveling</code>. Не построено: <code>…OptionsWindow</code> (опции в вкладке настроек), <code>…StatusChip</code>, <code>…MenuItems</code> (меню задачи / Actions, клавиша <code>Alt+Shift+L</code>). «Move and post again» проводит обычным Post, когда план на экране получил новые даты; задача, которую нельзя провести, остаётся непроведённой, а сообщение Post говорит почему.</td></tr>
+  <tr><td>WP8 визуальные отметки: колонка задержки, полоса задержки, отметка перегрузки, раздел задачи</td><td><span class="tag no">Не построено</span></td></tr>
+  <tr><td>WP9 график Load, таблица Usage</td><td><span class="tag no">Не построено</span></td></tr>
+  <tr><td>WP10 режим Automatic</td><td><span class="tag no">Не построено</span> (настройка хранится; режим ведёт себя как Manual).</td></tr>
+  <tr><td>WP11 Fast mode: правка данных на месте</td><td><span class="tag no">Не построено</span> (переключатель хранится).</td></tr>
+  <tr><td>WP12 версии, шаблоны, копия</td><td>Шаблоны: <span class="tag have">построено</span> (задержка убирается). Версии хранят задержку вместе со строкой (строки <code>version_*</code> копируют <code>rowJSON</code>); отдельно не тестировалось.</td></tr>
+  <tr><td>WP13 перевод</td><td><span class="tag have">Построено</span> 122 новых текста × 14 языков (подготовлены машинно, носителями не проверены); тест падает, если у текста функции нет ключа или перевода.</td></tr>
+  <tr><td>WP15 почасовая модель (<code>resourceOptimizationMode = hourByHourModel</code>, PART 43)</td><td><span class="tag no">Не построено</span> фаза 2; <code>resourceGrainUnit</code> = hour ведёт себя как day (7.9).</td></tr>
+</table>
+</div>
+<p><b>Известные ограничения.</b> Проверка факта (<code>frozenFact</code>) читает проведённые документы ввода факта; проведённый <i>платёжный</i> факт по плану платежей пока не читается (правило решит WP1.3). Период week сравнивает недельные суммы; hour и day сравнивают один рабочий день.</p>
 
 </main>
 </body>

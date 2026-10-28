@@ -83,6 +83,14 @@ export interface PMRowJSON {
   taskInactive?: boolean;
   /** A15 priority 0..1000 (default 500). */
   taskPriority?: number | null;
+  /**
+   * Resource optimization (kit8/pm/resourceleveling; documentation/RESOURCE_LEVELING_WBS.html): the LEVELING DELAY the engine put in front of the task, in working days of its calendar
+   * (absent = 0). It moves the task away from the anchor of the plan (later when planned from the start, earlier when planned from the finish). Read by the scheduler only while
+   * the project switch resourceLevelingFunctionalityEnabled is on; stripped by task templates (task_template_clean_task); written only by project_resource_leveling_apply.
+   */
+  taskLevelingDelayDays?: number | null;
+  /** Resource optimization: the engine may interrupt this task (default true; used only with resourceLevelingCanSplit and Extended A12) */
+  taskLevelingCanSplit?: boolean;
   /** G2 draw a milestone diamond at the finish of a task that has a duration. */
   taskMarkAsMilestone?: boolean;
   /** C3 actual dates (ISO); C1 baselines by number "0".."10". */
@@ -225,6 +233,13 @@ export interface PMRowJSON {
   projectROIIncludeAllTaxes?: boolean;
   projectROIIncludeSaleVAT?: boolean;
   projectROIIncludePurchaseVAT?: boolean;
+  /**
+   * Resource optimization (kit8/pm/resourceleveling/resourceLevelingSettings.ts; Project settings -> Resources -> Resource optimization). EVERY switch is off / at its default while never saved.
+   * The keys are listed in resourceLevelingSettings.ts (PMResourceLevelingValues); they are typed there, here only so that a project row accepts them.
+   */
+  resourceLevelingFunctionalityEnabled?: boolean;
+  resourceOptimizationMode?: 'dayByDayModel' | 'hourByHourModel';
+  resourceGrainUnit?: 'hour' | 'day' | 'week';
   /** project_task_table only: the task stands for a whole project (a task of a project with subprojectsFunctionalityEnabled) */
   taskIsSubproject?: boolean;
   /** project_task_table only: the project (project_table.rowGUID) the task stands for */
@@ -561,6 +576,8 @@ export interface PMScheduledRow {
   slackDays?: number;
   /** A1 manually scheduled row. */
   isManual?: boolean;
+  /** Resource optimization: the leveling delay (working days) that moved this row away from the anchor; absent = none. */
+  levelingDelayDays?: number;
   /** A3 the constraint that decided the row (absent = none of its own). */
   constraintType?: 'ASAP' | 'ALAP' | 'MSO' | 'MFO' | 'SNET' | 'SNLT' | 'FNET' | 'FNLT';
   /** 'constraintWins' = a date (constraint / manual start) was kept although a link would have put the task later; 'linkWins' = the link won and the constraint is not met. */

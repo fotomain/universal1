@@ -447,3 +447,125 @@
 447|{{count}} passo(s) de refazer serão esquecidos. O projeto em si não muda.
 448|Nada para anular
 449|clique direito / toque longo: menu
+450|Nivelar
+451|Otimização de recursos: nivelar os recursos reservados por mais horas do que o seu calendário permite
+452|Otimização de recursos
+453|{{n}} conflito(s) não puderam ser resolvidos
+454|… e mais {{n}}
+455|{{n}} tarefa(s) lançada(s) têm de ser movida(s)
+456|Mover uma tarefa lançada anula o lançamento das suas linhas e pagamentos. O que fazer com elas?
+457|{{name}}: {{from}} → {{to}}
+458|Anular o lançamento e mover
+459|As tarefas são movidas e ficam sem lançamento até as lançar.
+460|Mover e lançar de novo
+461|As tarefas são movidas e lançadas de novo, mas só se forem lançadas sem conflitos; caso contrário, ficam onde estão.
+462|Manter as datas
+463|As tarefas lançadas não são movidas; o plano é refeito sem elas.
+464|mais cedo
+465|mais tarde
+466|Otimização de recursos – Suavização
+467|Otimização de recursos – Nivelamento
+468|Sobrecarregados agora
+469|Não resolvidos após a execução
+470|Tarefas movidas
+471|Início do projeto
+472|Fim do projeto
+473|Tarefas lançadas que se movem
+474|O projeto é planeado a partir da data de fim: as tarefas adiantam-se, a data de fim mantém-se.
+475|Nenhuma tarefa precisa de ser movida.
+476|{{from}} → {{to}} ({{days}} dia(s) útil(eis) {{when}})
+477|Limpar o nivelamento
+478|Otimização de recursos – execuções
+479|Ainda não há execuções.
+480|{{n}} tarefa(s) movida(s)
+481|{{n}} não resolvido(s)
+482|Anular a execução
+483|Anulado
+484|Dia a dia
+485|O plano conta dias úteis, como agora.
+486|Hora a hora
+487|Fase 2: o modelo da hora do dia ainda não está disponível.
+488|Hora
+489|Manual
+490|Otimizar a pedido, com pré-visualização.
+491|Automático
+492|Otimizar após cada alteração.
+493|Nivelamento
+494|As datas podem passar da folga; o fim do projeto pode mudar.
+495|Suavização
+496|Só a folga é usada; o fim do projeto não muda.
+497|Padrão
+498|Prioridade, Padrão
+499|Só ID
+500|Perguntar-me
+501|Recursos
+502|Modelo de planeamento (resourceOptimizationMode)
+503|Unidade de carga dos recursos (resourceGrainUnit)
+504|A unidade em que as horas de um recurso são mostradas e o período em que a carga é comparada com o calendário. No modelo dia a dia, um dia útil é o período mais fino.
+505|Otimização de recursos (resourceLevelingFunctionalityEnabled)
+506|Ativado: os recursos reservados por mais horas do que o seu calendário permite podem ser nivelados (tarefas adiadas ou divididas) ou suavizados. Desativado: nada muda.
+507|Otimizar (resourceLevelingMode)
+508|Método (resourceLevelingWithinSlackOnly)
+509|Ordem de nivelamento (resourceLevelingOrder)
+510|Modo rápido (resourceLevelingFunctionalityFastModeEnabled)
+511|Ativado: alterar os dados diretamente no ecrã: arrastar uma barra, escrever horas numa célula, mover uma tarefa para outro recurso, resolver um conflito com um clique.
+512|Tarefas lançadas
+513|As tarefas lançadas podem ser movidas (resourceLevelingPostedTasksMovementEnabled)
+514|Ativado: uma tarefa lançada pode ser movida, mas nunca sem perguntar: movê-la anula o lançamento das suas linhas e pagamentos. Desativado: as tarefas lançadas mantêm as datas.
+515|Quando uma tarefa lançada tem de ser movida (resourceLevelingPostedTasksAction)
+516|Opções
+517|Limpar os valores de nivelamento antes de nivelar (resourceLevelingClearBeforeLeveling)
+518|Ativado: nivelar a partir do plano sem os atrasos antigos. Sempre ativado no modo automático.
+519|O nivelamento pode criar divisões (resourceLevelingCanSplit)
+520|Ativado: uma tarefa pode ser interrompida em vez de movida. Só funciona com a função Gantt Extended «Dividir tarefas».
+521|Nivelar tarefas agendadas manualmente (resourceLevelingManualTasks)
+522|Ativado: as tarefas agendadas manualmente também podem ser movidas. Só funciona com a função Gantt Extended «Tarefas agendadas manualmente».
+523|Respeitar os outros projetos (resourceLevelingIncludeOtherProjects)
+524|Ativado: as horas lançadas dos outros projetos da organização contam como carga que não pode ser movida.
+525|Mostrar a barra de atraso de nivelamento (resourceLevelingShowDelayBar)
+526|Ativado: o diagrama de Gantt desenha o atraso antes de uma tarefa movida.
+527|Mostrar recursos sobrecarregados (resourceLevelingShowOverallocation)
+528|Ativado: uma marca na árvore de tarefas e na barra onde um recurso está reservado por mais horas do que tem.
+529|Guardar o histórico das execuções (resourceLevelingKeepHistory)
+530|Ativado: cada execução é guardada, para poder ser anulada mais tarde.
+531|Prioridade mais baixa do que a tarefa que fica com o recurso
+532|Mais folga do que a tarefa que fica com o recurso
+533|Começa mais tarde do que a tarefa que fica com o recurso
+534|Vem depois da tarefa que fica com o recurso
+535|O recurso está ocupado por outros projetos
+536|A tarefa está lançada e mantém as datas
+537|A tarefa começou ou terminou
+538|A tarefa tem um realizado lançado
+539|A tarefa tem prioridade 1000: nunca é movida
+540|A tarefa tem de começar ou terminar numa data
+541|A tarefa está agendada manualmente
+542|A tarefa não está nesta execução
+543|Mover precisa de mais do que a folga (a suavização mantém as datas do projeto)
+544|Nenhum dia posterior tem espaço
+545|A tarefa sozinha precisa de mais horas do que o recurso tem: divida-a ou use outro recurso
+546|O calendário do recurso não tem linha para o dia
+547|Os outros projetos ocupam o recurso
+548|A execução foi parada pelo seu contador de segurança
+549|Não foi possível resolver
+550|{{resource}}: {{hours}} h em {{day}}, o calendário não tem capacidade para este dia
+551|{{resource}}: {{hours}} h em {{day}}, capacidade {{capacity}} h
+552|Nenhuma tarefa tem uma linha de tempo com um recurso em horas: nada a otimizar
+553|Nenhum recurso está sobrecarregado
+554|As tarefas lançadas mantêm as datas: este é o plano sem elas
+555|Otimizado: {{n}} tarefa(s) movida(s). A lançar de novo {{posted}} tarefa(s) ...
+556|Otimizado: {{n}} tarefa(s) movida(s), {{posted}} tarefa(s) sem lançamento: use «Lançar tarefas sem lançamento»
+557|Otimizado: {{n}} tarefa(s) movida(s)
+558|Uma tarefa foi alterada depois de o plano ser lido. Nivele de novo.
+559|Nenhuma tarefa tem atraso de nivelamento
+560|Limpar o nivelamento?
+561|O atraso de nivelamento de {{n}} tarefa(s) é removido; {{posted}} delas estão lançadas e perdem o lançamento porque as datas se movem.
+562|O atraso de nivelamento de {{n}} tarefa(s) é removido.
+563|Nivelamento limpo
+564|Anular esta execução?
+565|Os atrasos de nivelamento voltam ao que eram antes da execução. As tarefas lançadas cujas datas se movem perdem o lançamento.
+566|Anulado: {{n}} tarefa(s) restaurada(s), {{skipped}} alterada(s) entretanto e deixada(s) como estão
+567|Anulado: {{n}} tarefa(s) restaurada(s)
+568|Não há nenhuma execução para anular
+569|Nivelar agora
+570|Anular a última execução
+571|Histórico das execuções

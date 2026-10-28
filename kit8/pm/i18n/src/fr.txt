@@ -447,3 +447,125 @@
 447|{{count}} étape(s) de rétablissement seront oubliées. Le projet lui-même ne change pas.
 448|Rien à annuler
 449|clic droit / appui long : menu
+450|Niveler
+451|Optimisation des ressources : niveler les ressources réservées pour plus d'heures que leur calendrier ne le permet
+452|Optimisation des ressources
+453|{{n}} conflit(s) n'ont pas pu être résolus
+454|… et {{n}} de plus
+455|{{n}} tâche(s) comptabilisée(s) doivent être déplacée(s)
+456|Déplacer une tâche comptabilisée annule la comptabilisation de ses lignes et de ses paiements. Que faire d'elles ?
+457|{{name}} : {{from}} → {{to}}
+458|Annuler la comptabilisation et déplacer
+459|Les tâches sont déplacées et restent non comptabilisées jusqu'à ce que vous les comptabilisiez.
+460|Déplacer et comptabiliser à nouveau
+461|Les tâches sont déplacées et comptabilisées à nouveau, mais seulement si elles se comptabilisent sans conflit ; sinon elles restent où elles sont.
+462|Garder leurs dates
+463|Les tâches comptabilisées ne bougent pas ; le plan est refait sans elles.
+464|plus tôt
+465|plus tard
+466|Optimisation des ressources – Lissage
+467|Optimisation des ressources – Nivellement
+468|Surchargées maintenant
+469|Non résolus après l'exécution
+470|Tâches déplacées
+471|Début du projet
+472|Fin du projet
+473|Tâches comptabilisées qui se déplacent
+474|Le projet est planifié à partir de sa date de fin : les tâches avancent, la date de fin reste.
+475|Aucune tâche n'a besoin d'être déplacée.
+476|{{from}} → {{to}} ({{days}} jour(s) ouvré(s) {{when}})
+477|Effacer le nivellement
+478|Optimisation des ressources – exécutions
+479|Aucune exécution pour l'instant.
+480|{{n}} tâche(s) déplacée(s)
+481|{{n}} non résolu(s)
+482|Annuler l'exécution
+483|Annulé
+484|Jour par jour
+485|Le plan compte les jours ouvrés, comme aujourd'hui.
+486|Heure par heure
+487|Phase 2 : le modèle de l'heure du jour n'est pas encore disponible.
+488|Heure
+489|Manuel
+490|Optimiser sur commande, avec un aperçu.
+491|Automatique
+492|Optimiser après chaque modification.
+493|Nivellement
+494|Les dates peuvent dépasser la marge ; la fin du projet peut changer.
+495|Lissage
+496|Seule la marge est utilisée ; la fin du projet ne change pas.
+497|Standard
+498|Priorité, Standard
+499|ID seulement
+500|Me demander
+501|Ressources
+502|Modèle de planification (resourceOptimizationMode)
+503|Unité de charge des ressources (resourceGrainUnit)
+504|L'unité dans laquelle les heures d'une ressource sont affichées et la période où la charge est comparée au calendrier. Dans le modèle jour par jour, un jour ouvré est la période la plus fine.
+505|Optimisation des ressources (resourceLevelingFunctionalityEnabled)
+506|Activé : les ressources réservées pour plus d'heures que leur calendrier ne le permet peuvent être nivelées (tâches retardées ou fractionnées) ou lissées. Désactivé : rien ne change.
+507|Optimiser (resourceLevelingMode)
+508|Méthode (resourceLevelingWithinSlackOnly)
+509|Ordre de nivellement (resourceLevelingOrder)
+510|Mode rapide (resourceLevelingFunctionalityFastModeEnabled)
+511|Activé : modifier les données directement à l'écran : faire glisser une barre, saisir des heures dans une cellule, déplacer une tâche vers une autre ressource, corriger un conflit d'un clic.
+512|Tâches comptabilisées
+513|Les tâches comptabilisées peuvent être déplacées (resourceLevelingPostedTasksMovementEnabled)
+514|Activé : une tâche comptabilisée peut être déplacée, mais jamais sans demander : la déplacer annule la comptabilisation de ses lignes et paiements. Désactivé : les tâches comptabilisées gardent leurs dates.
+515|Quand une tâche comptabilisée doit être déplacée (resourceLevelingPostedTasksAction)
+516|Options
+517|Effacer les valeurs de nivellement avant de niveler (resourceLevelingClearBeforeLeveling)
+518|Activé : niveler à partir du plan sans les anciens retards. Toujours activé en mode automatique.
+519|Le nivellement peut créer des interruptions (resourceLevelingCanSplit)
+520|Activé : une tâche peut être interrompue au lieu d'être déplacée. Ne fonctionne qu'avec la fonction Gantt Extended « Tâches fractionnées ».
+521|Niveler les tâches planifiées manuellement (resourceLevelingManualTasks)
+522|Activé : les tâches planifiées manuellement peuvent aussi être déplacées. Ne fonctionne qu'avec la fonction Gantt Extended « Tâches planifiées manuellement ».
+523|Respecter les autres projets (resourceLevelingIncludeOtherProjects)
+524|Activé : les heures comptabilisées des autres projets de l'organisation comptent comme une charge qui ne peut pas être déplacée.
+525|Afficher la barre de retard de nivellement (resourceLevelingShowDelayBar)
+526|Activé : le diagramme de Gantt dessine le retard avant une tâche déplacée.
+527|Afficher les ressources surchargées (resourceLevelingShowOverallocation)
+528|Activé : une marque dans l'arbre des tâches et sur la barre là où une ressource est réservée pour plus d'heures qu'elle n'en a.
+529|Conserver l'historique des exécutions (resourceLevelingKeepHistory)
+530|Activé : chaque exécution est enregistrée, donc elle peut être annulée plus tard.
+531|Priorité plus basse que la tâche qui garde la ressource
+532|Plus de marge que la tâche qui garde la ressource
+533|Commence plus tard que la tâche qui garde la ressource
+534|Vient après la tâche qui garde la ressource
+535|La ressource est occupée par d'autres projets
+536|La tâche est comptabilisée et garde ses dates
+537|La tâche a commencé ou est terminée
+538|La tâche a un réalisé comptabilisé
+539|La tâche a la priorité 1000 : elle n'est jamais déplacée
+540|La tâche doit commencer ou finir à une date
+541|La tâche est planifiée manuellement
+542|La tâche n'est pas dans cette exécution
+543|Le déplacement demande plus que la marge (le lissage garde les dates du projet)
+544|Aucun jour plus tard n'a de la place
+545|La tâche seule demande plus d'heures que la ressource n'en a : fractionnez-la ou utilisez une autre ressource
+546|Le calendrier de la ressource n'a pas de ligne pour ce jour
+547|Les autres projets occupent la ressource
+548|L'exécution a été arrêtée par son compteur de sécurité
+549|N'a pas pu être résolu
+550|{{resource}} : {{hours}} h le {{day}}, le calendrier n'a pas de capacité pour ce jour
+551|{{resource}} : {{hours}} h le {{day}}, capacité {{capacity}} h
+552|Aucune tâche n'a de ligne de temps avec une ressource en heures : rien à optimiser
+553|Aucune ressource n'est surchargée
+554|Les tâches comptabilisées gardent leurs dates : voici le plan sans elles
+555|Optimisé : {{n}} tâche(s) déplacée(s). Nouvelle comptabilisation de {{posted}} tâche(s) ...
+556|Optimisé : {{n}} tâche(s) déplacée(s), {{posted}} tâche(s) non comptabilisée(s) : utilisez « Comptabiliser les tâches non comptabilisées »
+557|Optimisé : {{n}} tâche(s) déplacée(s)
+558|Une tâche a changé après la lecture du plan. Nivelez à nouveau.
+559|Aucune tâche n'a de retard de nivellement
+560|Effacer le nivellement ?
+561|Le retard de nivellement de {{n}} tâche(s) est supprimé ; {{posted}} d'entre elles sont comptabilisées et perdent leur comptabilisation parce que leurs dates bougent.
+562|Le retard de nivellement de {{n}} tâche(s) est supprimé.
+563|Nivellement effacé
+564|Annuler cette exécution ?
+565|Les retards de nivellement reviennent à ce qu'ils étaient avant l'exécution. Les tâches comptabilisées dont les dates bougent perdent leur comptabilisation.
+566|Annulé : {{n}} tâche(s) rétablie(s), {{skipped}} modifiée(s) depuis et laissée(s) telles quelles
+567|Annulé : {{n}} tâche(s) rétablie(s)
+568|Il n'y a pas d'exécution à annuler
+569|Niveler maintenant
+570|Annuler la dernière exécution
+571|Historique des exécutions

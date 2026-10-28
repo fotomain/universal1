@@ -46,6 +46,7 @@
 --   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (one signed row per posted invoice / payment line, written by triggers in the Post transaction) + partner_balance_ledger (the totals for now); the reports partner_balance_report / _filter_items / _movements_list; credit notes (the CHECK of the invoice lines is in PART 26 / 31 of start1)
 --   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): the RPCs task_template_save / _fill / _set_title, the RLS (every user of the organization reads, the creator or the administrator deletes)
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): the RPCs route_visit_register / route_visits_clear / route_visits_enabled, RLS (a user reads and deletes his own rows), realtime
+--   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): the RPCs project_resource_leveling_inputs / _apply / _clear / _undo, RLS (the owner of the project reads the runs), the check of the leveling delay on project_task_table
 -- ===============================================================================================
 
 DO $$
@@ -14467,7 +14468,7 @@ GRANT EXECUTE ON FUNCTION public.task_template_visible(uuid) TO authenticated;
 -- the keys of a task / a line that belong to ONE project and are not copied (see the header of this part)
 CREATE OR REPLACE FUNCTION public.task_template_clean_task(p_json jsonb) RETURNS jsonb
 LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
-  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'taskManualStartAt' - 'taskConstraintDate' - 'taskDeadline' - 'actualStartAt' - 'actualFinishAt' - 'baselines' - 'externalPredecessors' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
+  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'taskManualStartAt' - 'taskLevelingDelayDays' - 'taskConstraintDate' - 'taskDeadline' - 'actualStartAt' - 'actualFinishAt' - 'baselines' - 'externalPredecessors' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
 $$;
 
 CREATE OR REPLACE FUNCTION public.task_template_clean_line(p_json jsonb) RETURNS jsonb
@@ -14880,6 +14881,277 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+-- ===============================================================================================
+-- PART 42: create_resource_leveling.sql
+-- RESOURCE OPTIMIZATION - leveling and smoothing (documentation/RESOURCE_LEVELING_WBS.html section 8). The engine is TypeScript (kit8/pm/resourceleveling); the database holds the inputs, the result and the history:
+--   project_resource_leveling_inputs(project, from, to, resources)   the capacity per resource and day (PART 21) and the POSTED hours of the OTHER projects of the organization (PART 22), no titles  -> jsonb
+--   project_resource_leveling_apply(project, run)                     writes the leveling delays (project_task_table.rowJSON.taskLevelingDelayDays) of a run and its history, ONE transaction          -> the run GUID
+--   project_resource_leveling_clear(project, tasks)                   removes the delays (all, or of the tasks given) and writes a run of the kind clear                                              -> the run GUID or NULL
+--   project_resource_leveling_undo(run)                               gives the delays of a run back (a task edited since is skipped and named)                                                       -> jsonb
+-- The tables of start1 are written ONLY by these functions; the owner of the project reads them (RLS). A date that moves because of a delay is written by the usual schedule write-back (pm_apply_schedule);
+-- the existing triggers then unpost the lines and payments of a task whose day changed - the application asks the user BEFORE it applies a run that does this (documentation section 7.7).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_resource_leveling_run') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 42 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+ALTER TABLE public.project_resource_leveling_run  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_resource_leveling_task ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.project_resource_leveling_run  FROM anon, authenticated;
+REVOKE ALL ON public.project_resource_leveling_task FROM anon, authenticated;
+GRANT SELECT ON public.project_resource_leveling_run  TO authenticated;
+GRANT SELECT ON public.project_resource_leveling_task TO authenticated;
+
+DROP POLICY IF EXISTS project_resource_leveling_run_select ON public.project_resource_leveling_run;
+
+CREATE POLICY project_resource_leveling_run_select ON public.project_resource_leveling_run FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+DROP POLICY IF EXISTS project_resource_leveling_task_select ON public.project_resource_leveling_task;
+
+CREATE POLICY project_resource_leveling_task_select ON public.project_resource_leveling_task FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+-- the delay is a whole number of working days, 0 or more, and only a plain task can have one (a stage, a milestone and a subproject task take their dates from elsewhere)
+CREATE OR REPLACE FUNCTION public.project_task_leveling_check() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb := NEW."rowJSON"->'taskLevelingDelayDays';
+  n numeric;
+BEGIN
+  IF v IS NULL OR jsonb_typeof(v) = 'null' THEN RETURN NEW; END IF;
+  IF jsonb_typeof(v) <> 'number' THEN RAISE EXCEPTION 'taskLevelingDelayDays must be a number'; END IF;
+  n := (v #>> '{}')::numeric;
+  IF n < 0 OR n <> trunc(n) THEN RAISE EXCEPTION 'taskLevelingDelayDays must be a whole number of working days, 0 or more'; END IF;
+  IF n > 0 AND (COALESCE(NEW."rowJSON"->>'rowKind', 'task') IN ('stage', 'milestone') OR COALESCE(NEW."rowJSON"->>'taskIsSubproject', 'false') = 'true') THEN
+    RAISE EXCEPTION 'a stage, a milestone or a subproject task cannot have a leveling delay';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_task_leveling_chk ON public.project_task_table;
+
+CREATE TRIGGER trg_project_task_leveling_chk BEFORE INSERT OR UPDATE OF "rowJSON" ON public.project_task_table
+  FOR EACH ROW WHEN (jsonb_exists(NEW."rowJSON", 'taskLevelingDelayDays')) EXECUTE FUNCTION public.project_task_leveling_check();
+
+-- the inputs of a run for the resources p_resources = [{"k": "person", "g": "<guid>"}] between two days:
+--   capacity [{k, g, d, h}]  the hours of the calendar of the resource that day; a day WITHOUT a row is left out (= unknown, never guessed)
+--   foreign  [{k, g, d, h}]  the POSTED hours of the other projects of the organization (the occupancy view of PART 22); only hours: no title, no project, no task of a colleague
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_inputs(p_project uuid, p_from date, p_to date, p_resources jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text;
+  v_cap jsonb;
+  v_for jsonb;
+BEGIN
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs: give the first and the last day';
+  END IF;
+  IF p_to - p_from > 1500 THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs: the range is longer than 1500 days';
+  END IF;
+  SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project;
+
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT r->>'k' AS k, r->>'g' AS g FROM jsonb_array_elements(COALESCE(p_resources, '[]'::jsonb)) r WHERE NULLIF(r->>'g', '') IS NOT NULL AND NULLIF(r->>'k', '') IS NOT NULL),
+  days AS MATERIALIZED (
+    SELECT d::date AS d FROM generate_series(p_from, p_to, interval '1 day') d),
+  cap AS MATERIALIZED (
+    SELECT res.k, res.g, days.d, public.organization_resource_capacity(res.k, res.g, days.d) AS h FROM res CROSS JOIN days)
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('k', c.k, 'g', c.g, 'd', c.d, 'h', c.h) ORDER BY c.k, c.g, c.d) FILTER (WHERE c.h IS NOT NULL), '[]'::jsonb)
+    INTO v_cap FROM cap c;
+
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT r->>'k' AS k, r->>'g' AS g FROM jsonb_array_elements(COALESCE(p_resources, '[]'::jsonb)) r WHERE NULLIF(r->>'g', '') IS NOT NULL AND NULLIF(r->>'k', '') IS NOT NULL),
+  f AS (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS h
+      FROM public.resource_occupancy_x_movement o
+      JOIN res ON res.k = o."resourceKind" AND res.g = o."resourceGUID"
+     WHERE o."scopeGUID" = v_org AND o."statusOfLine" = 'posted' AND o."projectGUID" <> p_project::text AND o."periodDay" BETWEEN p_from AND p_to
+     GROUP BY 1, 2, 3)
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('k', f.k, 'g', f.g, 'd', f.d, 'h', f.h) ORDER BY f.k, f.g, f.d), '[]'::jsonb) INTO v_for FROM f;
+
+  RETURN jsonb_build_object('capacity', v_cap, 'foreign', v_for);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_inputs(uuid, date, date, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_inputs(uuid, date, date, jsonb) TO authenticated;
+
+-- a run: p_run = {kind: 'level', mode, method, scope, options, keepHistory, conflictsBefore, conflictsAfter, unresolved, tasksUnposted, startBefore, startAfter, finishBefore, finishAfter,
+--                 tasks: [{task, delayBefore, delayAfter, startBefore, startAfter, finishBefore, finishAfter, wasPosted, reason, resourceKind, resourceGUID, conflictDay, updatedAt}]}
+-- A task is a task of the project; with updatedAt given, a task edited after the plan was read stops the whole run (40001: read again and level again). The task rows are updated with app.task_bulk on:
+-- only a key of the task changes here, the dates are written by the schedule write-back afterwards.
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_apply(p_project uuid, p_run jsonb) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user  uuid := public.app_user_guid();
+  v_run   uuid := gen_random_uuid();
+  v_keep  boolean := COALESCE((p_run->>'keepHistory')::boolean, true);
+  v_bad   integer;
+  v_stale integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_apply: sign in first' USING ERRCODE = '28000'; END IF;
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_apply: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF COALESCE(NULLIF(p_run->>'kind', ''), 'level') <> 'level' THEN
+    RAISE EXCEPTION 'project_resource_leveling_apply: the kind of the run must be level (use project_resource_leveling_clear and _undo)';
+  END IF;
+  PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = p_project FOR UPDATE;
+
+  SELECT count(*) INTO v_bad FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb)) AS r(task uuid)
+   WHERE NOT EXISTS (SELECT 1 FROM public.project_task_table t WHERE t."rowGUID" = r.task AND t."projectGUID" = p_project);
+  IF v_bad > 0 THEN RAISE EXCEPTION 'project_resource_leveling_apply: a task of the run is not a task of the project'; END IF;
+
+  SELECT count(*) INTO v_stale FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb)) AS r(task uuid, "updatedAt" timestamptz)
+    JOIN public.project_task_table t ON t."rowGUID" = r.task
+   WHERE r."updatedAt" IS NOT NULL AND t."updated_at" > r."updatedAt";
+  IF v_stale > 0 THEN
+    RAISE EXCEPTION 'project_resource_leveling_apply: % task(s) changed after the plan was read: read the project again and level again', v_stale USING ERRCODE = '40001';
+  END IF;
+
+  PERFORM set_config('app.task_bulk', 'on', true);
+  UPDATE public.project_task_table t
+     SET "rowJSON" = CASE WHEN COALESCE(r."delayAfter", 0) > 0 THEN jsonb_set(t."rowJSON", '{taskLevelingDelayDays}', to_jsonb(r."delayAfter"))
+                          ELSE t."rowJSON" - 'taskLevelingDelayDays' END
+    FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb)) AS r(task uuid, "delayAfter" integer)
+   WHERE t."rowGUID" = r.task AND t."projectGUID" = p_project;
+  PERFORM set_config('app.task_bulk', 'off', true);
+
+  IF NOT v_keep THEN RETURN NULL; END IF;
+
+  INSERT INTO public.project_resource_leveling_run ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "runKind", "runMode", "runMethod", "runScope", "runOptions", "tasksMoved", "tasksUnposted",
+                                                    "conflictsBefore", "conflictsAfter", "unresolvedCount", "startBefore", "startAfter", "finishBefore", "finishAfter")
+  SELECT v_run, p_project, v_user, 'level', COALESCE(NULLIF(p_run->>'mode', ''), 'manual'), COALESCE(NULLIF(p_run->>'method', ''), 'leveling'),
+         COALESCE(p_run->'scope', '{}'::jsonb), COALESCE(p_run->'options', '{}'::jsonb),
+         (SELECT count(*) FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb)) AS r("delayBefore" integer, "delayAfter" integer) WHERE COALESCE(r."delayBefore", 0) <> COALESCE(r."delayAfter", 0)),
+         COALESCE((p_run->>'tasksUnposted')::integer, 0), COALESCE((p_run->>'conflictsBefore')::integer, 0), COALESCE((p_run->>'conflictsAfter')::integer, 0), COALESCE((p_run->>'unresolved')::integer, 0),
+         (p_run->>'startBefore')::timestamptz, (p_run->>'startAfter')::timestamptz, (p_run->>'finishBefore')::timestamptz, (p_run->>'finishAfter')::timestamptz;
+
+  INSERT INTO public.project_resource_leveling_task ("rowRunGUID", "rowProjectGUID", "rowTaskGUID", "delayBefore", "delayAfter", "startBefore", "startAfter", "finishBefore", "finishAfter",
+                                                     "wasPosted", "reasonCode", "resourceKind", "resourceGUID", "conflictDay")
+  SELECT v_run, p_project, r.task, COALESCE(r."delayBefore", 0), COALESCE(r."delayAfter", 0), r."startBefore", r."startAfter", r."finishBefore", r."finishAfter",
+         COALESCE(r."wasPosted", false), r.reason, r."resourceKind", r."resourceGUID", r."conflictDay"
+    FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb))
+         AS r(task uuid, "delayBefore" integer, "delayAfter" integer, "startBefore" timestamptz, "startAfter" timestamptz, "finishBefore" timestamptz, "finishAfter" timestamptz,
+              "wasPosted" boolean, reason text, "resourceKind" text, "resourceGUID" text, "conflictDay" date);
+  RETURN v_run;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_apply(uuid, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_apply(uuid, jsonb) TO authenticated;
+
+-- "Clear leveling": removes the delay of every task of the project that has one (or only of p_tasks) and writes a run of the kind clear. NULL = there was nothing to clear.
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_clear(p_project uuid, p_tasks uuid[] DEFAULT NULL, p_mode text DEFAULT 'manual', p_keep_history boolean DEFAULT true) RETURNS uuid
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user uuid := public.app_user_guid();
+  v_run  uuid := gen_random_uuid();
+  v_n    integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_clear: sign in first' USING ERRCODE = '28000'; END IF;
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_clear: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = p_project FOR UPDATE;
+
+  CREATE TEMP TABLE IF NOT EXISTS pg_temp.prl_clear (task uuid, delay integer) ON COMMIT DROP;
+  TRUNCATE pg_temp.prl_clear;
+  INSERT INTO pg_temp.prl_clear
+  SELECT t."rowGUID", (t."rowJSON"->>'taskLevelingDelayDays')::integer
+    FROM public.project_task_table t
+   WHERE t."projectGUID" = p_project AND COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::numeric, 0) > 0
+     AND (p_tasks IS NULL OR t."rowGUID" = ANY (p_tasks));
+  SELECT count(*) INTO v_n FROM pg_temp.prl_clear;
+  IF v_n = 0 THEN RETURN NULL; END IF;
+
+  PERFORM set_config('app.task_bulk', 'on', true);
+  UPDATE public.project_task_table t SET "rowJSON" = t."rowJSON" - 'taskLevelingDelayDays' FROM pg_temp.prl_clear c WHERE t."rowGUID" = c.task;
+  PERFORM set_config('app.task_bulk', 'off', true);
+
+  IF NOT COALESCE(p_keep_history, true) THEN RETURN NULL; END IF;
+  INSERT INTO public.project_resource_leveling_run ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "runKind", "runMode", "runScope", "tasksMoved")
+  VALUES (v_run, p_project, v_user, 'clear', CASE WHEN p_mode IN ('manual', 'automatic', 'fast') THEN p_mode ELSE 'manual' END,
+          CASE WHEN p_tasks IS NULL THEN '{"scope": "project"}'::jsonb ELSE jsonb_build_object('scope', 'tasks', 'tasks', to_jsonb(p_tasks)) END, v_n);
+  INSERT INTO public.project_resource_leveling_task ("rowRunGUID", "rowProjectGUID", "rowTaskGUID", "delayBefore", "delayAfter")
+  SELECT v_run, p_project, c.task, c.delay, 0 FROM pg_temp.prl_clear c;
+  RETURN v_run;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_clear(uuid, uuid[], text, boolean) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_clear(uuid, uuid[], text, boolean) TO authenticated;
+
+-- "Undo run": the delays of the run go back to their values before it. A task whose delay is not the one the run left (it was edited or levelled again) is NOT touched and is named.
+-- -> {run, restored, skipped, skippedTasks[]}. A run is undone once; an undo cannot be undone (level again instead).
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_undo(p_run uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user    uuid := public.app_user_guid();
+  v_new     uuid := gen_random_uuid();
+  v_project uuid;
+  v_kind    text;
+  v_done    uuid;
+  v_ok      integer;
+  v_skipped uuid[];
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: sign in first' USING ERRCODE = '28000'; END IF;
+  SELECT r."rowProjectGUID", r."runKind", r."undoneByGUID" INTO v_project, v_kind, v_done FROM public.project_resource_leveling_run r WHERE r."rowGUID" = p_run;
+  IF v_project IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: the run does not exist'; END IF;
+  IF NOT public.pm_owns_project(v_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_undo: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF v_kind = 'undo' THEN RAISE EXCEPTION 'project_resource_leveling_undo: an undo cannot be undone: level again'; END IF;
+  IF v_done IS NOT NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: the run is undone already'; END IF;
+  PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = v_project FOR UPDATE;
+
+  CREATE TEMP TABLE IF NOT EXISTS pg_temp.prl_undo (task uuid, was integer, restore integer, ok boolean) ON COMMIT DROP;
+  TRUNCATE pg_temp.prl_undo;
+  INSERT INTO pg_temp.prl_undo
+  SELECT x."rowTaskGUID", COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::integer, 0), x."delayBefore",
+         t."rowGUID" IS NOT NULL AND COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::integer, 0) = x."delayAfter"
+    FROM public.project_resource_leveling_task x
+    LEFT JOIN public.project_task_table t ON t."rowGUID" = x."rowTaskGUID"
+   WHERE x."rowRunGUID" = p_run;
+  SELECT count(*) INTO v_ok FROM pg_temp.prl_undo WHERE ok;
+  SELECT COALESCE(array_agg(task), '{}') INTO v_skipped FROM pg_temp.prl_undo WHERE NOT ok;
+
+  PERFORM set_config('app.task_bulk', 'on', true);
+  UPDATE public.project_task_table t
+     SET "rowJSON" = CASE WHEN u.restore > 0 THEN jsonb_set(t."rowJSON", '{taskLevelingDelayDays}', to_jsonb(u.restore)) ELSE t."rowJSON" - 'taskLevelingDelayDays' END
+    FROM pg_temp.prl_undo u WHERE u.ok AND t."rowGUID" = u.task;
+  PERFORM set_config('app.task_bulk', 'off', true);
+
+  INSERT INTO public.project_resource_leveling_run ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "runKind", "runMode", "runMethod", "runScope", "tasksMoved")
+  SELECT v_new, v_project, v_user, 'undo', r."runMode", r."runMethod", jsonb_build_object('undoOf', p_run), v_ok FROM public.project_resource_leveling_run r WHERE r."rowGUID" = p_run;
+  INSERT INTO public.project_resource_leveling_task ("rowRunGUID", "rowProjectGUID", "rowTaskGUID", "delayBefore", "delayAfter")
+  SELECT v_new, v_project, u.task, u.was, u.restore FROM pg_temp.prl_undo u WHERE u.ok;
+  UPDATE public.project_resource_leveling_run SET "undoneByGUID" = v_new WHERE "rowGUID" = p_run;
+  RETURN jsonb_build_object('run', v_new, 'restored', v_ok, 'skipped', COALESCE(array_length(v_skipped, 1), 0), 'skippedTasks', to_jsonb(v_skipped));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_undo(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_undo(uuid) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

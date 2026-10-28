@@ -14,10 +14,11 @@ import PMProjectProductTab from '../../pm/view/project/settings/PMProjectProduct
 import PMProjectSubprojectsTab from '../../pm/view/project/settings/PMProjectSubprojectsTab';
 import PMProjectRoiTab from '../../pm/view/project/settings/PMProjectRoiTab';
 import PMProjectPaymentsTab from '../../pm/view/project/settings/PMProjectPaymentsTab';
+import PMResourceLevelingSettingsTab from '../../pm/resourceleveling/PMResourceLevelingSettingsTab';
 import { DefaultProjectSettings, defaultProjectSettingsOf, mainValuesOf } from './defaultProjectSettings';
 import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 
-export type OrganizationSettingsTab = 'main' | 'budgets' | 'payments' | 'vendor' | 'product' | 'subprojects' | 'roi';
+export type OrganizationSettingsTab = 'main' | 'budgets' | 'payments' | 'vendor' | 'product' | 'subprojects' | 'roi' | 'resources';
 
 const TABS: { id: OrganizationSettingsTab; label: string }[] = [
   { id: 'main', label: 'Main' },
@@ -27,6 +28,7 @@ const TABS: { id: OrganizationSettingsTab; label: string }[] = [
   { id: 'product', label: 'Product' },
   { id: 'subprojects', label: 'Subprojects' },
   { id: 'roi', label: 'ROI' },
+  { id: 'resources', label: 'Resources' },
 ];
 
 export default function OrganizationProjectSettings({
@@ -107,6 +109,7 @@ export default function OrganizationProjectSettings({
         {tab === 'product' && <PMProjectProductTab values={v} onChange={patch} />}
         {tab === 'subprojects' && <PMProjectSubprojectsTab values={v} onChange={patch} />}
         {tab === 'roi' && <PMProjectRoiTab values={v} onChange={patch} />}
+        {tab === 'resources' && <PMResourceLevelingSettingsTab values={v} onChange={patch} />}
       </View>
     </View>
   );

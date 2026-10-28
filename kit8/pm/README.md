@@ -600,7 +600,7 @@ The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es,
   `PMContextMenu` caption, `PMTooltip` (every tip), the error bar. Static `<Text>` contents and `label / title /
   placeholder` props of the PM screens are wrapped in `pmT(...)`.
 * Dictionaries: `i18n/src/<lang>.txt` (`N|translation`, N = position in `i18n/locales/keys.ts`) →
-  `python3 kit8/pm/i18n/src/build.py` → `i18n/locales/<lang>.ts` + `index.ts` (generated). 435 texts × 14 languages.
+  `python3 kit8/pm/i18n/src/build.py` → `i18n/locales/<lang>.ts` + `index.ts` (generated). 571 texts × 14 languages (Resource optimization added 122).
   The translations were written by the assistant and were not reviewed by native speakers.
 * Add a text: use `pmT('New text')` in the code, append `"New text",` to `keys.ts`, add the `N|…` line to every
   `src/<lang>.txt`, run `build.py`. `__tests__/pm/i18n/pmT.test.ts` fails when a language misses a key.

@@ -47,6 +47,7 @@
 --   39. create_partner_balance.sql - the PARTNER BALANCE (documentation/PARTNER_BALANCE.html): partner_balance_movements (the register of the invoices and payments of the partners) + partner_balance_ledger (the totals for now)
 --   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): task_template_header / _task / _dependency / _line (a task or a stage with everything inside it, saved for the whole organization)
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover = one row per user and route with the number of visits (the app writes it through route_visit_register only while the Organization switch numberOfVisitsFunctionalityEnabled is on)
+--   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): project_resource_leveling_run / _task = the history of the leveling runs of a project (the delay itself is project_task_table.rowJSON.taskLevelingDelayDays)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3514,6 +3515,64 @@ CREATE TABLE IF NOT EXISTS public.app_route_visits_turnover (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_app_route_visits_user_route ON public.app_route_visits_turnover ("rowOwnerGUID", "rowParentGUID");
+
+-- ===============================================================================================
+-- PART 42: create_resource_leveling.sql
+-- RESOURCE OPTIMIZATION - leveling and smoothing (documentation/RESOURCE_LEVELING_WBS.html section 8): the history of the runs of a project.
+--   project_resource_leveling_run    one command: level / clear / undo (who, mode, method, scope, the options used, the counts, the project start / finish before and after)
+--   project_resource_leveling_task   one task changed by a run: the leveling delay (working days) before and after, the dates before and after, was it posted, the reason
+-- The RESULT itself lives on the task: project_task_table.rowJSON.taskLevelingDelayDays (read by the scheduler like a lag). Written ONLY by the RPCs of start2
+-- (project_resource_leveling_apply / _clear / _undo); the owner of the project reads them. The hour-by-hour model (phase 2) adds its own tables in a later part.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.project_resource_leveling_run (
+  "rowGUID"         UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"    UUID        NOT NULL,
+  "runKind"         TEXT        NOT NULL,
+  "runMode"         TEXT        NOT NULL DEFAULT 'manual',
+  "runMethod"       TEXT        NOT NULL DEFAULT 'leveling',
+  "runScope"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "runOptions"      JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "tasksMoved"      INTEGER     NOT NULL DEFAULT 0,
+  "tasksUnposted"   INTEGER     NOT NULL DEFAULT 0,
+  "conflictsBefore" INTEGER     NOT NULL DEFAULT 0,
+  "conflictsAfter"  INTEGER     NOT NULL DEFAULT 0,
+  "unresolvedCount" INTEGER     NOT NULL DEFAULT 0,
+  "startBefore"     TIMESTAMPTZ,
+  "startAfter"      TIMESTAMPTZ,
+  "finishBefore"    TIMESTAMPTZ,
+  "finishAfter"     TIMESTAMPTZ,
+  "undoneByGUID"    UUID,
+  "created_at"      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT project_resource_leveling_run_kind_chk   CHECK ("runKind" IN ('level', 'clear', 'undo')),
+  CONSTRAINT project_resource_leveling_run_mode_chk   CHECK ("runMode" IN ('manual', 'automatic', 'fast')),
+  CONSTRAINT project_resource_leveling_run_method_chk CHECK ("runMethod" IN ('leveling', 'smoothing'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_resource_leveling_run_project ON public.project_resource_leveling_run ("rowProjectGUID", "created_at" DESC);
+
+CREATE TABLE IF NOT EXISTS public.project_resource_leveling_task (
+  "rowRunGUID"      UUID        NOT NULL REFERENCES public.project_resource_leveling_run("rowGUID") ON DELETE CASCADE,
+  "rowProjectGUID"  UUID        NOT NULL,
+  "rowTaskGUID"     UUID        NOT NULL,
+  "delayBefore"     INTEGER     NOT NULL DEFAULT 0,
+  "delayAfter"      INTEGER     NOT NULL DEFAULT 0,
+  "startBefore"     TIMESTAMPTZ,
+  "startAfter"      TIMESTAMPTZ,
+  "finishBefore"    TIMESTAMPTZ,
+  "finishAfter"     TIMESTAMPTZ,
+  "wasPosted"       BOOLEAN     NOT NULL DEFAULT FALSE,
+  "reasonCode"      TEXT,
+  "resourceKind"    TEXT,
+  "resourceGUID"    TEXT,
+  "conflictDay"     DATE,
+  PRIMARY KEY ("rowRunGUID", "rowTaskGUID"),
+  CONSTRAINT project_resource_leveling_task_delay_chk CHECK ("delayBefore" >= 0 AND "delayAfter" >= 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_resource_leveling_task_task ON public.project_resource_leveling_task ("rowTaskGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql
