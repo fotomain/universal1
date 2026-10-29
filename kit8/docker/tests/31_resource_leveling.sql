@@ -130,4 +130,85 @@ SELECT tt.fails(format($q$SELECT public.project_resource_leveling_apply(%L, '{}'
 SELECT tt.fails(format($q$SELECT public.project_resource_leveling_clear(%L)$q$, :'p1'), 'sign in first', 'no session: clear refused');
 RESET ROLE;
 
+
+-- 9. SERVER SIDE COMPUTATIONS: project_resource_leveling_server_plan (the same rules as resourceLevelingEngine.ts for the plans it can calculate exactly) and the working-day maths --------------
+SELECT tt.as_admin();
+SELECT count(*)::int AS n0 FROM public.project_task_table WHERE "projectGUID" = :'p1' AND "rowJSON" ? 'taskLevelingDelayDays' \gset
+SELECT count(*)::int AS r0 FROM public.project_resource_leveling_run WHERE "rowProjectGUID" = :'p1' \gset
+SELECT tt.eq(public.pm_wd_add('2026-10-09', 1, true), '2026-10-10'::date, 'pm_wd_add: one working day from a Friday ends on the Saturday (the exclusive finish)');
+SELECT tt.eq(public.pm_wd_add('2026-10-10', 1, true), '2026-10-13'::date, 'pm_wd_add: counting starts on the next working day when the start is a Saturday');
+SELECT tt.eq(public.pm_wd_add('2026-10-05', 5, true), '2026-10-10'::date, 'pm_wd_add: a working week from a Monday');
+SELECT tt.eq(public.pm_wd_add('2026-10-05', 6, true), '2026-10-13'::date, 'pm_wd_add: six working days jump the weekend (the exclusive finish is the day after the sixth)');
+SELECT tt.eq(public.pm_wd_add('2026-10-05', 3, false), '2026-10-08'::date, 'pm_wd_add: every day is a working day');
+SELECT tt.eq(public.pm_wd_sub('2026-10-10', 1, true), '2026-10-09'::date, 'pm_wd_sub: the start that makes one working day end on the Saturday is the Friday');
+SELECT tt.eq(public.pm_wd_sub('2026-10-12', 1, true), '2026-10-09'::date, 'pm_wd_sub: the weekend is skipped backwards');
+SELECT tt.eq(public.pm_wd_sub('2026-10-09', 2, true), '2026-10-07'::date, 'pm_wd_sub: two working days that end before Friday start on the Wednesday');
+SELECT tt.eq(public.pm_wd_shift('2026-10-08', 1, true), '2026-10-09'::date, 'pm_wd_shift: a lag of one working day after a Thursday');
+SELECT tt.eq(public.pm_wd_next(public.pm_wd_shift('2026-10-09', 1, true), true), '2026-10-12'::date, 'pm_wd_shift + pm_wd_next: a lag of one working day after a Friday lands on the Monday');
+SELECT tt.eq(public.pm_wd_shift('2026-10-13', -2, true), '2026-10-09'::date, 'pm_wd_shift: a lead of two working days');
+SELECT tt.eq(public.pm_wd_next('2026-10-10', true), '2026-10-12'::date, 'pm_wd_next: a Saturday moves to the Monday');
+
+CREATE FUNCTION tt.srv(p_leaves jsonb, p_cons jsonb DEFAULT '[]', p_opts jsonb DEFAULT '{}', p_members jsonb DEFAULT '{}') RETURNS jsonb LANGUAGE sql AS $$
+  SELECT public.project_resource_leveling_server_plan(current_setting('tt.p1')::uuid,
+    jsonb_build_object('v', 1, 'method', 'leveling', 'order', 'standard', 'period', 'day', 'direction', 'forward', 'skipWeekends', true, 'projectStart', '2026-10-05',
+                       'from', '2026-09-28', 'to', '2026-12-31', 'delays', '{}'::jsonb, 'leaves', p_leaves, 'cons', p_cons, 'members', p_members) || p_opts) $$;
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+-- the helper builds a problem: two or three leaves of one person (all uniform hours), options as given
+SELECT set_config('tt.p1', :'p1', false);
+SELECT 'person:' || :'p_g' AS pr \gset
+SELECT jsonb_build_array(jsonb_build_object('g', 'A', 'o', 0, 'd', 3, 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))),
+                         jsonb_build_object('g', 'B', 'o', 1, 'd', 3, 'l', jsonb_build_array(jsonb_build_array(:'pr', 24)))) AS two \gset
+
+SELECT tt.srv(:'two') AS r1 \gset
+SELECT tt.eq((:'r1'::jsonb)->>'supported', 'true', 'two equal tasks: supported');
+SELECT tt.eq((:'r1'::jsonb)->'delays', '{"B": 3}'::jsonb, 'two equal tasks: the second yields 3 working days');
+SELECT tt.eq((:'r1'::jsonb)->>'conflictsBefore', '3', 'three days over-allocated before');
+SELECT tt.eq((:'r1'::jsonb)->>'conflictsAfter', '0', 'none after');
+SELECT tt.eq((:'r1'::jsonb)->>'finish', '2026-10-13', 'the project finish moves');
+SELECT tt.eq((:'r1'::jsonb)#>>'{moves,0,reason}', 'idYield', 'the reason of the move');
+SELECT tt.eq((:'r1'::jsonb)#>>'{moves,0,bucket}', '2026-10-05', 'the first period that made it yield');
+SELECT tt.eq(jsonb_array_length((:'r1'::jsonb)->'unresolved'), 0, 'nothing unresolved');
+
+SELECT tt.eq((tt.srv(:'two', '[["B","A","FS",0]]'))->'delays', '{}'::jsonb, 'a Finish-to-Start link already separates the tasks: nothing to move');
+SELECT tt.eq((tt.srv(:'two', '[["B","A","SS",1]]'))->'delays', '{"B": 2}'::jsonb, 'Start-to-Start with a lag of 1: B starts on the Tuesday, 2 more working days put it behind A');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"delays": {"B": 3}}'))->'delays', '{"B": 3}'::jsonb, 'the delays the run starts from are kept when they already solve it');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"period": "week"}'))->'delays', '{"B": 3}'::jsonb, 'week grain: a week holds 40 hours; B only leaves the first 3 days (16 hours stay in the week, 8 go to the next)');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"method": "smoothing"}'))->'delays', '{}'::jsonb, 'Smoothing: the finish may not move, so nothing is moved ...');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"method": "smoothing"}'))#>>'{unresolved,0,code}', 'slackLimit', '... and the conflict is reported with the code slackLimit');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"skipWeekends": false}'))->'delays', '{"B": 7}'::jsonb, 'a calendar of seven working days: the Saturday has no capacity, so B starts on the next Monday (7 days)');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"order": "idOnly"}'))->'delays', '{"B": 3}'::jsonb, 'order idOnly: the row number decides');
+
+-- a task that cannot move: the other one yields; both fixed: the conflict stays, with the reason
+SELECT tt.eq((tt.srv(jsonb_build_array(jsonb_build_object('g', 'A', 'o', 0, 'd', 3, 'z', 'frozenStarted', 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))),
+                                       jsonb_build_object('g', 'B', 'o', 1, 'd', 3, 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))))))->'delays', '{"B": 3}'::jsonb, 'a started task keeps its place, the other yields');
+SELECT tt.eq((tt.srv(jsonb_build_array(jsonb_build_object('g', 'B', 'o', 1, 'd', 3, 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))),
+                                       jsonb_build_object('g', 'A', 'o', 0, 'd', 3, 'z', 'frozenStarted', 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))))))->'delays', '{"B": 3}'::jsonb, 'the order of the list (topological) does not decide who yields');
+SELECT tt.eq((tt.srv(jsonb_build_array(jsonb_build_object('g', 'A', 'o', 0, 'd', 3, 'z', 'frozenStarted', 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))),
+                                       jsonb_build_object('g', 'B', 'o', 1, 'd', 3, 'z', 'frozenFact', 'l', jsonb_build_array(jsonb_build_array(:'pr', 24))))))#>>'{unresolved,0,code}', 'frozenStarted', 'both fixed: unresolved with the code of the fixed task');
+
+-- the end of the known capacity ends the search; a stage as predecessor takes the first start and the last finish of its tasks
+SELECT tt.eq((tt.srv(:'two', '[]', '{"to": "2026-10-09"}'))->'delays', '{}'::jsonb, 'capacity known only until Friday: B has no place and is not moved');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"to": "2026-10-09"}'))#>>'{unresolved,0,code}', 'noCapacityInHorizon', 'and the code says why');
+SELECT tt.eq((tt.srv(jsonb_build_array(jsonb_build_object('g', 'X', 'o', 0, 'd', 3), jsonb_build_object('g', 'Y', 'o', 1, 'd', 2), jsonb_build_object('g', 'Z', 'o', 2, 'd', 1)),
+                      '[["Z","S","FS",0]]', '{}', '{"S": ["X","Y"]}'))->>'finish', '2026-10-09', 'a stage as predecessor: Z starts after the last finish of X and Y');
+
+-- a problem the function does not take is SAID, never guessed
+SELECT tt.eq((tt.srv(:'two', '[]', '{"v": 2}'))->'reasons', '["version"]'::jsonb, 'another version of the request');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"direction": "backward"}'))->'reasons', '["direction"]'::jsonb, 'a plan from the finish');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"order": "x"}'))->'reasons', '["options"]'::jsonb, 'an order it does not know');
+SELECT tt.eq((public.project_resource_leveling_server_plan(:'p1', NULL))->'reasons', '["version"]'::jsonb, 'no problem at all');
+SELECT tt.eq(((tt.srv(:'two'))->>'supported')::boolean, true, 'supported is a boolean in the answer');
+-- nothing is written
+SELECT tt.eq((SELECT count(*)::int FROM public.project_task_table WHERE "projectGUID" = :'p1' AND "rowJSON" ? 'taskLevelingDelayDays'), :n0, 'the function writes nothing: the delays on the tasks are as before');
+SELECT tt.eq((SELECT count(*)::int FROM public.project_resource_leveling_run WHERE "rowProjectGUID" = :'p1'), :r0, 'and no run is written');
+-- a second call in the same transaction works (the work tables are reused)
+SELECT tt.eq((tt.srv(:'two'))->'delays', '{"B": 3}'::jsonb, 'the same answer on a second call');
+-- the project must be yours
+SELECT tt.as_user('bob@acme.test', '22222222-2222-2222-2222-222222222222');
+SELECT tt.fails(format($q$SELECT public.project_resource_leveling_server_plan(%L, '{}')$q$, :'p1'), 'not yours', 'the plan of a project that is not yours is refused');
+SELECT tt.as_admin();
+SET LOCAL ROLE authenticated;
+SELECT tt.fails(format($q$SELECT public.pm_leveling_srv_schedule(true, '2026-10-05', true)$q$), 'permission denied', 'the helpers are not callable from the outside');
+RESET ROLE;
+
 ROLLBACK;

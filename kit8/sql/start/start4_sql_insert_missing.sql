@@ -114,16 +114,16 @@ INSERT INTO public."contractTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", 
      "contractVATRate":21,"contractVAT":2520,"contractTotal":14520,"notes":"Monthly timber deliveries"}'::jsonb)
 ON CONFLICT ("rowGUID") DO NOTHING;
 
--- seed: Waiting, Plan, Analyse, Construct, Execute (existing codes are kept)
+-- seed: Waiting (0 % = typed by hand on the card), Plan 10, Analyse 30, Construct 60, Execute 90 (existing codes are kept)
 INSERT INTO public.kanban_stage_table ("orderInList", "rowJSON")
-SELECT v.ord, jsonb_build_object('stageCode', v.code, 'stageName', v.name, 'stageColor', v.color, 'isActive', true)
+SELECT v.ord, jsonb_build_object('stageCode', v.code, 'stageName', v.name, 'stageColor', v.color, 'isActive', true, 'stageProgressPercent', v.pct)
   FROM (VALUES
-    (1024, 'waiting',   'Waiting',   '#94A3B8'),
-    (2048, 'plan',      'Plan',      '#6366F1'),
-    (3072, 'analyse',   'Analyse',   '#0EA5E9'),
-    (4096, 'construct', 'Construct', '#F59E0B'),
-    (5120, 'execute',   'Execute',   '#22C55E')
-  ) AS v(ord, code, name, color)
+    (1024, 'waiting',   'Waiting',   '#94A3B8',  0),
+    (2048, 'plan',      'Plan',      '#6366F1', 10),
+    (3072, 'analyse',   'Analyse',   '#0EA5E9', 30),
+    (4096, 'construct', 'Construct', '#F59E0B', 60),
+    (5120, 'execute',   'Execute',   '#22C55E', 90)
+  ) AS v(ord, code, name, color, pct)
  WHERE NOT EXISTS (SELECT 1 FROM public.kanban_stage_table k
                     WHERE k."rowOwnerGUID" = 'kanbanStageCatalog' AND lower(k."rowJSON"->>'stageCode') = v.code);
 

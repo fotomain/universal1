@@ -57,13 +57,15 @@ export function levelResources(tasks: LevelingTaskInput[], env: LevelingEnv, opt
   const maxPasses = opt.maxPasses ?? DEFAULT_MAX_PASSES;
   const startDelays = { ...(opt.startDelays || {}) };
   let delays: Record<string, number> = { ...startDelays };
+  // the plan the run started from: the start delays, or (a proposal to continue) the baseline the proposal was made for
+  const origin: Record<string, number> = opt.baselineDelays ? { ...opt.baselineDelays } : startDelays;
 
-  const baseline = env.schedule(delays);
-  let sched: LevelingSchedule = baseline;
+  const baseline = env.schedule(origin);
+  let sched: LevelingSchedule = opt.baselineDelays ? env.schedule(delays) : baseline;
   const before = conflictsOf(ctx, buildUsage(ctx, tasks, baseline.rows));
 
   const forbidden = new Set<string>(); // smoothing: moving this task moved the anchor
-  const failure = new Map<string, UnresolvedCode>(); // bucket key -> why it could not be solved
+  const failure = new Map<string, UnresolvedCode>(Object.entries(opt.failureHints || {})); // bucket key -> why it could not be solved
   const moves: LevelingMove[] = [];
   const firstMoveOf = new Map<string, LevelingMove>();
 
@@ -174,15 +176,15 @@ export function levelResources(tasks: LevelingTaskInput[], env: LevelingEnv, opt
     }
     return { ...c, code };
   });
-  const postedMoved = [...firstMoveOf.keys()].filter((g) => byGuid.get(g)?.posted && (delays[g] || 0) !== (startDelays[g] || 0));
+  const postedMoved = [...firstMoveOf.keys()].filter((g) => byGuid.get(g)?.posted && (delays[g] || 0) !== (origin[g] || 0));
   // a task whose delay came back to its start value is not a move
-  const finalMoves = moves.filter((m) => (delays[m.task] || 0) !== (startDelays[m.task] || 0));
+  const finalMoves = moves.filter((m) => (delays[m.task] || 0) !== (origin[m.task] || 0));
   const seen = new Set<string>();
   const outMoves: LevelingMove[] = [];
   for (const m of finalMoves) {
     if (seen.has(m.task)) continue;
     seen.add(m.task);
-    outMoves.push({ ...firstMoveOf.get(m.task)!, delayBefore: startDelays[m.task] || 0, delayAfter: delays[m.task] || 0 });
+    outMoves.push({ ...firstMoveOf.get(m.task)!, delayBefore: origin[m.task] || 0, delayAfter: delays[m.task] || 0 });
   }
   const clean: Record<string, number> = {};
   for (const [g, d] of Object.entries(delays)) if (d > 0) clean[g] = d;

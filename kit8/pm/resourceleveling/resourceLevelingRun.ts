@@ -2,14 +2,13 @@
 // (documentation/RESOURCE_LEVELING_WBS.html sections 7.3, 7.5, 7.7). No React / Supabase: the hook (useResourceLeveling.ts) fetches the data and calls this.
 import type { PMScheduledRow, PMTaskDependencyRow, PMTaskJSON, PMTaskRow } from '../model/types';
 import { extendedOf } from '../extended/extendedModel';
-import { scheduleOptionsOf } from '../model/scheduleOptions';
 import type { TaskLineRow } from '../view/task/finances/taskLineModel';
 import { conflictsOf, buildUsage, makeCtx } from './resourceLevelingDetect';
 import { buildLevelingTasks } from './resourceLevelingDemand';
 import { buildLevelingEnv, directionOf, resourcesOfLines, type InputRow } from './resourceLevelingEnv';
 import { levelResources } from './resourceLevelingEngine';
 import { resourceLevelingOf, type ResourceLevelingEffective } from './resourceLevelingSettings';
-import type { LevelingConflict, LevelingMove, LevelingResult, LevelingTaskInput, MoveReason, UnresolvedCode } from './resourceLevelingModel';
+import type { LevelingConflict, LevelingEnv, LevelingMove, LevelingResult, LevelingSchedule, LevelingTaskInput, MoveReason, UnresolvedCode } from './resourceLevelingModel';
 
 export { resourcesOfLines };
 export type { InputRow };
@@ -31,7 +30,18 @@ export interface PlanLevelingArgs {
   scope?: ReadonlySet<string>;
   /** may a POSTED task be a candidate? false = it is frozen. Default: resourceLevelingPostedTasksMovementEnabled (the user is asked before anything is applied) */
   postedMayMove?: boolean;
+  /**
+   * Server side computations: the proposal of the database (project_resource_leveling_server_plan). The run CONTINUES from the proposal with the scheduler of the screen: a proposal that
+   * is right stays as it is, a conflict the database left (or could not see) is solved here. The moves of the proposal give the reasons.
+   */
+  seed?: { delays: Record<string, number>; moves?: ServerMove[]; unresolved?: ServerUnresolved[] };
 }
+
+/** a conflict the database could not solve, and why */
+export interface ServerUnresolved { resource: string; bucket: string; code: UnresolvedCode }
+
+/** a move of the database proposal (the answer of project_resource_leveling_server_plan) */
+export interface ServerMove { task: string; delayBefore: number; delayAfter: number; reason: MoveReason; resource: string; bucket: string }
 
 export interface PlannedMove {
   task: string;
@@ -74,12 +84,24 @@ export interface LevelingPlan {
 const delayOf = (t: PMTaskRow): number => Math.max(0, Math.round(Number((t.rowJSON as PMTaskJSON)?.taskLevelingDelayDays) || 0));
 const nameOf = (t: PMTaskRow | undefined): string => String((t?.rowJSON as PMTaskJSON | undefined)?.taskDescription ?? t?.rowGUID ?? '');
 
-export function planLevelingRun(a: PlanLevelingArgs): LevelingPlan {
+/** everything a run needs before the search: the effective settings, the scheduler of the screen, the plan as it is now and the engine input (shared by the client side run and the server problem) */
+export interface PreparedRun {
+  effective: ResourceLevelingEffective;
+  direction: 'forward' | 'backward';
+  env: LevelingEnv;
+  byGuid: Map<string, PMTaskRow>;
+  /** the leveling delays stored on the tasks now */
+  currentDelays: Record<string, number>;
+  /** the delays the run starts from: none (clear before) or the stored ones */
+  origin: Record<string, number>;
+  current: LevelingSchedule;
+  inputs: LevelingTaskInput[];
+}
+
+export function prepareLevelingRun(a: PlanLevelingArgs): PreparedRun {
   const effective = resourceLevelingOf(a.projectJSON);
   const ext = extendedOf(a.projectJSON as any);
   const direction = directionOf(a.projectJSON);
-  const options = scheduleOptionsOf(a.projectJSON);
-  void options;
   const env = buildLevelingEnv({ tasks: a.tasks, deps: a.deps, projectJSON: a.projectJSON, projectStartMs: a.projectStartMs, externalDates: a.externalDates, capacityRows: a.capacityRows, foreignRows: a.foreignRows });
   const byGuid = new Map(a.tasks.map((t) => [t.rowGUID, t]));
 
@@ -93,17 +115,27 @@ export function planLevelingRun(a: PlanLevelingArgs): LevelingPlan {
     manualTasksAllowed: effective.manualTasks, priorityEnabled: ext.ganttTaskPriorityEnabled === true, manualEnabled: ext.ganttManualSchedulingEnabled === true,
     constraintsEnabled: ext.ganttConstraintsEnabled === true, postedMayMove, factTasks: a.factTasks, scope: a.scope,
   });
+  return { effective, direction, env, byGuid, currentDelays, origin: effective.clearBefore ? {} : currentDelays, current, inputs };
+}
 
+/** the run on THIS device (Client side computations); with `a.seed` it continues the proposal of the database (Server side computations) */
+export function planLevelingRun(a: PlanLevelingArgs, prepared: PreparedRun = prepareLevelingRun(a)): LevelingPlan {
+  const { effective, direction, env, byGuid, currentDelays, origin, current, inputs } = prepared;
   const result = levelResources(inputs, env, {
     order: effective.order, method: effective.method, direction, period: effective.grainUnit === 'week' ? 'week' : 'day',
-    startDelays: effective.clearBefore ? {} : currentDelays,
+    startDelays: a.seed ? { ...a.seed.delays } : origin, baselineDelays: a.seed ? origin : undefined,
+    failureHints: a.seed?.unresolved ? Object.fromEntries(a.seed.unresolved.map((u) => [`${u.resource}|${Date.parse(String(u.bucket).slice(0, 10) + 'T00:00:00Z')}`, u.code])) : undefined,
   });
 
   // the conflicts of the plan as the user sees it now
   const ctx = makeCtx(env, effective.grainUnit === 'week' ? 'week' : 'day');
   const conflictsBefore = conflictsOf(ctx, buildUsage(ctx, inputs, current.rows)).length;
 
-  const moveByTask = new Map(result.moves.map((m: LevelingMove) => [m.task, m]));
+  const moveByTask = new Map<string, LevelingMove>(result.moves.map((m: LevelingMove) => [m.task, m]));
+  // a move of the database proposal that the screen kept: the reason of the database
+  for (const m of a.seed?.moves || []) {
+    if (!moveByTask.has(m.task)) moveByTask.set(m.task, { task: m.task, delayBefore: m.delayBefore, delayAfter: m.delayAfter, reason: m.reason, resource: m.resource, bucket: Date.parse(String(m.bucket).slice(0, 10) + 'T00:00:00Z') });
+  }
   const postedByGuid = new Map(inputs.map((t) => [t.guid, t.posted]));
   const changes: PlannedMove[] = [];
   const guids = new Set([...Object.keys(currentDelays), ...Object.keys(result.delays)]);

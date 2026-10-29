@@ -14,6 +14,7 @@ Design: `documentation/RESOURCE_LEVELING_WBS.html` (+ `_RU.html`). The PMBOK umb
 | **Engine** (pure; orders, leveling and smoothing, forward and backward, reason codes) | `resourceLevelingEngine.ts`, `resourceLevelingPlace.ts` |
 | The environment of a real project (scheduler + calendars + capacity) and one run → the plan to preview | `resourceLevelingEnv.ts`, `resourceLevelingRun.ts` |
 | Database calls | `resourceLevelingApi.ts` (SQL PART 42: `project_resource_leveling_inputs / _apply / _clear / _undo`) |
+| **Where a run is calculated** (radio set `resourceLevelingComputationSide`: Client side / Server side computations, pluses and minuses, the outcome note) | `PMResourceLevelingComputationRadio.tsx`, `resourceLevelingComputation.ts`, `resourceLevelingBackend.ts` (`calculateLevelingPlan`), `resourceLevelingServerProblem.ts` (the problem and the reasons why a plan is not sent), `resourceLevelingApi.ts` (`fetchServerPlan`), SQL PART 42 `project_resource_leveling_server_plan` + `pm_wd_*` / `pm_leveling_srv_*` helpers |
 | Commands (Level now, Apply, Clear, Undo) | `useResourceLeveling.ts`, `resourceLevelingUiStore.ts` |
 | Windows | `PMResourceLevelingBarButton` (the **Level** button of the Gantt bar), `…PreviewWindow`, `…PostedTasksDialog`, `…ConflictsList`, `…RunHistory` |
 | Texts | `resourceLevelingText.ts` (+ `kit8/pm/i18n`: 14 languages) |
@@ -28,8 +29,13 @@ The result is the **leveling delay** of a task: `project_task_table.rowJSON.task
 - Dates and delays in the hook: `ensureCalculated()` first (Calculation Manual, A2).
 - `taskLevelingDelayDays` is stripped by `task_template_clean_task`; the check trigger `trg_project_task_leveling_chk` refuses a negative / fractional delay and any delay on a stage, a milestone or a subproject task.
 
+## Server side computations (documentation section 20)
+- The database proposes, the device checks: `calculateLevelingPlan` sends the problem, then continues from the proposal with the engine (`seed`), so a wrong proposal can only cost time. Any plan outside the supported subset (one calendar, FS/SS/FF/SF links, uniform hours, no constraint / manual / split / elapsed / task calendar / external / subproject / inactive task, forward only, 3000 tasks, 5 seconds) and any failure is calculated on the device, and the preview says why (`planNotSupported`, `serverUnavailable`, `serverError`).
+- Fast mode needs the client side (`resourceLevelingOf().fastModeNeedsClientSide`).
+- The SQL repeats the arithmetic of the engine; keep both in step: change one, change the other. The fixed cases are in `kit8/docker/tests/31_resource_leveling.sql` (section 9). The 469 random plans of the first check were run with a throwaway script that is not kept in the repository.
+
 ## Not built yet (see the status in the design document, section 19)
 Automatic mode · Fast mode (in-place editing, quick-fix menu) · the delay column, the delay bar on the chart, the over-allocation mark in the tree, the Load graph / Usage grid, the Level Resources options window, the status chip · splits by leveling · `resourceGrainUnit` = hour behaves as day (the plan has no time of day) · the hour-by-hour model `resourceOptimizationMode = hourByHourModel` (phase 2: calendar work windows, task start time, hour Post – SQL PART 43).
 
 ## Tests
-`__tests__/pm/resourceleveling/*` (engine + properties, scheduler, settings, demand, run, windows, hook, translations), `__tests__/sql/startSqlSplit.test.ts`, Docker `kit8/docker/tests/31_resource_leveling.sql` (`./test_time_genus.sh 31`) and `./test_sql.sh`.
+`__tests__/pm/resourceleveling/*` (engine + properties, scheduler, settings, demand, run, windows, hook, translations, backend, server problem, computation radio, seed), `__tests__/sql/startSqlSplit.test.ts`, Docker `kit8/docker/tests/31_resource_leveling.sql` (`./test_time_genus.sh 31`) and `./test_sql.sh`.

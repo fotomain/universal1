@@ -7,6 +7,7 @@ import { useDesignSystem } from '../../providers/WithDesignSystem';
 import SwitchApp from '../../ui/components/common/SwitchApp';
 import { pmT } from '../i18n/pmT';
 import { withAlpha } from '../view/theme';
+import PMResourceLevelingComputationRadio from './PMResourceLevelingComputationRadio';
 import {
   HOUR_BY_HOUR_MODEL_AVAILABLE, methodOf, methodPatch, resourceLevelingValuesOf,
   type PMResourceLevelingValues, type ResourceGrainUnit, type ResourceLevelingMode, type ResourceLevelingOrder, type ResourceLevelingPostedAction, type ResourceOptimizationMethod,
@@ -46,6 +47,8 @@ export default function PMResourceLevelingSettingsTab({ values, onChange }: { va
   const { themeColors } = useDesignSystem();
   const v = resourceLevelingValuesOf(values);
   const on = v.resourceLevelingFunctionalityEnabled;
+  /** Fast mode answers from the memory of this device: it works on the client side only */
+  const serverSide = on && v.resourceLevelingComputationSide === 'resourceLevelingServerSideComputations';
 
   function Chips<T extends string>({ id, items, value, onPick, disabled }: { id: string; items: Choice<T>[]; value: T; onPick: (v: T) => void; disabled?: boolean }) {
     const picked = items.find((i) => i.value === value);
@@ -111,6 +114,9 @@ export default function PMResourceLevelingSettingsTab({ values, onChange }: { va
       />
       <Text style={styles.hint}>{pmT('On: resources that are booked for more hours than their calendar allows can be levelled (tasks are delayed or split) or smoothed. Off: nothing changes.')}</Text>
 
+      {/* the way of the calculation: only while Resource optimization is on; both variants with their pluses and minuses */}
+      {on && <PMResourceLevelingComputationRadio value={v.resourceLevelingComputationSide} onChange={(side) => onChange({ resourceLevelingComputationSide: side })} />}
+
       <View pointerEvents={on ? 'auto' : 'none'} style={{ opacity: on ? 1 : 0.5 }}>
         <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Optimize (resourceLevelingMode)')}</Text>
         <Chips id="mode" items={RUN_MODES()} value={v.resourceLevelingMode} onPick={(m) => onChange({ resourceLevelingMode: m })} disabled={!on} />
@@ -119,7 +125,9 @@ export default function PMResourceLevelingSettingsTab({ values, onChange }: { va
         <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Leveling order (resourceLevelingOrder)')}</Text>
         <Chips id="order" items={ORDERS()} value={v.resourceLevelingOrder} onPick={(o) => onChange({ resourceLevelingOrder: o })} disabled={!on} />
 
-        {sw('resourceLevelingFunctionalityFastModeEnabled', pmT('Fast mode (resourceLevelingFunctionalityFastModeEnabled)'), pmT('On: change the data in place on the screen: drag a bar, type hours in a cell, move a task to another resource, fix one conflict in one click.'), 'fast')}
+        {sw('resourceLevelingFunctionalityFastModeEnabled', pmT('Fast mode (resourceLevelingFunctionalityFastModeEnabled)'),
+          serverSide ? pmT('Not available with Server side computations: Fast mode needs instant answers from this device.') : pmT('On: change the data in place on the screen: drag a bar, type hours in a cell, move a task to another resource, fix one conflict in one click.'),
+          'fast', { disabled: serverSide })}
 
         <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Posted tasks')}</Text>
         {sw('resourceLevelingPostedTasksMovementEnabled', pmT('Posted tasks may be moved (resourceLevelingPostedTasksMovementEnabled)'), pmT('On: a posted task can be moved, but never without asking: moving it unposts its lines and payments. Off: posted tasks keep their dates.'), 'posted-movement')}

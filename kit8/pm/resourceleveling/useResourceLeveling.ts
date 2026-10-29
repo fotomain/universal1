@@ -17,8 +17,9 @@ import { usePMStore } from '../store/store_pm';
 import { useProjectTaskLines } from '../view/task/plan/useProjectTaskLines';
 import { useProjectPostActions } from '../view/task/plan/useProjectPostActions';
 import { taskPostState } from '../view/task/plan/taskLinePlanModel';
-import { applyLevelingRun, clearLeveling, fetchFactTasks, fetchLevelingInputs, fetchLevelingRuns, undoLevelingRun } from './resourceLevelingApi';
-import { applyPayloadOf, needsPostedDecision, planLevelingRun, planWithoutPosted, resourcesOfLines, type PlanLevelingArgs, type PlannedMove, type PostedChoice } from './resourceLevelingRun';
+import { applyLevelingRun, clearLeveling, fetchFactTasks, fetchLevelingInputs, fetchLevelingRuns, fetchServerPlan, undoLevelingRun } from './resourceLevelingApi';
+import { calculateLevelingPlan } from './resourceLevelingBackend';
+import { applyPayloadOf, needsPostedDecision, resourcesOfLines, type PlanLevelingArgs, type PlannedMove, type PostedChoice } from './resourceLevelingRun';
 import { resourceLevelingOf } from './resourceLevelingSettings';
 import { useResourceLevelingUiStore } from './resourceLevelingUiStore';
 
@@ -78,18 +79,18 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
     try {
       const g = await gather(scope);
       if (!g) return;
-      const plan = planLevelingRun(g.args);
+      const { plan, outcome } = await calculateLevelingPlan(g.args, (problem) => fetchServerPlan(supabase, projectGUID, problem));
       if (plan.changes.length === 0 && plan.unresolved.length === 0 && plan.conflictsBefore === 0) {
         say(pmT('No resource is over-allocated'));
         return;
       }
-      ui.getState().setPreview({ plan, args: g.args, mode: 'manual', stamps: g.stamps });
+      ui.getState().setPreview({ plan, args: g.args, mode: 'manual', stamps: g.stamps, outcome });
     } catch (e: any) {
       showErrorModal(e?.message || String(e), pmT('Resource optimization'));
     } finally {
       ui.getState().setBusy(false);
     }
-  }, [projectGUID, gather, say, ui]);
+  }, [projectGUID, gather, say, ui, supabase]);
 
   /** "Move and post again": wait until the plan on the screen has the new dates (the tasks are read again, then scheduled), then post each task with the normal Post */
   const postAgain = useCallback(async (moved: PlannedMove[]): Promise<void> => {
@@ -105,7 +106,7 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
   const apply = useCallback(async (choice?: PostedChoice): Promise<void> => {
     const pv = ui.getState().preview;
     if (!projectGUID || !pv || ui.getState().busy) return;
-    let plan = pv.plan;
+    const plan = pv.plan;
     const action = plan.effective.postedTasksAction;
     // the remembered answer of the project settings
     const answer: PostedChoice | undefined = choice ?? (plan.postedChanges.length > 0 && action !== 'ask' && action !== 'keep' ? action : undefined);
@@ -115,9 +116,16 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
     }
     if (answer === 'keep') {
       // "Keep their dates": the same run with the posted tasks frozen; the user sees it and presses Apply again
-      plan = planWithoutPosted(pv.args);
-      ui.getState().setPreview({ ...pv, plan, postedChoice: 'keep' });
-      say(pmT('The posted tasks keep their dates: this is the plan without them'));
+      ui.getState().setBusy(true);
+      try {
+        const kept = await calculateLevelingPlan({ ...pv.args, postedMayMove: false }, (problem) => fetchServerPlan(supabase, projectGUID, problem));
+        ui.getState().setPreview({ ...pv, plan: kept.plan, outcome: kept.outcome, postedChoice: 'keep' });
+        say(pmT('The posted tasks keep their dates: this is the plan without them'));
+      } catch (e: any) {
+        showErrorModal(e?.message || String(e), pmT('Resource optimization'));
+      } finally {
+        ui.getState().setBusy(false);
+      }
       return;
     }
     ui.getState().setBusy(true);

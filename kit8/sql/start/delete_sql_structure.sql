@@ -50,6 +50,17 @@ DROP FUNCTION IF EXISTS public.project_resource_leveling_inputs(uuid, date, date
 DROP FUNCTION IF EXISTS public.project_resource_leveling_apply(uuid, jsonb);
 DROP FUNCTION IF EXISTS public.project_resource_leveling_clear(uuid, uuid[], text, boolean);
 DROP FUNCTION IF EXISTS public.project_resource_leveling_undo(uuid);
+DROP FUNCTION IF EXISTS public.project_resource_leveling_server_plan(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.pm_leveling_srv_place(text, boolean, boolean, boolean);
+DROP FUNCTION IF EXISTS public.pm_leveling_srv_usage(boolean, boolean);
+DROP FUNCTION IF EXISTS public.pm_leveling_srv_need(text, date, date, boolean, boolean);
+DROP FUNCTION IF EXISTS public.pm_leveling_srv_schedule(boolean, date, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_start_for(integer, date, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_shift(date, integer, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_sub(date, integer, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_add(date, integer, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_next(date, boolean);
+DROP FUNCTION IF EXISTS public.pm_wd_is(date, boolean);
 DROP FUNCTION IF EXISTS public.project_task_leveling_check();
 
 
@@ -1146,6 +1157,8 @@ BEGIN
     -- PM Kanban
     'public.pm_kanban_ensure_project_stages(uuid)',
     'public.pm_kanban_stage_after_delete()',
+    'public.pm_kanban_stage_percent_chk()',
+    'public.pm_kanban_stage_default_percent(text)',
     -- PM Gantt
     'public.pm_seed_demo(uuid, date)',
     'public.pm_task_downstream(uuid)',

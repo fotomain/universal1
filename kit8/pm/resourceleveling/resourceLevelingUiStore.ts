@@ -1,5 +1,6 @@
 // The windows of Resource optimization are driven by this store (zustand), the way BusyConflictsWindow is: a command sets the state, the host window reads it.
 import { create } from 'zustand';
+import type { ComputationOutcome } from './resourceLevelingComputation';
 import type { LevelingPlan, PlanLevelingArgs } from './resourceLevelingRun';
 
 export interface LevelingPreview {
@@ -11,6 +12,8 @@ export interface LevelingPreview {
   stamps: Record<string, string>;
   /** the answer to the question about the posted tasks, once it has been given */
   postedChoice?: 'unpostAndMove' | 'moveAndPostAgain' | 'keep';
+  /** where the run was calculated (this device / the database) and, when the choice of the project could not be honored, why */
+  outcome?: ComputationOutcome;
 }
 
 interface State {

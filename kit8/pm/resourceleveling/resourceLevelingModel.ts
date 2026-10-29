@@ -115,6 +115,13 @@ export interface LevelingOptions {
   period: 'day' | 'week';
   /** start from no delays (resourceLevelingClearBeforeLeveling) or keep the delays already in `startDelays` */
   startDelays?: Record<string, number>;
+  /**
+   * the run continues a proposal (the delays of the database, Server side computations): `startDelays` is the proposal, `baselineDelays` the plan the RUN started from.
+   * The conflicts "before", the Smoothing bound (the finish of the baseline) and "a task that came back to its value is not a move" are measured against the baseline, not the proposal.
+   */
+  baselineDelays?: Record<string, number>;
+  /** why the database could not solve a conflict (resource|bucket -> code): used for the conflicts that are still there when the run ends, when this run did not try them itself */
+  failureHints?: Record<string, UnresolvedCode>;
   /** safety: passes (each pass = a scan of all conflicts + one recalculation of the plan) */
   maxPasses?: number;
 }

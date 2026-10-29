@@ -10,7 +10,8 @@
 //     resourceLevelingFunctionalityEnabled                MASTER
 //     resourceLevelingMode                                'manual' (default) | 'automatic'
 //     resourceLevelingWithinSlackOnly                     false = Leveling (the finish may move) | true = Smoothing (only the slack is used); MS Project: "Level only within available slack"
-//     resourceLevelingFunctionalityFastModeEnabled        in-place data options on the screen (7.6)
+//     resourceLevelingComputationSide                     which side calculates a run: 'resourceLevelingClientSideComputations' (default: this device, the scheduler of the screen) | 'resourceLevelingServerSideComputations' (the database)
+//     resourceLevelingFunctionalityFastModeEnabled        in-place data options on the screen (7.6); needs the client side (an instant answer from memory)
 //     resourceLevelingPostedTasksMovementEnabled          true (default): posted tasks are candidates for moving (the user is ASKED first, 7.7); false = they are frozen
 //     resourceLevelingPostedTasksAction                   'ask' (default) | 'unpostAndMove' | 'moveAndPostAgain' | 'keep'
 //     resourceLevelingOrder                               'standard' (default) | 'idOnly' | 'priorityStandard'
@@ -25,6 +26,8 @@ import { extendedOf } from '../extended/extendedModel';
 export type ResourceOptimizationMode = 'dayByDayModel' | 'hourByHourModel';
 export type ResourceGrainUnit = 'hour' | 'day' | 'week';
 export type ResourceLevelingMode = 'manual' | 'automatic';
+/** WHERE a run is calculated (the radio set of the section "Resource optimization"; the values are the names of the two variants) */
+export type ResourceLevelingComputation = 'resourceLevelingClientSideComputations' | 'resourceLevelingServerSideComputations';
 export type ResourceLevelingOrder = 'idOnly' | 'standard' | 'priorityStandard';
 export type ResourceLevelingPostedAction = 'ask' | 'unpostAndMove' | 'moveAndPostAgain' | 'keep';
 /** the PMBOK name of the method; it is the presentation of resourceLevelingWithinSlackOnly */
@@ -33,6 +36,8 @@ export type ResourceOptimizationMethod = 'leveling' | 'smoothing';
 export const RESOURCE_OPTIMIZATION_MODES: readonly ResourceOptimizationMode[] = ['dayByDayModel', 'hourByHourModel'];
 export const RESOURCE_GRAIN_UNITS: readonly ResourceGrainUnit[] = ['hour', 'day', 'week'];
 export const RESOURCE_LEVELING_MODES: readonly ResourceLevelingMode[] = ['manual', 'automatic'];
+export const RESOURCE_LEVELING_COMPUTATIONS: readonly ResourceLevelingComputation[] = ['resourceLevelingClientSideComputations', 'resourceLevelingServerSideComputations'];
+export const DEFAULT_RESOURCE_LEVELING_COMPUTATION: ResourceLevelingComputation = 'resourceLevelingClientSideComputations';
 export const RESOURCE_LEVELING_ORDERS: readonly ResourceLevelingOrder[] = ['idOnly', 'standard', 'priorityStandard'];
 export const RESOURCE_LEVELING_POSTED_ACTIONS: readonly ResourceLevelingPostedAction[] = ['ask', 'unpostAndMove', 'moveAndPostAgain', 'keep'];
 
@@ -45,6 +50,7 @@ export interface PMResourceLevelingValues {
   resourceLevelingFunctionalityEnabled?: boolean;
   resourceLevelingMode?: ResourceLevelingMode;
   resourceLevelingWithinSlackOnly?: boolean;
+  resourceLevelingComputationSide?: ResourceLevelingComputation;
   resourceLevelingFunctionalityFastModeEnabled?: boolean;
   resourceLevelingPostedTasksMovementEnabled?: boolean;
   resourceLevelingPostedTasksAction?: ResourceLevelingPostedAction;
@@ -74,6 +80,7 @@ export const resourceLevelingValuesOf = (j: Json): Required<PMResourceLevelingVa
   resourceLevelingFunctionalityEnabled: j?.resourceLevelingFunctionalityEnabled === true,
   resourceLevelingMode: oneOf(j?.resourceLevelingMode, RESOURCE_LEVELING_MODES, 'manual'),
   resourceLevelingWithinSlackOnly: j?.resourceLevelingWithinSlackOnly === true,
+  resourceLevelingComputationSide: oneOf(j?.resourceLevelingComputationSide, RESOURCE_LEVELING_COMPUTATIONS, DEFAULT_RESOURCE_LEVELING_COMPUTATION),
   resourceLevelingFunctionalityFastModeEnabled: j?.resourceLevelingFunctionalityFastModeEnabled === true,
   resourceLevelingPostedTasksMovementEnabled: onUnlessFalse(j?.resourceLevelingPostedTasksMovementEnabled),
   resourceLevelingPostedTasksAction: oneOf(j?.resourceLevelingPostedTasksAction, RESOURCE_LEVELING_POSTED_ACTIONS, 'ask'),
@@ -92,7 +99,13 @@ export interface ResourceLevelingEffective {
   enabled: boolean;
   mode: ResourceLevelingMode;
   method: ResourceOptimizationMethod;
+  /** the choice of the radio set (the client side while the master is off or nothing was saved) */
+  computation: ResourceLevelingComputation;
+  /** true = the database calculates the run (the variant "server side") */
+  serverSide: boolean;
   fastMode: boolean;
+  /** Fast mode is switched on in the settings but cannot work: its instant in-place answers need the client side */
+  fastModeNeedsClientSide: boolean;
   postedTasksMovement: boolean;
   postedTasksAction: ResourceLevelingPostedAction;
   order: ResourceLevelingOrder;
@@ -112,11 +125,16 @@ export function resourceLevelingOf(j: Json): ResourceLevelingEffective {
   const ext = extendedOf(j as any);
   const on = v.resourceLevelingFunctionalityEnabled;
   const automatic = on && v.resourceLevelingMode === 'automatic';
+  const serverSide = on && v.resourceLevelingComputationSide === 'resourceLevelingServerSideComputations';
   return {
     enabled: on,
     mode: on ? v.resourceLevelingMode : 'manual',
     method: v.resourceLevelingWithinSlackOnly ? 'smoothing' : 'leveling',
-    fastMode: on && v.resourceLevelingFunctionalityFastModeEnabled,
+    computation: serverSide ? 'resourceLevelingServerSideComputations' : 'resourceLevelingClientSideComputations',
+    serverSide,
+    // Fast mode (drag a bar, type hours in a cell, one-click fixes) answers from the memory of this device: it works on the client side only
+    fastMode: on && v.resourceLevelingFunctionalityFastModeEnabled && !serverSide,
+    fastModeNeedsClientSide: on && v.resourceLevelingFunctionalityFastModeEnabled && serverSide,
     postedTasksMovement: on && v.resourceLevelingPostedTasksMovementEnabled,
     // movement off = keep; the action is only asked/remembered while movement is allowed
     postedTasksAction: on && v.resourceLevelingPostedTasksMovementEnabled ? v.resourceLevelingPostedTasksAction : 'keep',

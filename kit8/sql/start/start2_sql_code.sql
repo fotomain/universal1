@@ -1066,6 +1066,54 @@ CREATE TRIGGER trg_project_kanban_stage_after_delete AFTER DELETE ON public.proj
   FOR EACH ROW EXECUTE FUNCTION public.pm_kanban_stage_after_delete();
 
 
+-- Kanban stage progress %: EVERY stage of the catalog (kanban_stage_table), of a project (project_kanban_stage_table) and of a template has rowJSON.stageProgressPercent, a whole number 0..100.
+--   0 = the percent of a card in this stage is typed by hand on the Kanban dashboard; 1..100 = a card in this stage has this percent (project setting autoUpdateTaskProgressPercentFromKanban
+--   writes it to the task progress when the card enters the stage). A stage saved without it (an old client, an old row) gets the standard percent of its code, any other stage 0.
+CREATE OR REPLACE FUNCTION public.pm_kanban_stage_default_percent(p_code text) RETURNS integer
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT CASE lower(COALESCE(p_code, '')) WHEN 'plan' THEN 10 WHEN 'analyse' THEN 30 WHEN 'construct' THEN 60 WHEN 'execute' THEN 90 ELSE 0 END $$;
+
+CREATE OR REPLACE FUNCTION public.pm_kanban_stage_percent_chk() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE v jsonb := NEW."rowJSON" -> 'stageProgressPercent'; n numeric;
+BEGIN
+  IF v IS NULL OR jsonb_typeof(v) = 'null' THEN
+    NEW."rowJSON" := COALESCE(NEW."rowJSON", '{}'::jsonb) || jsonb_build_object('stageProgressPercent', public.pm_kanban_stage_default_percent(NEW."rowJSON" ->> 'stageCode'));
+    RETURN NEW;
+  END IF;
+  IF jsonb_typeof(v) <> 'number' THEN RAISE EXCEPTION 'stageProgressPercent must be a whole number from 0 to 100' USING ERRCODE = '22023'; END IF;
+  n := (v #>> '{}')::numeric;
+  IF n <> trunc(n) OR n < 0 OR n > 100 THEN RAISE EXCEPTION 'stageProgressPercent must be a whole number from 0 to 100' USING ERRCODE = '22023'; END IF;
+  RETURN NEW;
+END $$;
+
+DROP TRIGGER IF EXISTS trg_kanban_stage_percent_chk ON public.kanban_stage_table;
+
+CREATE TRIGGER trg_kanban_stage_percent_chk BEFORE INSERT OR UPDATE ON public.kanban_stage_table
+  FOR EACH ROW EXECUTE FUNCTION public.pm_kanban_stage_percent_chk();
+
+DROP TRIGGER IF EXISTS trg_project_kanban_stage_percent_chk ON public.project_kanban_stage_table;
+
+CREATE TRIGGER trg_project_kanban_stage_percent_chk BEFORE INSERT OR UPDATE ON public.project_kanban_stage_table
+  FOR EACH ROW EXECUTE FUNCTION public.pm_kanban_stage_percent_chk();
+
+DROP TRIGGER IF EXISTS trg_templates_project_kanban_stage_percent_chk ON public.templates_project_kanban_stage_table;
+
+CREATE TRIGGER trg_templates_project_kanban_stage_percent_chk BEFORE INSERT OR UPDATE ON public.templates_project_kanban_stage_table
+  FOR EACH ROW EXECUTE FUNCTION public.pm_kanban_stage_percent_chk();
+
+-- stages that exist already get their percent (idempotent: only the rows without one): the catalog by the code, a project stage from the catalog stage it was copied from, then by the code
+UPDATE public.kanban_stage_table SET "rowJSON" = "rowJSON" WHERE NOT ("rowJSON" ? 'stageProgressPercent');
+
+UPDATE public.project_kanban_stage_table p
+   SET "rowJSON" = p."rowJSON" || jsonb_build_object('stageProgressPercent', (k."rowJSON"->>'stageProgressPercent')::integer)
+  FROM public.kanban_stage_table k
+ WHERE NOT (p."rowJSON" ? 'stageProgressPercent') AND k."rowGUID" = p."rowParentGUID" AND k."rowJSON" ? 'stageProgressPercent';
+
+UPDATE public.project_kanban_stage_table SET "rowJSON" = "rowJSON" WHERE NOT ("rowJSON" ? 'stageProgressPercent');
+
+UPDATE public.templates_project_kanban_stage_table SET "rowJSON" = "rowJSON" WHERE NOT ("rowJSON" ? 'stageProgressPercent');
+
 -- RPC: the project's stages; the first call copies the active catalog stages into the project.
 -- One advisory lock per project -> two browsers never create the stages twice. RLS applies.
 CREATE OR REPLACE FUNCTION public.pm_kanban_ensure_project_stages(p_project uuid)
@@ -1080,7 +1128,8 @@ BEGIN
     INSERT INTO public.project_kanban_stage_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
     SELECT p_project, k."rowGUID", k."orderInList",
            jsonb_build_object('stageCode', k."rowJSON"->>'stageCode', 'stageName', k."rowJSON"->>'stageName',
-                              'stageColor', k."rowJSON"->>'stageColor')
+                              'stageColor', k."rowJSON"->>'stageColor',
+                              'stageProgressPercent', COALESCE((k."rowJSON"->>'stageProgressPercent')::integer, public.pm_kanban_stage_default_percent(k."rowJSON"->>'stageCode')))
       FROM public.kanban_stage_table k
      WHERE k."rowOwnerGUID" = 'kanbanStageCatalog' AND COALESCE((k."rowJSON"->>'isActive')::boolean, true)
      ORDER BY k."orderInList";
@@ -14889,6 +14938,8 @@ END $$;
 --   project_resource_leveling_apply(project, run)                     writes the leveling delays (project_task_table.rowJSON.taskLevelingDelayDays) of a run and its history, ONE transaction          -> the run GUID
 --   project_resource_leveling_clear(project, tasks)                   removes the delays (all, or of the tasks given) and writes a run of the kind clear                                              -> the run GUID or NULL
 --   project_resource_leveling_undo(run)                               gives the delays of a run back (a task edited since is skipped and named)                                                       -> jsonb
+--   project_resource_leveling_server_plan(project, problem)           SERVER SIDE COMPUTATIONS: searches the delays of a run in the database (the plans it can calculate exactly), writes nothing        -> jsonb
+--   pm_wd_*  pm_leveling_srv_*                                        the working-day maths and the helpers of the function above (internal)
 -- The tables of start1 are written ONLY by these functions; the owner of the project reads them (RLS). A date that moves because of a delay is written by the usual schedule write-back (pm_apply_schedule);
 -- the existing triggers then unpost the lines and payments of a task whose day changed - the application asks the user BEFORE it applies a run that does this (documentation section 7.7).
 -- ===============================================================================================
@@ -15150,6 +15201,445 @@ $$;
 REVOKE ALL ON FUNCTION public.project_resource_leveling_undo(uuid) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.project_resource_leveling_undo(uuid) TO authenticated;
+
+-- ===============================================================================================
+-- SERVER SIDE COMPUTATIONS (project setting resourceLevelingComputationSide = resourceLevelingServerSideComputations; documentation/RESOURCE_LEVELING_WBS.html section 19).
+-- project_resource_leveling_server_plan(project, problem) searches the delays of a run IN THE DATABASE: the same rules as resourceLevelingEngine.ts (who yields, where it fits, one scan of all
+-- conflicts per pass, a new plan after every pass, Smoothing never moves the finish) for the plans the database can calculate EXACTLY:
+--   forward plan, one calendar for all tasks (Monday-Friday or every day), links FS / SS / FF / SF with a lag in working days (also to or from a stage), uniform distribution of the hours,
+--   no constraints, manual tasks, splits, elapsed durations, external predecessors, subprojects or inactive tasks.
+-- The application builds the problem from the plan on the screen (resourceLevelingRun.ts serverProblemOf), says "calculated on this device" when the plan is not in this list, and CHECKS the answer
+-- with its own scheduler before it shows it: the database proposes, the screen decides. Nothing is written by this function (use project_resource_leveling_apply).
+-- ===============================================================================================
+
+-- the working-day maths of scheduling.ts on dates: isWorkDay / nextWorkDay / addWorkDays / subtractWorkDays / shiftWorkDays for the calendar "Monday-Friday" (p_skip) or "every day"
+CREATE OR REPLACE FUNCTION public.pm_wd_is(p_d date, p_skip boolean) RETURNS boolean
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT NOT p_skip OR extract(isodow FROM p_d) < 6 $$;
+
+CREATE OR REPLACE FUNCTION public.pm_wd_next(p_d date, p_skip boolean) RETURNS date
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT CASE WHEN NOT p_skip THEN p_d WHEN extract(isodow FROM p_d) = 6 THEN p_d + 2 WHEN extract(isodow FROM p_d) = 7 THEN p_d + 1 ELSE p_d END $$;
+
+-- the exclusive finish of n working days that start on p_d (n <= 0: p_d)
+CREATE OR REPLACE FUNCTION public.pm_wd_add(p_d date, p_n integer, p_skip boolean) RETURNS date
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+DECLARE v_base date; v_i integer; v_k integer;
+BEGIN
+  IF p_n <= 0 THEN RETURN p_d; END IF;
+  IF NOT p_skip THEN RETURN p_d + p_n; END IF;
+  IF extract(isodow FROM p_d) >= 6 THEN
+    v_base := date_trunc('week', p_d)::date + 7; v_i := 0;
+  ELSE
+    v_base := date_trunc('week', p_d)::date; v_i := extract(isodow FROM p_d)::integer - 1;
+  END IF;
+  v_k := v_i + p_n - 1;
+  RETURN v_base + (v_k / 5) * 7 + (v_k % 5) + 1;
+END $$;
+
+-- the start that makes n working days end at the exclusive finish p_f (n <= 0: p_f)
+CREATE OR REPLACE FUNCTION public.pm_wd_sub(p_f date, p_n integer, p_skip boolean) RETURNS date
+LANGUAGE plpgsql IMMUTABLE PARALLEL SAFE AS $$
+DECLARE v_e date; v_k integer; v_w integer;
+BEGIN
+  IF p_n <= 0 THEN RETURN p_f; END IF;
+  IF NOT p_skip THEN RETURN p_f - p_n; END IF;
+  v_e := p_f - 1;
+  IF extract(isodow FROM v_e) = 6 THEN v_e := v_e - 1; ELSIF extract(isodow FROM v_e) = 7 THEN v_e := v_e - 2; END IF;
+  v_k := extract(isodow FROM v_e)::integer - 1 - (p_n - 1);
+  v_w := floor(v_k / 5.0)::integer;
+  RETURN date_trunc('week', v_e)::date + v_w * 7 + (v_k - v_w * 5);
+END $$;
+
+-- a lag (k > 0) or a lead (k < 0) in working days
+CREATE OR REPLACE FUNCTION public.pm_wd_shift(p_d date, p_k integer, p_skip boolean) RETURNS date
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+  SELECT CASE WHEN COALESCE(p_k, 0) = 0 THEN p_d WHEN p_k > 0 THEN public.pm_wd_add(public.pm_wd_next(p_d, p_skip), p_k, p_skip) ELSE public.pm_wd_sub(p_d, -p_k, p_skip) END $$;
+
+-- the start of a task of p_dur working days that must end at p_end (a milestone starts where it ends)
+CREATE OR REPLACE FUNCTION public.pm_wd_start_for(p_dur integer, p_end date, p_skip boolean) RETURNS date
+LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$ SELECT CASE WHEN p_dur <= 0 THEN p_end ELSE public.pm_wd_sub(p_end, p_dur, p_skip) END $$;
+
+REVOKE ALL ON FUNCTION public.pm_wd_is(date, boolean), public.pm_wd_next(date, boolean), public.pm_wd_add(date, integer, boolean), public.pm_wd_sub(date, integer, boolean),
+  public.pm_wd_shift(date, integer, boolean), public.pm_wd_start_for(integer, date, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pm_wd_is(date, boolean), public.pm_wd_next(date, boolean), public.pm_wd_add(date, integer, boolean), public.pm_wd_sub(date, integer, boolean),
+  public.pm_wd_shift(date, integer, boolean), public.pm_wd_start_for(integer, date, boolean) TO authenticated;
+
+-- the plan of the problem (pg_temp.prl_leaf / prl_con / prl_mem) for the delays in prl_leaf.delay: the early dates (forward pass of scheduling.ts) and, when p_float, the late dates and the total float
+-- (backward pass). Returns the finish of the project. Internal: called only by project_resource_leveling_server_plan.
+CREATE OR REPLACE FUNCTION public.pm_leveling_srv_schedule(p_skip boolean, p_start date, p_float boolean) RETURNS date
+LANGUAGE plpgsql SET search_path = public, extensions, pg_temp SET plan_cache_mode = force_generic_plan AS $$
+DECLARE
+  v_start date := public.pm_wd_next(p_start, p_skip);
+  v_fin   date;
+  v_es    date; v_link date; v_x date; v_ps date; v_pf date; v_lf date;
+  r record; c record;
+BEGIN
+  UPDATE pg_temp.prl_leaf SET es = NULL, ef = NULL, ls = NULL, lf = NULL;
+  FOR r IN SELECT g, dur, delay FROM pg_temp.prl_leaf ORDER BY topo LOOP
+    v_link := v_start;
+    FOR c IN SELECT pred, ltype, lag FROM pg_temp.prl_con WHERE succ = r.g LOOP
+      SELECT min(l.es), max(l.ef) INTO v_ps, v_pf FROM pg_temp.prl_mem m JOIN pg_temp.prl_leaf l ON l.g = m.leaf WHERE m.pred = c.pred AND l.es IS NOT NULL;
+      CONTINUE WHEN v_ps IS NULL;
+      v_x := CASE c.ltype
+        WHEN 'SS' THEN public.pm_wd_shift(v_ps, c.lag, p_skip)
+        WHEN 'FF' THEN public.pm_wd_start_for(r.dur, public.pm_wd_shift(v_pf, c.lag, p_skip), p_skip)
+        WHEN 'SF' THEN public.pm_wd_start_for(r.dur, public.pm_wd_shift(v_ps, c.lag, p_skip), p_skip)
+        ELSE public.pm_wd_shift(v_pf, c.lag, p_skip) END;
+      v_link := greatest(v_link, v_x);
+    END LOOP;
+    v_es := public.pm_wd_next(v_link, p_skip);
+    IF r.delay > 0 AND r.dur > 0 THEN v_es := public.pm_wd_next(public.pm_wd_shift(v_es, r.delay, p_skip), p_skip); END IF;
+    UPDATE pg_temp.prl_leaf SET es = v_es, ef = public.pm_wd_add(v_es, r.dur, p_skip) WHERE g = r.g;
+  END LOOP;
+  SELECT greatest(v_start, max(ef)) INTO v_fin FROM pg_temp.prl_leaf;
+
+  IF p_float THEN
+    FOR r IN SELECT g, dur FROM pg_temp.prl_leaf ORDER BY topo DESC LOOP
+      v_lf := v_fin;
+      FOR c IN SELECT con.ltype, con.lag, s.ls AS sls, s.lf AS slf
+                 FROM pg_temp.prl_con con JOIN pg_temp.prl_mem m ON m.pred = con.pred JOIN pg_temp.prl_leaf s ON s.g = con.succ
+                WHERE m.leaf = r.g AND con.succ <> r.g AND s.ls IS NOT NULL LOOP
+        v_lf := least(v_lf, CASE c.ltype
+          WHEN 'SS' THEN public.pm_wd_add(public.pm_wd_shift(c.sls, -c.lag, p_skip), r.dur, p_skip)
+          WHEN 'FF' THEN public.pm_wd_shift(c.slf, -c.lag, p_skip)
+          WHEN 'SF' THEN public.pm_wd_add(public.pm_wd_shift(c.slf, -c.lag, p_skip), r.dur, p_skip)
+          ELSE public.pm_wd_shift(c.sls, -c.lag, p_skip) END);
+      END LOOP;
+      UPDATE pg_temp.prl_leaf SET lf = v_lf, ls = public.pm_wd_start_for(r.dur, v_lf, p_skip) WHERE g = r.g;
+    END LOOP;
+    UPDATE pg_temp.prl_leaf SET flt = greatest(0, ls - es);
+  END IF;
+  RETURN v_fin;
+END $$;
+
+-- the hours a task books when it stands on [p_s, p_f): its Time lines spread uniformly over the working days of the window, summed per resource and bucket (day, or the Monday of the week);
+-- li / fd = the line and the day where the key shows up first (the order the search looks at the periods)
+CREATE OR REPLACE FUNCTION public.pm_leveling_srv_need(p_g text, p_s date, p_f date, p_skip boolean, p_week boolean)
+RETURNS TABLE (res text, b date, h float8, li integer, fd date)
+LANGUAGE plpgsql STABLE SET search_path = public, extensions, pg_temp SET plan_cache_mode = force_generic_plan AS $$
+BEGIN
+  RETURN QUERY
+  WITH act AS (SELECT d::date AS d FROM generate_series(p_s, p_f - 1, interval '1 day') x(d) WHERE public.pm_wd_is(d::date, p_skip)),
+       n AS (SELECT count(*)::float8 AS n FROM act)
+  SELECT ln.res, CASE WHEN p_week THEN date_trunc('week', a.d)::date ELSE a.d END, sum(ln.hours / n.n)::float8, min(ln.idx), min(a.d)
+    FROM pg_temp.prl_line ln CROSS JOIN act a CROSS JOIN n
+   WHERE ln.g = p_g AND n.n > 0
+   GROUP BY 1, 2;
+END $$;
+
+-- the usage (prl_use) of all tasks at the positions of the accepted plan (prl_leaf.es / ef), and the over-allocated periods (prl_conf), by period then resource
+CREATE OR REPLACE FUNCTION public.pm_leveling_srv_usage(p_skip boolean, p_week boolean) RETURNS integer
+LANGUAGE plpgsql SET search_path = public, extensions, pg_temp SET plan_cache_mode = force_generic_plan AS $$
+DECLARE v_n integer;
+BEGIN
+  TRUNCATE pg_temp.prl_pos, pg_temp.prl_use, pg_temp.prl_tot, pg_temp.prl_conf;
+  INSERT INTO pg_temp.prl_pos (g, s, f) SELECT l.g, l.es, l.ef FROM pg_temp.prl_leaf l WHERE l.has_lines;
+  INSERT INTO pg_temp.prl_use (res, b, g, h)
+  SELECT n.res, n.b, p.g, n.h FROM pg_temp.prl_pos p CROSS JOIN LATERAL public.pm_leveling_srv_need(p.g, p.s, p.f, p_skip, p_week) n WHERE n.h > 1e-9;
+  INSERT INTO pg_temp.prl_tot (res, b, tot) SELECT res, b, sum(h) FROM pg_temp.prl_use GROUP BY res, b;
+  INSERT INTO pg_temp.prl_conf (res, b)
+  SELECT u.res, u.b
+    FROM (SELECT res, b, tot AS booked FROM pg_temp.prl_tot WHERE tot > 1e-9) u
+    LEFT JOIN pg_temp.prl_capb c ON c.res = u.res AND c.b = u.b
+    LEFT JOIN pg_temp.prl_forb f ON f.res = u.res AND f.b = u.b
+   WHERE c.cap IS NULL OR (u.booked + COALESCE(f.h, 0) - c.cap) > 1e-9
+   ORDER BY u.b, u.res COLLATE "C";
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END $$;
+
+-- where a task would stand if it moved p_extra working days later than now: the first position whose hours fit (capacity, the load of the other tasks and of the other projects);
+-- the known capacity, the end of the horizon and (Smoothing) the slack bound the search - the code says why nothing was found (resourceLevelingEngine.ts placeTask).
+-- A position is `dur` consecutive working days (prl_wd lists the working days of the horizon), so the positions are looked at in chunks (8, 16, 32 ... extra days), each chunk in ONE statement.
+CREATE OR REPLACE FUNCTION public.pm_leveling_srv_place(p_g text, p_skip boolean, p_week boolean, p_smoothing boolean,
+  OUT o_ok boolean, OUT o_code text, OUT o_extra integer, OUT o_s date, OUT o_f date)
+LANGUAGE plpgsql SET search_path = public, extensions, pg_temp SET plan_cache_mode = force_generic_plan AS $$
+DECLARE
+  v_s0 date; v_dur integer; v_slack integer; v_left integer; v_i0 integer; v_ilast integer;
+  v_exceeds boolean := false; v_last text := 'noCapacityInHorizon';
+  v_e_slack integer; v_e_hz integer; v_limit integer;
+  v_e1 integer := 1; v_e2 integer; v_chunk integer := 8;
+  v_fit integer; v_ex boolean; v_unk boolean; v_n integer;
+BEGIN
+  SELECT s INTO v_s0 FROM pg_temp.prl_pos WHERE g = p_g;
+  SELECT dur, flt INTO v_dur, v_slack FROM pg_temp.prl_leaf WHERE g = p_g;
+  SELECT slack_left INTO v_left FROM pg_temp.prl_slack WHERE g = p_g;
+  IF FOUND THEN v_slack := v_left; END IF;
+  SELECT i INTO v_i0 FROM pg_temp.prl_wd WHERE d = v_s0;
+  SELECT max(i) INTO v_ilast FROM pg_temp.prl_wd;
+  -- the search stops at the first extra that is refused: beyond the slack (Smoothing), or whose position ends after the last day the capacity is known for
+  v_e_slack := CASE WHEN p_smoothing THEN COALESCE(v_slack, 0) + 1 ELSE 2147483647 END;
+  v_e_hz := CASE WHEN v_i0 IS NULL OR v_ilast IS NULL THEN 1 ELSE v_ilast - v_i0 - v_dur + 2 END;
+  v_limit := least(v_e_slack - 1, v_e_hz - 1, 800);
+  WHILE v_e1 <= v_limit LOOP
+    v_e2 := least(v_limit, v_e1 + v_chunk - 1);
+    WITH cand AS (SELECT e FROM generate_series(v_e1, v_e2) e),
+    days AS (SELECT c.e, w.d FROM cand c JOIN pg_temp.prl_wd w ON w.i BETWEEN v_i0 + c.e AND v_i0 + c.e + v_dur - 1),
+    lr AS (SELECT res, sum(hours) AS hr, min(idx) AS li FROM pg_temp.prl_line WHERE g = p_g GROUP BY res),
+    rws AS (
+      SELECT dd.e, lr.res, CASE WHEN p_week THEN date_trunc('week', dd.d)::date ELSE dd.d END AS b, lr.hr * count(*) / v_dur AS h, lr.li, min(dd.d) AS fd
+        FROM days dd CROSS JOIN lr GROUP BY dd.e, lr.res, lr.hr, lr.li, CASE WHEN p_week THEN date_trunc('week', dd.d)::date ELSE dd.d END),
+    chk AS (
+      SELECT r.*, c.cap, COALESCE(t.tot, 0) - COALESCE(o.h, 0) AS others, COALESCE(f.h, 0) AS foreign_h
+        FROM rws r LEFT JOIN pg_temp.prl_capb c ON c.res = r.res AND c.b = r.b
+                   LEFT JOIN pg_temp.prl_tot t ON t.res = r.res AND t.b = r.b
+                   LEFT JOIN pg_temp.prl_use o ON o.res = r.res AND o.b = r.b AND o.g = p_g
+                   LEFT JOIN pg_temp.prl_forb f ON f.res = r.res AND f.b = r.b),
+    st AS (
+      SELECT chk.*, (cap IS NULL OR others + foreign_h + h > cap + 1e-9) AS fail, row_number() OVER (PARTITION BY e ORDER BY li, fd) AS rn FROM chk),
+    ff AS (SELECT e, min(rn) FILTER (WHERE fail) AS ffr FROM st GROUP BY e),
+    ev AS (
+      SELECT st.e, ff.ffr,
+             COALESCE(bool_or(st.cap IS NOT NULL AND st.h > st.cap + 1e-9 AND (ff.ffr IS NULL OR st.rn <= ff.ffr)), false) AS exceeds,
+             COALESCE(bool_or(st.rn = ff.ffr AND st.cap IS NULL), false) AS unk
+        FROM st JOIN ff ON ff.e = st.e GROUP BY st.e, ff.ffr)
+    SELECT (SELECT min(e) FROM ev WHERE ffr IS NULL),
+           COALESCE((SELECT bool_or(exceeds) FROM ev), false),
+           (SELECT unk FROM ev ORDER BY e DESC LIMIT 1),
+           (SELECT count(*) FROM ev)
+      INTO v_fit, v_ex, v_unk, v_n;
+    IF v_fit IS NOT NULL THEN
+      o_ok := true; o_extra := v_fit;
+      SELECT d INTO o_s FROM pg_temp.prl_wd WHERE i = v_i0 + v_fit;
+      o_f := public.pm_wd_add(o_s, v_dur, p_skip);
+      RETURN;
+    END IF;
+    v_exceeds := v_exceeds OR v_ex;
+    IF v_n > 0 THEN v_last := CASE WHEN v_unk THEN 'capacityUnknown' ELSE 'noCapacityInHorizon' END; END IF;
+    v_e1 := v_e2 + 1;
+    v_chunk := v_chunk * 2;
+  END LOOP;
+  o_ok := false;
+  o_code := CASE WHEN v_e_slack <= 800 AND v_e_slack <= v_e_hz THEN 'slackLimit' WHEN v_exceeds THEN 'taskExceedsCapacity' ELSE v_last END;
+END $$;
+
+REVOKE ALL ON FUNCTION public.pm_leveling_srv_schedule(boolean, date, boolean), public.pm_leveling_srv_need(text, date, date, boolean, boolean), public.pm_leveling_srv_usage(boolean, boolean),
+  public.pm_leveling_srv_place(text, boolean, boolean, boolean) FROM PUBLIC, anon, authenticated;
+
+-- the problem (jsonb, v = 1), built by the application from the plan on the screen:
+--   method 'leveling'|'smoothing', order 'idOnly'|'standard'|'priorityStandard', period 'day'|'week', direction 'forward', skipWeekends boolean, projectStart 'YYYY-MM-DD', from / to (the days the capacity is read for, 1500 at most),
+--   delays {task: working days} (the plan the run starts from), maxPasses (at most 400),
+--   leaves [{g: task, o: row number in the WBS, d: duration in working days, z: why it cannot move or null, p: priority 0..1000, l: [[resource "kind:guid", hours], ...]}] in TOPOLOGICAL order (every leaf of the plan),
+--   cons [[successor leaf, predecessor row, 'FS'|'SS'|'FF'|'SF', lag in working days], ...], members {stage: [leaf, ...]} for a predecessor that is a stage (its dates are the first start / last finish of its leaves)
+-- -> {supported: true, delays {task: n}, moves [{task, delayBefore, delayAfter, reason, resource, bucket}], unresolved [{resource, bucket, capacity, booked, foreign, over, code, tasks}], passes, conflictsBefore,
+--     conflictsAfter, finish} or {supported: false, reasons: [...]}: a problem the function does not calculate is SAID, never guessed.
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_server_plan(p_project uuid, p_problem jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions, pg_temp SET plan_cache_mode = force_generic_plan AS $$
+DECLARE
+  v_eps     constant float8 := 1e-9;
+  v_skip    boolean; v_week boolean; v_smooth boolean; v_float boolean;
+  v_order   text; v_start date; v_from date; v_to date; v_last date;
+  v_max     integer; v_passes integer := 0; v_batch boolean := true; v_maxmoves integer; v_cnt integer; v_before integer; v_after integer;
+  v_base_fin date; v_next date; v_in jsonb; v_resources jsonb;
+  c record; pl record; o record; w record; x2 record;
+  v_present text[]; v_idx integer; v_x text; v_winner text; v_guard integer; v_total float8; v_cap float8; v_foreign float8; v_code text; v_reason text; v_cur integer;
+  v_old_s date; v_old_f date;
+  v_moves jsonb; v_unres jsonb; v_delays jsonb; v_deadline timestamptz := clock_timestamp() + interval '5 seconds';
+BEGIN
+  IF NOT public.pm_owns_project(p_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_server_plan: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF p_problem IS NULL OR jsonb_typeof(p_problem) <> 'object' OR p_problem->>'v' IS DISTINCT FROM '1' THEN
+    RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('version'));
+  END IF;
+  IF COALESCE(p_problem->>'direction', '') <> 'forward' THEN RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('direction')); END IF;
+  v_order := p_problem->>'order'; v_smooth := (p_problem->>'method') = 'smoothing'; v_week := (p_problem->>'period') = 'week';
+  IF v_order NOT IN ('idOnly', 'standard', 'priorityStandard') OR (p_problem->>'method') NOT IN ('leveling', 'smoothing') OR (p_problem->>'period') NOT IN ('day', 'week') THEN
+    RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('options'));
+  END IF;
+  IF jsonb_typeof(p_problem->'leaves') <> 'array' OR jsonb_array_length(p_problem->'leaves') > 3000 OR jsonb_array_length(COALESCE(p_problem->'cons', '[]')) > 20000 THEN
+    RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('size'));
+  END IF;
+  v_skip := COALESCE((p_problem->>'skipWeekends')::boolean, false);
+  v_start := (p_problem->>'projectStart')::date; v_from := (p_problem->>'from')::date; v_to := (p_problem->>'to')::date;
+  v_max := least(400, greatest(1, COALESCE((p_problem->>'maxPasses')::integer, 400)));
+  v_float := NOT (v_order = 'idOnly' AND NOT v_smooth);
+
+  CREATE TEMP TABLE IF NOT EXISTS prl_leaf (g text PRIMARY KEY, topo integer, ord integer, dur integer, frozen text, prio integer, delay integer, delay0 integer, snap integer, has_lines boolean DEFAULT false,
+    es date, ef date, ls date, lf date, flt integer) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_line (g text, idx integer, res text, hours float8) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_con (succ text, pred text, ltype text, lag integer) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_mem (pred text, leaf text) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_capb (res text, b date, cap float8, PRIMARY KEY (res, b)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_forb (res text, b date, h float8, PRIMARY KEY (res, b)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_pos (g text PRIMARY KEY, s date, f date) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_use (res text, b date, g text, h float8, PRIMARY KEY (res, b, g)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_conf (id integer GENERATED ALWAYS AS IDENTITY, res text, b date) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_skip (g text PRIMARY KEY) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_forbid (g text PRIMARY KEY) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_fail (res text, b date, code text, PRIMARY KEY (res, b)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_slack (g text PRIMARY KEY, slack_left integer) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_applied (seq integer GENERATED ALWAYS AS IDENTITY, g text, extra integer, reason text, res text, b date) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_moves (g text PRIMARY KEY, reason text, res text, b date) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_tot (res text, b date, tot float8, PRIMARY KEY (res, b)) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS prl_wd (i integer PRIMARY KEY, d date UNIQUE) ON COMMIT DROP;
+  TRUNCATE pg_temp.prl_leaf, pg_temp.prl_line, pg_temp.prl_con, pg_temp.prl_mem, pg_temp.prl_capb, pg_temp.prl_forb, pg_temp.prl_pos, pg_temp.prl_use, pg_temp.prl_skip, pg_temp.prl_forbid,
+           pg_temp.prl_fail, pg_temp.prl_slack, pg_temp.prl_moves, pg_temp.prl_wd, pg_temp.prl_tot;
+  TRUNCATE pg_temp.prl_conf, pg_temp.prl_applied RESTART IDENTITY;
+
+  INSERT INTO pg_temp.prl_leaf (g, topo, ord, dur, frozen, prio, delay, delay0)
+  SELECT t.x->>'g', t.i::integer, COALESCE((t.x->>'o')::integer, t.i::integer), greatest(0, COALESCE((t.x->>'d')::integer, 0)), NULLIF(t.x->>'z', ''), COALESCE((t.x->>'p')::integer, 500),
+         greatest(0, COALESCE((p_problem->'delays'->>(t.x->>'g'))::integer, 0)), greatest(0, COALESCE((p_problem->'delays'->>(t.x->>'g'))::integer, 0))
+    FROM jsonb_array_elements(p_problem->'leaves') WITH ORDINALITY AS t(x, i);
+  INSERT INTO pg_temp.prl_line (g, idx, res, hours)
+  SELECT t.x->>'g', l.i::integer, l.x->>0, (l.x->>1)::float8
+    FROM jsonb_array_elements(p_problem->'leaves') AS t(x), jsonb_array_elements(COALESCE(t.x->'l', '[]')) WITH ORDINALITY AS l(x, i)
+   WHERE (l.x->>1)::float8 > 0;
+  UPDATE pg_temp.prl_leaf SET has_lines = true WHERE g IN (SELECT g FROM pg_temp.prl_line);
+  INSERT INTO pg_temp.prl_con (succ, pred, ltype, lag)
+  SELECT x->>0, x->>1, COALESCE(x->>2, 'FS'), COALESCE((x->>3)::integer, 0) FROM jsonb_array_elements(COALESCE(p_problem->'cons', '[]')) x;
+  INSERT INTO pg_temp.prl_mem (pred, leaf) SELECT g, g FROM pg_temp.prl_leaf;
+  INSERT INTO pg_temp.prl_mem (pred, leaf)
+  SELECT m.key, l.value #>> '{}' FROM jsonb_each(COALESCE(p_problem->'members', '{}')) m, jsonb_array_elements(m.value) l;
+  CREATE INDEX IF NOT EXISTS prl_line_g ON pg_temp.prl_line (g);
+  CREATE INDEX IF NOT EXISTS prl_con_succ ON pg_temp.prl_con (succ);
+  CREATE INDEX IF NOT EXISTS prl_mem_pred ON pg_temp.prl_mem (pred);
+  CREATE INDEX IF NOT EXISTS prl_mem_leaf ON pg_temp.prl_mem (leaf);
+
+  -- the capacity of the calendar and the posted hours of the other projects, per bucket (the same rows the screen reads: project_resource_leveling_inputs)
+  SELECT COALESCE(jsonb_agg(DISTINCT jsonb_build_object('k', split_part(res, ':', 1), 'g', substr(res, position(':' IN res) + 1))), '[]') INTO v_resources FROM (SELECT DISTINCT res FROM pg_temp.prl_line) r;
+  v_in := public.project_resource_leveling_inputs(p_project, v_from, v_to, v_resources);
+  INSERT INTO pg_temp.prl_capb (res, b, cap)
+  SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
+    FROM jsonb_to_recordset(v_in->'capacity') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
+  INSERT INTO pg_temp.prl_forb (res, b, h)
+  SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
+    FROM jsonb_to_recordset(v_in->'foreign') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
+  SELECT max((x.d)::date) INTO v_last FROM jsonb_to_recordset(v_in->'capacity') AS x(d date);
+  v_last := COALESCE(v_last, v_start);
+  -- the working days from the start of the project to the last day the capacity is known for (a position is a run of them)
+  INSERT INTO pg_temp.prl_wd (i, d)
+  SELECT (row_number() OVER (ORDER BY x.d) - 1)::integer, x.d
+    FROM (SELECT g.d::date AS d FROM generate_series(public.pm_wd_next(v_start, v_skip), v_last, interval '1 day') g(d) WHERE public.pm_wd_is(g.d::date, v_skip)) x;
+
+  -- the plan the run starts from, and its conflicts
+  v_base_fin := public.pm_leveling_srv_schedule(v_skip, v_start, v_float);
+  v_before := public.pm_leveling_srv_usage(v_skip, v_week);
+
+  WHILE v_passes < v_max LOOP
+    v_passes := v_passes + 1;
+    UPDATE pg_temp.prl_leaf SET snap = delay;
+    PERFORM public.pm_leveling_srv_usage(v_skip, v_week);
+    TRUNCATE pg_temp.prl_slack;
+    TRUNCATE pg_temp.prl_applied RESTART IDENTITY;
+    v_maxmoves := CASE WHEN v_batch THEN 2147483647 ELSE 1 END;
+    v_cnt := 0;
+
+    <<conflicts>>
+    FOR c IN SELECT id, res, b FROM pg_temp.prl_conf ORDER BY id LOOP
+      DELETE FROM pg_temp.prl_skip;
+      FOR v_guard IN 0..199 LOOP
+        -- the database cuts a call at about 8 seconds: the function gives up first and says so (the screen calculates the run itself)
+        IF clock_timestamp() > v_deadline THEN RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('timeout')); END IF;
+        SELECT COALESCE(max(tot), 0) INTO v_total FROM pg_temp.prl_tot WHERE res = c.res AND b = c.b;
+        SELECT cap INTO v_cap FROM pg_temp.prl_capb WHERE res = c.res AND b = c.b;
+        IF NOT FOUND THEN v_cap := NULL; END IF;
+        SELECT COALESCE(max(h), 0) INTO v_foreign FROM pg_temp.prl_forb WHERE res = c.res AND b = c.b;
+        EXIT WHEN v_total <= v_eps OR (v_cap IS NOT NULL AND v_total + v_foreign - v_cap <= v_eps);
+
+        -- the tasks that hold the period, the strongest first (resourceLevelingEngine.ts keepOrder)
+        SELECT array_agg(u.g ORDER BY (l.frozen IS NULL),
+                                      CASE WHEN v_order = 'priorityStandard' THEN -l.prio ELSE 0 END,
+                                      CASE WHEN v_order = 'idOnly' THEN 0 ELSE l.flt END,
+                                      CASE WHEN v_order = 'idOnly' THEN DATE '1970-01-01' ELSE l.es END,
+                                      l.ord)
+          INTO v_present FROM pg_temp.prl_use u JOIN pg_temp.prl_leaf l ON l.g = u.g WHERE u.res = c.res AND u.b = c.b;
+        -- the yielder = the weakest contender that may move and has not failed here
+        SELECT t.i INTO v_idx FROM unnest(v_present) WITH ORDINALITY AS t(g, i) JOIN pg_temp.prl_leaf l ON l.g = t.g
+         WHERE l.frozen IS NULL AND NOT EXISTS (SELECT 1 FROM pg_temp.prl_forbid f WHERE f.g = t.g) AND NOT EXISTS (SELECT 1 FROM pg_temp.prl_skip s WHERE s.g = t.g)
+         ORDER BY t.i DESC LIMIT 1;
+        IF v_idx IS NULL THEN
+          SELECT l.frozen INTO v_code FROM unnest(v_present) WITH ORDINALITY AS t(g, i) JOIN pg_temp.prl_leaf l ON l.g = t.g WHERE l.frozen IS NOT NULL ORDER BY t.i LIMIT 1;
+          INSERT INTO pg_temp.prl_fail (res, b, code)
+          VALUES (c.res, c.b, CASE WHEN v_cap IS NULL THEN 'capacityUnknown' WHEN v_code IS NOT NULL THEN v_code WHEN COALESCE(array_length(v_present, 1), 0) > 0 THEN 'slackLimit' ELSE 'foreignLoad' END)
+          ON CONFLICT (res, b) DO NOTHING;
+          EXIT;
+        END IF;
+        v_x := v_present[v_idx];
+        v_winner := v_present[greatest(1, v_idx - 1)];
+        SELECT * INTO pl FROM public.pm_leveling_srv_place(v_x, v_skip, v_week, v_smooth);
+        IF NOT pl.o_ok THEN
+          INSERT INTO pg_temp.prl_skip (g) VALUES (v_x);
+          INSERT INTO pg_temp.prl_fail (res, b, code) VALUES (c.res, c.b, pl.o_code) ON CONFLICT (res, b) DO UPDATE SET code = EXCLUDED.code;
+          CONTINUE;
+        END IF;
+
+        -- the move: the task takes the new place in the usage
+        SELECT s, f INTO v_old_s, v_old_f FROM pg_temp.prl_pos WHERE g = v_x;
+        UPDATE pg_temp.prl_tot t SET tot = greatest(0, t.tot - n.h) FROM public.pm_leveling_srv_need(v_x, v_old_s, v_old_f, v_skip, v_week) n WHERE t.res = n.res AND t.b = n.b;
+        UPDATE pg_temp.prl_use u SET h = u.h - n.h FROM public.pm_leveling_srv_need(v_x, v_old_s, v_old_f, v_skip, v_week) n WHERE u.g = v_x AND u.res = n.res AND u.b = n.b;
+        DELETE FROM pg_temp.prl_use WHERE g = v_x AND h <= v_eps;
+        INSERT INTO pg_temp.prl_use (res, b, g, h)
+        SELECT n.res, n.b, v_x, n.h FROM public.pm_leveling_srv_need(v_x, pl.o_s, pl.o_f, v_skip, v_week) n WHERE n.h > v_eps
+        ON CONFLICT (res, b, g) DO UPDATE SET h = pg_temp.prl_use.h + EXCLUDED.h;
+        INSERT INTO pg_temp.prl_tot (res, b, tot) SELECT n.res, n.b, n.h FROM public.pm_leveling_srv_need(v_x, pl.o_s, pl.o_f, v_skip, v_week) n
+        ON CONFLICT (res, b) DO UPDATE SET tot = pg_temp.prl_tot.tot + EXCLUDED.tot;
+        UPDATE pg_temp.prl_pos SET s = pl.o_s, f = pl.o_f WHERE g = v_x;
+        SELECT COALESCE((SELECT slack_left FROM pg_temp.prl_slack WHERE g = v_x), (SELECT flt FROM pg_temp.prl_leaf WHERE g = v_x), 0) INTO v_cur;
+        INSERT INTO pg_temp.prl_slack (g, slack_left) VALUES (v_x, v_cur - pl.o_extra) ON CONFLICT (g) DO UPDATE SET slack_left = EXCLUDED.slack_left;
+        UPDATE pg_temp.prl_leaf SET delay = delay + pl.o_extra WHERE g = v_x;
+        SELECT * INTO w FROM pg_temp.prl_leaf WHERE g = v_winner;
+        SELECT * INTO x2 FROM pg_temp.prl_leaf WHERE g = v_x;
+        v_reason := CASE
+          WHEN v_idx = 1 THEN 'foreignYield'
+          WHEN v_order = 'idOnly' THEN 'idYield'
+          WHEN v_order = 'priorityStandard' AND w.prio <> x2.prio THEN 'priorityYield'
+          WHEN w.flt IS DISTINCT FROM x2.flt THEN 'slackYield'
+          WHEN w.es <> x2.es THEN 'laterStartYield'
+          ELSE 'idYield' END;
+        INSERT INTO pg_temp.prl_applied (g, extra, reason, res, b) VALUES (v_x, pl.o_extra, v_reason, c.res, c.b);
+        DELETE FROM pg_temp.prl_fail WHERE res = c.res AND b = c.b;
+        v_cnt := v_cnt + 1;
+        EXIT conflicts WHEN v_cnt >= v_maxmoves;
+      END LOOP;
+    END LOOP;
+
+    EXIT WHEN v_cnt = 0;
+    v_next := public.pm_leveling_srv_schedule(v_skip, v_start, v_float);
+    IF v_smooth AND v_next > v_base_fin THEN
+      -- Smoothing: this pass moved the finish of the project. Back to the delays before the pass; one move at a time; a single move that does it makes the task unmovable in this run.
+      UPDATE pg_temp.prl_leaf SET delay = snap;
+      IF v_batch THEN
+        v_batch := false;
+      ELSE
+        SELECT * INTO o FROM pg_temp.prl_applied ORDER BY seq LIMIT 1;
+        INSERT INTO pg_temp.prl_forbid (g) VALUES (o.g) ON CONFLICT DO NOTHING;
+        INSERT INTO pg_temp.prl_fail (res, b, code) VALUES (o.res, o.b, 'slackLimit') ON CONFLICT (res, b) DO UPDATE SET code = EXCLUDED.code;
+      END IF;
+      PERFORM public.pm_leveling_srv_schedule(v_skip, v_start, v_float);
+      CONTINUE;
+    END IF;
+    v_batch := true;
+    INSERT INTO pg_temp.prl_moves (g, reason, res, b) SELECT g, reason, res, b FROM pg_temp.prl_applied ORDER BY seq ON CONFLICT (g) DO NOTHING;
+  END LOOP;
+
+  -- the result: the conflicts that are left, and why
+  v_after := public.pm_leveling_srv_usage(v_skip, v_week);
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'resource', cf.res, 'bucket', cf.b, 'capacity', cp.cap, 'booked', bk.booked, 'foreign', COALESCE(fo.h, 0),
+           'over', CASE WHEN cp.cap IS NULL THEN bk.booked + COALESCE(fo.h, 0) ELSE bk.booked + COALESCE(fo.h, 0) - cp.cap END,
+           'code', COALESCE(fl.code,
+                      CASE WHEN cp.cap IS NULL THEN 'capacityUnknown'
+                           ELSE COALESCE((SELECT l.frozen FROM pg_temp.prl_use u JOIN pg_temp.prl_leaf l ON l.g = u.g WHERE u.res = cf.res AND u.b = cf.b AND l.frozen IS NOT NULL ORDER BY l.ord LIMIT 1),
+                                          CASE WHEN v_passes >= v_max THEN 'passLimit' ELSE 'noCapacityInHorizon' END) END),
+           'tasks', (SELECT COALESCE(jsonb_agg(u.g ORDER BY l.ord), '[]') FROM pg_temp.prl_use u JOIN pg_temp.prl_leaf l ON l.g = u.g WHERE u.res = cf.res AND u.b = cf.b)
+         ) ORDER BY cf.id), '[]')
+    INTO v_unres
+    FROM pg_temp.prl_conf cf
+    JOIN LATERAL (SELECT sum(h) AS booked FROM pg_temp.prl_use u WHERE u.res = cf.res AND u.b = cf.b) bk ON true
+    LEFT JOIN pg_temp.prl_capb cp ON cp.res = cf.res AND cp.b = cf.b
+    LEFT JOIN pg_temp.prl_forb fo ON fo.res = cf.res AND fo.b = cf.b
+    LEFT JOIN pg_temp.prl_fail fl ON fl.res = cf.res AND fl.b = cf.b;
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('task', m.g, 'delayBefore', l.delay0, 'delayAfter', l.delay, 'reason', m.reason, 'resource', m.res, 'bucket', m.b) ORDER BY l.ord), '[]')
+    INTO v_moves FROM pg_temp.prl_moves m JOIN pg_temp.prl_leaf l ON l.g = m.g WHERE l.delay <> l.delay0;
+  SELECT COALESCE(jsonb_object_agg(g, delay) FILTER (WHERE delay > 0), '{}') INTO v_delays FROM pg_temp.prl_leaf;
+  RETURN jsonb_build_object('supported', true, 'delays', v_delays, 'moves', v_moves, 'unresolved', v_unres, 'passes', v_passes, 'conflictsBefore', v_before, 'conflictsAfter', v_after,
+                            'finish', (SELECT greatest(v_start, max(ef)) FROM pg_temp.prl_leaf));
+END $$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_server_plan(uuid, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_server_plan(uuid, jsonb) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

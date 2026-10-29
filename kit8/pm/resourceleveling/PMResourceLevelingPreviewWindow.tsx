@@ -8,6 +8,7 @@ import { formatDateISO } from '../view/project/scheduling';
 import { pmT } from '../i18n/pmT';
 import PMResourceLevelingConflictsList from './PMResourceLevelingConflictsList';
 import PMResourceLevelingPostedTasksDialog from './PMResourceLevelingPostedTasksDialog';
+import { outcomeText } from './resourceLevelingComputation';
 import { moveReasonText } from './resourceLevelingText';
 import { useResourceLevelingUiStore } from './resourceLevelingUiStore';
 import type { PostedChoice } from './resourceLevelingRun';
@@ -40,6 +41,9 @@ export default function PMResourceLevelingPreviewWindow({ onApply }: { onApply: 
               {row(pmT('Project finish'), `${formatDateISO(plan.current.projectFinishMs - 86400000)} → ${formatDateISO(plan.after.projectFinishMs - 86400000)}`, 'pm-resource-leveling-preview-finish')}
               {plan.postedChanges.length > 0 && row(pmT('Posted tasks that move'), String(plan.postedChanges.length), 'pm-resource-leveling-preview-posted')}
             </View>
+            {!!outcomeText(preview.outcome) && (
+              <Text style={[s.note, { color: preview.outcome?.fallback ? '#b45309' : c.text }]} testID="pm-resource-leveling-preview-computation">{outcomeText(preview.outcome)}</Text>
+            )}
             {backward && <Text style={[s.note, { color: c.text }]}>{pmT('The project is planned from its finish date: the tasks move earlier, the finish date stays.')}</Text>}
             <ScrollView style={s.list} testID="pm-resource-leveling-preview-list">
               {nothing && <Text style={{ color: c.text, opacity: 0.7 }}>{pmT('No task needs to move.')}</Text>}

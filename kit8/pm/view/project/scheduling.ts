@@ -351,7 +351,8 @@ interface LeafEdge {
   lag: number;
 }
 
-function durationOf(task: PMTaskRow): number {
+/** the duration of a row in working days (a milestone 0; an empty stage is a 1-day placeholder) */
+export function durationOf(task: PMTaskRow): number {
   if (task.rowJSON?.rowKind === 'milestone') return 0;
   const d = Math.round(Number(task.rowJSON?.durationDays ?? 1));
   const safe = Number.isFinite(d) && d > 0 ? d : 0;
@@ -466,6 +467,17 @@ export function splitSegments(startMs: number, dur: number, splits: PMSplit[], c
   }
   segs.push({ startMs: cursor, finishMs: addWorkDays(cursor, dur - done, cal) });
   return segs;
+}
+
+/**
+ * The leaf graph of a plan as scheduleProject builds it, for the database (Resource optimization, server side computations): the leaves in topological order, the links that hold each leaf
+ * (the predecessor is a row: a leaf or a stage) and the leaves under every row. Pure; the same graph the scheduler walks.
+ */
+export function leafGraphOf(tasks: PMTaskRow[], deps: PMTaskDependencyRow[], lagOf?: (pred: PMTaskRow | undefined, d: PMTaskDependencyRow) => number) {
+  const tree = buildTreeIndex(tasks);
+  const g = buildLeafGraph(tasks, deps, tree, lagOf);
+  const [topo, cyclic] = topoSort(g.leaves, g.edges);
+  return { leaves: g.leaves, topo, cyclic, constraintsByLeaf: g.constraintsByLeaf, leavesUnder: g.leavesUnder, isSummary: g.isSummary };
 }
 
 export function scheduleProject(input: PMScheduleInput): PMScheduleResult {

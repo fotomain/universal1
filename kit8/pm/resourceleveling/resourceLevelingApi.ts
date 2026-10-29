@@ -1,6 +1,8 @@
 // resourceLevelingApi - the calls of Resource optimization to the database (SQL PART 42; documentation/RESOURCE_LEVELING_WBS.html section 8). Thin: the rules are in the functions.
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InputRow } from './resourceLevelingEnv';
+import type { ServerMove, ServerUnresolved } from './resourceLevelingRun';
+import type { ServerProblem } from './resourceLevelingServerProblem';
 
 export interface LevelingInputs { capacity: InputRow[]; foreign: InputRow[] }
 
@@ -67,4 +69,28 @@ export async function fetchFactTasks(supabase: SupabaseClient, projectGUID: stri
   const out = new Set<string>();
   for (const r of (data ?? []) as { rowOwnerGUID: string; rowJSON?: any }[]) if (r.rowJSON?.documentHeader?.documentStatus === 'posted') out.add(r.rowOwnerGUID);
   return out;
+}
+
+/** the answer of project_resource_leveling_server_plan: the proposal of the database, or the reasons why it does not calculate this plan */
+export type ServerPlanAnswer =
+  | { supported: true; delays: Record<string, number>; moves: ServerMove[]; unresolved: ServerUnresolved[]; passes: number; conflictsBefore: number; conflictsAfter: number; finish: string }
+  | { supported: false; reasons: string[] };
+
+/** an error of the call with the code of the database (PGRST202 / 42883 = the function is not installed) */
+export class ServerPlanError extends Error {
+  code?: string;
+  constructor(message: string, code?: string) { super(message); this.name = 'ServerPlanError'; this.code = code; }
+}
+
+/** the function is not in the database (start2_sql_code.sql PART 42 was not run after the update) */
+export const isServerPlanMissing = (e: unknown): boolean => {
+  const code = (e as { code?: string } | null)?.code;
+  const msg = String((e as { message?: string } | null)?.message ?? '');
+  return code === 'PGRST202' || code === '42883' || /could not find the function|does not exist/i.test(msg);
+};
+
+export async function fetchServerPlan(supabase: SupabaseClient, projectGUID: string, problem: ServerProblem): Promise<ServerPlanAnswer> {
+  const { data, error } = await supabase.rpc('project_resource_leveling_server_plan', { p_project: projectGUID, p_problem: problem });
+  if (error) throw new ServerPlanError(`project_resource_leveling_server_plan: ${error.message ?? 'failed'}`, (error as { code?: string }).code);
+  return data as ServerPlanAnswer;
 }
