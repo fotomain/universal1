@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File attachments - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+  .note.bad { border-color: var(--rose); background: var(--rose-soft); }
+  .note.good { border-color: var(--emerald); background: var(--emerald-soft); }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">File attachments</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#req">Requirements</a></li><li><a href="#wbs">WBS</a></li><li><a href="#data">Data</a></li><li><a href="#drive">Google Drive</a></li>
+    <li><a href="#ui">UI</a></li><li><a href="#view">File view</a></li><li><a href="#sql">SQL</a></li><li><a href="#code">Code map</a></li><li><a href="#accept">Acceptance</a></li><li><a href="#open">Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>W1 File attachments – Work Breakdown Structure</h1>
+  <p class="lead">Files (documents, scans, audio, video, links) can be attached to an <b>organization</b>, a <b>project</b>, a <b>stage</b> and a <b>task</b>. The file itself lives in the user's <b>Google Drive</b>; the app stores only its Drive url and the data around it in a <b>mediaPost</b> row. Project setting <code>filesFunctionalityEnabled</code> (TRUE by default) switches the whole feature.</p>
+  <p class="sub">Status: <b>PLAN ONLY – no code</b> (the Google Doc "W1 FILE ATTACHEMENTS" says "Do not code"). Written 2026-11-02 from that document and from a read of the code (mediaPost, Google Drive helpers, the tree, the media player routes, the generic table rules). Items marked <span class="pill ask">Q</span> are open questions with a recommended default (section 11); the plan is built on the defaults.</p>
+</section>
+
+<section id="req">
+  <h2>1. Requirements from the document</h2>
+  <p class="sub">Every sentence of the document is one requirement; the last column says where this plan covers it.</p>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Requirement (document)</th><th>Covered in</th></tr>
+    <tr><td>R1</td><td>Project setting <code>filesFunctionalityEnabled</code>, TRUE by default</td><td>2 · F1</td></tr>
+    <tr><td>R2</td><td>Files can be attached to a task, a stage, a project, an organization</td><td>3 · F2, F5</td></tr>
+    <tr><td>R3</td><td>All built on <b>mediaPosts</b>; the organization is the owner, the task / stage / project is the parent; kind in <code>mediaPost.rowJSON.fileSourceKind</code></td><td>3 · F2</td></tr>
+    <tr><td>R4</td><td><b>ProjectFilesDashboard</b>: a table (ReusableTable) by default on desktop; an icon button switches table ⇄ list of cards</td><td>6 · F4</td></tr>
+    <tr><td>R5</td><td>Card list by default on a smartphone and a portrait tablet</td><td>6 · F4</td></tr>
+    <tr><td>R6</td><td>Organization card: files of ALL projects of the organization, search by name, a link to the task</td><td>6 · F5</td></tr>
+    <tr><td>R7</td><td>Project card: files of this project only</td><td>6 · F5</td></tr>
+    <tr><td>R8</td><td>The files list is draggable (reorder)</td><td>6 · F4</td></tr>
+    <tr><td>R9</td><td>A <b>Files</b> field in the task tree: the first file as a url (narrow), an icon button "door" at the right side goes to the files list; improve the ReusableTable container if needed</td><td>6 · F5</td></tr>
+    <tr><td>R10</td><td>The user must be logged in with Google to store files in Google Drive</td><td>4 · F3</td></tr>
+    <tr><td>R11</td><td>The Google Drive urls are stored</td><td>3, 4 · F2, F3</td></tr>
+    <tr><td>R12</td><td>All mediaPost variants are possible (url / YouTube, file, recording, Drive file)</td><td>3 · F2</td></tr>
+    <tr><td>R13</td><td>Buttons to view files; the view is a separate route that reroutes to the standard route of the file kind (text, .md, audio, video, PDF, …)</td><td>7 · F6</td></tr>
+    <tr><td>R14</td><td>Drag and drop adds files to the list</td><td>6 · F4</td></tr>
+    <tr><td>R15</td><td>An added file is uploaded to Drive at once into <code>FILES_KIT8_/project_&lt;GUID&gt;/task_&lt;GUID&gt;</code> or <code>FILES_KIT8_/organization_&lt;GUID&gt;/</code></td><td>4 · F3</td></tr>
+    <tr><td>R16</td><td>Per file <code>mediaPost.rowJSON.paperDocumentPlace</code> (text: where the paper original is kept) visible in the table row and on the card</td><td>3, 6 · F2, F4</td></tr>
+  </table></div>
+</section>
+
+<section id="wbs">
+  <h2>2. Work breakdown structure</h2>
+  <div class="card scroll"><table>
+    <tr><th>Package</th><th>What</th><th>Needs</th></tr>
+    <tr><td><b>F1</b> Switch + model</td><td>Key <code>filesFunctionalityEnabled</code> in the project settings (new tab <b>Files</b>, <code>PMProjectFilesTab</code>) and in the Organization defaults (<code>defaultProjectSettings</code>, no SQL); TS reader <code>filesEnabledOf(project)</code> (<code>!== false</code>); the file row type and pure helpers (kind by extension / MIME, Drive folder path, title); <code>normalizeOrganization</code> / project settings normalizer learn the key</td><td>–</td></tr>
+    <tr><td><b>F2</b> SQL PART 44</td><td>Partial index on <code>mediaPostTable</code>, the organization RLS for file rows, the RPCs, the delete cascade, the delete file, Docker test</td><td>F1 (shape)</td></tr>
+    <tr><td><b>F3</b> Google Drive</td><td>"Connect Google Drive" token (scope <code>drive.file</code>), folder path, upload with progress / cancel, sharing with the organization, trash on delete</td><td>F1</td></tr>
+    <tr><td><b>F4</b> Files dashboard</td><td><code>ProjectFilesDashboard</code> (scope organization | project | task): table, cards, toggle, search, drag reorder, drag-and-drop upload, add link, edit title / paper place, view / open / copy link / delete</td><td>F2, F3</td></tr>
+    <tr><td><b>F5</b> Integration</td><td>Project dashboard view <b>Files</b>; task window tab <b>Files</b> (task and stage); Organization card / edit tab <b>Files</b>; tree column <b>Files</b> with the door button; Task menu item "Files"; deep link</td><td>F4</td></tr>
+    <tr><td><b>F6</b> Viewers</td><td>Route <code>/files/view</code> + the standard routes text · markdown · PDF · image · other; audio / video reuse <code>/media/play/*</code></td><td>F3</td></tr>
+    <tr><td><b>F7</b> Texts</td><td><code>pmT</code> keys in the 14 languages (<code>kit8/pm/i18n</code>), icons, tips</td><td>F4-F6</td></tr>
+    <tr><td><b>F8</b> Tests + docs</td><td>Jest (pure helpers, UI kit tests), Docker <code>tests/46_file_attachment.sql</code>, README of <code>kit8/files</code>, KNOW_HOW row</td><td>all</td></tr>
+  </table></div>
+  <h3>Sequence</h3>
+  <ol class="steps">
+    <li>F1 and F2 first (they fix the shape of a file row); F3 in parallel with F2 (it only needs F1).</li>
+    <li>F4 needs the RPCs (F2) and the upload (F3): build the table + cards + upload of ONE file first, then drag reorder, drag-and-drop, search.</li>
+    <li>F5 integration after F4 works for one scope; the tree column last (the Skia tree is the riskiest part).</li>
+    <li>F6 can start as soon as a row with a Drive id exists (F3); the audio / video routes already work.</li>
+    <li>F7 / F8 in the same round as the code (project rule: tests and README with the feature).</li>
+  </ol>
+</section>
+
+<section id="data">
+  <h2>3. Data: a file is a mediaPost row</h2>
+  <p>No new table. The existing <code>mediaPostTable</code> (generic schema, <code>kit8/redux/SystemMetaData.ts</code> entity <code>mediaPostReusable</code>) holds the file rows next to the recordings and links it already has. A file row is recognised by <code>rowJSON.fileSourceKind</code>; every other row (recordings, YouTube posts) is untouched.</p>
+  <div class="card scroll"><table>
+    <tr><th>Column / key</th><th>Value for a file row</th></tr>
+    <tr><td><code>rowGUID</code></td><td>own id (uuid text)</td></tr>
+    <tr><td><code>rowOwnerGUID</code></td><td>the <b>organization</b> GUID (R3). Note: the recordings use the USER here; the two never mix because file rows carry <code>fileSourceKind</code></td></tr>
+    <tr><td><code>rowParentGUID</code></td><td>the GUID of the <b>task / stage / project</b> the file is attached to; the organization GUID for a file of the organization itself (R3)</td></tr>
+    <tr><td><code>orderInList</code></td><td>order inside one parent (the drag reorder, R8); new file = last</td></tr>
+    <tr><td><code>rowJSON.fileSourceKind</code></td><td><code>organization</code> | <code>project</code> | <code>stage</code> | <code>task</code> (a stage is a row of the task table, so it uses the same folder rule as a task)</td></tr>
+    <tr><td><code>rowJSON.fileSourceProjectGUID</code></td><td>the project of the task / stage / project (empty for the organization). Needed to list "all files of a project" and "all files of the organization with the project name" without walking the tree. Set by the RPC, never by the client</td></tr>
+    <tr><td><code>rowJSON.mediaPostTitle</code></td><td>the name shown (default = the file name; editable)</td></tr>
+    <tr><td><code>rowJSON.mediaPostDescription</code></td><td>free text (optional)</td></tr>
+    <tr><td><code>rowJSON.paperDocumentPlace</code></td><td>R16: text, where the paper original is kept ("Archive room 2, shelf 4, folder 17"). Optional, visible in the table and on the card, editable inline</td></tr>
+    <tr><td><code>rowJSON.mediaPostOriginType</code></td><td><code>googleDrive</code> (new) | <code>url</code> (any web link, YouTube …) | <code>file</code> (existing meaning: a device file / recording). R12</td></tr>
+    <tr><td><code>rowJSON.mediaPostOrigin</code></td><td>for <code>googleDrive</code>: the Drive <code>webViewLink</code> (R11); for <code>url</code>: the address</td></tr>
+    <tr><td><code>rowJSON.googleDriveFileId</code></td><td>the Drive file id (the url alone is not enough to download with the API)</td></tr>
+    <tr><td><code>rowJSON.googleDriveFolderPath</code></td><td>the path it was uploaded into (information)</td></tr>
+    <tr><td><code>rowJSON.googleDriveOwnerEmail</code></td><td>whose Drive holds the file (see section 4, Q2)</td></tr>
+    <tr><td><code>rowJSON.mediaPostMIME</code>, <code>mediaFileExtension</code>, <code>fileName</code>, <code>fileSizeBytes</code></td><td>from the picked file; the viewer is chosen by MIME / extension (section 7)</td></tr>
+    <tr><td><code>rowJSON.fileKind</code></td><td><code>text</code> | <code>markdown</code> | <code>audio</code> | <code>video</code> | <code>pdf</code> | <code>image</code> | <code>other</code>: computed from MIME / extension when the row is made (pure helper, one place)</td></tr>
+    <tr><td><code>rowJSON.fileUploadedByGUID</code>, <code>fileUploadedAt</code></td><td>who and when (delete and edit rights)</td></tr>
+  </table></div>
+  <div class="note"><b>Decision, not stored in the task.</b> The "first file" of the tree column is NOT copied into <code>project_task_table.rowJSON</code>: one RPC (<code>file_attachment_first_per_task</code>) returns the first file and the count per task of a project and the tree caches it. So task save, task templates, project versions and MS Project export are not touched.</div>
+</section>
+
+<section id="drive">
+  <h2>4. Google Drive (the part with the real risks)</h2>
+  <div class="note bad"><b>Finding 1 – the app has no Drive access today.</b> The sign-in (<code>supabase.auth.signInWithOAuth({ provider: 'google' })</code>, <code>kit8/hooks/useAuth.*</code>) asks for no Drive scope and the code never reads <code>provider_token</code>. The Drive helpers in <code>kit8/google/drive</code> (create file / folder, list, delete, progress, <code>folderPath</code> with <code>findIfExists</code>) exist and only need an access token. R10 therefore means: signed in with Google <b>and</b> a Drive token.</div>
+  <h3>Token</h3>
+  <p>Same pattern as the calendar (<code>useGoogleCalendarConnect</code>): <code>expo-auth-session</code> Google provider, the three client ids already in <code>.env</code>, the token is kept in memory for its lifetime (~1 h), one tap "Connect Google Drive" when it is missing or expired. The hook is generalised into a shared <code>useGoogleConnect(scopes)</code>; the Drive scope is <b>drive.file</b> (the app sees only the files it created – a non-restricted scope, no Google security review of the whole Drive). The Google Cloud project needs the <b>Drive API</b> enabled and the scope on the consent screen.</p>
+  <p>Not signed in with Google (or the client id of the platform missing): the Add buttons are disabled with a visible reason; the list of the files (rows) is still readable, because the rows are in the database.</p>
+  <h3>Upload (R15)</h3>
+  <ol class="steps">
+    <li>The user drops / picks a file → a row appears at once in the list with a progress bar (state <code>uploading</code>, client side only – nothing is in the database yet).</li>
+    <li>Folders: <code>FILES_KIT8_</code> / <code>project_&lt;projectGUID&gt;</code> / <code>task_&lt;taskGUID&gt;</code> (task and stage), <code>FILES_KIT8_/project_&lt;projectGUID&gt;</code> for a file of the project itself <span class="pill ask">Q3</span>, <code>FILES_KIT8_/organization_&lt;organizationGUID&gt;</code> for the organization. Created with <code>createFolder(... findIfExists)</code>, so a second file reuses the folder.</li>
+    <li>Upload with progress and an abort signal (the Cancel button). On success the RPC <code>file_attachment_add</code> writes the row with the Drive <code>id</code> and <code>webViewLink</code>. On failure NO row is written and an <code>ErrorModalWindow</code> tells why (not a snackbar).</li>
+    <li>Sharing: see Q2.</li>
+  </ol>
+  <div class="note"><b>Finding 2 – "my Drive" is private.</b> A file uploaded to the Drive of user A cannot be opened by user B of the same organization unless A shares it. <b>Default (Q2):</b> after the upload the app grants the <b>reader</b> role to the e-mail of every member of the organization (the <code>drive.file</code> scope allows it on files the app created), and the row has the button <b>Share with organization</b> to repeat it for members who joined later. An organization switch "anyone with the link" is possible but OFF (a leaked link = access).</div>
+  <div class="note"><b>Finding 3 – size.</b> The helper uploads <code>multipart</code> (the whole file in memory). A limit of <b>100 MB</b> per file in phase 1 with a clear message; the Drive resumable upload (large video) is a later step <span class="pill ask">Q5</span>.</div>
+  <h3>Delete</h3>
+  <p>Deleting a row asks: <i>Remove from the list only</i> (default) or <i>Also move the file to the Google Drive trash</i> (only for the uploader). The app never deletes permanently. Deleting a task / project / organization deletes its file ROWS by a trigger; the Drive files stay (nobody is told silently that a file vanished).</p>
+</section>
+
+<section id="ui">
+  <h2>5. Switch and visibility</h2>
+  <ul>
+    <li><code>filesFunctionalityEnabled</code>: project level, TRUE unless stored false (SQL <code>vendor_project_setting(project, key)</code> – the pattern of the Vendor switches; TS <code>!== false</code>). Project settings → new tab <b>Files</b>; the Organization defaults (<b>Organization edit → Projects → Settings</b>) and "Save settings to organization" carry it like every other key.</li>
+    <li>OFF: the tree column, the Files views / tabs, the Task menu item and the Add actions are hidden; the rows stay in the database and come back when the switch is turned on.</li>
+    <li>The organization's own files (organization card) follow the switch of the Organization defaults.</li>
+  </ul>
+
+  <h2 style="margin-top:28px">6. User interface</h2>
+  <h3>ProjectFilesDashboard (R4, R5, R8, R14, R16)</h3>
+  <p>One component with a scope: <code>{ scope: 'organization' | 'project' | 'task', guid }</code> (a stage = task). It is mounted in four places (F5).</p>
+  <div class="card scroll"><table>
+    <tr><th>Part</th><th>Rule</th></tr>
+    <tr><td>View</td><td><b>Table</b> (<code>ReusableTable</code>, local rows mode fed by the RPC) by default on desktop; <b>cards</b> by default on a smartphone and a portrait tablet. An icon button switches; the choice is remembered per device (AsyncStorage, wrapped in try / catch).</td></tr>
+    <tr><td>Columns</td><td>drag handle · icon of the kind · <b>Name</b> · <b>Paper place</b> (R16, editable) · Task / Stage (organization and project scope only: name + link, R6) · Project (organization scope) · Size · Added by · Added · actions (View · Open in Drive · Copy link · Share · Delete)</td></tr>
+    <tr><td>Card</td><td>icon + name, paper place line, task link, size / date, the same actions; the card edit uses the shared card look (<code>kit8/ui/components/list</code>)</td></tr>
+    <tr><td>Search (R6)</td><td>a field with a Clear button inside, one row with the filters: search by file name (also by paper place and task name); all scopes, always visible in the organization scope</td></tr>
+    <tr><td>Drag reorder (R8)</td><td>the handle moves a row inside its parent (table: <code>@hello-pangea/dnd</code> / the existing row drag of the lists; cards: the existing draggable card list). Saves <code>orderInList</code> through <code>file_attachment_reorder</code>. In the organization / project scope the order is per parent task; the list is grouped by it. <span class="pill ask">Q4</span></td></tr>
+    <tr><td>Drag and drop add (R14)</td><td><b>Web:</b> drop files anywhere on the dashboard (a highlighted drop zone), several at once, each one its own upload row. <b>Phone / tablet:</b> the <b>+</b> button (<code>expo-document-picker</code>, already installed; multi select). A drop attaches to the scope's own parent (the task, the project, the organization). In the project and organization views, which list files of many tasks, a drop therefore attaches to the project / organization itself, never to a task: to add to a task the user adds from the task. Also <b>Add link</b> (any https address, a YouTube link: a row of <code>mediaPostOriginType = url</code>, no Drive and no login needed – R12).</td></tr>
+    <tr><td>Paper place (R16)</td><td>text cell / field; saved with <code>file_attachment_update</code>; shown also when empty as a quiet placeholder so the user sees it can be filled.</td></tr>
+    <tr><td>Rights</td><td>any member of the organization can read and add; edit (name, paper place, order) by any member; delete by the uploader or an organization administrator (the rule of task templates).</td></tr>
+  </table></div>
+
+  <h3>Where it is mounted (R6, R7, R9)</h3>
+  <div class="card scroll"><table>
+    <tr><th>Place</th><th>Scope · what is shown</th></tr>
+    <tr><td>Organization card (<code>OrganizationEdit</code>, new tab <b>Files</b>; button on <code>OrganizationCard</code>)</td><td>organization scope: the files of the organization itself <b>and</b> of all its projects / tasks, with search, project and task columns and a link to the task (R6). The link opens the dashboard at the task (<code>dashboardDeepLink.ts</code>: <code>?projectGUID&amp;taskGUID&amp;view=files</code>).</td></tr>
+    <tr><td>Project dashboard (<code>PMProjectDashboard</code>, new view <b>Files</b> next to Board / Finances / Budgets) and the project edit card</td><td>project scope: the files of THIS project only (project, its stages, its tasks) (R7)</td></tr>
+    <tr><td>Task window (<code>PMTaskEditWindow</code>, new 1st level tab <b>Files</b>) and the Task context menu item "Files"</td><td>task scope: the files of this task / stage</td></tr>
+    <tr><td>Task tree column <b>Files</b></td><td>see below (R9)</td></tr>
+  </table></div>
+
+  <h3>Tree column "Files" (R9)</h3>
+  <ul>
+    <li>A virtual built-in column (<code>PM_TREE_COL_FILES</code> in <code>treeColumns.ts</code>, so it follows the column order / width / resize / hide rules of the other columns). Default width small (~120 px); shown only while the switch is on.</li>
+    <li>The cell draws: the <b>name of the first file</b> as a link (ellipsis; "+2" when more files exist), and at the <b>right edge</b> an icon button <b>door</b> (open icon). A click on the name opens the viewer of that file (section 7); a click on the door opens the files list of the task (task window tab, in a new browser window like the other task windows).</li>
+    <li>Data: one RPC per project (<code>file_attachment_first_per_task</code>) cached by React Query and invalidated after every add / delete / reorder; no per-row request. Stages show the files of the stage only (not the sum of the children).</li>
+    <li>The tree is drawn with Skia: the link and the icon button are two hit regions of the cell (the pattern of the posted-status and subproject icons, <code>PMTreePostStatusIcon</code>, <code>PMTreeSubprojectIcon</code>).</li>
+    <li><b>"Improve the ReusableTable container if needed":</b> the same cell shape ("text link + icon button at the right") is needed in the <code>ReusableTable</code> of the dashboard (Name column) and in other tables later, so <code>ReusableTable</code> gets a column option <code>trailingAction</code> (icon, tip, handler) that reserves the right part of the cell and keeps the text clipped. It is small, opt-in and documented in the table README; the tree itself does not use ReusableTable.</li>
+  </ul>
+</section>
+
+<section id="view">
+  <h2>7. File view (R13)</h2>
+  <p>A button <b>View</b> (eye) on every row / card, in the tree cell and in the Task menu. It always goes to ONE route, <code>/files/view?postGUID=…</code>; that route reads the row and <b>replaces itself</b> with the standard route of the kind, so a viewer can be opened from anywhere (and linked) without the caller knowing the kind.</p>
+  <div class="card scroll"><table>
+    <tr><th>fileKind</th><th>Route</th><th>How it shows it</th></tr>
+    <tr><td>audio</td><td><code>/media/play/audio</code> (exists)</td><td><code>MediaPlayer</code>. A Drive file needs the token: web fetches it as a blob url and hands it to the player; native passes the Authorization header. A file over the inline limit (Q5) is opened in Drive instead.</td></tr>
+    <tr><td>video</td><td><code>/media/play/video</code> (exists)</td><td>same</td></tr>
+    <tr><td>text</td><td><code>/files/view/text</code> (new)</td><td>selectable monospace text, wrap on / off, copy</td></tr>
+    <tr><td>markdown</td><td><code>/files/view/markdown</code> (new)</td><td>rendered; a pure-JS renderer (no native module) <span class="pill ask">Q6</span></td></tr>
+    <tr><td>pdf</td><td><code>/files/view/pdf</code> (new)</td><td>web: the browser's PDF viewer in an <code>&lt;iframe&gt;</code> on the blob; iOS / Android: <code>react-native-webview</code> (already installed) on the Drive preview url – no new native module</td></tr>
+    <tr><td>image</td><td><code>/files/view/image</code> (new)</td><td><code>expo-image</code> (installed), pinch / fit</td></tr>
+    <tr><td>other</td><td><code>/files/view/other</code> (new)</td><td>name, size, type, paper place and the buttons <b>Open in Google Drive</b> / <b>Download</b></td></tr>
+    <tr><td>url (link row)</td><td>YouTube / audio / video link → the media player; other → the browser (<code>expo-web-browser</code>)</td><td></td></tr>
+  </table></div>
+  <p>Every viewer route has a back button, the file title and the paper place. A missing token shows "Connect Google Drive" instead of an error. Routes are Drawer-hidden (not menu items), like the existing media play routes.</p>
+</section>
+
+<section id="sql">
+  <h2>8. SQL (PART 44 – file attachments)</h2>
+  <p>Rules of the project apply: tables / indexes in <code>start1_sql_tables.sql</code>, everything else in <code>start2_sql_code.sql</code> (same PART number), drops in <code>delete_sql_structure.sql</code>; idempotent; tested in Docker before it is handed over. No seed rows, no pg_cron.</p>
+  <div class="note bad"><b>Finding 4 – <code>mediaPostTable</code> is open to everybody today.</b> Its policies are <code>USING (true)</code> for <code>anon</code> and <code>authenticated</code> (the loop in <code>start2_sql_code.sql</code>, "Allow anon select / insert / update / sql_for_delete"). Left as it is, the files of every organization would be readable and writable by anybody with the public key. The plan fixes it for file rows only, without touching the recordings.</div>
+  <h3>start1 – tables</h3>
+  <ul>
+    <li>Partial index on <code>mediaPostTable ("rowOwnerGUID", "rowParentGUID", "orderInList") WHERE "rowJSON" ? 'fileSourceKind'</code> and one on <code>(rowJSON-&gt;&gt;'fileSourceProjectGUID')</code> for the project list. No column is added (the table is generic).</li>
+  </ul>
+  <h3>start2 – code</h3>
+  <ul>
+    <li><b>RLS (restrictive policies)</b> on <code>mediaPostTable</code>: SELECT of a file row only when its <code>rowOwnerGUID</code> is the organization of the user (<code>app_user_guid()</code> → <code>userTable.rowJSON.userOrganization</code>); INSERT / UPDATE / DELETE of a file row by a client is refused. Rows without <code>fileSourceKind</code> pass as before. The RPCs are <code>SECURITY DEFINER</code> (documents rule: written only by RPCs).</li>
+    <li><span class="pill rpc">RPC</span> <code>file_attachment_list(p_scope, p_guid, p_search)</code> – the rows with task name, task kind, project name, project GUID; organization scope = all projects of the organization; search by name / paper place / task name (ILIKE on the extracted fields).</li>
+    <li><span class="pill rpc">RPC</span> <code>file_attachment_add(p_scope, p_parent, p_json)</code> – checks the parent belongs to the user's organization, fills <code>rowOwnerGUID</code>, <code>fileSourceKind</code>, <code>fileSourceProjectGUID</code>, <code>fileUploadedBy / At</code>, <code>orderInList</code>; refuses while the project switch is OFF.</li>
+    <li><span class="pill rpc">RPC</span> <code>file_attachment_update(p_guid, p_patch)</code> (name, description, paper place only), <code>file_attachment_reorder(p_guid[], …)</code>, <code>file_attachment_delete(p_guid)</code> (uploader or organization administrator), <code>file_attachment_first_per_task(p_project)</code>, <code>file_attachment_members_emails()</code> (for sharing).</li>
+    <li><b>Triggers:</b> deleting a task / stage / project (and an organization) deletes its file rows; a statement-level safety check that a file row is never moved to another organization.</li>
+    <li>Pitfall kept in mind: <code>vendor_project_setting</code> is TRUE unless stored false – the right helper for <code>filesFunctionalityEnabled</code>.</li>
+  </ul>
+  <h3>delete file</h3>
+  <p>A numbered part drops the functions, the policies and the two indexes; the table and its rows stay (the table belongs to another feature). The numbering test scans <code>^-- PART (\d+):</code> – the comment style of the other parts is used.</p>
+  <h3>Docker test <code>tests/46_file_attachment.sql</code></h3>
+  <p>Add to each scope, the organization of another user cannot read (use <code>tt.rows_of(sql)</code>: RLS filters silently), a client INSERT / UPDATE / DELETE of a file row is refused, a recording row still works for the old policies, update of only the three allowed fields, reorder, delete rights, cascade on task delete, first-per-task with the count, switch OFF refuses add. <code>test_sql.sh</code> keeps passing (install twice, delete leaves nothing).</p>
+</section>
+
+<section id="code">
+  <h2>9. Code map (planned)</h2>
+  <div class="card scroll"><table>
+    <tr><th>Place</th><th>Content</th></tr>
+    <tr><td><code>kit8/files/</code> (new; cross-cutting feature, README there)</td><td><code>fileModel.ts</code> (row type, kind by MIME / extension, Drive path, switch reader – pure), <code>fileApi.ts</code> (RPC calls), <code>useFiles.ts</code> (React Query + invalidation), <code>useFileUpload.ts</code> (folders → upload → RPC, progress / cancel), <code>ProjectFilesDashboard.tsx</code> (+ <code>FilesTable</code>, <code>FilesCards</code>, <code>FilesToolbar</code>, <code>FilesDropZone.web.tsx</code>), <code>FileFirstCell</code> (tree cell data), <code>viewers/*</code></td></tr>
+    <tr><td><code>kit8/google/</code></td><td><code>useGoogleConnect(scopes)</code> (generalised from the calendar hook, the calendar keeps working), <code>drive/driveShare.ts</code> (permissions), <code>drive/driveTrash.ts</code></td></tr>
+    <tr><td><code>app/files/view/…</code></td><td>the routes of section 7 (one line each over the components)</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/PMProjectFilesTab.tsx</code></td><td>the switch (and the room for later options)</td></tr>
+    <tr><td>tree / task window / dashboard / organization</td><td><code>view/tree/columns/treeColumns.ts</code> + cell, <code>view/task/edit/TabTaskEditFiles.tsx</code>, <code>PMProjectDashboard</code> view, <code>catalog/organization</code> tab, <code>PMTaskRowMenu</code> item, <code>dashboardDeepLink.ts</code> (<code>view=files</code>)</td></tr>
+    <tr><td><code>kit8/ui/components/table/reusable</code></td><td>column option <code>trailingAction</code> (section 6)</td></tr>
+    <tr><td>SQL</td><td><code>start1</code> / <code>start2</code> / <code>delete_sql_structure</code> PART 44</td></tr>
+  </table></div>
+</section>
+
+<section id="accept">
+  <h2>10. Acceptance criteria</h2>
+  <ol class="steps">
+    <li>A new project has <code>filesFunctionalityEnabled</code> TRUE; turning it off hides the tree column, the tabs and the Add actions; turning it on brings the files back.</li>
+    <li>A user signed in with Google drops a PDF on the task Files tab (web): the file appears with progress, lands in Drive in <code>FILES_KIT8_/project_&lt;GUID&gt;/task_&lt;GUID&gt;</code>, the row has the Drive url, and the tree shows its name at once.</li>
+    <li>The same on a phone with the + button; the card list is the default on a phone and a portrait tablet, the table on a desktop; the icon button switches both ways.</li>
+    <li>A user without Google sign-in sees the list but the Add buttons say why they are off.</li>
+    <li>The organization card lists the files of all its projects, finds a file by part of its name, and the task link opens the task. The project card shows only that project's files.</li>
+    <li>Reordering by drag changes the order and survives a reload.</li>
+    <li>Paper place typed in the table is shown on the card and the other way round.</li>
+    <li>View opens text, .md, PDF, image, audio and video each in the right standard route; an unknown type shows the info page with Open in Google Drive.</li>
+    <li>A user of ANOTHER organization cannot read, add, change or delete these rows (Docker test and a real second account).</li>
+    <li>Old posts (recordings, YouTube) still work; no old project changes; <code>test_sql.sh</code> and the new Docker test pass; Jest has no new failing suite.</li>
+  </ol>
+  <h3>Not in this plan</h3>
+  <ul>
+    <li>Version history of a file, full-text search inside the files, thumbnails / OCR, an organization-wide Drive owned by a service account, copying files when a project or template is copied (task templates, project versions and the MS Project export do not carry files), push notification of a new file.</li>
+    <li>Uploading what the media recorder produced straight from the recorder screen ("attach this recording to a task") – the file row type allows it (R12), the button is a later small step.</li>
+  </ul>
+</section>
+
+<section id="open">
+  <h2>11. Questions with recommended defaults</h2>
+  <p class="sub">The plan is built on the recommendation; tell me the number if you want another answer.</p>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Recommended (used in this plan)</th></tr>
+    <tr><td>Q1</td><td>Whose Google Drive is used?</td><td>The Drive of the <b>user who uploads</b> (as the document says: the user logged in with Google stores files). Alternative: one Drive of the organization (needs a service account or a shared drive and an administrator step) – more work, no sharing problem.</td></tr>
+    <tr><td>Q2</td><td>Can other members open a file that is in somebody's Drive?</td><td>Yes: at upload the app shares the file as <b>reader</b> with the e-mails of the organization members; button "Share with organization" for later members; "anyone with the link" is an organization switch, OFF.</td></tr>
+    <tr><td>Q3</td><td>Drive folder of a file of the <b>project itself</b> (the document names only project/task and organization)?</td><td><code>FILES_KIT8_/project_&lt;GUID&gt;/</code> (a stage uses <code>task_&lt;GUID&gt;</code>)</td></tr>
+    <tr><td>Q4</td><td>"Files list must be draggable" = reorder only?</td><td>Reorder inside one task. Moving a file to another task by drag is a later step (it would also have to move the Drive file).</td></tr>
+    <tr><td>Q5</td><td>Size limit</td><td>100 MB per file in phase 1 (multipart upload, blob view); resumable upload later.</td></tr>
+    <tr><td>Q6</td><td>Markdown view: new dependency?</td><td>Add one pure-JS package (e.g. <code>react-native-markdown-display</code>), no native build; otherwise show .md as plain text.</td></tr>
+    <tr><td>Q7</td><td>"Project card": the project dashboard view or the project edit window?</td><td>Both show the same <code>ProjectFilesDashboard</code> in project scope.</td></tr>
+    <tr><td>Q8</td><td>Delete: what happens to the Drive file?</td><td>Ask: list only (default) or also the Drive trash (uploader only); never a permanent delete.</td></tr>
+    <tr><td>Q9</td><td>Is "door" the icon of the door-open / enter type?</td><td>Yes, <code>door-open</code> style icon with the tip "Open files".</td></tr>
+  </table></div>
+  <h3>Install (when it is built)</h3>
+  <p>start1 → start2 (PART 44; run when nobody edits), <code>.env</code>: the three <code>EXPO_PUBLIC_GOOGLE_*_CLIENT_ID</code> lines already exist (Google Cloud Console: enable the <b>Drive API</b>, add the scope <code>drive.file</code> to the consent screen), no seeds, no pg_cron.</p>
+</section>
+
+</main>
+</body>
+</html>

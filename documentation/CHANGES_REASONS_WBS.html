@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Reasons for Dates Changes WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0; --ok: #1a7f37; --ok-bg: #e6f4ea; --no: #8a1f1f; --no-bg: #fde8e8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18; --ok: #6fd08c; --ok-bg: #16301f; --no: #ff9a9a; --no-bg: #3a1c1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 38px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 22px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .tag.have { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+  .tag.new { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
+  .tag.map { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+  .tag.no { color: var(--no); background: var(--no-bg); border-color: var(--no); }
+  .flow { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; white-space: pre; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Reasons for Dates Changes – Work Breakdown Structure</h1>
+<p class="sub">Scope: the app <b>registers why</b> a user changed the dates of a task. Project setting <code>taskDatesChangesReasonsFunctionalityEnabled</code> (Project settings → Task). Planning document only – <b>no code is written by this document</b>. Status: <span class="tag new">plan, 2026-10-29</span></p>
+
+<h2>1. Goal</h2>
+<div class="card">
+  <p>When a user moves a task (start, finish, duration, any other date of the task), the plan changes – and a month later nobody knows why. The app must <b>ask for the reason</b>, make the user <b>choose it from a catalog</b> (so the reasons can be counted and compared, not typed in free text), <b>keep a history</b> of every change (task, reason, user, old and new dates), and <b>show the last reason in the task tree</b>.</p>
+  <div class="callout warn"><b>Hard constraint.</b> With <code>taskDatesChangesReasonsFunctionalityEnabled = false</code> (the default) <b>nothing changes</b>: no dialog, no history row, no new column, no extra request. The same project behaves byte for byte as today.</div>
+  <ul>
+    <li><b>Obligatory.</b> With the switch on, a date change without a reason from the catalog is not saved. Cancel in the dialog = nothing changes.</li>
+    <li><b>Catalog, not text.</b> The reasons live in the catalog <code>project_reasons_for_changes_table</code>, shared by <b>all projects of the organization</b>.</li>
+    <li><b>History.</b> The SQL table <code>project_reasons_for_changes_history</code> is append-only: one row per task per change, with the reason and the user.</li>
+    <li><b>Works after manual changes</b> (section 5.9): every way the user can change a date by hand goes through the same ask – the edit window, the tree cell, the Gantt bar drag, the bulk edits, the shift of a block of tasks.</li>
+    <li><b>Task tree</b> shows the title of the last reason (<code>task.rowJSON.reasonForDatesChanges.title</code>).</li>
+  </ul>
+</div>
+
+<h2>2. Requirements overview (from the request of 2026-10-29)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Requirement</th><th>Where it is met</th></tr>
+  <tr><td class="id">R1</td><td>The app registers the reasons of the user's action that changes any date of a task (start, finish, … or another date).</td><td>5.2 (what counts as a date), 5.4 (the ask), 5.7 (history)</td></tr>
+  <tr><td class="id">R2</td><td>Project settings → Task → <code>taskDatesChangesReasonsFunctionalityEnabled</code>; everything below works only when it is true.</td><td>5.1</td></tr>
+  <tr><td class="id">R3</td><td>A user changes a date and <code>task.rowJSON.reasonForDatesChanges</code> is empty → the app asks; the user MUST select an item of the catalog.</td><td>5.4, 5.5 (and the question Q1 about “only when empty”)</td></tr>
+  <tr><td class="id">R4</td><td>Catalog <code>project_reasons_for_changes_table</code>; its items are available to all projects of the organization.</td><td>5.3</td></tr>
+  <tr><td class="id">R5</td><td>SQL table <code>project_reasons_for_changes_history</code>: whenever data was changed → a history record with the reason, for each task, and the user who changed it.</td><td>5.7, section 6</td></tr>
+  <tr><td class="id">R6</td><td>The feature works after the manual changes.</td><td>5.9 (the entry-path matrix)</td></tr>
+  <tr><td class="id">R7</td><td>The task tree shows the last <code>task.rowJSON.reasonForDatesChanges.title</code>.</td><td>5.8</td></tr>
+  <tr><td class="id">R8</td><td>(standing rules) new texts in all 14 languages; tests and README in the same round; SQL in the usual start files; <code>UPDATE STEP-BY-STEP</code> at the end of the job report.</td><td>sections 10, 15</td></tr>
+</table>
+</div>
+
+<h2>3. What the app has today (checked in the code, 2026-10-29)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Area</th><th>What exists</th><th>Consequence</th></tr>
+  <tr><td>Task table</td><td><code>project_task_table</code> (def-table layout, <code>rowJSON</code> holds the task). Dates in <code>rowJSON</code>: <code>startAt</code> (computed and written back by the scheduler), <code>rowDuration</code> (the exclusive finish, a column), <code>manualStartAt</code> (Start No Earlier Than), <code>taskManualStartAt</code> (A1 manual start), <code>taskConstraintDate</code> (A3), <code>taskDeadline</code> (A5), <code>actualStartAt</code> / <code>actualFinishAt</code> (C3), <code>baselines</code> (C1).</td><td>The list of “dates of a task” is finite and known (5.2). <code>task.rowJSON.reasonForDatesChanges</code> is a <b>new</b> key – nothing of it exists yet.</td></tr>
+  <tr><td>The write funnel</td><td><code>kit8/pm/crud/task/taskQueries.ts</code>: <code>useUpdateTaskMutation</code> (one task), <code>useUpdateTasksMutation</code> (many: bulk edit, fill down, Set baseline, Update project, chunks of 15), <code>useCreateTaskMutation</code> / <code>useCreateTasksMutation</code>, <code>useMoveTaskMutation</code>. All UI writes go through these.</td><td>One place to put the guard on the client – the ask is a wrapper around these mutations, not a change in each screen.</td></tr>
+  <tr><td>Gantt bar edit</td><td><code>kit8/pm/crud/task/barEditPatch.ts</code> (<code>move</code> / <code>resize-start</code> / <code>resize-end</code>) builds the patch; the Gantt chart commits it on drop.</td><td>The ask must come <b>after the drop and before the save</b>; cancel = the bar jumps back.</td></tr>
+  <tr><td>Other entry paths</td><td>Task edit window (<code>PMTaskEditModal</code>, <code>TaskDatesBar</code>, <code>taskDatesModel.ts</code>), tree inline cells, <code>PMTaskRowMenu</code>, Kanban actual dates, import from file (<code>importProjectFromFile.ts</code>), templates, the scheduler write-back (<code>scheduleProject</code>), resource leveling (<code>resourceleveling/</code>), versions restore (<code>version/</code>).</td><td>Each one is classified in the matrix (5.9): user action → ask; system write → no ask, but marked.</td></tr>
+  <tr><td>Project settings tabs</td><td><code>ProjectSettingsTab</code> = Main, Budgets, Payments, Vendor, Customer, Product, Subprojects, ROI, Resources, UXUI, Gantt, Partners, Kanban (<code>PMRecentProjectsToolbar.tsx</code>). <b>There is no “Task” tab yet.</b></td><td>A new tab <code>TabTask</code> “Task” (<code>PMProjectTaskSettingsTab</code>), built like the Kanban and Resources tabs.</td></tr>
+  <tr><td>Catalog pattern</td><td><code>kit8/catalog/kanbanstage</code> (model + list + edit + README, redux reusable-entity saga registered in <code>SystemMetaData.ts</code>), <code>kit8/catalog/organization</code> (the organization). Org helpers in SQL: <code>app_user_guid()</code>, <code>organization_of_user(text)</code>, <code>organization_of_current_user()</code>, <code>organization_ensure_user</code>.</td><td>The new catalog copies this pattern; the owner of a row is the <b>organization</b>, not the user (so all projects of the organization see it).</td></tr>
+  <tr><td>History precedents</td><td><code>project_status_roi_history</code> (PART 34, append-only), the leveling run history (<code>PMResourceLevelingRunHistory</code>), versions (<code>kit8/pm/version</code>).</td><td>The history table copies the append-only habits: no UPDATE, no DELETE for users; written by a trigger / RPC only.</td></tr>
+  <tr><td>Reasons for dates changes</td><td><b>Nothing.</b> No setting, no catalog, no history, no column.</td><td>New feature.</td></tr>
+</table>
+</div>
+
+<h2>4. Definitions</h2>
+<div class="tbl">
+<table>
+  <tr><th>Term</th><th>Meaning in this document</th></tr>
+  <tr><td><b>User action</b></td><td>One gesture of a person that changes dates: one typed value, one bar drag, one bulk edit, one “shift selected tasks by N days”. One user action = <b>one reason</b>, even if it changes 30 tasks.</td></tr>
+  <tr><td><b>Direct change</b></td><td>A task whose date the user changed himself.</td></tr>
+  <tr><td><b>Cascade change</b></td><td>A task whose date moved <b>because of</b> a direct change (successors by links, the stage roll-up, auto-scheduling). Gets the <b>same reason</b> as the direct change, marked <code>cascade</code>.</td></tr>
+  <tr><td><b>Batch</b></td><td>All task changes of one user action: one <code>batchGUID</code>. The history rows of a batch share it.</td></tr>
+  <tr><td><b>Reason</b></td><td>An item of the catalog <code>project_reasons_for_changes_table</code> (code, title, active flag). Free text is not a reason; an optional <b>comment</b> may accompany it (5.4).</td></tr>
+  <tr><td><b>Last reason</b></td><td>The snapshot in <code>task.rowJSON.reasonForDatesChanges</code>: the reason of the most recent change of the task.</td></tr>
+  <tr><td><b>System write</b></td><td>A write that is not a user's decision about a date: the scheduler write-back without a cause, import, template copy, version restore. Never asks; is marked in the history (<code>source</code>).</td></tr>
+</table>
+</div>
+
+<h2>5. Proposed design</h2>
+
+<h3>5.1 The setting (R2)</h3>
+<ul>
+  <li><b>Project settings → Task</b> (new tab <code>TabTask</code>): a switch <code>taskDatesChangesReasonsFunctionalityEnabled</code> (project JSON, boolean, <b>false</b> by default). Under the switch, shown only while it is on:
+    <ul>
+      <li>the ask mode <code>taskDatesChangesReasonsAskMode</code>: <code>everyChange</code> (default) | <code>onlyWhenEmpty</code> (the literal reading of the request, Q1);</li>
+      <li>a link “Reasons catalog” (opens the catalog list, 5.3);</li>
+      <li>a short text with the plusses and minuses (like the leveling radio): <i>+ the plan can be explained, + counts per reason, − one more click per date change, − tasks moved by import or the scheduler are marked “system”, not explained</i>.</li>
+    </ul>
+  </li>
+  <li>The switch is saved with the other project settings (same Save / Cancel, same permission as the other project settings).</li>
+  <li><b>Switch on in a project that already has dated tasks:</b> nothing is asked retroactively; <code>reasonForDatesChanges</code> stays empty until the next date change. The tree column shows an empty cell.</li>
+  <li><b>Switch off again:</b> the history and the snapshots stay (nothing is deleted); the ask, the column and the writing stop.</li>
+</ul>
+
+<h3>5.2 What counts as a date change</h3>
+<p>A change of the value of one of these keys of a task (compared as the day, not as the timestamp text):</p>
+<div class="tbl">
+<table>
+  <tr><th>Key</th><th>Meaning</th><th>Counts?</th></tr>
+  <tr><td><code>startAt</code></td><td>planned start (typed or computed)</td><td><span class="tag have">yes</span></td></tr>
+  <tr><td><code>rowDuration</code> (column) / duration</td><td>planned finish (the exclusive end) – a change of the duration moves the finish</td><td><span class="tag have">yes</span></td></tr>
+  <tr><td><code>taskManualStartAt</code>, <code>manualStartAt</code></td><td>A1 manual start; Start No Earlier Than</td><td><span class="tag have">yes</span></td></tr>
+  <tr><td><code>taskConstraintDate</code>, <code>taskDeadline</code></td><td>A3 constraint date; A5 deadline</td><td><span class="tag have">yes</span></td></tr>
+  <tr><td><code>actualStartAt</code>, <code>actualFinishAt</code></td><td>C3 actual dates</td><td><span class="tag map">yes, option</span> – they are facts, not plans. Proposal: they ask too, because “other dates” is in the request; the reason catalog has an item “Actual date correction”. Q3.</td></tr>
+  <tr><td><code>baselines</code></td><td>C1 snapshots of the plan</td><td><span class="tag no">no</span> – Set baseline is a deliberate freeze, not a change of the plan.</td></tr>
+  <tr><td>dependency lag / link type</td><td>moves dates indirectly</td><td><span class="tag map">indirect</span> – the tasks that move because of it are cascade changes with the reason of the dependency edit (5.9).</td></tr>
+  <tr><td>time of day (<code>startHourStart</code>, <code>planMinute…</code>)</td><td>only when planHour / planMinute is on</td><td><span class="tag have">yes</span> (the same date family)</td></tr>
+</table>
+</div>
+<p>The list lives in <b>one</b> constant (<code>TASK_DATE_KEYS</code>) used by the client guard and documented for the SQL trigger, so a new date key is added in one place.</p>
+
+<h3>5.3 The catalog <code>project_reasons_for_changes_table</code> (R4)</h3>
+<ul>
+  <li>Def-table layout like the others. <code>rowOwnerGUID</code> = the <b>organization</b> (not the user, not the project) → every project of the organization sees the same items. RLS: select/insert/update for users of that organization (<code>organization_of_current_user()</code>); delete refused (an item used by the history is only <b>deactivated</b>).</li>
+  <li><code>rowJSON</code>: <code>{ reasonCode, reasonTitle, reasonColor?, isActive, askComment }</code>; code and title unique inside the organization (case-insensitive); title obligatory.</li>
+  <li><b>Default items</b> seeded for every organization (by <code>organization_ensure_user</code> for new organizations and a one-time backfill for existing ones, <code>start4_sql_insert_missing.sql</code>): <i>Customer request · Resource unavailable · Delay of a predecessor · Scope change · Estimate was wrong · Weather / force majeure · Supplier delay · Management decision · Error correction · Actual date correction</i>. The owner of the organization edits the list afterwards.</li>
+  <li>UI: <code>kit8/catalog/reasonsforchanges</code> (model, list, edit, README) like <code>kanbanstage</code>; hamburger menu → Catalogs → <b>Reasons for changes</b>; route <code>/pm/reasonsforchanges/list</code> + <code>/edit</code>; registered in <code>SystemMetaData.ts</code>.</li>
+  <li>A reason can be <b>added from the ask dialog</b> (button “New reason”) for users who may edit the catalog – the user does not lose the work he started.</li>
+</ul>
+
+<h3>5.4 The ask dialog (R3)</h3>
+<div class="card">
+<p><b>PMDatesChangeReasonDialog</b> – a modal, opened by the guard (5.5) before the save:</p>
+<ul>
+  <li>Title: “Why do you change the dates?”. Under it a compact list of what changes: for each task (max 5, then “+ N more”) the old → new dates; for a block “N tasks”.</li>
+  <li>A required <b>selection list</b> of the active catalog items (radio list or a searchable select; the last used reason first). <b>No default is preselected</b> – the OK button is disabled until the user picks one (this is the “obligatory” of the request).</li>
+  <li>An optional one-line <b>comment</b> (stored in the history, max 500 characters).</li>
+  <li>Buttons: <b>OK</b> (saves with the reason) and <b>Cancel</b> (nothing is saved; the screen goes back to the old value – the tree cell, the form field, the bar).</li>
+  <li>If the catalog has no active item: the dialog says so and offers “New reason” (permitted users) or tells the user to ask the organization owner. The save is still refused – the rule cannot be bypassed by an empty catalog.</li>
+  <li>Keyboard: Enter = OK when a reason is selected; Esc = Cancel. Works the same on web, iOS, Android.</li>
+</ul>
+</div>
+
+<h3>5.5 When the dialog opens – the guard</h3>
+<ul>
+  <li><b>Where:</b> one wrapper <code>useDatesChangeGuard(projectGUID)</code> around the task mutations of <code>taskQueries.ts</code>: it looks at the patch, compares the date keys of the old and the new row (5.2). No date key changed → the save goes on untouched.</li>
+  <li><b>Switch off →</b> the guard returns the original functions (no extra render, no extra request).</li>
+  <li><b>Ask mode <code>everyChange</code> (default):</b> every user action that changes a date asks once. The action may already carry a reason (a bulk dialog that asked first, the Gantt “shift” that asked first) – then it does not ask again.</li>
+  <li><b>Ask mode <code>onlyWhenEmpty</code> (literal):</b> asks only if <code>task.rowJSON.reasonForDatesChanges</code> of the changed task is empty; if it is already filled, the new change <b>keeps</b> that reason – which means the history row repeats the old reason. This is cheap for the user and poor for the quality of the data; therefore it is not the default (Q1).</li>
+  <li><b>One reason per action:</b> a batch of 30 tasks asks once; all 30 history rows carry the same reason and <code>batchGUID</code>.</li>
+  <li><b>Optimistic UI:</b> the screen shows the new value only after OK (the dialog comes first), so a Cancel never shows a flicker.</li>
+</ul>
+
+<h3>5.6 <code>task.rowJSON.reasonForDatesChanges</code> – the last reason</h3>
+<ul>
+  <li>A <b>snapshot</b>, written together with the dates in the same update (one write, atomic): <code>{ reasonGUID, title, code, comment?, changedAt, changedByGUID, changedByName, batchGUID, cascade }</code>.</li>
+  <li><code>title</code> is copied (not looked up) so the tree needs no join and a later rename in the catalog does not rewrite history – the history keeps the title of the time. (Rename shows in new changes only; Q6.)</li>
+  <li>Empty = <code>null</code> / absent: no date change has been registered for this task since the function was switched on.</li>
+  <li>It is part of the task row, so copying a task copies the snapshot; <b>template</b> copy and <b>version restore</b> clear / restore it consistently (5.9).</li>
+</ul>
+
+<h3>5.7 The history table <code>project_reasons_for_changes_history</code> (R5)</h3>
+<ul>
+  <li><b>Append-only.</b> One row per task per change: <code>historyGUID</code>, <code>projectGUID</code>, <code>taskGUID</code>, <code>batchGUID</code>, <code>reasonGUID</code>, <code>reasonTitle</code> (copy), <code>reasonComment</code>, <code>changedByGUID</code>, <code>changedByName</code> (copy), <code>changedAt</code>, <code>source</code> (<code>user</code> | <code>cascade</code> | <code>system</code>), <code>changes</code> (JSONB: for each changed key <code>{from, to}</code>), <code>organizationGUID</code> (for the cross-project report).</li>
+  <li><b>Written by the database</b>, not by the client: an AFTER UPDATE trigger on <code>project_task_table</code>. When a date key of <code>rowJSON</code> differs between OLD and NEW <b>and</b> the project switch is on, it inserts the row, taking the reason from <code>NEW.rowJSON.reasonForDatesChanges</code>. Reason: one place that cannot be forgotten by a new screen, it also covers writes of the offline queue and of other clients.</li>
+  <li><b>The server is soft, the UI is hard.</b> If a date changed but the marker is not new (same <code>batchGUID</code> as before / absent), the trigger still writes the row with <code>reasonGUID = null</code>, <code>source = 'system'</code> – it never blocks a write, because a refusal would break the scheduler write-back, the import and the offline queue. Those rows are exactly what a report “changes without a reason” would list (Q2).</li>
+  <li>No UPDATE and no DELETE for users (RLS: select only, for the users of the organization who can see the project). Rows disappear only with the project (<code>ON DELETE CASCADE</code>) or by the delete script.</li>
+  <li>Index: (<code>taskGUID</code>, <code>changedAt</code> desc) for the task history window; (<code>projectGUID</code>, <code>changedAt</code>), (<code>organizationGUID</code>, <code>reasonGUID</code>) for the reports.</li>
+  <li>RPC <code>task_dates_changes_history(p_task, p_limit)</code> returns the rows for the task window (names resolved from <code>userTable.rowJSON</code>).</li>
+  <li><b>Creating a task</b> is not a change (no history row); the first date change after creation is.</li>
+</ul>
+
+<h3>5.8 The task tree shows the last reason (R7)</h3>
+<ul>
+  <li>New tree column <b>“Reason for dates change”</b> (id <code>reasonForDatesChanges</code>), read-only, text = <code>task.rowJSON.reasonForDatesChanges.title</code>; tooltip = who, when, comment. Shown only while the project switch is on; added to the column chooser and to the existing column filter / sort / fill-column infrastructure as a text column.</li>
+  <li>Click on the cell opens the <b>history window</b> of the task (section 7): the list of its changes, newest first.</li>
+  <li>An empty snapshot shows an empty cell (not “–”, so the filter “empty” works).</li>
+</ul>
+
+<h3>5.9 “It must work after the manual changes” – the entry-path matrix (R6)</h3>
+<p>“Manual changes” = every way a person changes a date by hand. Each is one <b>user action</b>; none may bypass the guard. “System” rows never ask but are marked.</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Entry path</th><th>Behaviour</th></tr>
+  <tr class="group"><td class="id">M</td><td colspan="2">Manual user actions – ask</td></tr>
+  <tr><td class="id">M1</td><td>Task edit window: dates bar (<code>TaskDatesBar</code>), duration, constraints, deadline, actual dates</td><td>The ask comes at <b>Save</b> of the window (one reason for all fields changed in this save), not at every keystroke. Cancel in the ask returns to the window with the typed values kept.</td></tr>
+  <tr><td class="id">M2</td><td>Tree inline cells (start, finish, duration, …)</td><td>Ask after the cell commit; Cancel restores the old value.</td></tr>
+  <tr><td class="id">M3</td><td>Gantt bar drag / resize (<code>barEditPatch</code>)</td><td>Ask after the drop; Cancel = the bar snaps back. Dragging itself shows no dialog.</td></tr>
+  <tr><td class="id">M4</td><td>Bulk edit, fill down, fill column (<code>useUpdateTasksMutation</code>)</td><td>One ask for the whole batch.</td></tr>
+  <tr><td class="id">M5</td><td>Shift / indent / outdent / move in the tree when it changes dates (stage roll-up, move to another stage)</td><td>Ask once per action; the moved tasks are direct, the rolled-up parents are cascade.</td></tr>
+  <tr><td class="id">M6</td><td>Dependency edit (add / remove / change lag or type)</td><td>Ask when the edit moves any task; successors that move are <code>cascade</code> with the same reason. An edit that moves nothing does not ask.</td></tr>
+  <tr><td class="id">M7</td><td>Calculate now / F9 (A2 Calculation Manual), Level now, Apply leveling</td><td>Ask once <b>if the result changes dates</b>: the preview already lists the moved tasks; the reason is asked at “Apply”. Leveling's own delay (<code>taskLevelingDelay</code>) is a cascade of the user's Apply.</td></tr>
+  <tr><td class="id">M8</td><td>Kanban: moving a card into a stage that sets <code>actualStartAt</code> / <code>actualFinishAt</code> (if such automation exists)</td><td>Follows Q3 (actual dates). If asked: one ask per card move; a done-stage drag with a reason catalog item “Actual date correction” preselected is <b>not</b> allowed (nothing is preselected).</td></tr>
+  <tr><td class="id">M9</td><td>Undo / redo of a date change (if the screen offers it)</td><td>Undo is itself a date change: it asks (reason “Error correction” suggested at the top of the list, not preselected).</td></tr>
+  <tr class="group"><td class="id">S</td><td colspan="2">System writes – no ask, marked</td></tr>
+  <tr><td class="id">S1</td><td>Scheduler write-back after a cause that already asked</td><td>Cascade with the cause's reason and <code>batchGUID</code>.</td></tr>
+  <tr><td class="id">S2</td><td>Scheduler write-back with no user cause (project start moved by a calendar edit, opening an old project, version upgrade)</td><td>No ask. History row <code>source='system'</code>, reason null. <b>The snapshot is not touched</b> (the last <i>human</i> reason stays).</td></tr>
+  <tr><td class="id">S3</td><td>Import from file, create from template, copy project, version restore</td><td>No ask. Import and template create tasks (no history); restore writes <code>source='system'</code> rows and restores the snapshot of that version.</td></tr>
+  <tr><td class="id">S4</td><td>Offline queue replay</td><td>The reason was chosen when the change was made; the replay carries the marker – the trigger records it as it came.</td></tr>
+</table>
+</div>
+
+<h3>5.10 Other behaviour</h3>
+<ul>
+  <li><b>Permissions:</b> the same users who may change the dates today may change them; the catalog is edited by the roles that may edit organization catalogs. The reason dialog adds no new right for dates.</li>
+  <li><b>Realtime:</b> the snapshot arrives with the task row; the history window refreshes when open (realtime on the history table is optional – Q7).</li>
+  <li><b>Two users at the same time:</b> the later save wins as today; both have their own history rows (the trigger sees every write).</li>
+  <li><b>Posted lines and payments</b> that unpost on a date change (<code>task_line_plan_unpost_on_dates</code>) are not affected; the reason is only an extra key.</li>
+  <li><b>No change of dates → no ask:</b> typing the same value, or a value that equals the old one after rounding to the day, is not a change.</li>
+  <li><b>Performance:</b> the guard compares only the date keys of the patched tasks; no request is added before the dialog (the catalog is cached per organization with react-query / the redux entity).</li>
+</ul>
+
+<h2>6. Tables (R5)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Table / object</th><th>New / changed</th><th>File</th></tr>
+  <tr><td><code>project_reasons_for_changes_table</code></td><td><span class="tag new">new</span> def-table, owner = organization, RLS by organization, unique code and title per organization, seeds</td><td>start1 (table), start2 (RLS, triggers, <code>kit8_setup_def_table</code>), start4 + start5 (default items)</td></tr>
+  <tr><td><code>project_reasons_for_changes_history</code></td><td><span class="tag new">new</span> append-only, indexes, RLS select only</td><td>start1 (table), start2 (RLS)</td></tr>
+  <tr><td>trigger on <code>project_task_table</code> (AFTER UPDATE of <code>rowJSON</code>, <code>rowDuration</code>)</td><td><span class="tag new">new</span> writes the history rows</td><td>start2</td></tr>
+  <tr><td>RPC <code>task_dates_changes_history</code>, <code>reasons_for_changes_usage</code> (count per reason, for reports)</td><td><span class="tag new">new</span></td><td>start2</td></tr>
+  <tr><td><code>organization_ensure_user</code></td><td><span class="tag map">changed</span> seeds the default reasons for a new organization</td><td>start2</td></tr>
+  <tr><td>project JSON</td><td><span class="tag map">changed</span> keys <code>taskDatesChangesReasonsFunctionalityEnabled</code>, <code>taskDatesChangesReasonsAskMode</code> (no SQL change – JSON)</td><td>—</td></tr>
+  <tr><td>task JSON</td><td><span class="tag map">changed</span> key <code>reasonForDatesChanges</code> (no SQL change – JSON)</td><td>—</td></tr>
+  <tr><td>drops</td><td>the 2 tables, the trigger and the functions</td><td>delete_sql_structure.sql</td></tr>
+</table>
+</div>
+
+<h2>7. Components (names to be used)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Component / module</th><th>Purpose</th></tr>
+  <tr><td><code>kit8/pm/datesreasons/datesReasonsModel.ts</code></td><td><code>TASK_DATE_KEYS</code>, <code>changedDateKeys(old,new)</code>, <code>buildReasonSnapshot()</code>, ask-mode rules – pure functions, fully unit-tested.</td></tr>
+  <tr><td><code>useDatesChangeGuard.ts</code></td><td>The wrapper around the task mutations; opens the dialog through a promise (<code>askReason(changes) → Reason | null</code>).</td></tr>
+  <tr><td><code>PMDatesChangeReasonDialog.tsx</code></td><td>The ask dialog (5.4).</td></tr>
+  <tr><td><code>PMProjectTaskSettingsTab.tsx</code> (<code>TabTask</code>)</td><td>Project settings → Task: the switch, the ask mode, the plusses and minuses text.</td></tr>
+  <tr><td><code>PMTaskDatesHistoryWindow.tsx</code></td><td>The history of one task: date, user, reason, comment, from → to, source.</td></tr>
+  <tr><td>tree column <code>reasonForDatesChanges</code></td><td>Read-only text column (5.8).</td></tr>
+  <tr><td><code>kit8/catalog/reasonsforchanges/*</code></td><td>The catalog (model, list, edit, README).</td></tr>
+  <tr><td>testIDs</td><td><code>pm-dates-reason-dialog</code>, <code>-option-&lt;guid&gt;</code>, <code>-comment</code>, <code>-ok</code>, <code>-cancel</code>, <code>-new</code>; <code>pm-project-settings-tab-task</code>, <code>-switch</code>, <code>-ask-mode</code>.</td></tr>
+</table>
+</div>
+
+<h2>8. Work breakdown structure</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Work package</th><th>Result</th><th>Size</th></tr>
+  <tr class="group"><td class="id">1</td><td colspan="3">Data</td></tr>
+  <tr><td class="id">1.1</td><td>Tables in start1: catalog + history, indexes, checks</td><td>SQL</td><td>S</td></tr>
+  <tr><td class="id">1.2</td><td>start2: RLS, <code>kit8_setup_def_table</code>, history trigger, RPCs, <code>organization_ensure_user</code> seeding</td><td>SQL</td><td>M</td></tr>
+  <tr><td class="id">1.3</td><td>start4 / start5: default reasons + backfill of existing organizations</td><td>SQL</td><td>S</td></tr>
+  <tr><td class="id">1.4</td><td>delete_sql_structure.sql; docker test <code>47_dates_change_reasons.sql</code> (RLS, other organization sees nothing, append-only, trigger rows for direct / cascade / system, switch off writes nothing, unique codes)</td><td>SQL tests</td><td>M</td></tr>
+  <tr class="group"><td class="id">2</td><td colspan="3">Catalog</td></tr>
+  <tr><td class="id">2.1</td><td><code>kit8/catalog/reasonsforchanges</code>: model, list, edit, README, route, menu, <code>SystemMetaData.ts</code></td><td>UI</td><td>M</td></tr>
+  <tr class="group"><td class="id">3</td><td colspan="3">Setting</td></tr>
+  <tr><td class="id">3.1</td><td>Project settings tab <code>TabTask</code> (switch + ask mode + plus/minus text)</td><td>UI</td><td>S</td></tr>
+  <tr><td class="id">3.2</td><td>Project JSON keys, defaults (false), validation</td><td>TS</td><td>S</td></tr>
+  <tr class="group"><td class="id">4</td><td colspan="3">Guard and dialog</td></tr>
+  <tr><td class="id">4.1</td><td><code>datesReasonsModel.ts</code> (date keys, diff, snapshot) + unit tests</td><td>TS</td><td>S</td></tr>
+  <tr><td class="id">4.2</td><td><code>PMDatesChangeReasonDialog</code> + UI tests (nothing preselected, OK disabled, Cancel = no save, empty catalog)</td><td>UI</td><td>M</td></tr>
+  <tr><td class="id">4.3</td><td><code>useDatesChangeGuard</code> around <code>useUpdateTaskMutation</code> / <code>useUpdateTasksMutation</code> / move</td><td>TS</td><td>M</td></tr>
+  <tr class="group"><td class="id">5</td><td colspan="3">Entry paths (matrix 5.9)</td></tr>
+  <tr><td class="id">5.1</td><td>M1 edit window, M2 tree cells</td><td>UI</td><td>M</td></tr>
+  <tr><td class="id">5.2</td><td>M3 Gantt drop (cancel snaps back)</td><td>UI</td><td>M</td></tr>
+  <tr><td class="id">5.3</td><td>M4 bulk / fill, M5 move, M6 dependencies, M7 calculate / leveling apply, M8 Kanban, M9 undo</td><td>UI</td><td>L</td></tr>
+  <tr><td class="id">5.4</td><td>S1..S4: cascade and system marking (batchGUID carried through the scheduler write-back, import, template, restore)</td><td>TS</td><td>M</td></tr>
+  <tr class="group"><td class="id">6</td><td colspan="3">Tree and history window</td></tr>
+  <tr><td class="id">6.1</td><td>Tree column + column chooser + filter / sort</td><td>UI</td><td>S</td></tr>
+  <tr><td class="id">6.2</td><td><code>PMTaskDatesHistoryWindow</code> + RPC client</td><td>UI</td><td>M</td></tr>
+  <tr class="group"><td class="id">7</td><td colspan="3">Quality</td></tr>
+  <tr><td class="id">7.1</td><td>Translations of all new texts into the 14 languages (section 10)</td><td>i18n</td><td>S</td></tr>
+  <tr><td class="id">7.2</td><td>Jest: switch off = no ask, no extra request (the regression test of the hard constraint)</td><td>tests</td><td>S</td></tr>
+  <tr><td class="id">7.3</td><td>READMEs (catalog, <code>datesreasons</code>), <code>KNOW_HOW.md</code> (PART number, tables, setting), this WBS status block</td><td>docs</td><td>S</td></tr>
+  <tr><td class="id">7.4</td><td>Embedded Postgres test run of the SQL, changed-files <code>tsc</code>, Jest of the touched areas</td><td>check</td><td>S</td></tr>
+</table>
+</div>
+
+<h2>9. Sequence and dependencies</h2>
+<div class="flow">1 data (tables, trigger, RLS, seeds)  ──►  2 catalog UI
+        │                                        │
+        ▼                                        ▼
+3 setting (TabTask, JSON keys)  ──►  4 guard + dialog  ──►  5 entry paths (M1..M9, S1..S4)
+                                                              │
+                                                              ▼
+                                            6 tree column + history window  ──►  7 quality
+Order inside 5: M1/M2 first (the single-task funnel), then M3, then the batch paths M4..M9.
+Each step ships with its tests; the setting stays OFF by default until step 5 is complete.</div>
+
+<h2>10. Interface check and translation (R8)</h2>
+<ul>
+  <li>All new texts go through <code>pmT('English text')</code>, are appended to <code>kit8/pm/i18n/locales/keys.ts</code> and translated into the 14 languages (ar, bn, de, es, et, fa, fr, hi, lt, lv, nl, pt, ru, zh); the generic i18n test fails until all are present.</li>
+  <li>New texts: the tab and switch names, the ask mode names and their plus/minus lines, the dialog title / buttons / hints / empty-catalog messages, the column title, the history window columns, the default reason titles (these are <b>data</b>: the seed titles are English; the catalog is edited by the organization – Q8), the validation messages.</li>
+  <li>Layout check: the dialog fits a phone (list scrolls, buttons fixed at the bottom); RTL (ar, fa) mirrors the dialog; long reason titles wrap in the list and are cut with a tooltip in the tree.</li>
+</ul>
+
+<h2>11. Acceptance criteria</h2>
+<ol>
+  <li>Switch off: no dialog on any path of 5.9, no history rows, no column, no new request – verified by a test.</li>
+  <li>Switch on: changing a start / finish / duration / constraint / deadline in the edit window, the tree and the Gantt opens the dialog; OK is disabled until an item is picked; nothing is preselected.</li>
+  <li>Cancel leaves the task, the tree cell, the form field and the bar exactly as they were; nothing is written.</li>
+  <li>OK writes the new dates, the snapshot <code>reasonForDatesChanges</code> and (by the trigger) one history row per changed task, with the user, the reason, from / to.</li>
+  <li>A bulk edit of N tasks asks once and creates N rows with one <code>batchGUID</code>; successors that moved are rows with <code>source='cascade'</code> and the same reason.</li>
+  <li>Scheduler write-back, import, template and restore create no dialog and (where dates change) <code>source='system'</code> rows; the tree keeps the last human reason.</li>
+  <li>The catalog of one organization is invisible to another organization; all projects of the organization see the same items; an item used by history cannot be deleted, only deactivated.</li>
+  <li>The history cannot be changed or deleted by a user (RLS); the trigger never blocks a write.</li>
+  <li>The tree column shows the title of the last reason; click opens the task history.</li>
+  <li>Ask mode <code>onlyWhenEmpty</code> asks only for tasks with an empty snapshot.</li>
+  <li>Switch on in an existing project: no retroactive ask, empty cells, first change asks.</li>
+  <li>All new texts exist in the 14 languages; tests and READMEs exist; SQL runs twice and from scratch on the test Postgres.</li>
+</ol>
+
+<h2>12. Questions and decisions (recommended defaults – proceed with them unless changed)</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Recommended default</th></tr>
+  <tr><td class="id">Q1</td><td>The request says: ask when <code>reasonForDatesChanges</code> is <b>empty</b>. Read literally the task is asked only once in its life, because after the first reason it is never empty. Is that wanted?</td><td><b>Ask every date-changing action</b> (<code>everyChange</code>), with the literal mode available as a project option <code>onlyWhenEmpty</code>. The field then means “the <i>last</i> reason”, which matches “the tree shows the last reason”.</td></tr>
+  <tr><td class="id">Q2</td><td>Should the server refuse a date change without a reason?</td><td><b>No</b> (soft server): the trigger records it as <code>source='system'</code> without reason. Refusal would break the scheduler write-back, import and the offline queue. The UI is the hard gate.</td></tr>
+  <tr><td class="id">Q3</td><td>Do actual dates (<code>actualStartAt</code>, <code>actualFinishAt</code>) ask too?</td><td><b>Yes</b> (“any date” in the request), with the catalog item “Actual date correction”.</td></tr>
+  <tr><td class="id">Q4</td><td>Is a free comment allowed next to the catalog item?</td><td><b>Yes, optional</b>, 500 characters, in the history only.</td></tr>
+  <tr><td class="id">Q5</td><td>Who may edit the catalog?</td><td>The users who may edit organization catalogs today; everyone in the organization may <b>use</b> it.</td></tr>
+  <tr><td class="id">Q6</td><td>Rename of a reason?</td><td>The history keeps the old title (copy); new changes use the new title; the snapshot of existing tasks is not rewritten.</td></tr>
+  <tr><td class="id">Q7</td><td>Realtime on the history table?</td><td>No in the first version; the history window reloads when opened.</td></tr>
+  <tr><td class="id">Q8</td><td>Default reason titles in other languages?</td><td>Seeded in English; the owner edits the titles (data, not UI text).</td></tr>
+  <tr><td class="id">Q9</td><td>Is the reason required when a task is first created with dates?</td><td>No – creation is not a change.</td></tr>
+  <tr><td class="id">Q10</td><td>Does a change of a <b>project</b> date (project start / finish) ask?</td><td>Not in this version (the request says task dates); the tasks that move because of it are system rows (S2).</td></tr>
+</table>
+</div>
+
+<h2>13. Out of scope (this version)</h2>
+<ul>
+  <li>Approval workflow for a date change (a manager approves the reason).</li>
+  <li>A report / dashboard “changes per reason” (the RPC <code>reasons_for_changes_usage</code> prepares it; the screen is later).</li>
+  <li>Reasons for changes of budgets, payments or resources (only dates of tasks).</li>
+  <li>Retroactive reasons for changes made before the switch was turned on.</li>
+  <li>Export of the history to MS Project / Excel.</li>
+</ul>
+
+<h2>14. Risks</h2>
+<div class="tbl">
+<table>
+  <tr><th>Risk</th><th>Counter-measure</th></tr>
+  <tr><td>A new screen writes dates and forgets the ask.</td><td>The guard sits in the shared mutations; the trigger catches everything else and marks it <code>system</code>; a Jest test lists the entry paths (matrix) so a new one is noticed.</td></tr>
+  <tr><td>Users click through the dialog with the first item.</td><td>No preselection; last used reason first is a convenience, not a default; the report of “most used reason” makes lazy choices visible later.</td></tr>
+  <tr><td>Dialog fatigue on drags.</td><td>One ask per action, not per task; the ask mode <code>onlyWhenEmpty</code> exists for teams that want it quiet.</td></tr>
+  <tr><td>The history trigger slows large writes (import, scheduler of 5000 tasks).</td><td>The trigger returns at once when the project switch is off or no date key differs; bulk inserts of tasks (import) are INSERTs, not UPDATEs; index set is small.</td></tr>
+  <tr><td>Snapshot and history disagree (offline replay, two clients).</td><td>The history is written from the same row the snapshot is in (one write); a mismatch is impossible within one update.</td></tr>
+  <tr><td>Cancel leaves the UI in a state different from the data (a stale bar).</td><td>The dialog comes <b>before</b> the optimistic update; Cancel simply does not call the mutation.</td></tr>
+  <tr><td>An organization without any active reason cannot change dates.</td><td>Seeds for every organization; the dialog offers “New reason”; the project switch can be turned off by the project owner.</td></tr>
+</table>
+</div>
+
+<h2>15. Update steps when it is built (preview)</h2>
+<ol>
+  <li>Supabase SQL Editor: run <code>start1_sql_tables.sql</code> (the 2 new tables).</li>
+  <li>Run <code>start2_sql_code.sql</code> (RLS, trigger, RPCs, organization seeding).</li>
+  <li>Run <code>start4_sql_insert_missing.sql</code> (default reasons for the existing organizations).</li>
+  <li><code>start3</code> is not needed (no pg_cron change); no <code>.env</code> lines.</li>
+  <li>Restart the app: <code>npx expo start --web -c</code>.</li>
+  <li>Verify: Project settings → Task → switch on; change a date in the tree – the dialog opens; Cancel keeps the old date; OK shows the reason title in the tree column; click the cell – the task history lists the row.</li>
+</ol>
+
+<h2>16. Implementation status</h2>
+<div class="card"><p><span class="tag new">plan only</span> This document is the plan. <b>No code, no SQL and no translation has been written for this feature.</b> Questions Q1–Q10 carry recommended defaults; the build can start from them.</p></div>
+
+</main>
+</body>
+</html>
