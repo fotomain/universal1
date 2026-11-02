@@ -320,17 +320,6 @@ const SystemMetaData:any = {
         },
         prepareReadApi: (p:any)=>{},
     },
-    "raciMember": {
-        tableName: "raciMemberTable",
-        // actions - see meta.actions = slice.actions;
-        updateValidator: () => {
-        },
-        defaultData: mediaPostExample,
-        prepareCreateApi: (p: any) => {
-            return { newItem: p.action.payload };
-        },
-        prepareReadApi: (p:any)=>{},
-    },
     // themeStore-ticket-step1: themeStore Redux entity metadata for themeStoreTable
     "themeStore": {
         tableName: "themeStoreTable",

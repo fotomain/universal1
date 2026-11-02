@@ -223,43 +223,6 @@ function SupabaseAuthSync() {
         // themeStore-ticket-step4: log auth event for registered/logged in user
         console.log("themeStore-ticket-step4: Auth state changed event:", event, "user:", activeUserGUID);
 
-        // RULE: If user logged in and not exist in raciMemberTable - app must create new
-        const checkAndCreateRaciMember = async () => {
-          try {
-            const { data, error } = await supabase
-              .from('raciMemberTable')
-              .select('rowGUID')
-              .eq('rowGUID', activeUserGUID);
-
-            if (error) {
-              console.error('Supabase select error:', error);
-              return;
-            }
-
-            if (!data || data.length === 0) {
-              const { error: insertError } = await supabase.from('raciMemberTable').insert({
-                rowGUID: activeUserGUID,
-                rowOwnerGUID: userEmail,
-                rowParentGUID: 'empty', // NOT NULL column; 'empty' = no parent (app-wide convention)
-                orderInList: Date.now(),
-                rowJSON: {
-                  raciGUID: activeUserGUID,
-                  raciEmail: userEmail,
-                  raciFirstName: userFirstName,
-                  raciLastName: userLastName,
-                },
-              });
-              
-              if (insertError) {
-                console.error('Supabase insert error:', insertError);
-              } else {
-                console.log('Successfully created user in raciMemberTable');
-              }
-            }
-          } catch (e) {
-            console.error('Error checking/creating raciMember:', e);
-          }
-        };
 
         // RULE: Automatically created if the first user login (default countries)
         const checkAndSeedDefaultCountries = async () => {
@@ -378,7 +341,6 @@ function SupabaseAuthSync() {
           }
         };
 
-        checkAndCreateRaciMember();
         checkAndSeedDefaultCountries();
         checkAndSeedDefaultRoles();
         checkAndCreateUserRoles();
@@ -497,7 +459,6 @@ function RootLayoutContent() {
               <Drawer.Screen name="feedback/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.feedback') }} />
               <Drawer.Screen name="map/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.map') }} />
 
-              <Drawer.Screen name="catalog/raci/racimember/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Users (RACI)' }} />
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
               <Drawer.Screen name="demo/foldertree/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Folder tree 200k' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
@@ -550,7 +511,6 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/reports/monitor07/customer/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Customer balance' }} />
               <Drawer.Screen name="pm/reports/monitor07/vendor/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Vendor balance' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />
-              <Drawer.Screen name="catalog/raci/racidashboard/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.raciDashboard') }} />
               <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
               <Drawer.Screen name="media/record/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudio') }} />
               <Drawer.Screen name="media/record/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideo') }} />

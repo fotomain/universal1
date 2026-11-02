@@ -21,7 +21,7 @@ import { setBottomTabsAreVisible } from '../../kit8/redux/uxuiSlice';
 const TABS = [
   { tabIcon: 'home', tabTitle: 'Home', tabRoute: 'home' },
   { tabIcon: 'link-variant', tabTitle: 'Media', tabRoute: 'posts/mediapostcrud' },
-  { tabIcon: 'format-list-checks', tabTitle: 'My', tabRoute: 'raci/racidashboard', params: { raciGUID: 'g' } },
+  { tabIcon: 'format-list-checks', tabTitle: 'My', tabRoute: 'my/dashboard', params: { id: 'g' } },
 ];
 afterEach(() => { cleanupUI(); jest.clearAllMocks(); mockPath = '/posts/mediapostcrud'; mockSystem = 'native'; });
 
@@ -38,14 +38,14 @@ it('a press goes to the route with expo-router (the params are the query string)
   press('app-bottom-tabs-tab-0');
   expect(mockPush).toHaveBeenLastCalledWith('/home');
   press('app-bottom-tabs-tab-2');
-  expect(mockPush).toHaveBeenLastCalledWith('/raci/racidashboard?raciGUID=g');
+  expect(mockPush).toHaveBeenLastCalledWith('/my/dashboard?id=g');
 });
 
-it('the default tabs: the dashboard of the user gets the GUID of the active user', () => {
+it('the default tabs: Media and History', () => {
   renderUI(<ApplicationBottomTabsApp />);
-  expect(qa('app-bottom-tabs-tab-').length).toBe(4);
-  press('app-bottom-tabs-tab-2');
-  expect(mockPush).toHaveBeenLastCalledWith('/raci/racidashboard?raciGUID=user-1');
+  expect(qa('app-bottom-tabs-tab-').length).toBe(2);
+  press('app-bottom-tabs-tab-1');
+  expect(mockPush).toHaveBeenLastCalledWith('/historyofactivity');
 });
 
 it('while it is mounted redux knows the bar is visible (the FAB stands above it); when it goes, it is hidden again', () => {

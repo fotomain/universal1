@@ -18,13 +18,6 @@ export default function HomeAppClothes1() {
       <H1App>{t('body.welcomeAppClothes1') || 'Welcome to App Clothes1'}</H1App>
       <ArticleTextApp>{t('body.homeAppClothes1Desc') || 'This is the home page for the Clothes1 app variant.'}</ArticleTextApp>
 
-      <ButtonPrimaryApp
-        style={styles.menuButton}
-        onPress={() => router.push('/catalog/raci/racimember' as any)}
-      >
-        Users (RACI)
-      </ButtonPrimaryApp>
-
       <ButtonApp
         icon="list"
         variant="contained"

@@ -126,7 +126,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
         // a Person, an Equipment or a Partner (supplier) as a resource with its own calendar and variant, in folders = business units; a Time line of a task can book it
         { id: 'workcenters', label: 'Work centers', icon: 'precision_manufacturing', route: 'catalog/work/center' },
-        { id: 'raci', label: 'Users (RACI)', icon: 'groups', route: 'catalog/raci/racimember' },
       ],
     },
     // documents (what is filled in and posted), sorted by name: the fact input documents (Actuals, kit8/documents/fact/input) and the vendor invoices (one vendor + one contract each; folders legal entity → vendor)

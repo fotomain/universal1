@@ -54,9 +54,7 @@ const resources = {
 
       tabs: {
         media: 'Media',
-        my: 'My',
         history: 'History',
-        raci: 'RACI',
       },
       screens: {
         homeTitle: 'Welcome Home',
@@ -128,7 +126,6 @@ const resources = {
         or: 'OR',
         submitFeedback: 'Submit Feedback',
         language: 'Language',
-        raciDashboard: 'RACI Dashboard',
         historyOfActivity: 'History of Activity',
         recordAudio: 'Record Audio',
         recordVideo: 'Record Video',

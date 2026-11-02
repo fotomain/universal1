@@ -5,7 +5,7 @@ describe('tabHref', () => {
   it('a leading slash is added once; the params become a query string; empty params are left out', () => {
     expect(tabHref({ tabIcon: 'x', tabTitle: 'X', tabRoute: 'posts/mediapostcrud' })).toBe('/posts/mediapostcrud');
     expect(tabHref({ tabIcon: 'x', tabTitle: 'X', tabRoute: '/posts/mediapostcrud/' })).toBe('/posts/mediapostcrud');
-    expect(tabHref({ tabIcon: 'x', tabTitle: 'X', tabRoute: 'raci/racidashboard', params: { raciGUID: 'u 1', empty: '', nothing: undefined } })).toBe('/raci/racidashboard?raciGUID=u%201');
+    expect(tabHref({ tabIcon: 'x', tabTitle: 'X', tabRoute: 'my/dashboard', params: { id: 'u 1', empty: '', nothing: undefined } })).toBe('/my/dashboard?id=u%201');
   });
   it('the extra params come first and the params of the tab win', () => {
     expect(tabHref({ tabIcon: 'x', tabTitle: 'X', tabRoute: 'a', params: { k: 'tab' } }, { k: 'extra', e: '1' })).toBe('/a?k=tab&e=1');
@@ -18,7 +18,7 @@ describe('isTabActive', () => {
     expect(isTabActive('/posts/mediapostcrud/', '/posts/mediapostcrud')).toBe(true);
     expect(isTabActive('/pm/project/dashboard', 'pm/project')).toBe(true);
     expect(isTabActive('/pm/projects', 'pm/project')).toBe(false);
-    expect(isTabActive('/x/raci/racimember', 'raci/racimember')).toBe(false);
+    expect(isTabActive('/x/posts/mediapostcrud', 'posts/mediapostcrud')).toBe(false);
   });
   it('the root route is active only on the root; a missing path is active nowhere', () => {
     expect(isTabActive('/', '/')).toBe(true);

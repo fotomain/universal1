@@ -76,7 +76,7 @@
 --
 --   0. extensions + shared helper functions
 --   1. generic app tables (defTable.md pattern, TEXT ids, open RLS)
---        googleDriveCommandTable, raciMemberTable, themeStoreTable, mediaPostTable,
+--        googleDriveCommandTable, themeStoreTable, mediaPostTable,
 --        mediaPostTableArchive, userTable, userAuthTable, aiSessionTable, dtc*Table (7)
 --   2. catalogs (defTable.md pattern, TEXT ids) + seeds
 --        countryTable, currencyTable, currencyExchangeRateTable, organizationTable,
@@ -145,13 +145,13 @@ $$;
 -- 1. Generic app tables (kit8/redux/SystemMetaData.ts reusable CRUD + realtime saga)
 --    TEXT ids; open RLS for anon + authenticated (as in pm33 create_tables.sql).
 --    Defaults on rowGUID / rowParentGUID / orderInList: themeStore createOne sends no
---    rowParentGUID, raciMember / organization rows use 'empty'.
+--    rowParentGUID, organization rows use 'empty'.
 -- =====================================================================================
 DO $$
 DECLARE
   t text;
   tables text[] := ARRAY[
-    'googleDriveCommandTable', 'raciMemberTable', 'themeStoreTable',
+    'googleDriveCommandTable', 'themeStoreTable',
     'mediaPostTable', 'mediaPostTableArchive',
     'userTable', 'userAuthTable', 'aiSessionTable',
     'dtcTaskFinishedTable', 'dtcCatalogExecutiveTable', 'dtcTaskRegisteredTable',

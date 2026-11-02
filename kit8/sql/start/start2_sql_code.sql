@@ -119,7 +119,7 @@ DO $$
 DECLARE
   t text;
   tables text[] := ARRAY[
-    'googleDriveCommandTable', 'raciMemberTable', 'themeStoreTable',
+    'googleDriveCommandTable', 'themeStoreTable',
     'mediaPostTable', 'mediaPostTableArchive',
     'userTable', 'userAuthTable', 'aiSessionTable',
     'dtcTaskFinishedTable', 'dtcCatalogExecutiveTable', 'dtcTaskRegisteredTable',
@@ -1922,7 +1922,7 @@ DECLARE
   t text;
   tables text[] := ARRAY[
     -- generic (redux-saga realtime)
-    'googleDriveCommandTable', 'raciMemberTable', 'themeStoreTable', 'mediaPostTable', 'mediaPostTableArchive',
+    'googleDriveCommandTable', 'themeStoreTable', 'mediaPostTable', 'mediaPostTableArchive',
     'userTable', 'userAuthTable', 'aiSessionTable',
     'dtcTaskFinishedTable', 'dtcCatalogExecutiveTable', 'dtcTaskRegisteredTable',
     'dtcTaskWaitingTable', 'dtcTaskProgressTable', 'dtcFreeExecutiveTable',

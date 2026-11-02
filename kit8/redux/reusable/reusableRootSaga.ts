@@ -47,7 +47,7 @@ export const reusableRootSaga = (p: any) => {
 
             if (readAllFilter) {
                 query = query.or(
-                    `rowJSON->>mediaPostTitle.ilike.%${readAllFilter}%,rowJSON->>mediaPostDescription.ilike.%${readAllFilter}%,rowJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,rowJSON->>originUrl.ilike.%${readAllFilter}%,rowJSON->>firstName.ilike.%${readAllFilter}%,rowJSON->>lastName.ilike.%${readAllFilter}%,rowJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,rowJSON->>mediaPostLastName.ilike.%${readAllFilter}%,rowJSON->>raciFirstName.ilike.%${readAllFilter}%,rowJSON->>raciLastName.ilike.%${readAllFilter}%,rowJSON->>raciEmail.ilike.%${readAllFilter}%,rowJSON->>email.ilike.%${readAllFilter}%`
+                    `rowJSON->>mediaPostTitle.ilike.%${readAllFilter}%,rowJSON->>mediaPostDescription.ilike.%${readAllFilter}%,rowJSON->>mediaPostOrigin.ilike.%${readAllFilter}%,rowJSON->>originUrl.ilike.%${readAllFilter}%,rowJSON->>firstName.ilike.%${readAllFilter}%,rowJSON->>lastName.ilike.%${readAllFilter}%,rowJSON->>mediaPostFirstName.ilike.%${readAllFilter}%,rowJSON->>mediaPostLastName.ilike.%${readAllFilter}%,rowJSON->>email.ilike.%${readAllFilter}%`
                 );
             }
 
@@ -399,27 +399,17 @@ export const reusableRootSaga = (p: any) => {
             let filteredData = reduxStateData;
             if (filterText && filterText.trim() !== "") {
                 const lowerText = filterText.toLowerCase().trim();
-                const isRaciTable = String(tableName).toLowerCase().includes("raci");
                 const isPostsTable = String(tableName).toLowerCase().includes("post") || String(tableName).toLowerCase().includes("media");
 
                 filteredData = reduxStateData.filter((item: any) => {
                     const json = item?.rowJSON || item || {};
                     const title = String(json.mediaPostTitle || item.title || "").toLowerCase();
                     const description = String(json.mediaPostDescription || item.description || "").toLowerCase();
-                    const firstName = String(json.raciFirstName || json.firstName || json.mediaPostFirstName || item.firstName || "").toLowerCase();
-                    const lastName = String(json.raciLastName || json.lastName || json.mediaPostLastName || item.lastName || "").toLowerCase();
+                    const firstName = String(json.firstName || json.mediaPostFirstName || item.firstName || "").toLowerCase();
+                    const lastName = String(json.lastName || json.mediaPostLastName || item.lastName || "").toLowerCase();
                     const fullName = `${firstName} ${lastName}`.trim();
                     const mediaPostOrigin = String(json.mediaPostOrigin || json.originUrl || json.origin || json.url || json.mediaPostURL || item.originUrl || "").toLowerCase();
-                    const email = String(json.raciEmail || json.email || item.email || "").toLowerCase();
-
-                    if (isRaciTable) {
-                        return (
-                            (firstName.length > 0 && firstName.includes(lowerText)) ||
-                            (lastName.length > 0 && lastName.includes(lowerText)) ||
-                            (fullName.length > 0 && fullName.includes(lowerText)) ||
-                            (email.length > 0 && email.includes(lowerText))
-                        );
-                    }
+                    const email = String(json.email || item.email || "").toLowerCase();
 
                     if (isPostsTable) {
                         return (
@@ -464,7 +454,7 @@ export const reusableRootSaga = (p: any) => {
 
                 if (filterText && filterText.trim() !== "") {
                     query = query.or(
-                        `rowJSON->>mediaPostTitle.ilike.%${filterText}%,rowJSON->>mediaPostDescription.ilike.%${filterText}%,rowJSON->>mediaPostOrigin.ilike.%${filterText}%,rowJSON->>originUrl.ilike.%${filterText}%,rowJSON->>firstName.ilike.%${filterText}%,rowJSON->>lastName.ilike.%${filterText}%,rowJSON->>mediaPostFirstName.ilike.%${filterText}%,rowJSON->>mediaPostLastName.ilike.%${filterText}%,rowJSON->>raciFirstName.ilike.%${filterText}%,rowJSON->>raciLastName.ilike.%${filterText}%,rowJSON->>raciEmail.ilike.%${filterText}%,rowJSON->>email.ilike.%${filterText}%`
+                        `rowJSON->>mediaPostTitle.ilike.%${filterText}%,rowJSON->>mediaPostDescription.ilike.%${filterText}%,rowJSON->>mediaPostOrigin.ilike.%${filterText}%,rowJSON->>originUrl.ilike.%${filterText}%,rowJSON->>firstName.ilike.%${filterText}%,rowJSON->>lastName.ilike.%${filterText}%,rowJSON->>mediaPostFirstName.ilike.%${filterText}%,rowJSON->>mediaPostLastName.ilike.%${filterText}%,rowJSON->>email.ilike.%${filterText}%`
                     );
                 }
 

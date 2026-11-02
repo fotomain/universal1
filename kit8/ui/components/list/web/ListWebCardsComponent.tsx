@@ -1145,7 +1145,6 @@ export function ListWebCardsComponent({
                   const firstName = String(
                     rawJson.firstName ||
                     rawJson.mediaPostFirstName ||
-                    rawJson.raciFirstName ||
                     rawJson.authorFirstName ||
                     (card as any).firstName ||
                     card.rawItem?.firstName ||
@@ -1154,7 +1153,6 @@ export function ListWebCardsComponent({
                   const lastName = String(
                     rawJson.lastName ||
                     rawJson.mediaPostLastName ||
-                    rawJson.raciLastName ||
                     rawJson.authorLastName ||
                     (card as any).lastName ||
                     card.rawItem?.lastName ||
@@ -1174,24 +1172,13 @@ export function ListWebCardsComponent({
                   ).toLowerCase();
 
                   const email = String(
-                    rawJson.raciEmail ||
                     rawJson.email ||
                     (card as any).email ||
                     ""
                   ).toLowerCase();
 
                   const normalizedEntityName = String(entityName || "").toLowerCase();
-                  const isRaciEntity = normalizedEntityName.includes("raci");
                   const isPostsEntity = normalizedEntityName.includes("post") || normalizedEntityName.includes("media");
-
-                  if (isRaciEntity) {
-                    return (
-                      (firstName.length > 0 && firstName.includes(lower)) ||
-                      (lastName.length > 0 && lastName.includes(lower)) ||
-                      (fullName.length > 0 && fullName.includes(lower)) ||
-                      (email.length > 0 && email.includes(lower))
-                    );
-                  }
 
                   if (isPostsEntity) {
                     return (

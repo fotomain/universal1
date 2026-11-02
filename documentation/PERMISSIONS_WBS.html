@@ -46,15 +46,27 @@
 </head>
 <body>
 <main>
-
 <h1>Permissions – Work Breakdown Structure</h1>
-<p class="sub">Scope: who may see and change what – organization members, administrators, invitations, RACI on the Time lines, permission profiles, CRUD matrix per table, interface permissions, task versions. Planning document – <b>no implementation yet</b>. Status: 2026-11-02, first version, written from the Google Doc “W1 PERMISSIONS”. Everything marked <span class="tag">proposal</span> is my reading and is not confirmed; the questions are in section 13, each with a recommended answer.</p>
+<p class="sub">Scope: who may see and change what – organization members, administrators, invitations, RACI on the Time lines, permission profiles, CRUD matrix per table, interface permissions, application texts. Planning document – <b>no implementation yet</b>. Status: 2026-11-02, <b>second version</b> – the answers of the owner (second Google Doc) are worked in; the open points are in section 13 (Q21–Q25). Everything marked <span class="tag">proposal</span> is my reading and is not confirmed.</p>
+
+<div class="callout">
+  <p><b>What changed in version 2</b></p>
+  <ul>
+    <li>RACI is now a real catalog: <code>managementRACIGenusTable</code> (4 seeded rows, read only, no menu item); the Time line stores its GUID (section 5).</li>
+    <li>The member table is called <code>organizationMemberTable</code>; <b>no table is renamed now</b> (<code>organizationTable → organizationCatalog</code> is written down for later) (sections 3.2, 4, 6).</li>
+    <li>Two new profiles: <code>permissionFinancialManagerPlan</code> (CRUD on all money plans) and <code>permissionFinancialManagerFact</code> (CRUD on all money fact documents) (section 7).</li>
+    <li>A Responsible gets the limited profile <code>permissionTaskResponsible</code>; Accountable, Consulted, Informed only read. <code>permissionTaskManager</code> stays a placeholder until you describe it (7.5).</li>
+    <li><b>Only the administrator has full CRUD on generic tables and catalogs</b> (Q16) – this is a visible behaviour change (section 11, R8).</li>
+    <li>The matrix is <b>filled into your Google Sheet</b> (Q20): <a href="https://docs.google.com/spreadsheets/d/1erjTWI6-q497G5XeHqz-R8Sks4vafEiB5Q1sUdawCU8/edit">W1 PERMISSIONS, tab Sheet1</a> – one row per table (135 rows), one column per profile.</li>
+    <li>Invitation e-mails by a Supabase Edge Function are now part of the plan (6.5); the organization is a filter of the Project dashboard (6.3); texts scope = menu titles, column headers, titles (12); paragraph 10 (task versions) is parked as you asked.</li>
+  </ul>
+</div>
 
 <div class="callout warn">
   <p><b>Two things to know before reading.</b></p>
   <ul>
-    <li>The Google Sheet linked in the doc (“Rows: table names, Columns: role names”) was <b>empty</b> when I read it (Sheet1, A1:Z200 returned no values). The matrix in section 9 is therefore my proposal, not your sheet. If you fill the sheet, I will read it again and replace section 9.</li>
-    <li>Today a project is visible <b>only to its owner</b>: the policies of <code>project_table</code>, <code>project_task_table</code>, <code>task_line_table</code> and the documents are built on <code>pm_owns_project()</code> (99 uses in <code>start2_sql_code.sql</code>, 204 policies in all). Giving a second person access to a project is therefore not “one more table” – it is a change of the rule that every PM table is read by (section 10). This is the biggest part of the work and the biggest risk.</li>
+    <li>Today a project is visible <b>only to its owner</b>: the policies of <code>project_table</code>, <code>project_task_table</code>, <code>task_line_table</code> and the documents are built on <code>pm_owns_project()</code> (99 uses in <code>start2_sql_code.sql</code>, 204 policies in all). Giving a second person access to a project is a change of the rule that every PM table is read by (section 9). This is the biggest part of the work and the biggest risk.</li>
+    <li>The sheet has <b>one tab only</b>. I tried to add a second tab “UXUI” for the interface permissions and to name the first tab “CRUD”; the connector refused that structural change, so the interface matrix is in section 8.2 of this document (it is short). Say so if you want it in the sheet too – it can go below the table on Sheet1 or on a tab you add.</li>
   </ul>
 </div>
 
@@ -69,11 +81,12 @@
   <p>Not in this document: the money rules, the register, the reports – they only get their access rule from here.</p>
 </div>
 
+
 <h2>2. Answers to the direct questions of the document</h2>
 <div class="card">
-  <p><b>“managementRACIGenus – is it good?”</b> No. In this application a <i>genus</i> is a classifier of <b>money / work lines</b> (<code>managementGenusTable</code>: Time · Material · Expense · Revenue · Payments …; <code>managementActivityGenusTable</code>: operating / investing / financing). RACI is not a kind of line – it is the <b>role of a person on a task</b>. A genus table also brings folders, catalog screens and seeds for four values that PMBOK will never change. Recommended: a code <b>enum</b> with the four names you gave, copied into a SQL check, titles through the language files (same technique as the budget item key matrix: one TypeScript constant, one SQL function, a Jest test that compares them). See section 5.</p>
-  <p><b>“Show me the list of the tables.”</b> Section 3 (current) and 3.2 (new).</p>
-  <p><b>“Make enum or another code.”</b> Section 5.</p>
+  <p><b>“managementRACIGenus – is it good?”</b> After your second round: yes, as a <b>catalog table</b> <code>managementRACIGenusTable</code> with the four rows you gave and the GUIDs <code>raciResponsibleGUID · raciAccountableGUID · raciConsultedGUID · raciInformedGUID</code>. The reports of later rounds can join it. No code enum is needed for the values (a small constants file holds the four GUIDs for the default). See section 5.</p>
+  <p><b>“Show me the list of the tables.”</b> Section 3 (current and new).</p>
+  <p><b>“Fill my sheet.”</b> Done for the CRUD matrix (section 8.1); the interface matrix is in 8.2.</p>
 </div>
 
 <h2>3. The tables of the application</h2>
@@ -138,56 +151,58 @@
 </table></div>
 
 <h3>3.2 New tables proposed by this plan</h3>
+<p>Names are the ones you wrote (<code>organizationMemberTable</code>, <code>managementRACIGenusTable</code> in the family of the existing <code>managementXxxGenusTable</code>, the five <code>project_permission_…</code> / <code>task_user_permission_table</code> names of your first document). “Do not refactor table names now.”</p>
 <div class="tbl"><table>
 <tr><th style="width:42%">Table</th><th>What it is · 1C kind</th></tr>
-<tr><td class="new"><code>organization_member_table</code></td><td>who is a member of which organization, administrator flag, invitation state · information register, not periodic (section 6)</td></tr>
-<tr><td class="new"><code>project_permission_profile_catalog</code></td><td>the permission profiles (7 seeded + the task profile) · catalog</td></tr>
+<tr><td class="new"><code>managementRACIGenusTable</code></td><td>the four RACI items, seeded, <b>read only</b>, no menu item · catalog</td></tr>
+<tr><td class="new"><code>organizationMemberTable</code></td><td>who is a member of which organization, administrator flag, invitation state · information register, not periodic (section 6)</td></tr>
+<tr><td class="new"><code>project_permission_profile_catalog</code></td><td>the permission profiles (7 + 2 financial + 2 task, section 7.1) · catalog</td></tr>
 <tr><td class="new"><code>project_permission_profile_crud_table</code></td><td>profile × application table → <code>CRUD</code> / <code>R</code> … · information register, not periodic</td></tr>
 <tr><td class="new"><code>project_permission_profile_uxui_table</code></td><td>profile × screen / tab / document → the same letters · information register, not periodic</td></tr>
 <tr><td class="new"><code>project_permission_profile_user_table</code></td><td>project × user → profile(s) given by hand · information register, not periodic</td></tr>
 <tr><td class="new"><code>task_user_permission_table</code></td><td>task × user → profile, <b>derived</b> from the Time lines (RACI), never typed · information register, not periodic</td></tr>
-<tr><td class="new"><code>task_line_history</code></td><td>the saved versions of a task and its lines (you named it <code>task_line_versions</code>; by the new rule a table of versions over time is <code>_history</code>) · periodic information register</td></tr>
-<tr><td class="new"><code>organization_text_table</code> <span class="tag">proposal</span></td><td>the organization’s own titles / headers / menu texts (section 12)</td></tr>
+<tr><td class="new"><code>organizationTextTable</code> <span class="tag">proposal</span></td><td>the organization’s own menu titles / column headers / titles (section 12)</td></tr>
 </table></div>
-<p><b>Not created</b> (your doc names them, but they duplicate each other – section 7.3): <code>project_person_permission</code>, <code>userPermissionTable</code>, <code>managementPermissionsGenus</code>, <code>managementRACIGenus</code>.</p>
+<p><b>Parked, not in this round</b>: <code>task_line_history</code> (task versions, section 10). <b>Not created</b> (your first document names them, but they duplicate each other – section 7.4): <code>project_person_permission</code>, <code>userPermissionTable</code>, <code>managementPermissionsGenus</code>.</p>
+<p><b>Written down for later (not now):</b> <code>organizationTable → organizationCatalog</code>.</p>
 
 <h2>4. The naming rule (REFACTOR)</h2>
 <div class="card">
   <table>
     <tr><th>Suffix</th><th>1C equivalent</th><th>Meaning</th><th>Example</th></tr>
-    <tr><td><code>XXX_catalog</code></td><td>справочник</td><td>things with a name that other rows point to</td><td><code>project_permission_profile_catalog</code> (like the currencies)</td></tr>
-    <tr><td><code>XXX_table</code></td><td>регистр сведений, непериодический</td><td>one current value per key, no date</td><td><code>project_permission_profile_crud_table</code></td></tr>
-    <tr><td><code>XXX_history</code></td><td>регистр сведений, периодический</td><td>a value per key <b>and date</b>; the newest wins; the past stays</td><td><code>task_line_history</code>, the exchange rates</td></tr>
+    <tr><td><code>XXX_catalog</code> / <code>XXXCatalog</code></td><td>справочник</td><td>things with a name that other rows point to</td><td><code>project_permission_profile_catalog</code>, later <code>organizationCatalog</code></td></tr>
+    <tr><td><code>XXX_table</code> / <code>XXXTable</code></td><td>регистр сведений, непериодический</td><td>one current value per key, no date</td><td><code>project_permission_profile_crud_table</code>, <code>organizationMemberTable</code></td></tr>
+    <tr><td><code>XXX_history</code></td><td>регистр сведений, периодический</td><td>a value per key <b>and date</b>; the newest wins; the past stays</td><td>the exchange rates, task versions (parked)</td></tr>
   </table>
-  <p>(Documents keep <code>_header / _lines</code>, registers of movements keep <code>_movements / _rests / _ledger</code> – they are not on your list; say if they should be.)</p>
   <ul>
-    <li><b>Applies to every NEW table</b> from now on. The existing ~125 tables are <b>not renamed</b> (a rename touches every policy, RPC, saga, test and the delete file); section 3.1 gives each of them its kind so the future owner of the code knows it.</li>
+    <li>The rule is <b>kept for the future</b> (KNOW_HOW.md 2.2). In this round the new tables take the names you wrote, in the style of their family; <b>nothing existing is renamed</b> – a rename touches every policy, RPC, saga, test and the delete file. The planned rename <code>organizationTable → organizationCatalog</code> is a separate round.</li>
     <li>Every new table keeps the universal columns <code>rowGUID · rowOwnerGUID · rowParentGUID · orderInList · rowJSON · created_at · updated_at</code> (KNOW_HOW 2.3).</li>
-    <li>I will add this rule to <code>KNOW_HOW.md</code> (section 2.2) and to the project memory in the same round – done together with this document.</li>
   </ul>
 </div>
 
 <h2>5. RACI (PMBOK)</h2>
-<h3>5.1 The four items</h3>
+<h3>5.1 <code>managementRACIGenusTable</code> – the four items</h3>
 <div class="tbl"><table>
-<tr><th>Code name (the value)</th><th>Title</th><th>Meaning on a task</th></tr>
-<tr><td><code>raciResponsible</code></td><td>Responsible</td><td>does the work</td></tr>
-<tr><td><code>raciAccountable</code></td><td>Accountable</td><td>owns the result, signs it off</td></tr>
-<tr><td><code>raciConsulted</code></td><td>Consulted</td><td>asked before, two-way</td></tr>
-<tr><td><code>raciInformed</code></td><td>Informed</td><td>told after, one-way</td></tr>
+<tr><th>rowGUID</th><th>rowJSON.title</th><th>rowJSON.description</th></tr>
+<tr><td><code>raciResponsibleGUID</code></td><td>Responsible</td><td>does the work</td></tr>
+<tr><td><code>raciAccountableGUID</code></td><td>Accountable</td><td>owns the result, signs it off</td></tr>
+<tr><td><code>raciConsultedGUID</code></td><td>Consulted</td><td>asked before, two-way</td></tr>
+<tr><td><code>raciInformedGUID</code></td><td>Informed</td><td>told after, one-way</td></tr>
 </table></div>
 <ul>
-  <li><b>Code</b> <span class="tag">proposal</span>: <code>kit8/pm/model/raci.ts</code> – <code>RACI_ITEMS</code> (the four values + order), the type <code>RaciItem</code>, the default <code>raciResponsible</code>; titles through <code>pmT</code> (all 14 languages); SQL function <code>kit8_raci_items()</code> and a CHECK on the line; a Jest test compares the two lists (the technique of <code>BUDGET_ITEM_KEY_MATRIX</code>).</li>
-  <li><b>Where it is stored</b>: <code>task_line_table.rowJSON.raciItem</code> (as you wrote).</li>
+  <li><b>Shape</b>: the pattern of <code>managementActivityGenusTable</code> (linear catalog, no folders): <code>rowOwnerGUID = 'managementRACIGenusCatalog'</code>, <code>rowParentGUID = 'empty'</code>, <code>orderInList</code> 1000…4000, titles translated through <code>pmT</code> in the 14 languages (the stored English title is the fallback).</li>
+  <li><b>“Make it without creating new rows”</b> <span class="tag">my reading</span>: the four rows are <b>seeded</b> (start4 + start5, <code>ON CONFLICT</code> as the other genus tables) and the catalog is <b>read only</b> – no user can add, change or delete a row (the same guard trigger as the activity genus). <b>No menu item, no screen</b>; it is registered in <code>kit8/redux/SystemMetaData.ts</code> and read by a small hook (like <code>useManagementActivityGenusData</code>) only for the select on the Time tab and for reports.</li>
+  <li><b>Where it is created</b>: start1 (table), start2 (<code>kit8_setup_def_table</code>, guard, grants), start4 / start5 (the four rows), <code>delete_sql_structure.sql</code> (drop, in the loop of the other genus tables). New PART (45).</li>
+  <li><b>Where it is used</b>: <code>task_line_table.rowJSON.raciItem</code> = one of the four <b>rowGUIDs</b> (not a title, not a code). A trigger refuses a value that is not a row of the table (a CHECK cannot read another table). Reports later join on this GUID.</li>
 </ul>
 <h3>5.2 The “RACI” column on the Time tab</h3>
 <ul>
-  <li>Header “RACI”, a select of the four titles, on <b>every Time line whatever it books</b> (person, equipment, work center – “all types of resources”).</li>
-  <li><b>A new row is filled with <code>raciResponsible</code></b> at creation (client) and the database refuses an empty value on a Time line (CHECK; trigger fills a missing value from an import / template fill, so old code paths cannot break). Not shown / not required on Material · Expense · Revenue · Payments lines.</li>
-  <li><b>Old lines</b>: a one-time backfill in <code>start2</code> sets <code>raciResponsible</code> on every existing Time line (plan values unchanged; the “posted and changed” mark must NOT appear – the backfill runs with the user triggers off, like the rename of <code>name</code> → <code>taskDescription</code>).</li>
-  <li><b>Copies</b>: task templates (save / fill), project versions, MS Project import/export and “Copy line” carry the key. <code>task_template_clean_task</code> must keep it (it is a line key, not a task key – to be verified in the test).</li>
-  <li>PMBOK rule “exactly one Accountable per task” <span class="tag">question Q3</span>: warn only, never block.</li>
-  <li>Does the RACI item change the <b>plan calculation</b>? No. It is information + the source of the task permissions (section 7.4).</li>
+  <li>Header “RACI”, a select whose options are the rows of <code>managementRACIGenusTable</code> (title shown, GUID stored), on <b>every Time line whatever it books</b> (person, equipment, work center).</li>
+  <li><b>A new row is filled with <code>raciResponsibleGUID</code></b> at creation (client) and the database refuses an empty value on a Time line (a trigger also fills a missing value from an import / template fill, so old code paths cannot break). Not shown on Material · Expense · Revenue · Payments lines.</li>
+  <li><b>Old lines</b>: a one-time backfill in <code>start2</code> sets <code>raciResponsibleGUID</code> on every existing Time line (plan values unchanged; the “posted and changed” mark must NOT appear – the backfill runs with the user triggers off, like the rename of <code>name</code> → <code>taskDescription</code>).</li>
+  <li><b>Copies</b>: task templates (save / fill), project versions, MS Project import/export and “Copy line” carry the key. <code>task_template_clean_task</code> must keep it (to be verified in a test).</li>
+  <li>PMBOK rule “exactly one Accountable per task”: <b>warn only</b>, never block (Q3).</li>
+  <li>The RACI item does not change the <b>plan calculation</b>. It is information, the source of the task permissions (7.4) and the key for later reports.</li>
 </ul>
 
 <h2>6. Users, persons, organizations</h2>
@@ -197,7 +212,7 @@
   <li>A <b>person</b> is unique by e-mail and <b>independent from organizations</b>; it may exist with no user, and a user may exist with no person. The user can create his person from his profile; the administrator can create it from the card of the user in the users list.</li>
   <li>An <b>organization administrator does not take part in projects and tasks</b> (no person is needed); he administrates catalogs, users and permissions.</li>
 </ol>
-<h3>6.2 <code>organization_member_table</code> <span class="tag">proposal</span></h3>
+<h3>6.2 <code>organizationMemberTable</code></h3>
 <div class="tbl"><table>
 <tr><th>Column</th><th>Value</th></tr>
 <tr><td><code>rowOwnerGUID</code></td><td>the organization (<code>organizationTable.rowGUID</code>)</td></tr>
@@ -207,26 +222,36 @@
 <tr><td><code>rowJSON.userEmailForInvitation</code></td><td>lower case e-mail of the invited user (kept after the first login)</td></tr>
 <tr><td><code>rowJSON.memberStatus</code></td><td><code>invited</code> → <code>active</code> → (<code>revoked</code>) – derived from the timestamps below</td></tr>
 <tr><td><code>rowJSON.autoCreatePerson</code></td><td>default <code>true</code>: at the first login a person is made if none exists for the e-mail</td></tr>
-<tr><td><code>rowJSON.invitedAt</code> · <code>registeredAt</code></td><td>timestamp of the invitation · timestamp of the first session of the user in this organization (you wrote “registatedAt: firstSessionTimestamp”)</td></tr>
+<tr><td><code>rowJSON.invitedAt</code> · <code>registeredAt</code></td><td>timestamp of the invitation · timestamp of the first session of the user in this organization</td></tr>
+<tr><td><code>rowJSON.inviteError</code> · <code>inviteSentAt</code></td><td>result of the invitation e-mail (6.5)</td></tr>
 </table></div>
 <ul>
-  <li><b>Unique</b>: <code>(rowOwnerGUID, rowParentGUID)</code> where the user is known, and <code>(rowOwnerGUID, lower(e-mail))</code> always. (Your text says “rowOwnerGUID + rowParentGUID:userGUID + organization GUID” – with the organization already in <code>rowOwnerGUID</code> the third part is redundant, so I read it that way. Q11.)</li>
-  <li><b>Screen</b>: a <code>ReusableTable</code> (as you asked) under Catalogs → Users (the existing users list gets the “Create person” button on the card of a user without a person).</li>
+  <li><b>Unique</b> (Q11 – yes): <code>(rowOwnerGUID, rowParentGUID)</code> where the user is known, and <code>(rowOwnerGUID, lower(e-mail))</code> always.</li>
+  <li><b>Screen</b>: a <code>ReusableTable</code> under Catalogs → Users (the existing users list gets the “Create person” button on the card of a user without a person).</li>
   <li><b>First login</b>: <code>organization_ensure_user</code> inserts the member row (administrator = true for the organization it creates; for an invited e-mail it fills the pending row instead – <code>registeredAt</code>, and makes the person if <code>autoCreatePerson</code>).</li>
 </ul>
-<h3>6.3 Many organizations without rewriting the SQL <span class="tag">proposal</span></h3>
-<p>Today <code>userTable.rowJSON.userOrganization</code> is read by <code>organization_of_current_user()</code>, <code>project_table.rowParentGUID</code>, the capacity check, RLS of the documents … A user in several organizations needs “the organization I am working in now”. Recommended: <b>keep <code>userOrganization</code> as exactly that – the ACTIVE organization</b> – and add an RPC <code>organization_switch(org)</code> that changes it only to an organization the user is a <i>member</i> of (the trigger that protects the key already exists: <code>kit8.user_organization_change</code>). The member table lists all memberships; nothing that reads <code>userOrganization</code> changes. A “switch organization” item goes in the pinned part of the Drawer; project lists already filter by the organization.</p>
+<h3>6.3 Many organizations without rewriting the SQL, and the organization filter</h3>
+<p>Today <code>userTable.rowJSON.userOrganization</code> is read by <code>organization_of_current_user()</code>, <code>project_table.rowParentGUID</code>, the capacity check, RLS of the documents … A user in several organizations needs “the organization I am working in now”. Decision (Q12 – yes): <b>keep <code>userOrganization</code> as exactly that – the ACTIVE organization</b> – and add an RPC <code>organization_switch(org)</code> that changes it only to an organization the user is a <i>member</i> of (the trigger that protects the key already exists: <code>kit8.user_organization_change</code>). The member table lists all memberships; nothing that reads <code>userOrganization</code> changes.</p>
+<p><b>Organization filter in the Project dashboard</b> (your answer to Q12): a user who is a member of more than one organization sees an <b>Organization</b> filter (select of his organizations) in the Project dashboard / the recent-projects toolbar; with one organization it is not shown. <span class="tag">proposal</span> Choosing an organization in the filter <b>is</b> <code>organization_switch</code>: the project list, the new project and everything that reads the active organization follow it, and the choice is remembered. A list of the projects of all organizations at once (“All”) is not planned – a new project would have no organization (Q24).</p>
 <h3>6.4 Administrator rules (database, not only screen)</h3>
 <ul>
   <li>An administrator can mark / unmark any other member as administrator.</li>
   <li><b>An administrator cannot delete himself</b> from the table – only <b>another</b> administrator can. The same trigger refuses to unmark himself while he is the last administrator, and refuses any change that leaves the organization with <b>no administrator</b>. <span class="tag">Q13</span></li>
   <li>Deleting a member row removes the user’s access in that organization only (his projects and documents stay; the owner column is not rewritten) – what happens to the projects he owns is a question: <span class="tag">Q9b</span> (recommended: ownership moves to the oldest administrator by an explicit action; the delete is refused while he owns open projects).</li>
 </ul>
-<h3>6.5 Invitations</h3>
+<h3>6.5 Invitations and the Supabase function (Q15)</h3>
 <ul>
-  <li>An administrator presses <b>Invite</b>, types <code>userEmailForInvitation</code>; the e-mail is checked against the member rows of this organization (already invited / member → message). The member row <code>invited</code> is created with <code>invitedAt</code>.</li>
-  <li><code>organizationInvitationTable</code> + its RPCs (<code>organization_invite_user</code>, <code>_revoke_invitation</code>, <code>_accept_invitation</code>) already do this. Recommended: <b>one mechanism</b> – the member row replaces the invitation row; the RPC names stay (the client code and tests keep working); the old rows are migrated once and the old table is dropped in <code>delete_sql_structure.sql</code> in the same PART.</li>
-  <li>“Via Supabase”: sending a real e-mail is <code>auth.admin.inviteUserByEmail</code>, which needs the <b>service role key</b> – it cannot be called from the app. Phase 1 stays as today: the invited person signs up with the same e-mail and <code>organization_ensure_user</code> finds the pending row. A real invitation e-mail = an Edge Function that you deploy by hand (later, <span class="tag">Q15</span>).</li>
+  <li>An administrator adds a row to <code>organizationMemberTable</code> and types <code>userEmailForInvitation</code>; the e-mail is checked against the member rows of this organization (already invited / member → message). The row <code>invited</code> is created with <code>invitedAt</code>.</li>
+  <li><code>organizationInvitationTable</code> + its RPCs (<code>organization_invite_user</code>, <code>_revoke_invitation</code>, <code>_accept_invitation</code>) already do this without an e-mail. Recommended: <b>one mechanism</b> – the member row replaces the invitation row; the RPC names stay (client code and tests keep working); the old rows are migrated once and the old table is dropped in <code>delete_sql_structure.sql</code> in the same PART.</li>
+  <li><b>Your answer: the Supabase functionality is needed after the administrator registers users in the table.</b> Sending the e-mail is <code>auth.admin.inviteUserByEmail</code>, which needs the <b>service role key</b> and therefore cannot run in the app. Plan <span class="tag">proposal</span>:
+    <ol>
+      <li>An <b>Edge Function</b> <code>organization-invite</code> (Deno / TypeScript, new folder <code>supabase/functions/organization-invite/</code> – the repository has none yet). The app calls it with the member row GUID right after the row is saved (and from a “Send again” button).</li>
+      <li>The function takes the caller from the JWT, checks with the database that he is <b>administrator of that organization</b> (<code>organization_is_admin</code>), reads the row, calls <code>inviteUserByEmail(email, { redirectTo })</code> with the service role key from the <b>function’s secrets</b> (never in the app’s <code>.env</code>), then writes <code>inviteSentAt</code> or <code>inviteError</code> back.</li>
+      <li>The invited person signs up / logs in with that e-mail; <code>organization_ensure_user</code> finds the pending row, sets <code>registeredAt</code>, makes the person if <code>autoCreatePerson</code>.</li>
+      <li>An already registered user is only added as <code>active</code> to the organization (no e-mail; the next login lists the organization in his filter).</li>
+    </ol></li>
+  <li><b>What you must do by hand</b> (I cannot deploy or see your Supabase): deploy the function, set its secret, allow the redirect URL in Auth settings, and configure a custom SMTP sender – the built-in Supabase mail is limited to a few e-mails an hour. The exact commands come with the build, as UPDATE STEP-BY-STEP.</li>
+  <li><b>What I can test here</b>: the SQL (Docker), the function logic with a mocked Supabase client (Jest / Deno), the screens. <b>Not</b> a real e-mail delivery – that is checked only on your project.</li>
 </ul>
 <h3>6.6 User ↔ person</h3>
 <ul>
@@ -239,23 +264,27 @@
 <h3>7.1 Profiles: <code>project_permission_profile_catalog</code></h3>
 <p>Seed rows with a fixed <code>rowGUID</code> = the code name (start4 + start5; a profile can never be deleted while a user holds it). <code>rowOwnerGUID = 'permissionCatalog'</code> for the delivered profiles.</p>
 <div class="tbl"><table>
-<tr><th>rowGUID</th><th>Level</th><th>Meaning (your text; gaps marked)</th></tr>
-<tr><td><code>permissionOrganizationAdmin</code></td><td>organization</td><td><b>R</b> on the project management tables (all projects of the organization, also without being a member), <b>CRUD</b> on catalogs and on the user / member / permission data</td></tr>
-<tr><td><code>permissionProjectManager</code></td><td>project</td><td>full CRUD on any data of the project: catalogs, documents, …</td></tr>
+<tr><th>rowGUID</th><th>Level</th><th>Meaning</th></tr>
+<tr><td><code>permissionOrganizationAdmin</code></td><td>organization</td><td><b>R</b> on the project management tables (all projects of the organization, also without being a member), <b>CRUD</b> on generic tables, catalogs and the user / member / permission data (Q16)</td></tr>
+<tr><td><code>permissionProjectManager</code></td><td>project</td><td>full CRUD on the data of the project: tasks, lines, documents … (<b>catalogs: read</b> – only the administrator writes them, Q16)</td></tr>
 <tr><td><code>permissionProjectReadOnly</code></td><td>project</td><td>R on all</td></tr>
-<tr><td><code>permissionProjectSponsor</code></td><td>project</td><td>R (your task table lists R; the rest was empty → proposal: R on all, Q5)</td></tr>
-<tr><td><code>permissionProjectCurator</code></td><td>project</td><td>empty in the doc → proposal: R on all (Q5)</td></tr>
-<tr><td><code>permissionProjectInvestor</code></td><td>project</td><td>R (as your task table) → proposal: R on all; no cost detail of persons? (Q5)</td></tr>
-<tr><td><code>permissionTaskManager</code></td><td>task (derived)</td><td>RU on <b>one</b> task – see 7.4 for the locked actions and the two “responsible” levels (Q4)</td></tr>
-<tr><td><code>permissionProjectMember</code></td><td>project (derived)</td><td>named in your doc for <code>task_user_permission_table</code>: the person is on a Time line of the project → proposal: R on the project, its tasks, the plan (so he can open the task he works on)</td></tr>
+<tr><td><code>permissionProjectSponsor</code></td><td>project</td><td>R on all (Q5)</td></tr>
+<tr><td><code>permissionProjectCurator</code></td><td>project</td><td>R on all (Q5)</td></tr>
+<tr><td><code>permissionProjectInvestor</code></td><td>project</td><td>R on all (Q5)</td></tr>
+<tr><td class="new"><code>permissionFinancialManagerPlan</code></td><td>project</td><td><b>CRUD on all money plans</b>: the task lines (Time · Material · Expense · Revenue · Payments), the payment plan; R on everything else. Cannot change the person or the RACI item of a Time line (R5)</td></tr>
+<tr><td class="new"><code>permissionFinancialManagerFact</code></td><td>project</td><td><b>CRUD on all money fact documents</b>: fact input, time sheet, purchase order, product receipt, vendor invoice, customer invoice, payment fact (the documents whose Post writes a fact movement, i.e. the Fact group of Monitor01 – Q23); R on everything else</td></tr>
+<tr><td><code>permissionTaskResponsible</code></td><td>task (derived)</td><td>the limited rights of a Responsible – see 7.5</td></tr>
+<tr><td><code>permissionTaskManager</code></td><td>task</td><td><b>placeholder – you will describe it further</b>; not derived from RACI; its column in the sheet says TBD</td></tr>
+<tr><td><code>permissionProjectMember</code></td><td>project (derived)</td><td>the read rights of a person who is on a Time line of the project with RACI Accountable, Consulted or Informed: R on the project, its tasks, the plan</td></tr>
 </table></div>
+<p>An <b>owner of a project</b> (the user who created it) is its implicit <code>permissionProjectManager</code>; this is what keeps every existing project working on the day of the release, also when its owner is the administrator of his organization. “The administrator does not take part in projects” means: as administrator he gets only R on projects he does not own and is not assigned to.</p>
 
 <h3>7.2 CRUD per table: <code>project_permission_profile_crud_table</code></h3>
 <ul>
   <li>Row: <code>rowParentGUID</code> = profile, <code>rowJSON.permissionTable</code> = the application table name (<code>project_task_table</code>), <code>rowJSON.permissionSet</code> = one of <b><code>CRUD</code>, <code>R</code>, <code>RC</code>, <code>RU</code>, <code>RD</code>, <code>RUD</code></b> (+ <code>N</code> = no access, <span class="tag">Q6</span>). Unique on (owner, profile, table).</li>
   <li>Optional keys of the same row: <code>permissionLockedFields</code> (columns / JSON keys that stay read only even when U is granted) and <code>permissionLockedActions</code> – used by the task profile (7.4).</li>
   <li><code>rowOwnerGUID</code>: <code>'permissionCatalog'</code> for the delivered defaults, the organization’s GUID for its own override. The effective row = the organization’s, else the default. The first release ships the defaults only; the override is allowed by the key design so no table change is needed later (Q7).</li>
-  <li><b>A table that has no row = full CRUD</b> (your rule; it is exactly how the generic catalogs behave today – signed-in users have full CRUD). This keeps every existing screen working on the day of the release. Risk R2: a new table forgotten in the matrix is open. A Docker test lists the tables that are not in the matrix (Q16).</li>
+  <li><b>A table that has no row = generic</b> (Q16): only the administrator has CRUD, everyone else R; tables that hold personal data (a user’s own settings, calendar, theme, media) are marked <code>own</code> = own rows only and keep their existing row-level rule. The test of R2 lists the tables that are in none of the three states.</li>
 </ul>
 
 <h3>7.3 Interface permissions: <code>project_permission_profile_uxui_table</code></h3>
@@ -275,34 +304,36 @@
 <h3>7.4 Who has which profile, in three layers</h3>
 <div class="tbl"><table>
 <tr><th>Layer</th><th>Table</th><th>Who writes it</th></tr>
-<tr><td>Organization</td><td><code>organization_member_table.rowJSON.organizationAdministrator</code> → implies <code>permissionOrganizationAdmin</code></td><td>administrators</td></tr>
+<tr><td>Organization</td><td><code>organizationMemberTable.rowJSON.organizationAdministrator</code> → implies <code>permissionOrganizationAdmin</code></td><td>administrators</td></tr>
 <tr><td>Project (by hand)</td><td><code>project_permission_profile_user_table</code>: <code>rowOwnerGUID</code> = project, <code>rowParentGUID</code> = user, <code>rowJSON.permissionProfileGUID</code> = profile; “a user might have different permissions in different projects” = one row per project</td><td>organization administrator, project manager of that project</td></tr>
 <tr><td>Task (derived)</td><td><code>task_user_permission_table</code>: <code>rowOwnerGUID</code> = task, <code>rowParentGUID</code> = user, <code>rowJSON</code> { profile, projectGUID, sourceLineGUID }</td><td>a trigger only</td></tr>
 </table></div>
-<p><b>Different from your text</b> (the doc has three variants of the same assignment: <code>project_permission_profile_user_table</code>, <code>project_person_permission</code>, <code>userPermissionTable</code>): I keep <b>one</b> – the first. Reason: permissions belong to a login (a user); a person has none of his own and may have no user. And the profile cannot be the <code>rowGUID</code> of that table (as written: “rowGUID: permissionProfileItemGUID”) because <code>rowGUID</code> is the primary key – two users with the same profile in the same project would collide. The profile goes into <code>rowJSON</code> (Q8).</p>
+<p><b>Different from your first text</b> (the doc has three variants of the same assignment: <code>project_permission_profile_user_table</code>, <code>project_person_permission</code>, <code>userPermissionTable</code>): I keep <b>one</b> – the first. Reason: permissions belong to a login (a user); a person has none of his own and may have no user. And the profile cannot be the <code>rowGUID</code> of that table (as written: “rowGUID: permissionProfileItemGUID”) because <code>rowGUID</code> is the primary key – two users with the same profile in the same project would collide. The profile goes into <code>rowJSON</code> (Q8).</p>
 
 <h4>The derivation (Example: activeUser1)</h4>
 <ol>
   <li>A Time line of an <b>open</b> task books a person (directly, or a work center whose base is the person – <code>lineBaseItem</code>) and has <code>raciItem</code>.</li>
-  <li>That person’s e-mail is the e-mail of a user → that user gets a row in <code>task_user_permission_table</code>: Responsible → the task profile of 7.5; Accountable → <code>permissionTaskManager</code> (proposal); Consulted / Informed → <code>permissionProjectMember</code> (read).</li>
+  <li>That person’s e-mail is the e-mail of a user → that user gets a row in <code>task_user_permission_table</code>: Responsible → <code>permissionTaskResponsible</code> (7.5); Accountable, Consulted, Informed → <code>permissionProjectMember</code> (read) – Q4. <code>permissionTaskManager</code> is not derived (you will describe it).</li>
   <li>The trigger runs when a Time line is inserted / updated / deleted, when a person’s e-mail changes, when a user first logs in (the person already existed), when a task is opened / closed. It honours <code>app.task_bulk</code> (task template fill) and does its work once at the end (pitfall in KNOW_HOW 7). A <code>rebuild</code> / <code>verify</code> pair (like the other registers) repairs the table.</li>
   <li>“Open task” <span class="tag">Q10</span>: proposal = progress below 100 % and the project not closed. To be matched to the status fields the app really has before building.</li>
 </ol>
 
 <h3>7.5 The task profiles</h3>
-<p>Your doc describes two levels of a “responsible” person. The names in it differ in three places (<code>permissionTaskManager</code>, <code>permissionFullTaskManager</code>, <code>taskResponsiblePermission</code>, <code>taskResponsibleFullAccessPermission</code>), so I read it as two profiles <span class="tag">Q4</span>:</p>
-<div class="tbl"><table>
-<tr><th>Profile</th><th>Allowed on his task</th><th>Not allowed</th></tr>
-<tr><td><code>permissionTaskResponsible</code> <span class="tag">proposal for “taskResponsiblePermission”</span></td><td>the progress %, the time sheet input, the fact input (all with R on the task)</td><td>any plan update</td></tr>
-<tr><td><code>permissionTaskManager</code> (“…FullAccess”)</td><td>RU on the one task and its lines, progress, time sheet, fact input</td><td>change the task <b>name</b> · change the <b>dependencies</b> · turn the task into a <b>milestone</b> (task type) · change the <b>dates</b> (start, finish, manual dates, constraints) · move the task in the <b>tree</b> · change the <b>Deliverable</b> (Revenue lines) · <b>remove himself</b> (or change his own person / RACI item) on the Time tab</td></tr>
-</table></div>
-<p>The locks are stored in <code>permissionLockedFields</code> / <code>permissionLockedActions</code> of the CRUD row (7.2), so the Project Manager (who has no locks) and the Administrator can lift them. A column is writable if <i>any</i> profile the user holds allows it (profiles add up). Enforcement: a BEFORE UPDATE trigger on <code>project_task_table</code> / <code>task_line_table</code> compares OLD and NEW of the locked keys. The schedule calculation (<code>pm_apply_schedule</code>), the leveling and the subproject follow-up shift dates as SECURITY DEFINER – they must pass the trigger through a transaction-local switch (like <code>app.task_bulk</code>), not be blocked.</p>
+<p><b>permissionTaskResponsible</b> (derived from RACI = Responsible – Q4): the progress %, the time sheet input, the fact input of <b>his</b> task; R on everything else; no plan update.</p>
+<ul>
+  <li><code>project_task_table</code>: RU, only the progress column writable (all other keys locked by the trigger); the Kanban move that sets the progress (<code>project_task_kanban_state_table</code>: RU).</li>
+  <li>Fact input and time sheet of the task: CRUD (a time sheet only for the work center of his own person, the rule that already exists).</li>
+  <li>Task lines: R. He cannot delete himself from the Responsible line or change its person / RACI item.</li>
+</ul>
+<p><b>permissionTaskManager</b>: described by you <b>later</b>. The draft of version 1 (RU on one task with locked name, dependencies, milestone type, dates, tree position, Deliverable and “not himself”) is <b>not built</b>; it stays here only as a starting text.</p>
+<p>The locks are stored in <code>permissionLockedFields</code> / <code>permissionLockedActions</code> of the CRUD row (7.2). A column is writable if <i>any</i> profile the user holds allows it (profiles add up). Enforcement: a BEFORE UPDATE trigger on <code>project_task_table</code> / <code>task_line_table</code> compares OLD and NEW of the locked keys. The schedule calculation (<code>pm_apply_schedule</code>), the leveling and the subproject follow-up shift dates as SECURITY DEFINER – they must pass the trigger through a transaction-local switch (like <code>app.task_bulk</code>), not be blocked.</p>
 
 <h3>7.6 Effective permission – the one function</h3>
 <pre style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 16px;overflow-x:auto">perm_can(table, operation 'C'|'R'|'U'|'D', project, task default null) → boolean
 
 1. no signed-in user                       → false
-2. table is not in the matrix at all       → true            (your rule: not described = full CRUD)
+2. table is not in the matrix at all       → true only for the administrator; others: R only   (Q16: generics = admin CRUD)
+   table marked "own"                      → the existing row-level rule decides
 3. profiles of the user = union of
      · permissionOrganizationAdmin   if administrator of the project's organization
      · rows of project_permission_profile_user_table for (project, user)
@@ -312,25 +343,44 @@
 (the locked fields/actions of 7.5 are checked by the triggers, not here)</pre>
 <p>The same function (STABLE, one query per statement, wrapped as <code>(SELECT perm_can(…))</code> so it is evaluated once, not per row – the pitfall of the planner in KNOW_HOW 7) is used by RLS, by the RPCs and, through <code>perm_my_matrix(project)</code> (one call per project open), by the interface.</p>
 
-<h2>8. Default CRUD – proposal for the first seed</h2>
-<p>This is the table that your sheet should hold (rows = tables, columns = profiles). Groups instead of ~125 rows; the exact table list per group is generated from section 3.1 when the seed is written. <b>This is my proposal</b>; nothing here came from the sheet.</p>
+<h2>8. The matrices</h2>
+<h3>8.1 CRUD per table – in your Google Sheet</h3>
+<div class="card">
+  <p>The full matrix is written into <a href="https://docs.google.com/spreadsheets/d/1erjTWI6-q497G5XeHqz-R8Sks4vafEiB5Q1sUdawCU8/edit">your sheet</a> (tab <b>Sheet1</b>): <b>135 rows</b> = the tables (127 existing + the 8 new ones marked <code>(NEW)</code> – the sheet row shows <code>(NEW)</code> after the name), <b>11 columns</b> = the profiles, a last column with the rule group. Cell values: <code>CRUD</code> (any combination of the letters), <code>R</code>, <code>N</code> none, <code>own</code> own rows only, <code>RU (progress only)</code>, <code>TBD</code> = <code>permissionTaskManager</code>, to be described by you. Edit the sheet; when it is final I read it again and write the seed (start4 / start5) from it, so the sheet stays the source.</p>
+  <p>How I filled it (summary; the reasons are in the “rule group” column):</p>
+</div>
 <div class="tbl"><table>
-<tr><th>Table group</th><th class="c">Org Admin</th><th class="c">Project Manager</th><th class="c">Read Only</th><th class="c">Sponsor / Curator / Investor</th><th class="c">Task Manager (his task)</th><th class="c">Task Responsible (his task)</th><th class="c">Project Member</th></tr>
-<tr><td>Users, members, persons, permission tables</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td>Catalogs (partners, products, roles, budget items, units, calendars …)</td><td class="c">CRUD</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td><code>project_table</code>, project settings, versions, templates</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td><code>project_task_table</code></td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">RU (locks)</td><td class="c">RU (progress only)</td><td class="c">R</td></tr>
-<tr><td><code>project_task_dependencies_table</code> + closure</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td><code>task_line_table</code> (the plan lines)</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">RU (locks)</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td>Fact input, time sheet (documents of the task)</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">CRUD</td><td class="c">CRUD</td><td class="c">R</td></tr>
-<tr><td>Purchase order · receipt · vendor / customer invoice · payment fact · payment plan</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
-<tr><td>Registers, totals, reports (written by posting / workers)</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><th>Table group</th><th class="c">Admin</th><th class="c">Project Manager</th><th class="c">Read Only · Sponsor · Curator · Investor · Member</th><th class="c">Task Responsible</th><th class="c">Fin. Plan</th><th class="c">Fin. Fact</th></tr>
+<tr><td>Generics and catalogs (partners, products, roles, persons, budget items, units, calendars, currencies, …; ~50 + 7 legacy)</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td>Users, members, invitations, permission tables, organization texts</td><td class="c">CRUD</td><td class="c">R (members); project assignment CRUD</td><td class="c">R / N</td><td class="c">R / N</td><td class="c">R / N</td><td class="c">R / N</td></tr>
+<tr><td>Personal tables (settings, calendar, theme, media, route visits, report Views)</td><td class="c" colspan="6">own rows only – the existing row-level rule, for everybody</td></tr>
+<tr><td><code>project_table</code>, settings, templates, versions, leveling history</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td><code>project_task_table</code></td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">RU progress only</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td>dependencies, closure, Kanban state, subproject link</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R (Kanban state RU)</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td><code>task_line_table</code>, <code>task_payment_plan_lines</code> (the money plans)</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c"><b>CRUD</b></td><td class="c">R</td></tr>
+<tr><td>Fact input, time sheet</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c"><b>CRUD</b></td></tr>
+<tr><td>Purchase order, product receipt, vendor invoice, customer invoice, payment fact</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c"><b>CRUD</b></td></tr>
+<tr><td>Registers, totals, report rows, plan movements</td><td class="c" colspan="6">R for everybody; no client ever writes them (posting and workers only) – a letter in the matrix cannot open them</td></tr>
 </table></div>
 <ul>
-  <li>The registers are never written by a client under any profile: their <code>C/U/D</code> are not in the matrix, they stay closed by the existing “written only by triggers / RPCs” rule. A matrix letter cannot open them.</li>
   <li>The time sheet today has its own switches per Person (<code>timesheetAllWorkCenterInputAvailable</code> …); they stay – a switch can only narrow what the profile gives.</li>
-  <li>“Show me the matrix as a screen”: a <code>ReusableTable</code> in local rows mode (already built for Monitor01 Settings) with the profiles as columns – the editor of phase 5.</li>
+  <li>The matrix editor screen (phase F3) is a <code>ReusableTable</code> in local rows mode with the profiles as columns.</li>
 </ul>
+
+<h3>8.2 Interface permissions (the UXUI objects)</h3>
+<p>The same letters, narrower or equal to the CRUD matrix (7.3). <span class="tag">proposal</span> – not in the sheet.</p>
+<div class="tbl"><table>
+<tr><th>Object</th><th class="c">Admin</th><th class="c">Project Manager</th><th class="c">Read Only · Sponsor · Curator · Investor · Member</th><th class="c">Task Responsible</th><th class="c">Fin. Plan</th><th class="c">Fin. Fact</th></tr>
+<tr><td><code>permissionTaskTimeTab</code> · <code>permissionTaskMaterialTab</code> · <code>permissionTaskExpenceTab</code> · <code>permissionTaskDeliverableTab</code> · <code>permissionTaskOutboundPaymentTab</code> · <code>permissionTaskInboundPaymentTab</code> · <code>permissionTaskPaymentPlan</code></td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td></tr>
+<tr><td><code>permissionPurchaseOrder</code> · <code>permissionProductReceipt</code> · <code>permissionVendorInvoice</code> · <code>permissionCustomerInvoice</code> · <code>permissionPaymentFact</code> · <code>permissionCustomerOrder</code>* · <code>permissionPackingSlip</code>*</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">CRUD</td></tr>
+<tr><td><code>permissionFactInput</code> · <code>permissionTimesheet</code></td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">CRUD</td><td class="c">R</td><td class="c">CRUD</td></tr>
+<tr><td><code>permissionProgressPercent</code></td><td class="c">R</td><td class="c">RU</td><td class="c">R</td><td class="c">RU</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td><code>permissionReportMonitor01</code> … <code>07</code></td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td><td class="c">R</td></tr>
+<tr><td><code>permissionOrganizationMembers</code> (members screen)</td><td class="c">CRUD</td><td class="c">R</td><td class="c">N</td><td class="c">N</td><td class="c">N</td><td class="c">N</td></tr>
+<tr><td><code>permissionProjectMembers</code> (profile assignment in project settings)</td><td class="c">CRUD</td><td class="c">CRUD</td><td class="c">N</td><td class="c">N</td><td class="c">N</td><td class="c">N</td></tr>
+<tr><td><code>permissionMatrixEditor</code> · <code>permissionEditTexts</code></td><td class="c">CRUD</td><td class="c">N</td><td class="c">N</td><td class="c">N</td><td class="c">N</td><td class="c">N</td></tr>
+</table></div>
+<p>* reserved names: the documents do not exist in the app yet. <code>permissionTaskManager</code> is TBD in every row. Spelling <code>Expence</code> as you asked (Q19).</p>
 
 <h2>9. Enforcement</h2>
 <h3>9.1 Database (the law)</h3>
@@ -338,6 +388,7 @@
   <li><b>Project access function</b> <code>pm_can_access_project(project, op)</code> replaces the owner test in the read policies: owner OR member (profile row) OR administrator of the project’s organization (read). The 99 places that call <code>pm_owns_project</code> are split: <i>ownership</i> uses stay (changing the owner, deleting the project); <i>access</i> uses are replaced. Each is listed in the work package so none is forgotten.</li>
   <li><b>RESTRICTIVE policies</b> (<code>CREATE POLICY … AS RESTRICTIVE</code>) per table that the matrix describes: they are AND-ed with the existing policies, so the existing rules stay as the floor and the matrix only narrows or – for the project/task tables, where the floor is replaced in step 1 – applies on top. Added in <code>start2</code> in the PART of the table; no existing policy is rewritten twice.</li>
   <li><b>RPCs</b> (<code>SECURITY DEFINER</code>, they ignore RLS): every document RPC (<code>post_*</code>, <code>unpost_*</code>, <code>create_*</code>, <code>delete_*</code>, set header / line) begins with <code>perm_require(table, op, project)</code>. The list of RPCs is generated by a query on <code>pg_proc</code> and checked by a test, so a new RPC without the call fails the test.</li>
+  <li><b>Generic tables and catalogs</b> (~57 tables): today open to every signed-in user; their policies are rewritten to “everybody reads, only the administrator writes” (Q16), except the tables marked <code>own</code>. This is a change of existing behaviour (R8).</li>
   <li>Field/action locks and the “not himself” rule: triggers (7.5).</li>
   <li><b>Realtime</b>: the PM tables are on the realtime publication; Supabase applies the SELECT policy to each change, so the broader read rule also widens who receives events – desired, but the policy must be cheap (R4).</li>
 </ol>
@@ -349,7 +400,8 @@
   <li>A “My permissions” window (profile list + the matrix rows that apply) for support: invaluable when a user says “I cannot press Post”.</li>
 </ul>
 
-<h2>10. Task versions: <code>task_line_history</code> (“??? TESTIT” in your doc)</h2>
+<h2>10. Task versions: <code>task_line_history</code> <span class="tag">parked</span></h2>
+<div class="callout warn"><p><b>Parked by the owner</b> (paragraph 10 “do nothing”, Q17 “do nothing about versions”): not designed further and not built in this round. The text below is the version-1 proposal, kept unchanged so that it is not lost; its open question Q17 is withdrawn.</p></div>
 <ul>
   <li><b>Project settings → Task tab</b>: <code>taskVersionsFunctionalityEnabled</code> (master, OFF by default like every new master switch) and <code>taskVersionsAutoSave</code> (<b>true</b> by default). Also in the Organization defaults (<code>defaultProjectSettings</code>).</li>
   <li>A version = one row of <code>task_line_history</code>: <code>rowOwnerGUID</code> = task, <code>rowParentGUID</code> = project, <code>rowJSON</code> { <code>versionNo</code>, <code>savedAt</code>, <code>savedBy</code>, <code>reason</code> (autosave / manual / before post / before restore), <code>task</code> (the task row), <code>lines</code> (all its <code>task_line_table</code> rows) }.</li>
@@ -364,84 +416,100 @@
 <div class="tbl"><table>
 <tr><th style="width:44px">#</th><th>Risk</th><th>Answer</th></tr>
 <tr><td class="id">R1</td><td>The project stops being owner-only. A mistake in a policy shows a project to the wrong person – or hides it from its owner.</td><td>Docker tests with <b>three users in two organizations</b> for every PM table (read, insert, update, delete, each profile); the existing owner tests must stay green unchanged. Release in two steps: first the functions and tables with the old policies still in force, then the policy switch.</td></tr>
-<tr><td class="id">R2</td><td>“Table not described = full CRUD” leaves a forgotten new table open.</td><td>A test lists every public table that is neither in the matrix nor on an explicit “open on purpose” list; the matrix editor marks these rows.</td></tr>
+<tr><td class="id">R2</td><td>A table that is in no row of the matrix is “generic” (administrator writes, others read): a forgotten new table is safe but may be too closed – or too open if it was meant to be personal.</td><td>A test lists every public table that is neither in the matrix nor on an explicit “open on purpose” list; the matrix editor marks these rows.</td></tr>
 <tr><td class="id">R3</td><td>A person is “independent from organizations” but his contract rate, calendar and variants are private to an organization. <code>personTable</code> and <code>contractTable</code> have open read for any signed-in user today.</td><td>Not changed by this plan. Recommended: the identity (name, e-mail) is global; contracts, calendars and rates stay readable only inside the organization of the project that uses them. This is a separate piece of work and needs your decision before a second organization holds the same person.</td></tr>
 <tr><td class="id">R4</td><td>Speed: a policy that runs a function per row slows the list of 10 000 tasks; Realtime evaluates it per event.</td><td>One STABLE function per statement; initPlan wrapper; <code>bench_permissions.sh</code> (list of 10 000 tasks, a Post of 200 lines): the new policies must stay within +20 % of today.</td></tr>
 <tr><td class="id">R5</td><td>Derived permissions come from the lines they protect. A TaskManager who edits the Time lines could give permissions to others.</td><td><code>person</code>, <code>raciItem</code> and the line’s own delete are locked for the task profiles; only the Project Manager changes who is on a task.</td></tr>
 <tr><td class="id">R6</td><td>The schedule engine, leveling, subproject sync and templates write rows as definers; a lock trigger could block them.</td><td>A transaction-local bypass switch set by those functions only; a test per function.</td></tr>
 <tr><td class="id">R7</td><td>Existing databases: every user is the owner of his projects and has no member row.</td><td>A one-time backfill in <code>start2</code>: a member row for every user in the organization of <code>userTable.rowJSON.userOrganization</code>, administrator = the creator of the organization; owners keep full access by ownership (the Manager profile is implicit for the owner).</td></tr>
+<tr><td class="id">R8</td><td><b>Only the administrator writes catalogs and generics</b> (Q16). Today every signed-in user has full CRUD on them, and the app writes some of them in daily work: creating a partner, product, person or business unit on the fly from a task line or a document, the “Create person” of a user’s own profile, the first-login seeds.</td><td>A list of every screen and RPC that writes a catalog as an ordinary user is made from the code before the policy switch (grep of the sagas / <code>createOne</code> by table). Each is then either kept (an explicit exception row, e.g. a user creates <i>his own</i> person) or moved to the administrator. Decision Q21.</td></tr>
+<tr><td class="id">R9</td><td>The invitation e-mail cannot be tested here and depends on your Supabase mail settings (custom SMTP, redirect URLs, the deployed function).</td><td>Logic tested with a mocked client; real delivery checked by you with the steps of UPDATE STEP-BY-STEP; a failed send is kept visible (<code>inviteError</code>) with a “Send again” button.</td></tr>
+<tr><td class="id">R10</td><td>“The administrator does not take part in projects” meets existing data: today the first user of an organization is both its creator and the owner of all its projects.</td><td>Ownership wins: an owner is the implicit Project Manager of his projects (7.1). The administrator flag only adds R on projects he neither owns nor is assigned to.</td></tr>
 </table></div>
 
-<h2>12. Application texts <span class="tag">proposal</span> (“edit application texts: titles, headers, menu items – for all projects of the organization”)</h2>
+<h2>12. Application texts <span class="tag">proposal</span></h2>
 <ul>
-  <li>Read as: an administrator of an organization can replace the <b>text</b> of a title / header / menu item for the whole organization (all its projects), per language. Not part of permissions, only governed by them (<code>permissionEditTexts</code>, administrator only).</li>
-  <li>Table <code>organization_text_table</code>: <code>rowOwnerGUID</code> = organization, <code>rowParentGUID</code> = language code, <code>rowJSON</code> { <code>textKey</code> (the English text of <code>pmT</code> / the i18n key), <code>text</code> }. Unique on (organization, language, key). A text override layer in <code>pmT</code> and <code>kit8/i18n</code> reads it after the language file; a missing row = the delivered text.</li>
-  <li>Screen: a <code>ReusableTable</code> with the key, the delivered text and the organization’s text; “Reset to delivered”. Reload needed after saving (no live switching in phase 1).</li>
-  <li>I need to know <b>which texts</b> (all <code>pmT</code> strings, the Drawer titles, column headers?) – Q18. It is a separate round.</li>
+  <li>An administrator can replace, for the whole organization (all its projects) and per language, three kinds of text (Q18): <b>menu titles</b> (Drawer, tabs, bottom tabs, context menu items), <b>column headers</b> (<code>ReusableTable</code> and report tables), <b>titles</b> (screen, window, section titles). Governed by <code>permissionEditTexts</code> (administrator only).</li>
+  <li>Table <code>organizationTextTable</code>: <code>rowOwnerGUID</code> = organization, <code>rowParentGUID</code> = language code, <code>rowJSON</code> { <code>textKind</code> (menu | column | title), <code>textKey</code> (the key the code already uses: the i18n key, the <code>pmT</code> English text, or <code>&lt;table&gt;.&lt;field&gt;</code> for a column), <code>text</code> }. Unique on (organization, language, kind, key).</li>
+  <li>An override layer in the three places where texts enter the screen (<code>kit8/i18n</code>, <code>pmT</code>, the column title of <code>ReusableTable</code>): the organization’s text, else the delivered text. A missing row = delivered. The list of entry points is audited (grep) before building.</li>
+  <li>Screen: a <code>ReusableTable</code> with kind, key, delivered text, organization text; “Reset to delivered”. The change is visible after reload (no live switching in phase 1).</li>
+  <li>A separate round after the permissions.</li>
 </ul>
 
-<h2>13. Open questions (each with the answer I will take if you do not answer)</h2>
+<h2>13. Questions</h2>
+<h3>13.1 Your answers (second document) and what I did with each</h3>
+<div class="tbl"><table>
+<tr><th style="width:44px">#</th><th>Your answer</th><th>Effect</th></tr>
+<tr><td class="id">Q1</td><td>do nothing</td><td>Names kept as they are; the new tables use the names you wrote (section 4).</td></tr>
+<tr><td class="id">Q2</td><td>RACI is based on <code>managementRACIGenus</code> for later reports</td><td>Catalog <code>managementRACIGenusTable</code>, 4 rows, read only, no menu (section 5).</td></tr>
+<tr><td class="id">Q3</td><td>warn</td><td>One Accountable per task: a warning only.</td></tr>
+<tr><td class="id">Q4</td><td>Responsible → <code>permissionTaskResponsible</code> (limited); Accountable, Consulted, Informed → read; <code>permissionTaskManager</code> described further</td><td>7.4, 7.5; TaskManager is TBD in the sheet.</td></tr>
+<tr><td class="id">Q5</td><td>read permission for all</td><td>Sponsor, Curator, Investor = R on all.</td></tr>
+<tr><td class="id">Q6</td><td>yes</td><td>Letters: <code>CRUD, R, RC, RU, RD, RUD</code> and <code>N</code> (no access).</td></tr>
+<tr><td class="id">Q7</td><td>yes</td><td>Organization override rows allowed in the table design; editor screen last (F3).</td></tr>
+<tr><td class="id">Q8</td><td>yes</td><td>One assignment table <code>project_permission_profile_user_table</code>, own <code>rowGUID</code>, several profiles per user = union.</td></tr>
+<tr><td class="id">Q9</td><td>yes</td><td>The administrator reads all projects of the organization. A member who owns open projects cannot be removed.</td></tr>
+<tr><td class="id">Q10</td><td>yes</td><td>Open task = progress below 100 % and the project not closed (to be matched to the real status fields before building).</td></tr>
+<tr><td class="id">Q11</td><td>yes</td><td><code>rowOwnerGUID</code> = organization, <code>rowParentGUID</code> = user.</td></tr>
+<tr><td class="id">Q12</td><td>yes, and the organizations are a filter in the Project dashboard</td><td>Active organization + <code>organization_switch</code>; the filter is that switch (6.3).</td></tr>
+<tr><td class="id">Q13</td><td>yes</td><td>An administrator cannot delete or unmark himself while he is the last one; the organization always keeps one.</td></tr>
+<tr><td class="id">Q14</td><td>ok</td><td><code>autoCreatePerson</code> true by default, also for the creator of the organization.</td></tr>
+<tr><td class="id">Q15</td><td>Supabase functionality needed after the admin registers users in the table</td><td>Edge Function <code>organization-invite</code> is in the plan (6.5, B5).</td></tr>
+<tr><td class="id">Q16</td><td>only the admin has full CRUD for generics and catalogs</td><td>Section 7.1, 7.6, 8.1; risk R8; new question Q21.</td></tr>
+<tr><td class="id">Q17</td><td>do nothing about versions</td><td>Section 10 parked.</td></tr>
+<tr><td class="id">Q18</td><td>menu titles, column headers, titles</td><td>Section 12.</td></tr>
+<tr><td class="id">Q19</td><td>use Expence</td><td><code>permissionTaskExpenceTab</code> as written.</td></tr>
+<tr><td class="id">Q20</td><td>yes – fill</td><td>Filled: your sheet, tab Sheet1 (8.1).</td></tr>
+</table></div>
+<h3>13.2 New questions (each with the answer I take if you do not answer)</h3>
 <div class="tbl"><table>
 <tr><th style="width:44px">#</th><th>Question</th><th>If you say nothing</th></tr>
-<tr><td class="id">Q1</td><td>New tables follow the rule <code>_catalog / _table / _history</code> in snake_case; the old ones stay as they are?</td><td>Yes.</td></tr>
-<tr><td class="id">Q2</td><td>RACI as a code enum (no table, no <code>managementRACIGenus</code>)?</td><td>Yes (section 5).</td></tr>
-<tr><td class="id">Q3</td><td>Exactly one Accountable per task – warn or block?</td><td>Warn only.</td></tr>
-<tr><td class="id">Q4</td><td>Your doc has four names for the task rights. Is Responsible = limited (progress, time sheet, fact input) and Accountable = <code>permissionTaskManager</code> (RU with locks)? Or does a Responsible get <code>permissionTaskManager</code> (as you wrote “must be RACI.Responsible”) and the limited level is a flag?</td><td>Responsible → <code>permissionTaskResponsible</code> (limited); Accountable → <code>permissionTaskManager</code>; Consulted / Informed → read.</td></tr>
-<tr><td class="id">Q5</td><td>Rights of Sponsor, Curator, Investor (only R was written for two of them).</td><td>R on all three; Investor sees no per-person cost detail is <i>not</i> applied (R on all).</td></tr>
-<tr><td class="id">Q6</td><td>Letters: allow <code>N</code> (no access)? <code>RCU</code> / <code>RCD</code> are missing from your list – intended?</td><td>Add <code>N</code>; keep exactly your six others.</td></tr>
-<tr><td class="id">Q7</td><td>May an organization change the matrix (override rows), or are the delivered defaults fixed?</td><td>Overrides allowed in the table design; the editor screen comes last.</td></tr>
-<tr><td class="id">Q8</td><td>One assignment table (<code>project_permission_profile_user_table</code>) instead of three; a user may hold several profiles in a project (union).</td><td>Yes / yes.</td></tr>
-<tr><td class="id">Q9</td><td>The Organization Administrator reads all projects of the organization without being assigned. (Q9b: what happens to the projects of a removed member?)</td><td>Yes. Removal refused while he owns open projects.</td></tr>
-<tr><td class="id">Q10</td><td>What is an “opened” task for the derived permission?</td><td>Progress below 100 % and project not closed.</td></tr>
-<tr><td class="id">Q11</td><td>The member key: <code>rowOwnerGUID</code> = organization, <code>rowParentGUID</code> = user (the third “organization GUID” part of your key is the same thing).</td><td>Yes.</td></tr>
-<tr><td class="id">Q12</td><td>Many organizations through “the active organization” = <code>userOrganization</code> + <code>organization_switch</code>.</td><td>Yes.</td></tr>
-<tr><td class="id">Q13</td><td>Administrator cannot delete <b>or unmark</b> himself while he is the last; the organization always keeps one.</td><td>Yes.</td></tr>
-<tr><td class="id">Q14</td><td><code>autoCreatePerson</code> default true also for the user who creates the organization (today he always gets a person).</td><td>Yes.</td></tr>
-<tr><td class="id">Q15</td><td>Real invitation e-mails need an Edge Function you deploy by hand – now or later?</td><td>Later; phase 1 as today.</td></tr>
-<tr><td class="id">Q16</td><td>Keep “table not described = full CRUD” (with the test of R2)?</td><td>Yes.</td></tr>
-<tr><td class="id">Q17</td><td>When is a task version saved (every change / at Post and before a change of a posted task / manual only)?</td><td>At Post and before a change of a posted task; plus manual.</td></tr>
-<tr><td class="id">Q18</td><td>Which application texts may be edited (all <code>pmT</code> strings? menu titles? column headers?)</td><td>Separate round; I will ask again.</td></tr>
-<tr><td class="id">Q19</td><td>The word is spelled <code>Expence</code> in your list (<code>permissionTaskExpenceTab</code>) but <code>Expense</code> in the app’s switches (<code>projectExpenseCostsNeeded</code>).</td><td>Your spelling for the new names, as you wrote them; tell me if you want <code>Expense</code>.</td></tr>
-<tr><td class="id">Q20</td><td>The Google Sheet was empty – fill it, or accept section 8 as the first seed?</td><td>Section 8.</td></tr>
+<tr><td class="id">Q21</td><td>With “only the administrator writes catalogs”, may anybody else still create <i>some</i> catalog rows? Today the app does it in daily work (a partner, a product, a business unit from inside a task or a document; a person from one’s own profile).</td><td>Nobody except the administrator, with one exception already in your rules: a user creates <b>his own person</b>. I list the other screens that break before the policy switch (R8) and ask again.</td></tr>
+<tr><td class="id">Q22</td><td>Who may create a <b>new project</b>? (The administrator “does not take part in projects”, but today the first user is both.)</td><td>Every active member of the organization, the administrator too; the creator is the owner = implicit Project Manager (7.1).</td></tr>
+<tr><td class="id">Q23</td><td>Are these the right sets? <b>Money plans</b> = task lines and the payment plan lines. <b>Money fact documents</b> = fact input, time sheet, purchase order, product receipt, vendor invoice, customer invoice, payment fact (everything that Monitor01 counts in its Fact group).</td><td>Yes, as written. The Financial Manager Plan cannot change the person or the RACI item of a Time line.</td></tr>
+<tr><td class="id">Q24</td><td>The organization filter of the Project dashboard: one organization at a time (= the active one), no “All organizations” view.</td><td>One at a time.</td></tr>
+<tr><td class="id">Q25</td><td>When will you describe <code>permissionTaskManager</code>? Nothing is derived to it until then, and its sheet column stays TBD.</td><td>It stays a placeholder profile that only the Project Manager can assign by hand, with the rights of <code>permissionTaskResponsible</code> until you write it.</td></tr>
 </table></div>
 
 <h2>14. Work breakdown</h2>
-<p>Sizes: S = a few hours, M = about a day, L = several days. SQL parts follow the numbering rule (next free PART is 44; 43 is the saved report Views). Every package ends with its Docker/Jest tests and the README – the standing rule “tests and README in the same round”.</p>
+<p>Sizes: S = a few hours, M = about a day, L = several days. SQL PARTs follow the numbering rule (next free PART is 44; 43 is the saved report Views). Every package ends with its Docker/Jest tests and the README – the standing rule “tests and README in the same round”.</p>
 <div class="tbl"><table>
 <tr><th style="width:56px">ID</th><th>Package</th><th style="width:60px">Size</th></tr>
 <tr class="group"><td class="id">A</td><td>Decisions</td><td></td></tr>
-<tr><td class="id">A1</td><td>You answer section 13 (or accept the defaults); fill the sheet if you want a different matrix.</td><td>–</td></tr>
+<tr><td class="id">A1</td><td>You answer Q21–Q25 (or accept the defaults) and edit the sheet; I re-read it before the seed is written.</td><td>–</td></tr>
 <tr class="group"><td class="id">B</td><td>Foundation – members, administrators, invitations (PART 44)</td><td></td></tr>
-<tr><td class="id">B1</td><td><code>organization_member_table</code> (start1) + trigger rules: administrator flags, no self delete, one admin at least, unique keys</td><td>M</td></tr>
+<tr><td class="id">B1</td><td><code>organizationMemberTable</code> (start1) + trigger rules: administrator flags, no self delete, one admin at least, unique keys</td><td>M</td></tr>
 <tr><td class="id">B2</td><td>Backfill of members from users + organizations; migration of <code>organizationInvitationTable</code> rows; <code>organization_ensure_user / _invite_user / _revoke_invitation / _accept_invitation</code> rewritten on the member table; <code>organization_switch</code>; <code>autoCreatePerson</code> in <code>person_ensure_user</code></td><td>L</td></tr>
-<tr><td class="id">B3</td><td>Screen: members list (<code>ReusableTable</code>), Invite, administrator flag, “Create person” on the user card and on the profile; organization switch in the Drawer</td><td>L</td></tr>
+<tr><td class="id">B3</td><td>Screen: members list (<code>ReusableTable</code>), administrator flag, “Create person” on the user card and on the profile</td><td>L</td></tr>
 <tr><td class="id">B4</td><td>Drop in <code>delete_sql_structure.sql</code>; tests <code>tests/12</code> updated, new <code>tests/100_organization_member.sql</code></td><td>S</td></tr>
-<tr class="group"><td class="id">C</td><td>RACI (PART 45, with the profiles)</td><td></td></tr>
-<tr><td class="id">C1</td><td><code>raci.ts</code> enum + <code>kit8_raci_items()</code> + CHECK + default trigger + backfill (user triggers off)</td><td>S</td></tr>
-<tr><td class="id">C2</td><td>“RACI” column on the Time tab (default Responsible on a new row), templates / versions / import-export / copy carry it, 14 languages</td><td>M</td></tr>
+<tr><td class="id">B5</td><td>Edge Function <code>organization-invite</code> (<code>supabase/functions/…</code>), call after the row is saved + “Send again”, <code>inviteSentAt / inviteError</code>; Jest/Deno test with a mocked client; the deploy / secret / SMTP steps for you</td><td>M</td></tr>
+<tr><td class="id">B6</td><td>Organization filter in the Project dashboard (shown with 2+ organizations) = <code>organization_switch</code></td><td>S</td></tr>
+<tr class="group"><td class="id">C</td><td>RACI (PART 45)</td><td></td></tr>
+<tr><td class="id">C1</td><td><code>managementRACIGenusTable</code>: start1 / start2 (setup, read only guard) / start4 + start5 (4 rows) / delete file; <code>SystemMetaData</code> entry + data hook; <b>no menu item</b>. Trigger on <code>task_line_table</code>: <code>raciItem</code> must be a row of the table, a missing one on a Time line = <code>raciResponsibleGUID</code>; backfill (user triggers off)</td><td>M</td></tr>
+<tr><td class="id">C2</td><td>“RACI” column on the Time tab (options from the table, default Responsible on a new row), templates / versions / import-export / copy carry it, 14 languages; warning for 2+ Accountable</td><td>M</td></tr>
 <tr class="group"><td class="id">D</td><td>Profiles and matrices (PART 45)</td><td></td></tr>
-<tr><td class="id">D1</td><td>The five tables (start1), seeds of the profiles, the CRUD and UX/UI matrices (start4 + start5)</td><td>M</td></tr>
-<tr><td class="id">D2</td><td><code>perm_can</code>, <code>perm_require</code>, <code>perm_my_matrix</code>, <code>pm_can_access_project</code>; the derivation trigger of <code>task_user_permission_table</code> + <code>rebuild</code> / <code>verify</code> (honours <code>app.task_bulk</code>)</td><td>L</td></tr>
+<tr><td class="id">D1</td><td>The five tables (start1), seeds of the 11 profiles, the CRUD and UX/UI matrices (start4 + start5) <b>generated from your sheet</b></td><td>M</td></tr>
+<tr><td class="id">D2</td><td><code>perm_can</code>, <code>perm_require</code>, <code>perm_my_matrix</code>, <code>pm_can_access_project</code>; the derivation trigger of <code>task_user_permission_table</code> (Responsible → <code>permissionTaskResponsible</code>, others → <code>permissionProjectMember</code>) + <code>rebuild</code> / <code>verify</code> (honours <code>app.task_bulk</code>)</td><td>L</td></tr>
 <tr><td class="id">D3</td><td>Assignment screen: project settings → Members (profile per user), administrator and project manager</td><td>M</td></tr>
 <tr class="group"><td class="id">E</td><td>Enforcement (PART 46) – the risky one</td><td></td></tr>
 <tr><td class="id">E1</td><td>Step 1: functions installed, old policies still in force. Docker test with 3 users / 2 organizations / every profile</td><td>M</td></tr>
-<tr><td class="id">E2</td><td>Step 2: the access policies of the project, task, line, dependency, document tables; RESTRICTIVE policies of the catalogs; the 99 uses of <code>pm_owns_project</code> classified one by one</td><td>L</td></tr>
+<tr><td class="id">E2</td><td>Step 2: the access policies of the project, task, line, dependency, document tables; <b>the policies of the generic tables and catalogs rewritten to “admin writes, others read”</b> (~57 tables); the 99 uses of <code>pm_owns_project</code> classified one by one</td><td>L</td></tr>
 <tr><td class="id">E3</td><td><code>perm_require</code> in every document RPC + the <code>pg_proc</code> coverage test</td><td>M</td></tr>
-<tr><td class="id">E4</td><td>Lock triggers (task name, dates, type, tree, dependencies, Deliverable, “not himself”); bypass switch in the schedule engine / leveling / subprojects / templates</td><td>L</td></tr>
+<tr><td class="id">E4</td><td>Lock triggers for <code>permissionTaskResponsible</code> (progress only, “not himself”) and the Financial Manager Plan (no person / RACI change); bypass switch in the schedule engine / leveling / subprojects / templates</td><td>M</td></tr>
 <tr><td class="id">E5</td><td><code>bench_permissions.sh</code>; race test of a Post while a permission changes</td><td>S</td></tr>
+<tr><td class="id">E6</td><td>Audit of every screen / RPC that writes a catalog as an ordinary user (R8, Q21); exception rows or moves</td><td>M</td></tr>
 <tr class="group"><td class="id">F</td><td>Interface</td><td></td></tr>
 <tr><td class="id">F1</td><td><code>usePermissions</code> hook + helpers; Finances tabs, task menu, document forms and lists, Post / Delete buttons, <code>ReusableTable</code> flags</td><td>L</td></tr>
 <tr><td class="id">F2</td><td>Refusal text in <code>ErrorModalWindow</code>; “My permissions” window</td><td>S</td></tr>
 <tr><td class="id">F3</td><td>Matrix editor (local rows mode), organization overrides</td><td>M</td></tr>
-<tr class="group"><td class="id">G</td><td>Task versions (PART 47)</td><td></td></tr>
-<tr><td class="id">G1</td><td><code>task_line_history</code>, snapshot / prune / restore RPCs, settings (tab Task, Organization defaults), <code>taskVersionsMax</code></td><td>M</td></tr>
-<tr><td class="id">G2</td><td>Task menu “Versions…” window, restore, 14 languages; the <code>EXPO_PUBLIC_MAX_TASK_VERSIONS</code> line for <code>.env</code></td><td>M</td></tr>
+<tr class="group"><td class="id">G</td><td>Task versions</td><td></td></tr>
+<tr><td class="id">G1</td><td><span class="tag">parked</span> – section 10, nothing to do in this round</td><td>–</td></tr>
 <tr class="group"><td class="id">H</td><td>Application texts (separate round)</td><td></td></tr>
-<tr><td class="id">H1</td><td><code>organization_text_table</code>, override layer in <code>pmT</code> / i18n, editor screen</td><td>L</td></tr>
+<tr><td class="id">H1</td><td>Audit of the entry points of menu titles, column headers, titles; <code>organizationTextTable</code>, override layer, editor screen</td><td>L</td></tr>
 <tr class="group"><td class="id">I</td><td>Closing</td><td></td></tr>
 <tr><td class="id">I1</td><td>KNOW_HOW.md feature line + section 2, READMEs, memory; full Jest baseline compare; <code>test_sql.sh</code> twice-install check</td><td>S</td></tr>
 </table></div>
-<p>Suggested order: A → B → C → D → E1 → F1 (read side) → E2–E5 → F2/F3 → G → H. Nothing before E2 changes who can see what.</p>
+<p>Suggested order: A → B (B5 last) → C → D → E1 → F1 (read side) → E2–E6 → F2/F3 → H. Nothing before E2 changes who can see what.</p>
 
 </main>
 </body>

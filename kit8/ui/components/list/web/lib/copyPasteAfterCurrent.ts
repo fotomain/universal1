@@ -24,13 +24,12 @@ export function copyPasteAfterCurrent(params: CopyPasteAfterCurrentParams) {
   let computedOrder = Date.now();
 
   const oldJson = targetCard.rawItem?.rowJSON || targetCard.rawItem || {};
-  const oldTitle = targetCard.title || oldJson.mediaPostTitle || oldJson.raciFirstName || 'Untitled Card';
+  const oldTitle = targetCard.title || oldJson.mediaPostTitle || 'Untitled Card';
   const newTitle = `Copy ${oldTitle}`;
 
   const newMediaPostJSON = {
     ...oldJson,
     mediaPostTitle: newTitle,
-    ...(oldJson.raciFirstName ? { raciFirstName: `Copy ${oldJson.raciFirstName}` } : {}),
   };
 
   const newCard: CardItem = {

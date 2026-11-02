@@ -6,11 +6,10 @@ import React, { useEffect } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { usePathname, useRouter } from 'expo-router';
-import { useDispatch, useSelector } from 'react-redux';
+import { useDispatch } from 'react-redux';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { setBottomTabsAreVisible } from '../../../redux/uxuiSlice';
-import type { ActiveUserState } from '../../../redux/activeUserSlice';
 import { BOTTOM_TABS_CONTENT_HEIGHT, BOTTOM_TABS_PADDING, useBottomInset } from '../navigation/bottomTabsLayout';
 import { appBottomTabsLook, isTabActive, tabHref, withAlpha } from './appBottomTabsModel';
 import type { TabItem } from './appBottomTabsModel';
@@ -32,7 +31,6 @@ export default function ApplicationBottomTabsApp({ tabsArray, testID = 'app-bott
   const { t } = useTranslation();
   const { activeSystem, themeColors: c } = useDesignSystem();
   const bottomInset = useBottomInset();
-  const activeUserState = useSelector((state: any) => state?.activeUserState as ActiveUserState | undefined);
   const look = appBottomTabsLook(activeSystem);
 
   // the floating button reads this flag: it stands above the bar while the bar is on the screen
@@ -45,8 +43,6 @@ export default function ApplicationBottomTabsApp({ tabsArray, testID = 'app-bott
 
   const defaultTabs: TabItem[] = [
     { tabIcon: 'link-variant', tabTitle: t('tabs.media'), tabRoute: 'posts/mediapostcrud' },
-    { tabIcon: 'account-child-outline', tabTitle: t('tabs.raci'), tabRoute: 'raci/racimember' },
-    { tabIcon: 'format-list-checks', tabTitle: t('tabs.my'), tabRoute: 'raci/racidashboard', params: { raciGUID: activeUserState?.activeUserGUID || '' } },
     { tabIcon: 'history', tabTitle: t('tabs.history'), tabRoute: 'historyofactivity' },
   ];
   const tabs = tabsArray && tabsArray.length > 0 ? tabsArray : defaultTabs;
@@ -78,7 +74,7 @@ export default function ApplicationBottomTabsApp({ tabsArray, testID = 'app-bott
               accessibilityLabel={tab.tabTitle}
               style={styles.tab}
               activeOpacity={0.7}
-              onPress={() => router.push(tabHref(tab, tab.tabRoute.includes('racidashboard') ? { raciGUID: activeUserState?.activeUserGUID || '' } : undefined) as any)}
+              onPress={() => router.push(tabHref(tab) as any)}
             >
               {look.indicator === 'topLine' ? <View style={[styles.topLine, { backgroundColor: active ? c.primary : 'transparent' }]} /> : null}
               <View style={[styles.iconBox, look.indicator === 'pill' && active ? { backgroundColor: withAlpha(c.primary, 0.18) } : null]}>

@@ -18,13 +18,6 @@ export default function HomeAppOnTrend() {
       <H1App>{t('body.welcomeAppOnTrend') || 'Welcome to App OnTrend'}</H1App>
       <ArticleTextApp>{t('body.homeAppOnTrendDesc') || 'This is the home page for the OnTrend app variant.'}</ArticleTextApp>
 
-      <ButtonPrimaryApp
-        style={styles.menuButton}
-        onPress={() => router.push('/catalog/raci/racimember' as any)}
-      >
-        Users (RACI)
-      </ButtonPrimaryApp>
-
       <ButtonApp
         icon="list"
         variant="contained"

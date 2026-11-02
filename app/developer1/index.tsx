@@ -68,7 +68,6 @@ export default function HomeScreen() {
         <Text variant="titleMedium" style={{ fontWeight: 'bold', marginTop: 16, marginBottom: 8, color: theme.colors.primary }}>
           Application Screens
         </Text>
-        <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/catalog/raci/racimember' as any)}>Users (RACI)</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/sqlite/demo/native')}>{t('menu.sqliteDemo')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/user/userprofile')}>{t('menu.userProfile')}</ButtonPrimaryApp>
         <ButtonPrimaryApp style={styles.menuButton} onPress={() => router.push('/about')}>{t('menu.about')}</ButtonPrimaryApp>

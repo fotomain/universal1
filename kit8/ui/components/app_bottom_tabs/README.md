@@ -3,7 +3,7 @@
 The bottom tab bar of the app. It works through **expo-router** (`router.push`, the active tab is read from `usePathname`) and takes its colors and shapes from the active **design system** (`WithDesignSystem`, like `FABApp`).
 
 ```tsx
-<ApplicationBottomTabsApp tabsNavigatorName="tabsHome" />                   // the default tabs: Media · RACI · My · History
+<ApplicationBottomTabsApp tabsNavigatorName="tabsHome" />                   // the default tabs: Media · History
 <ApplicationBottomTabsApp tabsArray={[{ tabIcon: 'home', tabTitle: 'Home', tabRoute: 'home' }]} />
 ```
 

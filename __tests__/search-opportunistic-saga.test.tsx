@@ -47,8 +47,8 @@ describe('SearchTextApp & Field Filter Integration', () => {
         const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
         const title = String(card.title || rawJson.mediaPostTitle || '').toLowerCase();
         const description = String(card.description || rawJson.mediaPostDescription || '').toLowerCase();
-        const firstName = String(rawJson.firstName || rawJson.mediaPostFirstName || rawJson.raciFirstName || '').toLowerCase();
-        const lastName = String(rawJson.lastName || rawJson.mediaPostLastName || rawJson.raciLastName || '').toLowerCase();
+        const firstName = String(rawJson.firstName || rawJson.mediaPostFirstName || '').toLowerCase();
+        const lastName = String(rawJson.lastName || rawJson.mediaPostLastName || '').toLowerCase();
         const fullName = `${firstName} ${lastName}`.trim();
         const mediaPostOrigin = String(rawJson.mediaPostOrigin || rawJson.originUrl || '').toLowerCase();
 
@@ -72,36 +72,5 @@ describe('SearchTextApp & Field Filter Integration', () => {
 
     expect(filterFn(mockPosts, 'github').length).toBe(1);
     expect(filterFn(mockPosts, 'github')[0].id).toBe('3');
-  });
-
-  it('filters raci entity list by firstName, lastName, and email', () => {
-    const mockRaciMembers = [
-      { id: '1', rawItem: { rowJSON: { raciFirstName: 'John', raciLastName: 'Doe', raciEmail: 'john.doe@example.com' } } },
-      { id: '2', rawItem: { rowJSON: { raciFirstName: 'Jane', raciLastName: 'Smith', raciEmail: 'jane.smith@domain.org' } } },
-    ];
-
-    const filterRaciFn = (items: typeof mockRaciMembers, searchText: string) => {
-      if (!searchText || searchText.trim() === '') return items;
-      const lower = searchText.toLowerCase().trim();
-      return items.filter((card) => {
-        const rawJson = card.rawItem?.rowJSON || card.rawItem || {};
-        const firstName = String(rawJson.raciFirstName || rawJson.firstName || '').toLowerCase();
-        const lastName = String(rawJson.raciLastName || rawJson.lastName || '').toLowerCase();
-        const fullName = `${firstName} ${lastName}`.trim();
-        const email = String(rawJson.raciEmail || rawJson.email || '').toLowerCase();
-
-        return (
-          (firstName.length > 0 && firstName.includes(lower)) ||
-          (lastName.length > 0 && lastName.includes(lower)) ||
-          (fullName.length > 0 && fullName.includes(lower)) ||
-          (email.length > 0 && email.includes(lower))
-        );
-      });
-    };
-
-    expect(filterRaciFn(mockRaciMembers, 'john').length).toBe(1);
-    expect(filterRaciFn(mockRaciMembers, 'smith').length).toBe(1);
-    expect(filterRaciFn(mockRaciMembers, 'domain.org').length).toBe(1);
-    expect(filterRaciFn(mockRaciMembers, 'nonexistent').length).toBe(0);
   });
 });

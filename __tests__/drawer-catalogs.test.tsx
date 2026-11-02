@@ -103,9 +103,8 @@ it('the order of the menu: Catalogs, Documents, Project Dashboard, Reports, Budg
   expect(at.every((i) => i >= 0)).toBe(true);
   expect(at).toEqual([at[0], at[0] + 1, at[0] + 2, at[0] + 3, at[0] + 4]);
   expect(ids.indexOf('drawer-item-play')).toBeLessThan(at[0]);
-  // Products and Users (RACI) are not top-level rows any more: they are in Catalogs
+  // Products is not a top-level row any more: it is in Catalogs
   expect(ids).not.toContain('drawer-item-products');
-  expect(ids).not.toContain('drawer-item-raci');
 });
 
 it('Documents (right after Catalogs) is a closed accordion: Fact input, Payment facts, Product receipts, Purchase orders, Time sheets, Vendor invoices and Customer invoices', () => {
@@ -183,26 +182,19 @@ it('Budgets is a closed accordion with the catalogs a budget is built from (also
   expect(q('drawer-subitem-legalentities')).not.toBeNull(); // the legal entities are a catalog (Catalogs > Legal entities)
 });
 
-it('Products (product catalog dashboard) and Users (RACI) are in Catalogs (sorted by name) and open their pages', () => {
+it('Products (product catalog dashboard) is in Catalogs (sorted by name) and opens its page', () => {
   mount('/home');
   expect(q('drawer-subitem-products')).toBeNull(); // closed
   press('drawer-item-catalogs');
   const subs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-"]')).map((e) => e.getAttribute('data-testid'));
   expect(subs.indexOf('drawer-subitem-products')).toBe(subs.indexOf('drawer-subitem-catalog-projects') - 1);   // Products right before Projects
-  expect(subs[subs.length - 1]).toBe('drawer-subitem-raci');                                                   // Users (RACI) after User roles, last
-  expect(subs.indexOf('drawer-subitem-raci')).toBe(subs.indexOf('drawer-subitem-user-roles') + 1);
   press('drawer-subitem-products');
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/product/dashboard');
-  press('drawer-subitem-raci');
-  expect(mockNavigate).toHaveBeenCalledWith('/catalog/raci/racimember');
 });
 
-it('Catalogs opens by itself on the product dashboard and on the RACI page', () => {
+it('Catalogs opens by itself on the product dashboard', () => {
   mount('/catalog/product/dashboard');
   expect(q('drawer-subitem-products')).not.toBeNull();
-  act(() => root?.unmount()); document.body.innerHTML = '';
-  mount('/catalog/raci/racimember');
-  expect(q('drawer-subitem-raci')).not.toBeNull();
 });
 
 it('opens by itself on a catalog page (list or edit)', () => {

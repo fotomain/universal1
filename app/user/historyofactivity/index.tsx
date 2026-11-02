@@ -26,11 +26,6 @@ export default function HistoryOfActivityScreen() {
               left={props => <List.Icon {...props} icon="video-plus" />}
             />
             <List.Item
-              title="RACI Member Updated"
-              description="RACI member profile synchronized"
-              left={props => <List.Icon {...props} icon="account-edit" />}
-            />
-            <List.Item
               title="Google Drive Backup"
               description="Video upload to folder KIT8VIDEO completed"
               left={props => <List.Icon {...props} icon="google-drive" />}

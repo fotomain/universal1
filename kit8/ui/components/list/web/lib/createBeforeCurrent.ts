@@ -13,12 +13,11 @@ export interface CreateBeforeCurrentParams {
 }
 
 export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
-  const { id, cards, entityName, listOwnerGUID, actions, dispatch, calculateNewOrderInList, uuidFn } = params;
+  const { id, cards, listOwnerGUID, actions, dispatch, calculateNewOrderInList, uuidFn } = params;
   const calcOrderFn = calculateNewOrderInList || defaultCalculateNewOrderInList;
   const generateUuid = uuidFn || (() => String(Date.now()));
   const newGuid = generateUuid();
-  const isRaciEntity = String(entityName || '').toLowerCase().includes('raci');
-  const defaultTitle = isRaciEntity ? 'New Member' : 'New Card';
+  const defaultTitle = 'New Card';
 
   let computedOrder = Date.now();
   const newCard: CardItem = {
@@ -34,7 +33,6 @@ export function createBeforeCurrent(params: CreateBeforeCurrentParams) {
       rowJSON: {
         mediaPostTitle: defaultTitle,
         mediaPostDescription: '',
-        ...(isRaciEntity ? { raciFirstName: 'New', raciLastName: 'Member', raciEmail: '' } : {}),
       },
     },
   };

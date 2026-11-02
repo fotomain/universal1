@@ -1051,7 +1051,7 @@ NOTIFY pgrst, 'reload schema';
 --
 -- WARNING: IRREVERSIBLE. Deletes the data of ALL users: projects, tasks, dependencies,
 -- templates, project versions, Kanban, catalogs (countries, currencies, rates, organizations, departaments,
--- persons, partners, contracts) and the generic app tables (themeStore, raciMember, mediaPost...).
+-- persons, partners, contracts) and the generic app tables (themeStore, mediaPost... and raciMemberTable of an older install).
 -- Make a backup first (Supabase Dashboard -> Database -> Backups, or pg_dump).
 --
 -- Safe to run more than once (IF EXISTS everywhere). Re-create with create_tables.sql.
@@ -1128,7 +1128,7 @@ DROP TABLE IF EXISTS public."countryTable" CASCADE;
 
 -- ---- 6. generic app tables --------------------------------------------------------------
 DROP TABLE IF EXISTS public."googleDriveCommandTable" CASCADE;
-DROP TABLE IF EXISTS public."raciMemberTable" CASCADE;
+DROP TABLE IF EXISTS public."raciMemberTable" CASCADE;  -- no longer created (RACI users catalog removed 2026-11-02); dropped if an older install has it
 DROP TABLE IF EXISTS public."themeStoreTable" CASCADE;
 DROP TABLE IF EXISTS public."mediaPostTable" CASCADE;
 DROP TABLE IF EXISTS public."mediaPostTableArchive" CASCADE;
