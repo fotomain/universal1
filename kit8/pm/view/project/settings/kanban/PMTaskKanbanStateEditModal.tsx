@@ -19,6 +19,7 @@ import { PROJECT_TASK_KANBAN_STATE_ENTITY } from '../../../../model/constants';
 import { usePMStore } from '../../../../store/store_pm';
 import { usePMKanbanStore } from '../../../../store/store_kanban';
 import { pmT } from '../../../../i18n/pmT';
+import { isKanbanStageManualPercent, kanbanStagePercentOf } from '../../../../model/kanbanTypes';
 
 export interface PMTaskKanbanStateEditModalProps {
   visible: boolean;
@@ -70,6 +71,10 @@ export default function PMTaskKanbanStateEditModal({
     }
   }, [visible, initialRow, projectTasks, stages]);
 
+  // a stage with a percent (1..100) is FIXED: the card has the percent of the stage and it cannot be typed here
+  const selectedStage = stages.find((st) => st.rowGUID === selectedStageGUID);
+  const percentFixed = !!selectedStage && !isKanbanStageManualPercent(selectedStage.rowJSON);
+
   if (!visible) return null;
 
   const handleSave = () => {
@@ -82,7 +87,7 @@ export default function PMTaskKanbanStateEditModal({
       return;
     }
 
-    const pct = Math.min(100, Math.max(0, parseInt(progressPct, 10) || 0));
+    const pct = percentFixed && selectedStage ? kanbanStagePercentOf(selectedStage.rowJSON) : Math.min(100, Math.max(0, parseInt(progressPct, 10) || 0));
 
     if (initialRow?.rowGUID) {
       if (actions?.updateOne) {
@@ -219,7 +224,8 @@ export default function PMTaskKanbanStateEditModal({
             </Text>
             <TextInput
               testID="kanban-state-progress-input"
-              value={progressPct}
+              value={percentFixed && selectedStage ? String(kanbanStagePercentOf(selectedStage.rowJSON)) : progressPct}
+              editable={!percentFixed}
               onChangeText={setProgressPct}
               keyboardType="numeric"
               style={[styles.input, { color: c.text, borderColor: c.border }]}

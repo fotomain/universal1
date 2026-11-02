@@ -569,3 +569,89 @@
 569|Išlyginti dabar
 570|Atšaukti paskutinį paleidimą
 571|Paleidimų istorija
+572|Rodinys „{{title}}“ atkurtas; projektas, užduotis ar išteklius iš jo jums nepasiekiami, jo filtras išvalytas
+573|Rodinys „{{title}}“ atkurtas
+574|Laukai
+575|Nepažymėtas nė vienas laukas: ataskaitoje nėra skaičių. Pažymėkite bent vieną lauką.
+576|Atnaujinti
+577|Automatinis atnaujinimas
+578|etapas
+579|rankiniu būdu
+580|Kiekviena projekto užduotis yra viename iš šių etapų (naujos užduotys – pirmajame). Etapo %: 1..100 = jį turi kiekviena etapo kortelė; 0 = % įvedamas kiekvienoje Kanban skydelio kortelėje.
+581|rankinis %
+582|Etapo procentas (0..100)
+583|1..100 = kiekviena etapo kortelė turi šį procentą. 0 = procentas įvedamas kiekvienoje Kanban skydelio kortelėje.
+584|Šios užduoties procentas yra jos Kanban etapo procentas (Projekto nustatymai → Kanban → Kanban etapai).
+585|Kanban % (etapo procentas)
+586|Ataskaitoje
+587|Laukas
+588|Grupė
+589|Pasirinkti viską
+590|Išvalyti viską
+591|{{n}} iš {{total}} laukų yra ataskaitoje
+592|Grupės
+593|Visi laukai
+594|Be grupės
+595|Rodinys „{{title}}“ ištrintas
+596|jūs
+597|Rodinio pavadinimas
+598|Įjungta kitiems naudotojams
+599|Savininkas
+600|Išsaugota
+601|Ištrinti?
+602|Ištrinti rodinį
+603|Atkurti rodinį
+604|Rodiniai
+605|Rodinys
+606|Išsaugotų rodinių dar nėra. Naudokite Rodinys → Išsaugoti rodinį.
+607|Rodinys „{{title}}“ išsaugotas
+608|Išsaugoti rodinį
+609|Dabar išsaugo pažymėtus laukus, datų filtrus ir kitus ataskaitos nustatymus.
+610|Jau turite rodinį tokiu pavadinimu: išsaugojimas jį pakeis.
+611|Jūsų organizacijos naudotojai gali atkurti šį rodinį, bet negali jo keisti.
+612|Atnaujinti užduoties atlikimo % iš Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Išjungta: Kanban niekada nekeičia užduoties atlikimo %. Įjungta: kortelė, perkelta į etapą su procentu (1..100), nustato užduoties atlikimo % į jį; etapui su 0 % procentas įvedamas kortelėje ir taip pat nustato užduoties atlikimo %.
+614|Kur skaičiuojamas paleidimas? (resourceLevelingComputationSide)
+615|Pliusai
+616|Minusai
+617|Nepasiekiama su skaičiavimu serveryje: Greitajam režimui reikia tiesioginių atsakymų iš šio įrenginio.
+618|Skaičiavimas kliente
+619|Paleidimas skaičiuojamas šiame įrenginyje tuo pačiu planuokliu, kuris braižo Ganto diagramą.
+620|Peržiūra tiksli: tai jūsų ekrano planas, apskaičiuotas tuo pačiu planuokliu.
+621|Veikia su visais projekto nustatymais: užduočių kalendoriais, apribojimais, skaidymais, planavimu nuo pabaigos, rankinėmis užduotimis.
+622|Duomenų bazėje nieko nereikia diegti ir ji neapkraunama.
+623|Paruošta Greitajam režimui: tiesioginiai atsakymai, kai tempiate juostą ar įvedate valandas.
+624|Didelis planas (tūkstančiai užduočių) paleidimo metu gali sulėtinti telefoną ar seną naršyklę.
+625|Visas projektas turi būti atidarytas ir apskaičiuotas šiame įrenginyje.
+626|Paleidimo greitis priklauso nuo jį pradedančio įrenginio.
+627|Skaičiavimas serveryje
+628|Paleidimą skaičiuoja duomenų bazė; šis įrenginys tik patikrina pasiūlymą, parodo jį ir pritaiko.
+629|Didelis planas nesulėtina jūsų ekrano: darbas atliekamas prie duomenų.
+630|Tas pats greitis telefone ir kompiuteryje.
+631|Pasiūlymą patikrina jūsų ekrano planuoklis, kol galite jį pritaikyti.
+632|Reikia duomenų bazės SQL atnaujinimo (42 DALIS); be jo paleidimas skaičiuojamas šiame įrenginyje ir programa tai praneša.
+633|Skaičiuoja tik vieno kalendoriaus planus (nuo pirmadienio iki penktadienio arba kasdien) su keturių rūšių ryšiais tarp užduočių ir etapų, be skaidymų, apribojimų, užduočių kalendorių, rankinių ar kalendorinės trukmės užduočių, subprojektų ar planavimo nuo pabaigos; bet kuris kitas planas skaičiuojamas šiame įrenginyje ir programa tai praneša.
+634|Duomenų bazė turi laiko limitą (5 sekundės): labai dideliam planui gali reikėti daugiau, tada jis skaičiuojamas šiame įrenginyje ir programa tai praneša.
+635|Dar viena kelionė į duomenų bazę: mažas planas kliente greitesnis.
+636|Nėra Greitojo režimo: jam reikia tiesioginių atsakymų iš šio įrenginio.
+637|planas planuojamas nuo pabaigos datos
+638|projekto kalendorius turi savo darbo savaitę arba išimčių
+639|užduotis turi savo kalendorių
+640|užduotis turi apribojimą
+641|užduotis planuojama rankiniu būdu
+642|užduotis suskaidyta
+643|užduotis turi kalendorinę trukmę
+644|užduotis turi pirmtaką kitame projekte
+645|užduotis neaktyvi
+646|plane yra subprojekto užduotis
+647|laiko linija naudoja kitokį nei tolygų paskirstymą
+648|ryšiai sudaro ciklą
+649|planas per didelis duomenų bazės funkcijai
+650|planui reikia daugiau laiko, nei leidžia duomenų bazė
+651|duomenų bazė šios užklausos nepažįsta
+652|Duomenų bazė dar negali apskaičiuoti paleidimo (paleiskite start2_sql_code.sql, 42 DALIS): apskaičiuota šiame įrenginyje.
+653|Duomenų bazė šio plano neskaičiuoja: apskaičiuota šiame įrenginyje.
+654|Duomenų bazė negalėjo apskaičiuoti paleidimo: apskaičiuota šiame įrenginyje.
+655|Kodėl
+656|Apskaičiavo duomenų bazė ir patikrinta šiame įrenginyje: pakoreguota užduočių: {{n}}.
+657|Apskaičiavo duomenų bazė ir patikrinta šiame įrenginyje.

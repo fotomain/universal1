@@ -48,6 +48,7 @@
 --   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): task_template_header / _task / _dependency / _line (a task or a stage with everything inside it, saved for the whole organization)
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover = one row per user and route with the number of visits (the app writes it through route_visit_register only while the Organization switch numberOfVisitsFunctionalityEnabled is on)
 --   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): project_resource_leveling_run / _task = the history of the leveling runs of a project (the delay itself is project_task_table.rowJSON.taskLevelingDelayDays)
+--   43. create_report_views.sql - the saved VIEWS of a report (kit8/pm/reports/monitor01): project_report_settings = one row per user, report GUID ('Monitor01') and view title: the field list, the date filters ... (rowJSON.settings), shared with the organization when rowJSON.forOtherUsersEnabled
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3573,6 +3574,31 @@ CREATE TABLE IF NOT EXISTS public.project_resource_leveling_task (
 );
 
 CREATE INDEX IF NOT EXISTS idx_project_resource_leveling_task_task ON public.project_resource_leveling_task ("rowTaskGUID");
+
+-- ===============================================================================================
+-- PART 43: create_report_views.sql
+-- The saved VIEWS of a report (kit8/pm/reports/monitor01, the report GUID 'Monitor01'). The generic table layout:
+--   project_report_settings   rowOwnerGUID = the GUID of the USER who saved the view · rowParentGUID = the REPORT GUID ('Monitor01')
+--                             · rowJSON { viewTitle (obligatory ReportViewTitle), forOtherUsersEnabled (boolean), settings { ... } }
+--                             · settings = what the user set on the report: the fields (columns) that are checked, the date filters, the tab ... (the report decides the shape)
+-- ONE view per user, report and title (the title is compared without case). Written ONLY by the RPCs of start2 (report_view_save / _share / _delete);
+-- a user reads his own views and the views of the users of his ORGANIZATION that are marked forOtherUsersEnabled (RLS).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.project_report_settings (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{"viewTitle": "", "forOtherUsersEnabled": false, "settings": {}}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT project_report_settings_title_chk CHECK (jsonb_typeof("rowJSON"->'viewTitle') = 'string' AND btrim("rowJSON"->>'viewTitle') <> ''),
+  CONSTRAINT project_report_settings_settings_chk CHECK (jsonb_typeof("rowJSON"->'settings') = 'object')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_project_report_settings_title ON public.project_report_settings ("rowOwnerGUID", "rowParentGUID", lower("rowJSON"->>'viewTitle'));
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

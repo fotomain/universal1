@@ -54,7 +54,7 @@ import { useProjectCostTotals } from '../../cost/useProjectCostTotals';
 import { PMCellField } from '../../store/store_pm';
 import { taskColorOf } from '../../model/types';
 import { usePMKanbanStore } from '../../store/store_kanban';
-import { kanbanStageForRow, derivedKanbanProgress } from '../kanban/kanbanModel';
+import { kanbanStageForRow, kanbanPercentForRow } from '../kanban/kanbanModel';
 import { kanbanStageColorOf, kanbanStageProgressOf, PM_KANBAN_NO_STATE_COLOR, PM_KANBAN_NO_STATE_LABEL } from '../../model/kanbanTypes';
 import PMInlineCellEditor from './inline/PMInlineCellEditor';
 import {
@@ -404,9 +404,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       let kanbanProg = '';
       let kanbanProgX = 0;
       if (kanbanProgressCol) {
-        const val = summary || hasChildren
-          ? derivedKanbanProgress(guid, tasksById, tree, kanbanStates)
-          : kanbanStageProgressOf(kanbanStates[guid], 0);
+        const val = kanbanPercentForRow(guid, tasksById, tree, kanbanStages, kanbanStates);
         kanbanProg = `${val}%`;
         kanbanProgX = kanbanProgressCol.x + kanbanProgressCol.w - 8 - measureSmall(kanbanProg);
       }

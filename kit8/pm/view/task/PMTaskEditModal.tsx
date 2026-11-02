@@ -25,8 +25,8 @@ import { PMRowKind, taskColorOf } from '../../model/types';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 import { usePMKanbanStore } from '../../store/store_kanban';
 import { useKanbanCommands, PMKanbanCommands } from '../../crud/kanban/useKanbanCommands';
-import { kanbanStageProgressOf } from '../../model/kanbanTypes';
-import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
+import { isKanbanStageManualPercent, kanbanStageProgressOf } from '../../model/kanbanTypes';
+import { kanbanLeavesOf, kanbanPercentForRow, kanbanStageOfTask } from '../kanban/kanbanModel';
 import IconApp from '../../../ui/components/common/IconApp';
 import ColorPickerRowApp from '../../../ui/components/common/ColorPickerRowApp';
 import TextAreaApp from '../../../ui/components/common/TextAreaApp';
@@ -102,6 +102,7 @@ export default function PMTaskEditModal({
   const isSubDay = planHour || planMinute || planSecond;
 
   const statesByTask = usePMKanbanStore((s) => s.statesByTask);
+  const kanbanStagesNow = usePMKanbanStore((s) => s.stages);
   const kanbanHook = useKanbanCommands(projectGUID);
   const kanban = kanbanProp ?? kanbanHook;
 
@@ -122,6 +123,8 @@ export default function PMTaskEditModal({
   const [finishSecond, setFinishSecond] = useState('0');
   const [progress, setProgress] = useState('0');
   const [kanbanProgress, setKanbanProgress] = useState('0');
+  /** the Kanban % the form was opened with: only a CHANGED value is written (so saving the other fields never overwrites the progress % through the Kanban) */
+  const initialKanbanPct = useRef('0');
   const [color, setColor] = useState<string | null>(null);
   const [notes, setNotes] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -182,10 +185,14 @@ export default function PMTaskEditModal({
 
     setProgress(String(Math.round(task.rowProgress || 0)));
     const isSumm = hasChildren || (task.rowJSON.rowKind as any) === 'stage';
-    const initialKanbanProg = isSumm
-      ? derivedKanbanProgress(task.rowGUID, tasksById, tree, statesByTask)
+    const stagesNow = usePMKanbanStore.getState().stages;
+    const initialKanbanProg = stagesNow.length
+      ? kanbanPercentForRow(task.rowGUID, tasksById, tree, stagesNow, statesByTask)
+      : isSumm
+      ? 0
       : kanbanStageProgressOf(statesByTask[task.rowGUID], 0);
     setKanbanProgress(String(Math.round(initialKanbanProg)));
+    initialKanbanPct.current = String(Math.round(initialKanbanProg));
     formSnapshot.current = 'pending';
     setColor(taskColorOf(task.rowJSON));
     setNotes(task.rowJSON.notes || '');
@@ -201,6 +208,13 @@ export default function PMTaskEditModal({
 
   if (!task) return null;
   const summary = hasChildren || kind === 'stage';
+  /** a task in a stage that has its own percent (1..100): the Kanban % is the percent of the stage and is not typed here */
+  const kanbanFixed = (() => {
+    if (summary || !editingGUID || !kanbanStagesNow.length) return false;
+    const g = kanbanStageOfTask(editingGUID, kanbanStagesNow, statesByTask);
+    const st = g ? kanbanStagesNow.find((x) => x.rowGUID === g) : undefined;
+    return !!st && !isKanbanStageManualPercent(st.rowJSON);
+  })();
   const showAdvancedTab = advancedTabOn(project?.rowJSON);
 
   const handleStartChange = (newStart: string) => {
@@ -387,13 +401,15 @@ export default function PMTaskEditModal({
       `Edit "${name.trim() || task.rowJSON.taskDescription}"`
     );
 
-    if (summary) {
-      const leaves = kanbanLeavesOf(task.rowGUID, tasksById, tree);
-      if (leaves.length) {
-        kanban?.setTasksKanbanProgress?.(leaves, kanbanPct);
+    if (String(kanbanPct) !== initialKanbanPct.current && !kanbanFixed) {
+      if (summary) {
+        const leaves = kanbanLeavesOf(task.rowGUID, tasksById, tree);
+        if (leaves.length) {
+          kanban?.setTasksKanbanProgress?.(leaves, kanbanPct);
+        }
+      } else {
+        kanban?.setTaskKanbanProgress?.(task.rowGUID, kanbanPct);
       }
-    } else {
-      kanban?.setTaskKanbanProgress?.(task.rowGUID, kanbanPct);
     }
 
     if (closeOnSave) close();
@@ -511,7 +527,8 @@ export default function PMTaskEditModal({
                   <View style={numbersStacked ? null : styles.numberCell}>
                     <NumberStepperInputApp
                       testID="pm-edit-kanban-progress"
-                      label={pmT('Kanban stage progress %')}
+                      label={kanbanFixed ? pmT('Kanban % (the percent of the stage)') : pmT('Kanban stage progress %')}
+                      disabled={kanbanFixed}
                       value={kanbanProgress}
                       selectTextOnFocus
                       min={0}
@@ -526,7 +543,8 @@ export default function PMTaskEditModal({
                 <View style={{ marginTop: 2 }}>
                   <NumberStepperInputApp
                     testID="pm-edit-kanban-progress"
-                    label={pmT('Kanban stage progress %')}
+                    label={kanbanFixed ? pmT('Kanban % (the percent of the stage)') : pmT('Kanban stage progress %')}
+                    disabled={kanbanFixed}
                     value={kanbanProgress}
                     selectTextOnFocus
                     min={0}

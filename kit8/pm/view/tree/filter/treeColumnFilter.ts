@@ -22,6 +22,7 @@ import { customCellValue, PMExtColumnContext } from '../../../extended/extendedC
 import type { PMScheduledRow, PMTaskRow } from '../../../model/types';
 import type { PMProjectKanbanStageRow, PMTaskKanbanStateRow } from '../../../model/kanbanTypes';
 import type { PMTreeIndex } from '../../project/scheduling';
+import { kanbanPercentForRow } from '../../kanban/kanbanModel';
 import type { PMTreeColumnKey } from '../columns/treeColumns';
 import { isCustomColumnKey, PMCustomColumnDef, taskCustomValuesOf } from '../columns/customColumns';
 
@@ -312,8 +313,9 @@ export function treeCellFilterValue(key: string, guid: string, ctx: PMTreeFilter
       return stage?.rowJSON?.stageName ?? '';
     }
     case 'kanbanStageProgressPercent': {
-      const state = ctx.kanbanStates?.[guid];
-      return Math.round(state?.rowJSON?.kanbanStageProgressPercent ?? 0);
+      return ctx.kanbanStages?.length
+        ? kanbanPercentForRow(guid, ctx.tasksById as Record<string, PMTaskRow>, ctx.tree, ctx.kanbanStages, ctx.kanbanStates ?? {})
+        : Math.round(ctx.kanbanStates?.[guid]?.rowJSON?.kanbanStageProgressPercent ?? 0);
     }
     case 'startHourStart':
       return typeof t?.rowJSON?.startHourStart === 'number' ? t.rowJSON.startHourStart : (r ? new Date(r.startMs).getUTCHours() : null);

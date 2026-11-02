@@ -45,8 +45,9 @@ import { makePMPalette } from '../../../kit8/pm/view/theme';
 import type { PMProjectKanbanStageRow } from '../../../kit8/pm/model/kanbanTypes';
 
 const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface: '#fff', text: '#111', border: '#ccc', error: '#e00' }, false);
-const stage = (id: string, order: number, name: string): PMProjectKanbanStageRow => ({ rowGUID: id, rowOwnerGUID: 'p', rowParentGUID: 'empty', orderInList: order, rowJSON: { stageName: name, stageColor: '#6366F1' } });
-const STAGES = [stage('s-wait', 1024, 'Waiting'), stage('s-plan', 2048, 'Plan'), stage('s-exec', 3072, 'Execute')];
+const stage = (id: string, order: number, name: string, stageProgressPercent = 0): PMProjectKanbanStageRow => ({ rowGUID: id, rowOwnerGUID: 'p', rowParentGUID: 'empty', orderInList: order, rowJSON: { stageName: name, stageColor: '#6366F1', stageProgressPercent } });
+// Waiting = manual (0), Plan = fixed 10 %, Execute = fixed 90 %
+const STAGES = [stage('s-wait', 1024, 'Waiting'), stage('s-plan', 2048, 'Plan', 10), stage('s-exec', 3072, 'Execute', 90)];
 
 function setup(missing = false, states: any[] = []) {
   const seeded = seedStore();
@@ -148,6 +149,34 @@ describe('PMKanbanDashboard', () => {
   });
 });
 
+describe('Kanban stage percent on the dashboard', () => {
+  it('the column header says "manual" or the percent of the stage', () => {
+    setup();
+    expect(textOf('pm-kanban-colpercent-s-wait')).toBe('manual');
+    expect(textOf('pm-kanban-colpercent-s-plan')).toBe('10%');
+    expect(textOf('pm-kanban-colpercent-s-exec')).toBe('90%');
+  });
+
+  it('a card of a FIXED stage shows the percent of the stage and cannot be typed; a card of a manual stage can', () => {
+    const { byName } = seedStore();
+    const t112 = byName('Task 112').rowGUID;
+    const t111 = byName('Task 111').rowGUID;
+    setup(false, [
+      { rowGUID: 'k1', rowOwnerGUID: 'p', rowParentGUID: t112, orderInList: 1024, rowJSON: { stageGUID: 's-plan', kanbanStageProgressPercent: 77 } }, // a stored percent is ignored in a fixed stage
+    ]);
+    expect(textOf(`pm-kanban-progress-badge-${t112}`)).toContain('10%');
+    expect(q(`pm-kanban-progress-fixed-${t112}`)).not.toBeNull();
+    press(`pm-kanban-progress-badge-${t112}`);
+    expect(q(`pm-kanban-progress-input-${t112}`)).toBeNull(); // no editor
+    expect(mustGet(`pm-kanban-progress-track-${t112}`).getAttribute('aria-disabled')).toBe('true');
+    expect(mockKanban.setTaskKanbanProgress).not.toHaveBeenCalled();
+    // Task 111 is in Waiting (manual): editable, no "stage" mark
+    expect(q(`pm-kanban-progress-fixed-${t111}`)).toBeNull();
+    press(`pm-kanban-progress-badge-${t111}`);
+    expect(q(`pm-kanban-progress-input-${t111}`)).not.toBeNull();
+  });
+});
+
 describe('PMKanbanStagesModalWindow (Kanban Stages)', () => {
   const open = () => {
     mockEditorData = { stages: STAGES, states: [], missing: false };
@@ -162,19 +191,36 @@ describe('PMKanbanStagesModalWindow (Kanban Stages)', () => {
     expect(q('pm-kanban-stages-window')).not.toBeNull();
     typeInto('pm-kanban-stage-new-name', 'Review');
     press('pm-kanban-stage-add');
-    expect(mockKanban.createStage).toHaveBeenCalledWith('Review', expect.any(String));
+    expect(mockKanban.createStage).toHaveBeenCalledWith('Review', expect.any(String), 0);
     typeInto('pm-kanban-stage-new-name', 'plan'); // duplicate (case-insensitive)
     press('pm-kanban-stage-add');
     expect(mockKanban.createStage).toHaveBeenCalledTimes(1);
     press('pm-kanban-stage-right-s-wait');
     expect(mockKanban.moveStage).toHaveBeenCalledWith('s-wait', 1);
-    press('pm-kanban-stage-sql_for_delete-s-plan');
+    press('pm-kanban-stage-delete-s-plan');
     expect(mockKanban.deleteStage).not.toHaveBeenCalled();
-    press('pm-kanban-stage-sql_for_delete-yes-s-plan');
+    press('pm-kanban-stage-delete-yes-s-plan');
     expect(mockKanban.deleteStage).toHaveBeenCalledWith('s-plan');
     press('pm-kanban-stage-color-s-exec');
     press('pm-kanban-stage-colors-s-exec-#EF4444');
     expect(mockKanban.updateStage).toHaveBeenCalledWith('s-exec', { stageColor: '#EF4444' });
+  });
+  it('the percent of a stage: shown, edited (whole number 0..100), refused otherwise; a new stage can have one', () => {
+    open();
+    expect((mustGet('pm-kanban-stage-percent-s-plan') as HTMLInputElement).value).toBe('10');
+    expect((mustGet('pm-kanban-stage-percent-s-wait') as HTMLInputElement).value).toBe('0');
+    typeInto('pm-kanban-stage-percent-s-plan', '45');
+    pressKey('pm-kanban-stage-percent-s-plan', 'Enter');
+    expect(mockKanban.updateStage).toHaveBeenCalledWith('s-plan', { stageProgressPercent: 45 });
+    mockKanban.updateStage.mockClear();
+    typeInto('pm-kanban-stage-percent-s-exec', '90'); // unchanged
+    pressKey('pm-kanban-stage-percent-s-exec', 'Enter');
+    expect(mockKanban.updateStage).not.toHaveBeenCalled();
+    typeInto('pm-kanban-stage-new-name', 'Review');
+    typeInto('pm-kanban-stage-new-percent', '70');
+    pressKey('pm-kanban-stage-new-percent', 'Enter');
+    press('pm-kanban-stage-add');
+    expect(mockKanban.createStage).toHaveBeenCalledWith('Review', expect.any(String), 70);
   });
   it('missing tables: explains which SQL to run', () => {
     mockEditorData = { stages: [], states: [], missing: true };

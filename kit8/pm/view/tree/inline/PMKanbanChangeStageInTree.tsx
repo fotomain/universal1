@@ -54,7 +54,7 @@ export default function PMKanbanChangeStageInTree({
       rowOwnerGUID: projectGUID || '',
       rowParentGUID: 'empty',
       orderInList: (i + 1) * 1024,
-      rowJSON: { stageName: s.stageName, stageColor: s.stageColor, stageCode: s.stageCode },
+      rowJSON: { stageName: s.stageName, stageColor: s.stageColor, stageCode: s.stageCode, stageProgressPercent: s.stageProgressPercent },
     }));
   }, [storeStages, projectGUID]);
   /** first option = kanbanNoState: the task leaves every column */

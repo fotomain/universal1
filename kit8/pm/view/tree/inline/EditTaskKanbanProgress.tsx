@@ -7,7 +7,7 @@ import { usePMStore } from '../../../store/store_pm';
 import { usePMKanbanStore } from '../../../store/store_kanban';
 import { useKanbanCommands } from '../../../crud/kanban/useKanbanCommands';
 import { PMCrud } from '../../../crud/usePMCrud';
-import { derivedKanbanProgress, kanbanLeavesOf } from '../../kanban/kanbanModel';
+import { kanbanLeavesOf, kanbanPercentForRow } from '../../kanban/kanbanModel';
 import { kanbanStageProgressOf } from '../../../model/kanbanTypes';
 import PMInlineCellInput from './PMInlineCellInput';
 
@@ -29,6 +29,7 @@ export default function EditTaskKanbanProgress(props: EditTaskKanbanProgressProp
   const schedule = usePMStore((s) => s.schedule);
 
   const statesByTask = usePMKanbanStore((s) => s.statesByTask);
+  const stages = usePMKanbanStore((s) => s.stages);
   const kanban = useKanbanCommands(projectGUID);
 
   const isSummary = useMemo(
@@ -37,11 +38,9 @@ export default function EditTaskKanbanProgress(props: EditTaskKanbanProgressProp
   );
 
   const progress = useMemo(() => {
-    if (isSummary) {
-      return derivedKanbanProgress(guid, tasksById, tree, statesByTask);
-    }
-    return kanbanStageProgressOf(statesByTask[guid], 0);
-  }, [guid, isSummary, tasksById, tree, statesByTask]);
+    if (stages.length) return kanbanPercentForRow(guid, tasksById, tree, stages, statesByTask);
+    return isSummary ? 0 : kanbanStageProgressOf(statesByTask[guid], 0);
+  }, [guid, isSummary, tasksById, tree, statesByTask, stages]);
 
   const close = () => usePMStore.getState().setCellEdit(null);
 
@@ -55,6 +54,7 @@ export default function EditTaskKanbanProgress(props: EditTaskKanbanProgressProp
       onCommit={(text) => {
         const n = text === '' ? 0 : parseInt(text, 10);
         if (!Number.isFinite(n) || n < 0 || n > 100) return '0..100';
+        // only the cards of MANUAL stages (percent 0) take a typed percent; the cards of a stage with a percent keep the percent of the stage
         if (isSummary) {
           const leaves = kanbanLeavesOf(guid, tasksById, tree);
           if (leaves.length) kanban.setTasksKanbanProgress(leaves, n);

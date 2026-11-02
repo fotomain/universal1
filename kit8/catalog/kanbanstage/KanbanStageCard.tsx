@@ -60,6 +60,11 @@ export default function KanbanStageCard({ card, isSelected, isDragging, onEdit, 
             {[j.stageCode, j.stageColor].filter(Boolean).join(' · ')}
           </Text>
         </View>
+        {typeof j.stageProgressPercent === 'number' && (
+          <Text style={[styles.chip, { color: c.text, borderColor: c.border }]} testID={`kanban-stage-card-percent-${id}`}>
+            {j.stageProgressPercent === 0 ? 'manual %' : `${j.stageProgressPercent}%`}
+          </Text>
+        )}
         {inactive && (
           <Text style={[styles.chip, { color: c.text, borderColor: c.border }]} testID={`kanban-stage-card-inactive-${id}`}>
             inactive

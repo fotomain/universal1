@@ -1,7 +1,8 @@
 // "Kanban Stages" window (Project settings → Kanban Stages, and the Kanban bar): the columns of ONE
 // project = project_kanban_stage_table rows. Rename, recolor, WIP limit, move left / right, sql_for_delete, add.
 // Every task of the project uses this stage set; tasks of a deleted stage go back to the first stage.
-// Saved at once (optimistic, realtime auto refresh in other browsers). The task progress % is not touched.
+// Saved at once (optimistic, realtime auto refresh in other browsers). Every stage has a percent: 1..100 = every card of it has that percent,
+// 0 = the percent is typed on each card of the Kanban dashboard. The task progress % follows only with the Project settings -> Kanban switch autoUpdateTaskProgressPercentFromKanban.
 //
 // Rendered as its own Modal INSIDE whatever hosts it (the Project settings window is itself a Modal,
 // and iOS can present a modal only from the top-most one) - so deletes are confirmed inline here
@@ -13,7 +14,8 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { PMDialogButton, PMIconButton } from '../../inner/buttons';
 import { useProjectKanbanData } from '../../crud/kanban/kanbanQueries';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
-import { kanbanStageColorOf, PMProjectKanbanStageRow, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
+import PMKanbanStagePercentInput from './PMKanbanStagePercentInput';
+import { kanbanStageColorOf, kanbanStagePercentOf, PMProjectKanbanStageRow, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
 import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { pmT } from '../../i18n/pmT';
 
@@ -38,6 +40,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
   const stages = useMemo(() => [...(query.data?.stages ?? [])].sort((a, b) => a.orderInList - b.orderInList), [query.data]);
   const [newName, setNewName] = useState('');
   const [newColor, setNewColor] = useState(PM_KANBAN_STAGE_COLORS[1]);
+  const [newPercent, setNewPercent] = useState(0);
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
   const [colorFor, setColorFor] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -50,8 +53,9 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
     if (!name) return setError('Enter the stage name.');
     if (nameTaken(name)) return setError(`"${name}" already exists.`);
     setError(null);
-    kanban.createStage(name, newColor);
+    kanban.createStage(name, newColor, newPercent);
     setNewName('');
+    setNewPercent(0);
   };
 
   const missing = !!query.data?.missing;
@@ -63,7 +67,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
         <View style={[styles.card, { height, backgroundColor: c.surface }]} testID="pm-kanban-stages-window">
           <Text style={[styles.title, { color: c.text }]}>Kanban Stages{projectName ? ` · ${projectName}` : ''}</Text>
           <Text style={[styles.hint, { color: c.text }]}>
-            {pmT('Every task of the project is in one of these stages (new tasks: the first one). The stage is independent of the task progress %.')}
+            {pmT('Every task of the project is in one of these stages (new tasks: the first one). The % of a stage: 1..100 = every card of the stage has it; 0 = the % is typed on each card of the Kanban dashboard.')}
           </Text>
 
           {query.isLoading || (!missing && !stages.length && !query.isError) ? (
@@ -95,6 +99,11 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
                     if (name.trim() !== s.rowJSON.stageName) kanban.updateStage(s.rowGUID, { stageName: name });
                   }}
                   onWip={(n) => kanban.updateStage(s.rowGUID, { wipLimit: n })}
+                  onPercent={(n) => {
+                    setError(null);
+                    kanban.updateStage(s.rowGUID, { stageProgressPercent: n });
+                  }}
+                  onPercentInvalid={setError}
                   onColorToggle={() => setColorFor(colorFor === s.rowGUID ? null : s.rowGUID)}
                   onColor={(color) => {
                     setColorFor(null);
@@ -122,6 +131,7 @@ function StagesWindow({ projectGUID, projectName, onClose }: PMKanbanStagesModal
                   onSubmitEditing={add}
                   style={[styles.input, { color: c.text, borderColor: c.border, flex: 1 }]}
                 />
+                <PMKanbanStagePercentInput testID="pm-kanban-stage-new-percent" value={newPercent} onCommit={setNewPercent} onInvalid={setError} colors={c} />
                 <PMIconButton testID="pm-kanban-stage-add" icon="add" label={pmT('Add')} color={c.primary} onPress={add} />
               </View>
               <Swatches value={newColor} onChange={setNewColor} border={c.border} testID="pm-kanban-stage-new-color" />
@@ -148,6 +158,8 @@ function StageRow({
   confirmingDelete,
   onRename,
   onWip,
+  onPercent,
+  onPercentInvalid,
   onColorToggle,
   onColor,
   onMove,
@@ -164,6 +176,8 @@ function StageRow({
   confirmingDelete: boolean;
   onRename: (name: string) => void;
   onWip: (n: number) => void;
+  onPercent: (n: number) => void;
+  onPercentInvalid: (message: string) => void;
   onColorToggle: () => void;
   onColor: (color: string) => void;
   onMove: (dir: -1 | 1) => void;
@@ -201,6 +215,7 @@ function StageRow({
           maxLength={PM_KANBAN_STAGE_NAME_MAX}
           style={[styles.input, { color: c.text, borderColor: c.border, flex: 1 }]}
         />
+        <PMKanbanStagePercentInput testID={`pm-kanban-stage-percent-${id}`} value={kanbanStagePercentOf(stage.rowJSON)} onCommit={onPercent} onInvalid={onPercentInvalid} colors={c} />
         <TextInput
           testID={`pm-kanban-stage-wip-${id}`}
           value={wip}

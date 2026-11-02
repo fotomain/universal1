@@ -569,3 +569,89 @@
 569|Nivelar agora
 570|Anular a última execução
 571|Histórico das execuções
+572|Vista «{{title}}» restaurada; um projeto, tarefa ou recurso dela não está disponível para você e o filtro foi limpo
+573|Vista «{{title}}» restaurada
+574|Campos
+575|Nenhum campo está marcado: o relatório não mostra números. Marque pelo menos um campo.
+576|Atualizar
+577|Atualização automática
+578|etapa
+579|manual
+580|Cada tarefa do projeto está em uma destas etapas (novas tarefas: a primeira). O % de uma etapa: 1..100 = todos os cartões da etapa o têm; 0 = o % é digitado em cada cartão do painel Kanban.
+581|% manual
+582|Percentual da etapa (0..100)
+583|1..100 = todos os cartões da etapa têm este percentual. 0 = o percentual é digitado em cada cartão do painel Kanban.
+584|O percentual desta tarefa é o percentual da sua etapa Kanban (Configurações do projeto → Kanban → Etapas Kanban).
+585|% Kanban (o percentual da etapa)
+586|No relatório
+587|Campo
+588|Grupo
+589|Selecionar tudo
+590|Limpar tudo
+591|{{n}} de {{total}} campos estão no relatório
+592|Grupos
+593|Todos os campos
+594|Sem grupo
+595|Vista «{{title}}» excluída
+596|você
+597|Título da vista
+598|Ativada para outros usuários
+599|Proprietário
+600|Salva
+601|Excluir?
+602|Excluir vista
+603|Restaurar vista
+604|Vistas
+605|Vista
+606|Ainda não há vistas salvas. Use Vista → Salvar vista.
+607|Vista «{{title}}» salva
+608|Salvar vista
+609|Salva agora os campos marcados, os filtros de data e as outras configurações do relatório.
+610|Você já tem uma vista com este título: Salvar a substitui.
+611|Os usuários da sua organização podem restaurar esta vista, mas não alterá-la.
+612|Atualizar o % de progresso da tarefa a partir do Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Desligado: o Kanban nunca altera o % de progresso de uma tarefa. Ligado: um cartão movido para uma etapa com percentual (1..100) define o % de progresso da tarefa com esse valor; em uma etapa com 0 % o percentual é digitado no cartão e também define o % de progresso da tarefa.
+614|Onde uma execução é calculada? (resourceLevelingComputationSide)
+615|Vantagens
+616|Desvantagens
+617|Indisponível com cálculo no servidor: o Modo rápido precisa de respostas instantâneas deste dispositivo.
+618|Cálculo no cliente
+619|A execução é calculada neste dispositivo pelo mesmo planejador que desenha o gráfico de Gantt.
+620|A pré-visualização é exata: é o plano da sua tela, calculado pelo mesmo planejador.
+621|Funciona com todas as configurações do projeto: calendários de tarefas, restrições, divisões, planejamento a partir do fim, tarefas manuais.
+622|Nada a instalar no banco de dados e nenhuma carga sobre ele.
+623|Pronto para o Modo rápido: respostas instantâneas enquanto você arrasta uma barra ou digita horas.
+624|Um plano grande (milhares de tarefas) pode deixar um telefone ou um navegador antigo lento durante a execução.
+625|O projeto inteiro precisa estar aberto e calculado neste dispositivo.
+626|A velocidade de uma execução depende do dispositivo que a inicia.
+627|Cálculo no servidor
+628|A execução é calculada pelo banco de dados; este dispositivo apenas verifica a proposta, mostra e aplica.
+629|Um plano grande não deixa sua tela lenta: o trabalho é feito junto aos dados.
+630|A mesma velocidade em um telefone e em um computador.
+631|A proposta é verificada pelo planejador da sua tela antes de você poder aplicá-la.
+632|Precisa da atualização SQL do banco de dados (PARTE 42); sem ela a execução é calculada neste dispositivo e o app avisa.
+633|Calcula apenas planos de um calendário (segunda a sexta, ou todos os dias) com os quatro tipos de vínculos entre tarefas e etapas, sem divisões, restrições, calendários de tarefas, tarefas manuais ou de duração decorrida, subprojetos ou planejamento a partir do fim; qualquer outro plano é calculado neste dispositivo e o app avisa.
+634|O banco de dados tem um limite de tempo (5 segundos): um plano muito grande pode precisar de mais; então é calculado neste dispositivo e o app avisa.
+635|Mais uma ida ao banco de dados: um plano pequeno é mais rápido no cliente.
+636|Sem Modo rápido: ele precisa de respostas instantâneas deste dispositivo.
+637|o plano é planejado a partir da data de fim
+638|o calendário do projeto tem uma semana de trabalho própria ou exceções
+639|uma tarefa tem um calendário próprio
+640|uma tarefa tem uma restrição
+641|uma tarefa é planejada manualmente
+642|uma tarefa está dividida
+643|uma tarefa tem duração decorrida
+644|uma tarefa tem uma predecessora em outro projeto
+645|uma tarefa está inativa
+646|o plano tem uma tarefa de subprojeto
+647|uma linha do tempo usa distribuição diferente da uniforme
+648|os vínculos formam um ciclo
+649|o plano é grande demais para a função do banco de dados
+650|o plano precisa de mais tempo do que o banco de dados permite
+651|o banco de dados não conhece esta solicitação
+652|O banco de dados ainda não consegue calcular uma execução (execute start2_sql_code.sql, PARTE 42): calculada neste dispositivo.
+653|O banco de dados não calcula este plano: calculado neste dispositivo.
+654|O banco de dados não conseguiu calcular a execução: calculada neste dispositivo.
+655|Por quê
+656|Calculado pelo banco de dados e verificado neste dispositivo: {{n}} tarefa(s) ajustada(s).
+657|Calculado pelo banco de dados e verificado neste dispositivo.

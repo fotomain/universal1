@@ -72,6 +72,8 @@ export interface ComputationOutcome {
   fallback?: ComputationFallbackCode;
   /** the reasons the database gave (planNotSupported), in words of the database */
   reasons?: string[];
+  /** server side run: how many tasks the device had to adjust when it checked the proposal of the database (0 = none) */
+  adjusted?: number;
 }
 
 /** the reason codes of ServerUnsupported (and of the database) in words */

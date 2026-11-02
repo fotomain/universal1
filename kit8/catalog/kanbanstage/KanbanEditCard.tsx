@@ -1,5 +1,5 @@
 // KanbanEditCard - route /kanbanstage/edit (new) or /kanbanstage/edit?rowGUID=… (existing): one default Kanban
-// stage of the catalog (kanban_stage_table): name, code, color, active (inactive stages are not copied into new
+// stage of the catalog (kanban_stage_table): name, code, color, percent (obligatory, 0..100; 0 = typed on each card of the Kanban dashboard), active (inactive stages are not copied into new
 // projects). Live: the row follows Supabase Realtime - changed in another browser while this form is clean ->
 // new values; with unsaved edits -> Reload / Keep mine; deleted elsewhere -> saving is blocked.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -12,7 +12,7 @@ import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
-import { PM_KANBAN_ORDER_STEP, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../pm/model/kanbanTypes';
+import { kanbanStagePercentOf, PMKanbanStageJSON, PM_KANBAN_ORDER_STEP, PM_KANBAN_STAGE_COLORS, PM_KANBAN_STAGE_NAME_MAX } from '../../pm/model/kanbanTypes';
 import {
   emptyKanbanStage,
   KANBAN_STAGE_CATALOG_OWNER,
@@ -28,7 +28,13 @@ import {
 } from './kanbanStageModel';
 
 type Form = KanbanStageRowJSON;
-const toForm = (j?: Partial<KanbanStageRowJSON>): Form => ({ ...emptyKanbanStage(), ...(j || {}), isActive: j?.isActive !== false });
+const toForm = (j?: Partial<KanbanStageRowJSON>): Form => ({
+  ...emptyKanbanStage(),
+  ...(j || {}),
+  isActive: j?.isActive !== false,
+  // an old row without a percent reads as the standard percent of its code
+  stageProgressPercent: j ? kanbanStagePercentOf(j as PMKanbanStageJSON) : 0,
+});
 const rowVersion = (r?: KanbanStageRow) => (r ? `${r.updated_at ?? ''}|${JSON.stringify(r.rowJSON)}` : '');
 
 export default function KanbanEditCard() {
@@ -209,6 +215,19 @@ export default function KanbanEditCard() {
           );
         })}
       </View>
+      <TextInputApp
+        testID="kanban-stage-edit-stageProgressPercent"
+        label="Percent of the stage (0..100)"
+        value={String(form.stageProgressPercent)}
+        onChangeText={(v: string) => set('stageProgressPercent', Number(v.replace(/[^0-9]/g, '').slice(0, 3)) || 0)}
+        keyboardType="numeric"
+        maxLength={3}
+        error={errors.stageProgressPercent}
+        showError={!!errors.stageProgressPercent}
+      />
+      <Text style={[styles.hint, { color: c.text, textAlign: 'left', marginTop: 0, marginBottom: 8 }]} testID="kanban-stage-edit-percent-hint">
+        1..100: every card of the stage has this percent. 0: the percent is typed on each card of the Kanban dashboard.
+      </Text>
       <SwitchApp testID="kanban-stage-edit-isActive" label="Active (copied into new projects)" value={form.isActive} onValueChange={(v) => set('isActive', v)} />
 
       <View style={styles.actions}>

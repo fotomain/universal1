@@ -569,3 +569,89 @@
 569|Tasanda kohe
 570|Võta viimane käivitus tagasi
 571|Käivituste ajalugu
+572|Vaade „{{title}}“ taastatud; mõni selle projekt, ülesanne või ressurss pole teile saadaval ja selle filter tühjendati
+573|Vaade „{{title}}“ taastatud
+574|Väljad
+575|Ühtegi välja pole märgitud: aruanne ei näita numbreid. Märkige vähemalt üks väli.
+576|Värskenda
+577|Automaatne värskendus
+578|etapp
+579|käsitsi
+580|Iga projekti ülesanne on ühes neist etappidest (uued ülesanded: esimeses). Etapi %: 1..100 = see on igal etapi kaardil; 0 = % sisestatakse igal Kanbani tahvli kaardil.
+581|käsitsi %
+582|Etapi protsent (0..100)
+583|1..100 = igal etapi kaardil on see protsent. 0 = protsent sisestatakse igal Kanbani tahvli kaardil.
+584|Selle ülesande protsent on tema Kanbani etapi protsent (Projekti seaded → Kanban → Kanbani etapid).
+585|Kanbani % (etapi protsent)
+586|Aruandes
+587|Väli
+588|Rühm
+589|Vali kõik
+590|Tühjenda kõik
+591|Aruandes on {{n}} / {{total}} välja
+592|Rühmad
+593|Kõik väljad
+594|Rühma pole
+595|Vaade „{{title}}“ kustutatud
+596|teie
+597|Vaate pealkiri
+598|Lubatud teistele kasutajatele
+599|Omanik
+600|Salvestatud
+601|Kustutada?
+602|Kustuta vaade
+603|Taasta vaade
+604|Vaated
+605|Vaade
+606|Salvestatud vaateid pole veel. Kasutage Vaade → Salvesta vaade.
+607|Vaade „{{title}}“ salvestatud
+608|Salvesta vaade
+609|Salvestab praegu märgitud väljad, kuupäevafiltrid ja aruande muud seaded.
+610|Teil on selle pealkirjaga vaade juba olemas: salvestamine asendab selle.
+611|Teie organisatsiooni kasutajad saavad seda vaadet taastada, kuid mitte muuta.
+612|Värskenda ülesande edenemise % Kanbanist (autoUpdateTaskProgressPercentFromKanban)
+613|Väljas: Kanban ei muuda kunagi ülesande edenemise %. Sees: protsendiga (1..100) etappi viidud kaart seab ülesande edenemise % sellele väärtusele; 0 % etapi korral sisestatakse protsent kaardil ja see seab samuti ülesande edenemise %.
+614|Kus käivitus arvutatakse? (resourceLevelingComputationSide)
+615|Plussid
+616|Miinused
+617|Pole saadaval serveripoolse arvutusega: Kiirrežiim vajab sellelt seadmelt kohest vastust.
+618|Kliendipoolne arvutus
+619|Käivitus arvutatakse selles seadmes sama planeerijaga, mis joonistab Gantti diagrammi.
+620|Eelvaade on täpne: see on teie ekraani plaan, mille arvutas sama planeerija.
+621|Töötab kõigi projekti seadetega: ülesannete kalendrid, piirangud, poolitused, planeerimine lõpust, käsitsi ülesanded.
+622|Andmebaasi pole midagi vaja paigaldada ja see ei koorma seda.
+623|Valmis Kiirrežiimiks: kohesed vastused, kui lohistate riba või sisestate tunde.
+624|Suur plaan (tuhanded ülesanded) võib käivituse ajal telefoni või vana brauseri aeglaseks muuta.
+625|Kogu projekt peab olema avatud ja selles seadmes arvutatud.
+626|Käivituse kiirus sõltub seadmest, mis selle käivitab.
+627|Serveripoolne arvutus
+628|Käivituse arvutab andmebaas; see seade kontrollib ettepaneku ainult üle, näitab seda ja rakendab.
+629|Suur plaan ei aeglusta teie ekraani: töö tehakse andmete juures.
+630|Sama kiirus telefonis ja arvutis.
+631|Ettepaneku kontrollib teie ekraani planeerija enne, kui saate seda rakendada.
+632|Vajab andmebaasi SQL-uuendust (42. OSA); ilma selleta arvutatakse käivitus selles seadmes ja rakendus annab sellest teada.
+633|Arvutab ainult ühe kalendriga plaane (esmaspäevast reedeni või iga päev) ja nelja liiki seoseid ülesannete ja etappide vahel, ilma poolitusteta, piiranguteta, ülesannete kalendriteta, käsitsi või kalendrilise kestusega ülesanneteta, alamprojektideta ja lõpust planeerimiseta; iga muu plaan arvutatakse selles seadmes ja rakendus annab sellest teada.
+634|Andmebaasil on ajapiirang (5 sekundit): väga suur plaan võib vajada rohkem, siis arvutatakse see selles seadmes ja rakendus annab sellest teada.
+635|Veel üks käik andmebaasi: väike plaan on kliendis kiirem.
+636|Kiirrežiimi pole: see vajab sellelt seadmelt kohest vastust.
+637|plaan planeeritakse lõppkuupäevast
+638|projekti kalendril on oma töönädal või erandid
+639|ülesandel on oma kalender
+640|ülesandel on piirang
+641|ülesanne planeeritakse käsitsi
+642|ülesanne on poolitatud
+643|ülesandel on kalendriline kestus
+644|ülesandel on eelkäija teises projektis
+645|ülesanne on mitteaktiivne
+646|plaanis on alamprojekti ülesanne
+647|ajajoon kasutab muud jaotust kui ühtlane
+648|seosed moodustavad tsükli
+649|plaan on andmebaasi funktsiooni jaoks liiga suur
+650|plaan vajab rohkem aega, kui andmebaas lubab
+651|andmebaas ei tunne seda päringut
+652|Andmebaas ei saa veel käivitust arvutada (käivitage start2_sql_code.sql, 42. OSA): arvutatud selles seadmes.
+653|Andmebaas seda plaani ei arvuta: arvutatud selles seadmes.
+654|Andmebaas ei suutnud käivitust arvutada: arvutatud selles seadmes.
+655|Miks
+656|Arvutas andmebaas ja kontrollitud selles seadmes: kohandati {{n}} ülesannet.
+657|Arvutas andmebaas ja kontrollitud selles seadmes.

@@ -374,8 +374,17 @@ export interface ReusableTableFoldersTree {
 
 export interface ReusableTableProps {
   // ---- the same parameters as ListWebCardsComponent ----
-  /** SystemMetaData key (redux entity + Supabase table) */
+  /** SystemMetaData key (redux entity + Supabase table). With `localRows` it is only the name of the table (search history, the dev menu) - no redux entity is needed */
   entityName: string;
+  /**
+   * LOCAL ROWS mode: the rows are held by the screen, not by a Supabase table. The table shows exactly these rows (no read, no realtime, no redux entity, no listOwnerGUID needed,
+   * `rowFilter` / `listOwnerGUID` / `listParentGUID` do not cut them) and hands every change of the user - a cell, a new / duplicated / deleted row, a move - to `onLocalRowsChange` as the
+   * WHOLE new list; the screen stores it and passes it back. For lists that live in a setting (the fields of a report) and still want the table: columns, search, sort, filters,
+   * folders tree, export. Rows need rowGUID (+ rowParentGUID for the folders tree, rowJSON for the cells).
+   */
+  localRows?: ReusableTableRow[];
+  /** LOCAL ROWS mode: the whole list after a change of the user */
+  onLocalRowsChange?: (rows: ReusableTableRow[]) => void;
   /** SystemMetaData key of the archive entity ('' / undefined = no "Archive" command) */
   entityForArchivationName?: string;
   crudListTitle?: string;

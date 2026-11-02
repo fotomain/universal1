@@ -569,3 +569,89 @@
 569|Nu nivelleren
 570|Laatste run ongedaan maken
 571|Historie van de runs
+572|Weergave „{{title}}” hersteld; een project, taak of resource ervan is niet beschikbaar voor u en het filter is gewist
+573|Weergave „{{title}}” hersteld
+574|Velden
+575|Geen veld is aangevinkt: het rapport toont geen cijfers. Vink minstens één veld aan.
+576|Vernieuwen
+577|Automatisch vernieuwen
+578|fase
+579|handmatig
+580|Elke taak van het project staat in een van deze fasen (nieuwe taken: de eerste). Het % van een fase: 1..100 = elke kaart van de fase heeft het; 0 = het % wordt op elke kaart van het Kanban-dashboard ingevoerd.
+581|handmatig %
+582|Percentage van de fase (0..100)
+583|1..100 = elke kaart van de fase heeft dit percentage. 0 = het percentage wordt op elke kaart van het Kanban-dashboard ingevoerd.
+584|Het percentage van deze taak is het percentage van haar Kanban-fase (Projectinstellingen → Kanban → Kanban-fasen).
+585|Kanban-% (het percentage van de fase)
+586|In het rapport
+587|Veld
+588|Groep
+589|Alles selecteren
+590|Alles wissen
+591|{{n}} van {{total}} velden staan in het rapport
+592|Groepen
+593|Alle velden
+594|Geen groep
+595|Weergave „{{title}}” verwijderd
+596|u
+597|Titel van de weergave
+598|Ingeschakeld voor andere gebruikers
+599|Eigenaar
+600|Opgeslagen
+601|Verwijderen?
+602|Weergave verwijderen
+603|Weergave herstellen
+604|Weergaven
+605|Weergave
+606|Nog geen opgeslagen weergaven. Gebruik Weergave → Weergave opslaan.
+607|Weergave „{{title}}” opgeslagen
+608|Weergave opslaan
+609|Slaat nu de aangevinkte velden, de datumfilters en de overige instellingen van het rapport op.
+610|U hebt al een weergave met deze titel: Opslaan vervangt die.
+611|De gebruikers van uw organisatie kunnen deze weergave herstellen, maar niet wijzigen.
+612|Het voortgangs-% van de taak bijwerken vanuit het Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Uit: het Kanban wijzigt het voortgangs-% van een taak nooit. Aan: een kaart die naar een fase met een percentage (1..100) wordt verplaatst, zet het voortgangs-% van de taak daarop; bij een fase met 0 % wordt het percentage op de kaart ingevoerd en zet het ook het voortgangs-% van de taak.
+614|Waar wordt een run berekend? (resourceLevelingComputationSide)
+615|Voordelen
+616|Nadelen
+617|Niet beschikbaar met berekening op de server: de Snelle modus heeft directe antwoorden van dit apparaat nodig.
+618|Berekening op de client
+619|De run wordt op dit apparaat berekend door dezelfde planner die het Gantt-diagram tekent.
+620|Het voorbeeld is exact: het is het plan van uw scherm, berekend door dezelfde planner.
+621|Werkt met elke projectinstelling: taakkalenders, beperkingen, onderbrekingen, plannen vanaf het einde, handmatige taken.
+622|Niets te installeren in de database, en geen belasting ervan.
+623|Klaar voor de Snelle modus: directe antwoorden terwijl u een balk sleept of uren typt.
+624|Een groot plan (duizenden taken) kan een telefoon of oude browser traag maken tijdens de run.
+625|Het hele project moet geopend en op dit apparaat berekend worden.
+626|De snelheid van een run hangt af van het apparaat dat hem start.
+627|Berekening op de server
+628|De run wordt door de database berekend; dit apparaat controleert het voorstel alleen, toont het en past het toe.
+629|Een groot plan vertraagt uw scherm niet: het werk gebeurt bij de gegevens.
+630|Dezelfde snelheid op een telefoon en op een computer.
+631|Het voorstel wordt door de planner van uw scherm gecontroleerd voordat u het kunt toepassen.
+632|Vereist de SQL-update van de database (DEEL 42); zonder die wordt de run op dit apparaat berekend en meldt de app dat.
+633|Berekent alleen plannen met één kalender (maandag tot vrijdag, of elke dag) met de vier soorten koppelingen tussen taken en fasen, zonder onderbrekingen, beperkingen, taakkalenders, handmatige of verstreken taken, subprojecten of plannen vanaf het einde; elk ander plan wordt op dit apparaat berekend en de app meldt dat.
+634|De database heeft een tijdslimiet (5 seconden): een zeer groot plan heeft misschien meer nodig, dan wordt het op dit apparaat berekend en meldt de app dat.
+635|Nog een heen-en-terugreis naar de database: een klein plan is sneller op de client.
+636|Geen Snelle modus: die heeft directe antwoorden van dit apparaat nodig.
+637|het plan wordt vanaf de einddatum gepland
+638|de kalender van het project heeft een eigen werkweek of uitzonderingen
+639|een taak heeft een eigen kalender
+640|een taak heeft een beperking
+641|een taak wordt handmatig gepland
+642|een taak is onderbroken
+643|een taak heeft een verstreken duur
+644|een taak heeft een voorganger in een ander project
+645|een taak is inactief
+646|het plan heeft een subprojecttaak
+647|een tijdlijn gebruikt een andere verdeling dan gelijkmatig
+648|de koppelingen vormen een lus
+649|het plan is te groot voor de functie van de database
+650|het plan heeft meer tijd nodig dan de database toestaat
+651|de database kent dit verzoek niet
+652|De database kan nog geen run berekenen (voer start2_sql_code.sql uit, DEEL 42): op dit apparaat berekend.
+653|De database berekent dit plan niet: op dit apparaat berekend.
+654|De database kon de run niet berekenen: op dit apparaat berekend.
+655|Waarom
+656|Berekend door de database en gecontroleerd op dit apparaat: {{n}} taak/taken aangepast.
+657|Berekend door de database en gecontroleerd op dit apparaat.

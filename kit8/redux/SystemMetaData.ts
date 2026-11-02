@@ -291,7 +291,7 @@ const SystemMetaData:any = {
         tableName: projectKanbanStageTable,
         itemLabel: "Project Kanban Stage",
         updateValidator: () => {},
-        defaultData: { stageName: "New Stage", stageColor: "#3b82f6", wipLimit: 0 },
+        defaultData: { stageName: "New Stage", stageColor: "#3b82f6", wipLimit: 0, stageProgressPercent: 0 },
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

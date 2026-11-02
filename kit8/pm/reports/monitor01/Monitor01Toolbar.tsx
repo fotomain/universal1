@@ -2,6 +2,7 @@
 //   Refresh button    reads the data again from the database (and, while auto refresh is off, shows it)
 //   Auto refresh      a switch (on by default): ON = the numbers follow the realtime events of monitor01_view (every filter keeps working: the filters cut the rows in memory);
 //                     OFF = the table stays as it is (a snapshot) until Refresh is pressed
+//   View              (viewMenu) the saved Views of the report: Save View · Restore View (Monitor01ViewMenu); it stays on the Settings tab too, so a View can be saved right after the fields were checked
 //   Expand all / Collapse all   the tree Project → Resource role → Month → Task name: open every node / close every node (the Project lines with their subtotals stay)
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -16,6 +17,10 @@ export interface Monitor01ToolbarProps {
   onRefresh: () => void;
   onExpandAll?: () => void;
   onCollapseAll?: () => void;
+  /** the View button with its sub menu (Monitor01ViewMenu): after Refresh and Auto refresh, before Expand all */
+  viewMenu?: React.ReactNode;
+  /** false (the Settings tab): only the View button is shown - Refresh, Auto refresh, Expand / Collapse and `extra` belong to the table of the Report tab. Default true */
+  reportControls?: boolean;
   /** shown after "Collapse all" (the Projects | Subprojects | All radio) */
   extra?: React.ReactNode;
   /** a refresh is running */
@@ -23,18 +28,23 @@ export interface Monitor01ToolbarProps {
   testID?: string;
 }
 
-export default function Monitor01Toolbar({ autoRefresh, onAutoRefreshChange, onRefresh, onExpandAll, onCollapseAll, extra, busy = false, testID = 'monitor01-toolbar' }: Monitor01ToolbarProps) {
+export default function Monitor01Toolbar({ autoRefresh, onAutoRefreshChange, onRefresh, onExpandAll, onCollapseAll, viewMenu, reportControls = true, extra, busy = false, testID = 'monitor01-toolbar' }: Monitor01ToolbarProps) {
   const { themeColors: c } = useDesignSystem();
   return (
     <View testID={testID} style={styles.row}>
-      <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" loading={busy} onPress={onRefresh} />
-      <View style={styles.auto}>
-        <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Auto refresh')}</Text>
-        <SwitchApp testID={`${testID}-auto`} value={autoRefresh} onValueChange={onAutoRefreshChange} />
-      </View>
-      {!!onExpandAll && <ButtonApp testID={`${testID}-expand`} title={pmT('Expand all')} icon="unfold_more" variant="text" size="small" onPress={onExpandAll} />}
-      {!!onCollapseAll && <ButtonApp testID={`${testID}-collapse`} title={pmT('Collapse all')} icon="unfold_less" variant="text" size="small" onPress={onCollapseAll} />}
-      {extra}
+      {reportControls && (
+        <>
+          <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" loading={busy} onPress={onRefresh} />
+          <View style={styles.auto}>
+            <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Auto refresh')}</Text>
+            <SwitchApp testID={`${testID}-auto`} value={autoRefresh} onValueChange={onAutoRefreshChange} />
+          </View>
+        </>
+      )}
+      {viewMenu}
+      {reportControls && !!onExpandAll && <ButtonApp testID={`${testID}-expand`} title={pmT('Expand all')} icon="unfold_more" variant="text" size="small" onPress={onExpandAll} />}
+      {reportControls && !!onCollapseAll && <ButtonApp testID={`${testID}-collapse`} title={pmT('Collapse all')} icon="unfold_less" variant="text" size="small" onPress={onCollapseAll} />}
+      {reportControls && extra}
     </View>
   );
 }

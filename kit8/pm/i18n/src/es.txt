@@ -569,3 +569,89 @@
 569|Nivelar ahora
 570|Deshacer la última ejecución
 571|Historial de ejecuciones
+572|Vista «{{title}}» restaurada; un proyecto, tarea o recurso de ella no está disponible para usted y su filtro se borró
+573|Vista «{{title}}» restaurada
+574|Campos
+575|Ningún campo está marcado: el informe no muestra números. Marque al menos un campo.
+576|Actualizar
+577|Actualización automática
+578|etapa
+579|manual
+580|Cada tarea del proyecto está en una de estas etapas (las tareas nuevas: la primera). El % de una etapa: 1..100 = todas las tarjetas de la etapa lo tienen; 0 = el % se escribe en cada tarjeta del panel Kanban.
+581|% manual
+582|Porcentaje de la etapa (0..100)
+583|1..100 = todas las tarjetas de la etapa tienen este porcentaje. 0 = el porcentaje se escribe en cada tarjeta del panel Kanban.
+584|El porcentaje de esta tarea es el porcentaje de su etapa Kanban (Configuración del proyecto → Kanban → Etapas Kanban).
+585|% Kanban (el porcentaje de la etapa)
+586|En el informe
+587|Campo
+588|Grupo
+589|Seleccionar todo
+590|Quitar todo
+591|{{n}} de {{total}} campos están en el informe
+592|Grupos
+593|Todos los campos
+594|Sin grupo
+595|Vista «{{title}}» eliminada
+596|usted
+597|Título de la vista
+598|Habilitada para otros usuarios
+599|Propietario
+600|Guardada
+601|¿Eliminar?
+602|Eliminar vista
+603|Restaurar vista
+604|Vistas
+605|Vista
+606|Aún no hay vistas guardadas. Use Vista → Guardar vista.
+607|Vista «{{title}}» guardada
+608|Guardar vista
+609|Guarda ahora los campos marcados, los filtros de fecha y los demás ajustes del informe.
+610|Ya tiene una vista con este título: Guardar la reemplaza.
+611|Los usuarios de su organización pueden restaurar esta vista, pero no modificarla.
+612|Actualizar el % de progreso de la tarea desde el Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Desactivado: el Kanban nunca cambia el % de progreso de una tarea. Activado: una tarjeta movida a una etapa con porcentaje (1..100) fija el % de progreso de la tarea en ese valor; en una etapa con 0 % el porcentaje se escribe en la tarjeta y también fija el % de progreso de la tarea.
+614|¿Dónde se calcula una ejecución? (resourceLevelingComputationSide)
+615|Ventajas
+616|Inconvenientes
+617|No disponible con cálculo en el servidor: el Modo rápido necesita respuestas instantáneas de este dispositivo.
+618|Cálculo en el cliente
+619|La ejecución se calcula en este dispositivo con el mismo planificador que dibuja el diagrama de Gantt.
+620|La vista previa es exacta: es el plan de su pantalla, calculado por el mismo planificador.
+621|Funciona con todos los ajustes del proyecto: calendarios de tareas, restricciones, divisiones, planificación desde el final, tareas manuales.
+622|No hay nada que instalar en la base de datos y no la carga.
+623|Listo para el Modo rápido: respuestas instantáneas mientras arrastra una barra o escribe horas.
+624|Un plan grande (miles de tareas) puede ralentizar un teléfono o un navegador antiguo durante la ejecución.
+625|Todo el proyecto debe estar abierto y calculado en este dispositivo.
+626|La velocidad de una ejecución depende del dispositivo que la inicia.
+627|Cálculo en el servidor
+628|La ejecución la calcula la base de datos; este dispositivo solo comprueba la propuesta, la muestra y la aplica.
+629|Un plan grande no ralentiza su pantalla: el trabajo se hace junto a los datos.
+630|La misma velocidad en un teléfono y en un ordenador.
+631|La propuesta es comprobada por el planificador de su pantalla antes de que pueda aplicarla.
+632|Necesita la actualización SQL de la base de datos (PARTE 42); sin ella la ejecución se calcula en este dispositivo y la aplicación lo indica.
+633|Solo calcula planes de un calendario (de lunes a viernes, o todos los días) con los cuatro tipos de vínculos entre tareas y etapas, sin divisiones, restricciones, calendarios de tareas, tareas manuales o de duración transcurrida, subproyectos ni planificación desde el final; cualquier otro plan se calcula en este dispositivo y la aplicación lo indica.
+634|La base de datos tiene un límite de tiempo (5 segundos): un plan muy grande puede necesitar más; entonces se calcula en este dispositivo y la aplicación lo indica.
+635|Un viaje más a la base de datos: un plan pequeño es más rápido en el cliente.
+636|Sin Modo rápido: necesita respuestas instantáneas de este dispositivo.
+637|el plan se planifica desde la fecha de fin
+638|el calendario del proyecto tiene una semana laboral propia o excepciones
+639|una tarea tiene un calendario propio
+640|una tarea tiene una restricción
+641|una tarea se planifica manualmente
+642|una tarea está dividida
+643|una tarea tiene una duración transcurrida
+644|una tarea tiene una predecesora en otro proyecto
+645|una tarea está inactiva
+646|el plan tiene una tarea de subproyecto
+647|una línea de tiempo usa una distribución distinta de la uniforme
+648|los vínculos forman un bucle
+649|el plan es demasiado grande para la función de la base de datos
+650|el plan necesita más tiempo del que permite la base de datos
+651|la base de datos no conoce esta solicitud
+652|La base de datos aún no puede calcular una ejecución (ejecute start2_sql_code.sql, PARTE 42): calculada en este dispositivo.
+653|La base de datos no calcula este plan: calculada en este dispositivo.
+654|La base de datos no pudo calcular la ejecución: calculada en este dispositivo.
+655|Por qué
+656|Calculado por la base de datos y comprobado en este dispositivo: se ajustaron {{n}} tarea(s).
+657|Calculado por la base de datos y comprobado en este dispositivo.

@@ -21,6 +21,7 @@ import {
   PMProjectKanbanStageRow,
   PMTaskKanbanStateRow,
   PM_KANBAN_DEFAULT_STAGES,
+  kanbanStagePercentOf,
 } from '../../model/kanbanTypes';
 import { check } from './apiUtils';
 import { isMissingTableError, PMMissingTableError } from './projectUserSettingsApi';
@@ -37,7 +38,10 @@ export class PMKanbanMissingError extends PMMissingTableError {
 const missing = (err: any, table: string) => isMissingTableError(err, table) || String(err?.code || '') === 'PGRST202';
 
 export function normalizeKanbanStage<T extends PMKanbanStageRow | PMProjectKanbanStageRow>(row: any): T {
-  return { ...row, orderInList: Number(row.orderInList) || 0, rowJSON: { stageName: '', ...(row.rowJSON || {}) } } as T;
+  // an old row without stageProgressPercent reads as the standard percent of its code (waiting 0, plan 10, ...), else 0 = manual
+  const json = { stageName: '', ...(row.rowJSON || {}) };
+  json.stageProgressPercent = kanbanStagePercentOf(json);
+  return { ...row, orderInList: Number(row.orderInList) || 0, rowJSON: json } as T;
 }
 
 export function normalizeKanbanState(row: any): PMTaskKanbanStateRow {
@@ -107,7 +111,7 @@ export function createKanbanApi(sb: SupabaseClient) {
       rowOwnerGUID: projectGUID,
       rowParentGUID: c.rowGUID,
       orderInList: (i + 1) * 1024,
-      rowJSON: { stageCode: c.json.stageCode, stageName: c.json.stageName, stageColor: c.json.stageColor },
+      rowJSON: { stageCode: c.json.stageCode, stageName: c.json.stageName, stageColor: c.json.stageColor, stageProgressPercent: kanbanStagePercentOf(c.json) },
     }));
     const ins = await sb.from(projectKanbanStageTable).insert(rows).select();
     return (check(ins) || []).map((r: any) => normalizeKanbanStage<PMProjectKanbanStageRow>(r)).sort(byOrder);

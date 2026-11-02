@@ -27,6 +27,12 @@ export interface PMKanbanStageJSON {
   isActive?: boolean;
   /** project only: optional work-in-progress limit (0 / undefined = none) */
   wipLimit?: number;
+  /**
+   * Whole number 0..100 (SQL trigger pm_kanban_stage_percent_chk keeps it so).
+   * 1..100 = FIXED: every card of the stage has this percent. 0 = MANUAL: the percent of a card is typed by hand on the Kanban dashboard.
+   * Missing (an old row) = the standard percent of the stage code (waiting 0, plan 10, analyse 30, construct 60, execute 90), else 0.
+   */
+  stageProgressPercent?: number;
 }
 
 /** Row of kanban_stage_table (catalog). */
@@ -84,13 +90,18 @@ export interface PMProjectKanbanData {
 }
 
 /** projectTaskKanbanStages - defaults when the catalog is empty / missing (same as the SQL seed). */
-export const PM_KANBAN_DEFAULT_STAGES: Required<Pick<PMKanbanStageJSON, 'stageCode' | 'stageName' | 'stageColor'>>[] = [
-  { stageCode: 'waiting', stageName: 'Waiting', stageColor: '#94A3B8' },
-  { stageCode: 'plan', stageName: 'Plan', stageColor: '#6366F1' },
-  { stageCode: 'analyse', stageName: 'Analyse', stageColor: '#0EA5E9' },
-  { stageCode: 'construct', stageName: 'Construct', stageColor: '#F59E0B' },
-  { stageCode: 'execute', stageName: 'Execute', stageColor: '#22C55E' },
+export const PM_KANBAN_DEFAULT_STAGES: Required<Pick<PMKanbanStageJSON, 'stageCode' | 'stageName' | 'stageColor' | 'stageProgressPercent'>>[] = [
+  { stageCode: 'waiting', stageName: 'Waiting', stageColor: '#94A3B8', stageProgressPercent: 0 },
+  { stageCode: 'plan', stageName: 'Plan', stageColor: '#6366F1', stageProgressPercent: 10 },
+  { stageCode: 'analyse', stageName: 'Analyse', stageColor: '#0EA5E9', stageProgressPercent: 30 },
+  { stageCode: 'construct', stageName: 'Construct', stageColor: '#F59E0B', stageProgressPercent: 60 },
+  { stageCode: 'execute', stageName: 'Execute', stageColor: '#22C55E', stageProgressPercent: 90 },
 ];
+
+/** Standard percent of the stages of the code (same as the SQL function pm_kanban_stage_default_percent). */
+export const PM_KANBAN_STANDARD_PERCENT: Record<string, number> = Object.fromEntries(
+  PM_KANBAN_DEFAULT_STAGES.map((s) => [s.stageCode, s.stageProgressPercent]),
+);
 
 /** Colors offered in the "Kanban Stages" window. */
 export const PM_KANBAN_STAGE_COLORS = ['#94A3B8', '#6366F1', '#0EA5E9', '#14B8A6', '#22C55E', '#84CC16', '#F59E0B', '#F97316', '#EF4444', '#EC4899', '#A855F7', '#64748B'];
@@ -116,3 +127,34 @@ export const kanbanStageProgressOf = (state: PMTaskKanbanStateRow | undefined | 
   const p = state?.rowJSON?.kanbanStageProgressPercent;
   return typeof p === 'number' && Number.isFinite(p) ? Math.max(0, Math.min(100, Math.round(p))) : fallback;
 };
+
+/** true when v is a whole number 0..100 (what the SQL trigger accepts). */
+export const isKanbanStagePercent = (v: unknown): v is number => typeof v === 'number' && Number.isInteger(v) && v >= 0 && v <= 100;
+
+/** Percent of a stage: stageProgressPercent, else the standard percent of its code, else 0 (manual). */
+export const kanbanStagePercentOf = (json: PMKanbanStageJSON | undefined | null): number => {
+  const p = json?.stageProgressPercent;
+  if (typeof p === 'number' && Number.isFinite(p)) return Math.max(0, Math.min(100, Math.round(p)));
+  const code = json?.stageCode;
+  return code && Object.prototype.hasOwnProperty.call(PM_KANBAN_STANDARD_PERCENT, code) ? PM_KANBAN_STANDARD_PERCENT[code] : 0;
+};
+
+/** MANUAL stage (percent 0): the percent of each card is typed by hand on the Kanban dashboard. */
+export const isKanbanStageManualPercent = (json: PMKanbanStageJSON | undefined | null): boolean => kanbanStagePercentOf(json) === 0;
+
+/**
+ * Text -> stage percent for an edit field: '' -> 0, '45' -> 45, '45.5' / '-1' / '101' / 'x' -> null (invalid).
+ */
+export const parseKanbanStagePercent = (text: string): number | null => {
+  const t = String(text ?? '').trim();
+  if (t === '') return 0;
+  if (!/^\d{1,3}$/.test(t)) return null;
+  const n = Number(t);
+  return isKanbanStagePercent(n) ? n : null;
+};
+
+/** Percent shown on a card: FIXED stage -> the stage percent (always in step with the stage); MANUAL stage -> the percent typed on the card. */
+export const kanbanCardPercentOf = (
+  stage: PMKanbanStageJSON | undefined | null,
+  state: PMTaskKanbanStateRow | undefined | null,
+): number => (isKanbanStageManualPercent(stage) ? kanbanStageProgressOf(state, 0) : kanbanStagePercentOf(stage));

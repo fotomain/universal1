@@ -3,17 +3,19 @@
 //            every header text starts with a capital letter, is centered and has the background of the header of ReusableTable (the surfaceVariant of the paper theme)
 //   body     Total rows (per unit) · the TREE, one column per level:   Project  ▸  Resource role  ▸  Month (ascending)  ▸  Task name
 //            every Project / Resource role / Month line is a SUBTOTAL (one line per unit) with a chevron that collapses everything below it; the Task name lines are the rows of the view
+//   fields   the prop `fields` = the numeric fields SHOWN (Settings → Fields, monitor01Fields.ts): an unchecked field has no column - no header, no cell, no total; a group without a shown field has no group header either
 //   footer   the TotalsRow (always visible below the rows): sumForBudget and the quantities (per unit)
 //   cells    a quantity is a button: it opens the SOURCE TRANSACTIONS (SumExplorerListReusable); the critical cells have a background colour (monitor01Colors.ts)
 //            a DOUBLE click / touch on a Task name opens the task in the dashboard (Finances view: task + tab + line), `onTaskOpen`; a right click / long press opens the Task menu, `onTaskMenu`
 // A FlatList draws only the rows in view; the rows are plain objects, so a realtime patch re-renders only the rows whose object changed.
 import { VAT_BASIS_DEFAULT, VAT_BASIS_SHORT, VatBasis } from '../../vat/vatBasis';
-import React, { memo, useCallback, useRef, useState } from 'react';
+import React, { memo, useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { pmT } from '../../i18n/pmT';
 import { usePMTip } from '../../inner/tooltip/PMTooltip';
 import IconApp from '../../../ui/components/common/IconApp';
 import { cellTone, toneBackground } from './monitor01Colors';
+import { MONITOR01_FIELDS, Monitor01FieldId } from './monitor01Fields';
 import {
   MONITOR01_CUSTOMER_INVOICE_HEAD, MONITOR01_HEAD, MONITOR01_MEASURE_TITLE, MONITOR01_VENDOR_INVOICE_HEAD, Monitor01Item, Monitor01Level, Monitor01Measure, Monitor01Row, Monitor01Sums, Monitor01Totals, formatMonitor01Number,
 } from './monitor01Model';
@@ -34,6 +36,8 @@ export interface Monitor01TableProps {
   onTaskOpen?: (row: Monitor01Row) => void;
   /** a right click (web) / long press (touch) on the Task name of a row: the Task menu at the window point */
   onTaskMenu?: (row: Monitor01Row, x: number, y: number) => void;
+  /** the ids of the numeric fields that are SHOWN (default: all of them, as in the sheet); the columns keep the order of the sheet */
+  fields?: readonly Monitor01FieldId[];
   /** the VAT basis of the three money columns (their header tips say it); the rows already carry the amounts of that basis (applyMonitor01VatBasis) */
   vatBasis?: VatBasis;
   testID?: string;
@@ -61,15 +65,10 @@ const isMoney = (id: Col['id']): id is MoneyId => id === 'sumForBudget' || id ==
 type Col = { id: Monitor01Measure | MoneyId; group: Group };
 /** the 1st level of the header; the Vendor Invoice group comes after Fact, the Customer Invoice group is the LAST; both have the 2nd level columns Qty and Sum */
 const GROUPS: { id: Group; testKey: string }[] = [{ id: 'Plan', testKey: 'Plan' }, { id: 'Fact', testKey: 'Fact' }, { id: 'Vendor Invoice', testKey: 'VendorInvoice' }, { id: 'Customer Invoice', testKey: 'CustomerInvoice' }];
-const COLS: Col[] = [
-  { id: 'planned', group: 'Plan' }, { id: 'contracted', group: 'Plan' }, { id: 'restToContract', group: 'Plan' }, { id: 'sumForBudget', group: 'Plan' },
-  { id: 'ordered', group: 'Fact' }, { id: 'received', group: 'Fact' }, { id: 'used', group: 'Fact' }, { id: 'onHand', group: 'Fact' },
-  { id: 'vendorInvoiced', group: 'Vendor Invoice' }, { id: 'sumVendorInvoiced', group: 'Vendor Invoice' },
-  { id: 'customerInvoiced', group: 'Customer Invoice' }, { id: 'sumCustomerInvoiced', group: 'Customer Invoice' },
-];
-/** the first column of every group after Plan: its left edge is the divider between the groups (Plan | Fact | Vendor Invoice) */
-const GROUP_START_COLUMNS: Col['id'][] = GROUPS.slice(1).map((g) => (COLS.find((c) => c.group === g.id) as Col).id);
-const startsGroup = (id: Col['id']) => GROUP_START_COLUMNS.includes(id);
+/** every column of the sheet, in order (monitor01Fields.ts): the table draws those of `fields` */
+const ALL_COLS: Col[] = MONITOR01_FIELDS.map((f) => ({ id: f.id, group: f.group }));
+/** the first SHOWN column of every group after the first shown one: its left edge is the divider between the groups (Plan | Fact | Vendor Invoice) */
+const groupStarts = (cols: readonly Col[]): ReadonlySet<Col['id']> => new Set(cols.filter((c, i) => i > 0 && cols[i - 1].group !== c.group).map((c) => c.id));
 const colWidth = (c: Col) => (isMoney(c.id) ? W.budget : W.num);
 /** a cell of the header with the tip = its title (the bubble is drawn by PMTooltipLayer of the screen) */
 function HeadCell({ title, width, testID, textTestID, borderColor, center, textStyle, tipText }: { title: string; width: number; testID?: string; textTestID?: string; borderColor?: string; center?: boolean; textStyle: any; tipText?: string }) {
@@ -88,7 +87,6 @@ function HeadCell({ title, width, testID, textTestID, borderColor, center, textS
 
 /** the header text of a column: the 2nd level under Vendor Invoice is Qty | Sum */
 const colTitle = (c: Col) => (c.id === 'sumForBudget' ? MONITOR01_HEAD.sumForBudget : c.id === 'sumVendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.sum : c.id === 'vendorInvoiced' ? MONITOR01_VENDOR_INVOICE_HEAD.qty : c.id === 'sumCustomerInvoiced' ? MONITOR01_CUSTOMER_INVOICE_HEAD.sum : c.id === 'customerInvoiced' ? MONITOR01_CUSTOMER_INVOICE_HEAD.qty : MONITOR01_MEASURE_TITLE[c.id]);
-const NUMS_WIDTH = COLS.reduce((a, c) => a + colWidth(c), 0);
 /** money with 2 decimals; 0 shows nothing */
 const money = (n: number) => (n ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '');
 
@@ -116,7 +114,13 @@ const Cell = memo(function Cell({ measure, sums, stale, bold, item, colors, test
   );
 });
 
-function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, onTaskMenu, vatBasis = VAT_BASIS_DEFAULT, testID = 'monitor01-table' }: Monitor01TableProps) {
+function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell, onTaskOpen, onTaskMenu, fields, vatBasis = VAT_BASIS_DEFAULT, testID = 'monitor01-table' }: Monitor01TableProps) {
+  // the columns that are shown (Settings → Fields) and the groups over them
+  const COLS = useMemo(() => (fields ? ALL_COLS.filter((c) => fields.includes(c.id as Monitor01FieldId)) : ALL_COLS), [fields]);
+  const startsAt = useMemo(() => groupStarts(COLS), [COLS]);
+  const startsGroup = useCallback((id: Col['id']) => startsAt.has(id), [startsAt]);
+  const shownGroups = useMemo(() => GROUPS.filter((g) => COLS.some((c) => c.group === g.id)), [COLS]);
+  const NUMS_WIDTH = useMemo(() => COLS.reduce((a, c) => a + colWidth(c), 0), [COLS]);
   const lastPress = useRef<{ key: string; at: number } | null>(null);
   const pressTask = useCallback((key: string, row: Monitor01Row) => {
     const now = Date.now();
@@ -196,7 +200,7 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
         })}
       </View>
     );
-  }, [colors, onCell, onToggle, onTaskOpen, onTaskMenu, pressTask, testID, unitTitle, width]);
+  }, [colors, onCell, onToggle, onTaskOpen, onTaskMenu, pressTask, testID, unitTitle, width, COLS, startsGroup]);
 
   // the header: the background of the header of ReusableTable, every text centered
   const headBg = colors.headerBackground;
@@ -213,8 +217,8 @@ function Monitor01TableImpl({ items, totals, onToggle, unitTitle, colors, onCell
         {/* header row 1: the groups */}
         <View style={[styles.row, { height: 28, backgroundColor: headBg, borderBottomColor: colors.border }]}>
           <View style={{ width: dimsWidth }} />
-          {GROUPS.map((g) => (
-            <HeadCell key={g.id} title={pmT(g.id)} width={COLS.filter((c) => c.group === g.id).reduce((a, c) => a + colWidth(c), 0)} testID={`${testID}-group-${g.testKey}`} textTestID={`${testID}-group-text-${g.testKey}`} borderColor={g.id !== 'Plan' ? colors.text : undefined} center textStyle={text({ fontWeight: '800', textAlign: 'center' })} />
+          {shownGroups.map((g, gi) => (
+            <HeadCell key={g.id} title={pmT(g.id)} width={COLS.filter((c) => c.group === g.id).reduce((a, c) => a + colWidth(c), 0)} testID={`${testID}-group-${g.testKey}`} textTestID={`${testID}-group-text-${g.testKey}`} borderColor={gi > 0 ? colors.text : undefined} center textStyle={text({ fontWeight: '800', textAlign: 'center' })} />
           ))}
         </View>
         {/* header row 2: the columns */}

@@ -34,6 +34,12 @@ command. `uxuiTable.inlineEdit` (default **true**) = cells are edited in place; 
 rows that arrive from the server / realtime (`onRowsChange` gets the whole list). **Marked row** (`focusRowGUID`): the row to mark and scroll into view; default
 the route parameter `focusRowGUID`. Used by the task finances (`kit8/pm/view/task/finances`).
 
+**Local rows mode** (`localRows` + `onLocalRowsChange`): the rows are held by the SCREEN, not by a Supabase table - no read, no realtime, no redux entity, no `listOwnerGUID`
+(`entityName` is only the name of the table: search history, dev menu). The table shows exactly `localRows` (keep the array stable, e.g. `useMemo` / state - a new array every render re-syncs the table),
+and hands every change of the user (a cell, a new / duplicated / deleted row, a move) to `onLocalRowsChange` as the WHOLE new list. Use it for a list that lives in a setting and still wants the table:
+columns, search, sort + filters, the folders tree (`rowParentGUID` = the folder), export. `rowFilter`, `listOwnerGUID`, `listParentGUID` and `entityForArchivationName` are ignored. First user: the Fields list of the Monitor01 report
+(`kit8/pm/reports/monitor01/Monitor01FieldsTab.tsx`). Test: `__tests__/ui/table/reusableTableLocalRows.test.tsx`.
+
 **All-rows mode** (catalog dashboards, e.g. kit8/catalog/product/dashboard): `listOwnerGUID={REUSABLE_TABLE_ALL}` (and
 `listParentGUID={REUSABLE_TABLE_ALL}`) = the rows of every owner / parent; the read has no `match`, so the redux entity
 keeps the whole table for every other screen. `rowFilter` filters the shown rows on the client (master -> detail),

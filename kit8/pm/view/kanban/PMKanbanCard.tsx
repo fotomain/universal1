@@ -2,7 +2,8 @@
 //   drag (web: mouse drag · touch: long-press + drag) = move to another column / reorder (react-native-reanimated-dnd)
 //   tap = select the task (the tree selects + scrolls to it) · double tap / ✎ = edit (PMTaskEditModal)
 //   ‹ › = previous / next stage (phones: no dragging across off-screen columns needed)
-// The progress bar shows the Kanban stage progress %, which is independently editable.
+// The progress bar shows the percent of the card. A stage with a percent (1..100) is FIXED: every card of it shows the stage percent and the bar / badge are not editable
+// (card.percentFixed). A stage with 0 is MANUAL: the percent is typed on the card (the bar, or the badge with ✎).
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -68,6 +69,8 @@ function PMKanbanCardInner({
   const criticalPriority = usePMStore((s) => s.criticalPathColorHasPriorityOverTheCustomTaskColor);
   const accent = (card.critical && criticalPriority) ? palette.critical : (card.color || (card.critical ? palette.critical : stageColor));
   const stageProgress = Math.max(0, Math.min(100, Math.round(card.kanbanStageProgressPercent ?? 0)));
+  const fixed = !!card.percentFixed;
+  const canEditPercent = !readOnly && !fixed;
   const [isEditingProgress, setIsEditingProgress] = useState(false);
   const [progressInput, setProgressInput] = useState('');
   const [trackWidth, setTrackWidth] = useState(0);
@@ -110,7 +113,7 @@ function PMKanbanCardInner({
   };
 
   const onTrackPress = (e: any) => {
-    if (readOnly || trackWidth <= 0) return;
+    if (!canEditPercent || trackWidth <= 0) return;
     const locX = e.nativeEvent?.locationX ?? 0;
     const pct = Math.max(0, Math.min(100, Math.round((locX / trackWidth) * 100)));
     onProgressChange?.(card.guid, pct);
@@ -167,15 +170,15 @@ function PMKanbanCardInner({
         <Pressable
           testID={`pm-kanban-progress-track-${card.guid}`}
           accessibilityRole="adjustable"
-          accessibilityLabel={`Kanban stage progress ${stageProgress}%`}
+          accessibilityLabel={fixed ? `Percent of the stage ${stageProgress}%` : `Kanban stage progress ${stageProgress}%`}
           accessibilityValue={{ min: 0, max: 100, now: stageProgress }}
-          disabled={readOnly}
+          disabled={!canEditPercent}
           onLayout={(e) => setTrackWidth(e.nativeEvent.layout.width)}
           onPress={onTrackPress}
           style={[
             styles.progressTrack,
             { backgroundColor: withAlpha(stageColor, 0.18) },
-            IS_WEB && !readOnly ? ({ cursor: 'pointer' } as any) : null,
+            IS_WEB && canEditPercent ? ({ cursor: 'pointer' } as any) : null,
           ]}
         >
           <View style={[styles.progressFill, { width: `${stageProgress}%`, backgroundColor: stageColor }]} />
@@ -206,11 +209,11 @@ function PMKanbanCardInner({
           <Pressable
             testID={`pm-kanban-progress-badge-${card.guid}`}
             accessibilityRole="button"
-            accessibilityLabel={`Edit stage progress, current ${stageProgress}%`}
-            disabled={readOnly}
+            accessibilityLabel={fixed ? `Percent of the stage, ${stageProgress}%` : `Edit stage progress, current ${stageProgress}%`}
+            disabled={!canEditPercent}
             onPress={(e) => {
               e.stopPropagation?.();
-              if (!readOnly) {
+              if (canEditPercent) {
                 setProgressInput(String(stageProgress));
                 setIsEditingProgress(true);
               }
@@ -218,13 +221,17 @@ function PMKanbanCardInner({
             style={({ hovered }: any) => [
               styles.progressBadge,
               { borderColor: withAlpha(stageColor, 0.4) },
-              hovered && !readOnly ? { backgroundColor: withAlpha(palette.primary, 0.12) } : null,
-              IS_WEB && !readOnly ? ({ cursor: 'pointer' } as any) : null,
+              hovered && canEditPercent ? { backgroundColor: withAlpha(palette.primary, 0.12) } : null,
+              IS_WEB && canEditPercent ? ({ cursor: 'pointer' } as any) : null,
+              fixed ? { borderStyle: 'dashed' } : null,
             ]}
           >
             <Text style={[styles.progressText, { color: palette.text }]}>{stageProgress}%</Text>
-            {!readOnly && (
+            {canEditPercent && (
               <Text style={{ fontSize: 9, color: palette.textMuted, marginLeft: 2 }}>✎</Text>
+            )}
+            {fixed && (
+              <Text testID={`pm-kanban-progress-fixed-${card.guid}`} style={{ fontSize: 9, color: palette.textMuted, marginLeft: 3 }}>{pmT('stage')}</Text>
             )}
           </Pressable>
         )}

@@ -569,3 +569,89 @@
 569|Jetzt ausgleichen
 570|Letzten Lauf rückgängig machen
 571|Verlauf der Läufe
+572|Ansicht „{{title}}“ wiederhergestellt; ein Projekt, eine Aufgabe oder eine Ressource daraus ist für Sie nicht verfügbar, der Filter wurde geleert
+573|Ansicht „{{title}}“ wiederhergestellt
+574|Felder
+575|Kein Feld ist angehakt: Der Bericht zeigt keine Zahlen. Haken Sie mindestens ein Feld an.
+576|Aktualisieren
+577|Automatisch aktualisieren
+578|Phase
+579|manuell
+580|Jede Aufgabe des Projekts befindet sich in einer dieser Phasen (neue Aufgaben: in der ersten). Der % einer Phase: 1..100 = jede Karte der Phase hat ihn; 0 = der % wird auf jeder Karte im Kanban-Dashboard eingegeben.
+581|manueller %
+582|Prozent der Phase (0..100)
+583|1..100 = jede Karte der Phase hat diesen Prozentsatz. 0 = der Prozentsatz wird auf jeder Karte im Kanban-Dashboard eingegeben.
+584|Der Prozentsatz dieser Aufgabe ist der Prozentsatz ihrer Kanban-Phase (Projekteinstellungen → Kanban → Kanban-Phasen).
+585|Kanban-% (der Prozentsatz der Phase)
+586|Im Bericht
+587|Feld
+588|Gruppe
+589|Alle auswählen
+590|Alle abwählen
+591|{{n}} von {{total}} Feldern sind im Bericht
+592|Gruppen
+593|Alle Felder
+594|Keine Gruppe
+595|Ansicht „{{title}}“ gelöscht
+596|Sie
+597|Ansichtstitel
+598|Für andere Benutzer aktiviert
+599|Besitzer
+600|Gespeichert
+601|Löschen?
+602|Ansicht löschen
+603|Ansicht wiederherstellen
+604|Ansichten
+605|Ansicht
+606|Noch keine gespeicherten Ansichten. Nutzen Sie Ansicht → Ansicht speichern.
+607|Ansicht „{{title}}“ gespeichert
+608|Ansicht speichern
+609|Speichert jetzt die angehakten Felder, die Datumsfilter und die übrigen Einstellungen des Berichts.
+610|Sie haben bereits eine Ansicht mit diesem Titel: Speichern ersetzt sie.
+611|Die Benutzer Ihrer Organisation können diese Ansicht wiederherstellen, aber nicht ändern.
+612|Fortschritt-% der Aufgabe aus dem Kanban aktualisieren (autoUpdateTaskProgressPercentFromKanban)
+613|Aus: Das Kanban ändert nie den Fortschritt-% einer Aufgabe. Ein: Eine Karte, die in eine Phase mit Prozentsatz (1..100) verschoben wird, setzt den Fortschritt-% der Aufgabe darauf; bei einer Phase mit 0 % wird der Prozentsatz auf der Karte eingegeben und setzt ebenfalls den Fortschritt-% der Aufgabe.
+614|Wo wird ein Lauf berechnet? (resourceLevelingComputationSide)
+615|Vorteile
+616|Nachteile
+617|Mit serverseitiger Berechnung nicht verfügbar: Der Schnellmodus braucht sofortige Antworten von diesem Gerät.
+618|Clientseitige Berechnung
+619|Der Lauf wird auf diesem Gerät mit demselben Planer berechnet, der das Gantt-Diagramm zeichnet.
+620|Die Vorschau ist exakt: Es ist der Plan Ihres Bildschirms, berechnet vom selben Planer.
+621|Funktioniert mit jeder Projekteinstellung: Aufgabenkalender, Einschränkungen, Unterbrechungen, Planung vom Ende, manuelle Aufgaben.
+622|Nichts in der Datenbank zu installieren, und keine Last auf ihr.
+623|Bereit für den Schnellmodus: sofortige Antworten, während Sie einen Balken ziehen oder Stunden eintippen.
+624|Ein großer Plan (Tausende Aufgaben) kann ein Telefon oder einen alten Browser während des Laufs langsam machen.
+625|Das ganze Projekt muss geöffnet und auf diesem Gerät berechnet werden.
+626|Die Geschwindigkeit eines Laufs hängt vom Gerät ab, das ihn startet.
+627|Serverseitige Berechnung
+628|Der Lauf wird von der Datenbank berechnet; dieses Gerät prüft den Vorschlag nur, zeigt ihn an und wendet ihn an.
+629|Ein großer Plan verlangsamt Ihren Bildschirm nicht: Die Arbeit geschieht direkt bei den Daten.
+630|Gleiche Geschwindigkeit auf Telefon und Computer.
+631|Der Vorschlag wird vom Planer Ihres Bildschirms geprüft, bevor Sie ihn anwenden können.
+632|Braucht das SQL-Update der Datenbank (TEIL 42); ohne es wird der Lauf auf diesem Gerät berechnet und die App sagt es.
+633|Berechnet nur Pläne mit einem Kalender (Montag bis Freitag oder jeden Tag) und den vier Verknüpfungsarten zwischen Aufgaben und Phasen, ohne Unterbrechungen, Einschränkungen, Aufgabenkalender, manuelle oder verstrichene Aufgaben, Teilprojekte oder Planung vom Ende; jeder andere Plan wird auf diesem Gerät berechnet und die App sagt es.
+634|Die Datenbank hat ein Zeitlimit (5 Sekunden): Ein sehr großer Plan braucht vielleicht mehr, dann wird er auf diesem Gerät berechnet und die App sagt es.
+635|Ein weiterer Weg zur Datenbank: Ein kleiner Plan ist clientseitig schneller.
+636|Kein Schnellmodus: Er braucht sofortige Antworten von diesem Gerät.
+637|der Plan wird vom Endtermin aus geplant
+638|der Kalender des Projekts hat eine eigene Arbeitswoche oder Ausnahmen
+639|eine Aufgabe hat einen eigenen Kalender
+640|eine Aufgabe hat eine Einschränkung
+641|eine Aufgabe wird manuell geplant
+642|eine Aufgabe ist unterbrochen
+643|eine Aufgabe hat eine verstrichene Dauer
+644|eine Aufgabe hat einen Vorgänger in einem anderen Projekt
+645|eine Aufgabe ist inaktiv
+646|der Plan enthält eine Teilprojekt-Aufgabe
+647|eine Zeitlinie nutzt eine andere Verteilung als gleichmäßig
+648|die Verknüpfungen bilden eine Schleife
+649|der Plan ist zu groß für die Funktion der Datenbank
+650|der Plan braucht mehr Zeit, als die Datenbank erlaubt
+651|die Datenbank kennt diese Anfrage nicht
+652|Die Datenbank kann noch keinen Lauf berechnen (start2_sql_code.sql, TEIL 42 ausführen): auf diesem Gerät berechnet.
+653|Die Datenbank berechnet diesen Plan nicht: auf diesem Gerät berechnet.
+654|Die Datenbank konnte den Lauf nicht berechnen: auf diesem Gerät berechnet.
+655|Warum
+656|Von der Datenbank berechnet und auf diesem Gerät geprüft: {{n}} Aufgabe(n) wurden angepasst.
+657|Von der Datenbank berechnet und auf diesem Gerät geprüft.

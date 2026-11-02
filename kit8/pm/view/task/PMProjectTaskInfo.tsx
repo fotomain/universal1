@@ -30,8 +30,8 @@ import {
 import { usePMCrud } from '../../crud/usePMCrud';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import { usePMKanbanStore } from '../../store/store_kanban';
-import { kanbanStageProgressOf } from '../../model/kanbanTypes';
-import { derivedKanbanProgress, kanbanLeavesOf } from '../kanban/kanbanModel';
+import { isKanbanStageManualPercent, kanbanStageProgressOf } from '../../model/kanbanTypes';
+import { kanbanLeavesOf, kanbanPercentForRow, kanbanStageOfTask } from '../kanban/kanbanModel';
 import { formatDateISO, LINK_TYPES, validateNewDependency } from '../project/scheduling';
 import { PMTaskDependencyRow } from '../../model/types';
 import PMTaskEditModal from './PMTaskEditModal';
@@ -215,12 +215,19 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
   const isSummary = !!sched?.isSummary;
   const progress = Math.round(sched?.progress ?? task.rowProgress ?? 0);
   const statesByTask = usePMKanbanStore((s) => s.statesByTask);
-  const kanbanProgress = useMemo(() => {
-    if (isSummary) {
-      return derivedKanbanProgress(taskGUID, tasksById, tree, statesByTask);
-    }
-    return kanbanStageProgressOf(statesByTask[taskGUID], 0);
-  }, [taskGUID, isSummary, tasksById, tree, statesByTask]);
+  const kanbanStagesOfProject = usePMKanbanStore((s) => s.stages);
+  const kanbanProgress = useMemo(
+    () => (kanbanStagesOfProject.length ? kanbanPercentForRow(taskGUID, tasksById, tree, kanbanStagesOfProject, statesByTask) : isSummary ? 0 : kanbanStageProgressOf(statesByTask[taskGUID], 0)),
+    [taskGUID, isSummary, tasksById, tree, statesByTask, kanbanStagesOfProject]
+  );
+
+  /** a task in a stage with its own percent (1..100): the Kanban % is the percent of the stage and cannot be typed */
+  const kanbanFixed = useMemo(() => {
+    if (isSummary || !kanbanStagesOfProject.length) return false;
+    const g = kanbanStageOfTask(taskGUID, kanbanStagesOfProject, statesByTask);
+    const st = g ? kanbanStagesOfProject.find((x) => x.rowGUID === g) : undefined;
+    return !!st && !isKanbanStageManualPercent(st.rowJSON);
+  }, [isSummary, kanbanStagesOfProject, taskGUID, statesByTask]);
 
   const renderDep = (d: PMTaskDependencyRow, other: string, direction: 'pred' | 'succ') => (
     <View key={`${direction}-${other}`} style={[styles.depRow, { borderColor: c.border }]}>
@@ -340,8 +347,9 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
         <View style={styles.progressBtns}>
           {[0, 25, 50, 75, 100].map((p) => (
             <PMTipPressable
-              tip={`Set Kanban stage progress to ${p}%`}
+              tip={kanbanFixed ? pmT('The percent of this task is the percent of its Kanban stage (Project settings → Kanban → Kanban Stages).') : `Set Kanban stage progress to ${p}%`}
               key={p}
+              disabled={kanbanFixed}
               testID={`pm-info-kanban-progress-${p}`}
               onPress={() => {
                 mark('kanbanProgress');
@@ -352,7 +360,7 @@ function PMProjectTaskInfoInner({ taskGUID, projectGUID: projectHint }: { taskGU
                   kanban.setTaskKanbanProgress(taskGUID, p);
                 }
               }}
-              style={[styles.pill, { borderColor: c.border, marginRight: 6 }]}
+              style={[styles.pill, { borderColor: c.border, marginRight: 6, opacity: kanbanFixed ? 0.45 : 1 }]}
             >
               <Text style={{ color: kanbanProgress === p ? c.primary : c.text, fontWeight: kanbanProgress === p ? '700' : '400' }}>{p}%</Text>
             </PMTipPressable>

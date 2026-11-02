@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000000000. delete_report_views.sql - PART 43: drops project_report_settings (data included: the saved views of ALL users) and the report_view_* functions (runs very first: it is the newest)
 --  1a-0000000000. delete_resource_leveling.sql - PART 42: drops project_resource_leveling_run / _task (data included: the history of the runs of ALL projects), the check trigger on project_task_table and the project_resource_leveling_* functions; the key taskLevelingDelayDays stays on the tasks as inert JSON (runs very first: it is the newest)
 --  1a-000000000. delete_route_visits.sql - PART 41: drops app_route_visits_turnover (data included: the visits of ALL users) and the route_visit* functions (runs very first: it is the newest)
 --  1a-00000000. delete_task_template.sql - PART 40: drops the task template tables (data included: every template of every organization) and the task_template_* functions (runs very first: it is the newest)
@@ -35,6 +36,18 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-00000000000: delete_report_views.sql  (PART 43 of the structure file: the saved VIEWS of a report - runs before everything else, it is the newest)
+-- Drops project_report_settings WITH its rows (the saved views of ALL users) and the functions.
+-- =====================================================================================
+DROP TABLE IF EXISTS public.project_report_settings CASCADE;
+DROP FUNCTION IF EXISTS public.report_view_save(text, text, jsonb, boolean);
+DROP FUNCTION IF EXISTS public.report_view_list(text);
+DROP FUNCTION IF EXISTS public.report_view_share(text, boolean);
+DROP FUNCTION IF EXISTS public.report_view_delete(text);
 
 
 

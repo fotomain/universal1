@@ -237,6 +237,11 @@ export interface PMRowJSON {
    * Resource optimization (kit8/pm/resourceleveling/resourceLevelingSettings.ts; Project settings -> Resources -> Resource optimization). EVERY switch is off / at its default while never saved.
    * The keys are listed in resourceLevelingSettings.ts (PMResourceLevelingValues); they are typed there, here only so that a project row accepts them.
    */
+  /**
+   * Kanban (Project settings -> Kanban; kit8/pm/view/project/settings/kanban/kanbanSettings.ts): false / missing = the Kanban never touches the task progress %.
+   * true = a card moved into a FIXED stage (stage percent 1..100) or a percent typed on a card of a MANUAL stage (percent 0) also sets project_task_table.rowProgress. Project level only.
+   */
+  autoUpdateTaskProgressPercentFromKanban?: boolean;
   resourceLevelingFunctionalityEnabled?: boolean;
   resourceOptimizationMode?: 'dayByDayModel' | 'hourByHourModel';
   resourceGrainUnit?: 'hour' | 'day' | 'week';

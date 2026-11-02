@@ -3,6 +3,8 @@
 //
 //   mode 'project'     a part of the project board: the toggle Reports → Monitor01 (one project; no Project filter)
 //   mode 'standalone'  separately: the route /pm/reports/monitor01 from the hamburger menu → Reports → Monitor01 — the FULL data set of the user, with the Project filter
+//   top tabs Report · Settings   Report = everything below; Settings → Fields = the check boxes of the numeric fields (Monitor01FieldsTab): only the checked fields are columns of the table (all are checked by default)
+//   View button (toolbar)       Save View · Restore View: the checked fields, the date filters, the tab ... as a named View, kept per user in project_report_settings and shareable with the organization (Monitor01ViewMenu)
 //   tabs Time · Material · Expense · All          filters startDate · finishDate (DateInputApp) · Project · Task · Resource (SelectItemFromListApp, picked from the loaded rows - not typed text)
 //   the table is a TREE Project → Resource role → Month (ascending) → Task name: every Project / Role / Month line is a subtotal and collapses what is below it (Expand all / Collapse all in the toolbar)
 //   a click on any number (a cell, a subtotal, a total) opens SumExplorerListReusable: the source transactions of that sum.
@@ -34,6 +36,11 @@ import { MONITOR01_PROJECT_KIND_DEFAULT, Monitor01ProjectKind } from '../../subp
 import { useMonitor01SubprojectKind } from '../../subproject/useMonitor01SubprojectKind';
 import Monitor01Table, { Monitor01CellPress } from './Monitor01Table';
 import Monitor01Toolbar from './Monitor01Toolbar';
+import Monitor01FieldsTab from './Monitor01FieldsTab';
+import Monitor01ViewMenu from './Monitor01ViewMenu';
+import { MONITOR01_REPORT_GUID, Monitor01FieldId, Monitor01ReportSettings, monitor01VisibleFields, restoreMonitor01Filters } from './monitor01Fields';
+import { ReportViewRow, monitor01SettingsOfView } from './monitor01ReportViews';
+import { showSnackbar } from '../../../redux/uxuiSlice';
 import Monitor01ProjectStrip from './Monitor01ProjectStrip';
 import Monitor01EvmStrip from './Monitor01EvmStrip';
 import { useVatBasis } from '../../vat/useVatBasis';
@@ -87,6 +94,13 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const [projectKind, setProjectKind] = useState<Monitor01ProjectKind>(MONITOR01_PROJECT_KIND_DEFAULT);
   const subKind = useMonitor01SubprojectKind(mode === 'standalone');
   const [drill, setDrill] = useState<Drill | null>(null);
+  // the top tabs Report | Settings (Settings → Fields) and the numeric fields that are NOT checked (empty = all checked, the default)
+  const [topTab, setTopTab] = useState<'report' | 'settings'>('report');
+  const [settingsTab, setSettingsTab] = useState<'fields'>('fields');
+  const [hiddenFields, setHiddenFields] = useState<Monitor01FieldId[]>([]);
+  const visibleFields = useMemo(() => monitor01VisibleFields(hiddenFields).map((f) => f.id), [hiddenFields]);
+  // the title of the View that was restored or saved last: Save View starts with it
+  const [lastViewTitle, setLastViewTitle] = useState('');
 
   // the filters cut the rows in memory, so they work in both modes of Auto refresh
   const [snapshot, setSnapshot] = useState<Monitor01Row[] | null>(null);
@@ -123,6 +137,23 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const [vatBasis, setVatBasis] = useVatBasis();
   const kindRows = useMemo(() => filterMonitor01RowsByProjectKind(loadedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [loadedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
   const sourceRows = useMemo(() => applyMonitor01VatBasis(kindRows, vatBasis), [kindRows, vatBasis]);
+
+  // ---- Views: the settings of the report now, and a View applied back ----
+  const getSettings = useCallback((): Monitor01ReportSettings => ({
+    version: 1, hiddenFields, tab, projectKind, vatBasis,
+    filters: mode === 'project' ? { ...filters, projectGUID: '' } : filters,
+  }), [hiddenFields, tab, projectKind, vatBasis, filters, mode]);
+  const restoreView = useCallback((view: ReportViewRow) => {
+    const saved = monitor01SettingsOfView(view);
+    const { filters: restored, dropped } = restoreMonitor01Filters(saved.filters, loadedRows, mode);
+    setHiddenFields(saved.hiddenFields);
+    setTab(saved.tab);
+    setFilters(restored);
+    if (subKind.show) setProjectKind(saved.projectKind);
+    setVatBasis(saved.vatBasis);
+    setLastViewTitle(view.viewTitle);
+    dispatch(showSnackbar({ message: dropped ? pmT('View "{{title}}" restored; a project, task or resource of it is not available to you and its filter was cleared', { title: view.viewTitle }) : pmT('View "{{title}}" restored', { title: view.viewTitle }) }));
+  }, [loadedRows, mode, subKind.show, dispatch, setVatBasis]);
 
   // the unit titles (the measure unit catalog); until it arrives the key without "unit_" is shown
   const units: any[] = useSelector((s: any) => s?.[PRODUCT_TABLES.measureUnit.entity]?.entityDataFromServer) || [];
@@ -234,7 +265,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <IconApp name="monitoring" size={20} color={c.primary} />
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
-        <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={<>{subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null}<VatBasisSelect testID={`${testID}-vat-basis`} value={vatBasis} onChange={setVatBasis} /></>} busy={refreshSince !== null} />
+        <Monitor01Toolbar testID={`${testID}-toolbar`} reportControls={topTab === 'report'} viewMenu={<Monitor01ViewMenu testID={`${testID}-view`} reportGUID={MONITOR01_REPORT_GUID} getSettings={getSettings} onRestore={restoreView} lastTitle={lastViewTitle} onSaved={(t) => setLastViewTitle(t)} />} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={<>{subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null}<VatBasisSelect testID={`${testID}-vat-basis`} value={vatBasis} onChange={setVatBasis} /></>} busy={refreshSince !== null} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
@@ -246,6 +277,32 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         </View>
       </View>
 
+      <ScrollableTabBar testID={`${testID}-top-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+        {([{ id: 'report', title: 'Report', icon: 'assessment' }, { id: 'settings', title: 'Settings', icon: 'settings' }] as const).map((t) => {
+          const active = t.id === topTab;
+          return (
+            <Pressable key={t.id} accessibilityRole="tab" aria-selected={active} testID={`${testID}-top-tab-${t.id}`} onPress={() => setTopTab(t.id)} style={[styles.tab, { borderBottomColor: active ? c.primary : 'transparent' }]}>
+              <IconApp name={t.icon} size={16} color={active ? c.primary : c.text} />
+              <Text style={{ color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{pmT(t.title)}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollableTabBar>
+
+      {topTab === 'settings' && (
+        <View testID={`${testID}-settings`} style={{ flex: 1 }}>
+          <ScrollableTabBar testID={`${testID}-settings-tabs`} style={[styles.tabs, { borderBottomColor: c.border }]}>
+            <Pressable accessibilityRole="tab" aria-selected={settingsTab === 'fields'} testID={`${testID}-settings-tab-fields`} onPress={() => setSettingsTab('fields')} style={[styles.tab, { borderBottomColor: c.primary }]}>
+              <IconApp name="view_column" size={16} color={c.primary} />
+              <Text style={{ color: c.primary, fontWeight: '700', fontSize: 13 }}>{pmT('Fields')}</Text>
+            </Pressable>
+          </ScrollableTabBar>
+          {settingsTab === 'fields' && <Monitor01FieldsTab testID={`${testID}-fields`} hiddenFields={hiddenFields} onChange={setHiddenFields} />}
+        </View>
+      )}
+
+      {topTab === 'report' && (
+        <>
       <View style={styles.filters}>
         <Monitor01FiltersBar testID={`${testID}-filters`} value={filters} onChange={applyFilters} showProject={mode === 'standalone'} projectItems={projectItems} taskItems={taskItems} resourceItems={resourceItems} />
       </View>
@@ -270,10 +327,14 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
       {!!refreshError && <Text testID={`${testID}-refresh-error`} style={{ color: c.error, padding: 10 }}>{pmT('Refresh failed')}: {refreshError}</Text>}
       {data.isLoading && data.rows.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
 
+      {visibleFields.length === 0 && <Text testID={`${testID}-no-fields`} style={{ color: c.error, padding: 10 }}>{pmT('No field is checked: the report shows no numbers. Check at least one field.')}</Text>}
       <View style={{ flex: 1 }}>
-        <Monitor01Table items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} onTaskMenu={openTaskMenu} vatBasis={vatBasis} testID={`${testID}-table`} />
+        <Monitor01Table fields={visibleFields} items={items} totals={totals} onToggle={toggleNode} unitTitle={unitTitle} colors={colors} onCell={onCell} onTaskOpen={openTask} onTaskMenu={openTaskMenu} vatBasis={vatBasis} testID={`${testID}-table`} />
         {taskMenu && <Monitor01TaskMenu testID={`${testID}-task-menu`} menu={taskMenu} onClose={() => setTaskMenu(null)} />}
       </View>
+
+        </>
+      )}
 
       <SumExplorerListReusable
         testID={`${testID}-sum`}

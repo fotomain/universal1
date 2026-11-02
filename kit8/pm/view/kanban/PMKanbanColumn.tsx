@@ -8,7 +8,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { PMIconButton } from '../../inner/buttons/PMIconButton';
 import { Droppable } from 'react-native-reanimated-dnd';
 import { PMPalette, withAlpha } from '../theme';
-import { kanbanStageColorOf } from '../../model/kanbanTypes';
+import { isKanbanStageManualPercent, kanbanStageColorOf, kanbanStagePercentOf } from '../../model/kanbanTypes';
 import { PMKanbanCard, PMKanbanCardDragData } from './PMKanbanCard';
 import { PM_KANBAN_COLUMN_HEADER } from './kanbanLayout';
 import type { PMKanbanColumn as Column } from './kanbanModel';
@@ -58,6 +58,8 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
   const stage = column.stage;
   const color = kanbanStageColorOf(stage.rowJSON);
   const wip = stage.rowJSON.wipLimit && stage.rowJSON.wipLimit > 0 ? stage.rowJSON.wipLimit : 0;
+  const stagePercent = kanbanStagePercentOf(stage.rowJSON);
+  const manual = isKanbanStageManualPercent(stage.rowJSON);
   const overWip = wip > 0 && column.cards.length > wip;
   const headerRef = React.useRef<View>(null);
   /** window point under the header (buttons report no usable point on every platform) */
@@ -93,9 +95,19 @@ export default function PMKanbanColumn(p: PMKanbanColumnProps) {
       >
         <View style={[styles.dot, { backgroundColor: color }]} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.title, { color: palette.text }]} numberOfLines={1}>
-            {stage.rowJSON.stageName || '—'}
-          </Text>
+          <View style={styles.titleLine}>
+            <Text style={[styles.title, { color: palette.text, flexShrink: 1 }]} numberOfLines={1}>
+              {stage.rowJSON.stageName || '—'}
+            </Text>
+            {/* the percent of the stage: N% = every card of it has N% · manual = the percent is typed on each card */}
+            <Text
+              testID={`pm-kanban-colpercent-${stage.rowGUID}`}
+              style={[styles.percentChip, { color: palette.textMuted, borderColor: palette.border }]}
+              accessibilityLabel={manual ? 'The percent is typed on each card' : `Every card of this stage has ${stagePercent}%`}
+            >
+              {manual ? pmT('manual') : `${stagePercent}%`}
+            </Text>
+          </View>
           {!!p.sortLabel && (
             <Text style={[styles.sortText, { color: palette.primary }]} numberOfLines={1} testID={`pm-kanban-colsortlabel-${stage.rowGUID}`}>
               {p.sortDirection === 'desc' ? '↓' : '↑'} {p.sortLabel}
@@ -196,6 +208,8 @@ const styles = StyleSheet.create({
   header: { height: PM_KANBAN_COLUMN_HEADER, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, borderBottomWidth: 2 },
   dot: { width: 10, height: 10, borderRadius: 5, marginRight: 8 },
   title: { fontWeight: '700', fontSize: 13 },
+  titleLine: { flexDirection: 'row', alignItems: 'center' },
+  percentChip: { fontSize: 10, fontWeight: '600', marginLeft: 6, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, paddingHorizontal: 5, overflow: 'hidden' },
   sortText: { fontSize: 10, fontWeight: '600' },
   count: { fontSize: 11, borderWidth: StyleSheet.hairlineWidth, borderRadius: 9, paddingHorizontal: 7, paddingVertical: 1, overflow: 'hidden' },
   body: { padding: 8 },

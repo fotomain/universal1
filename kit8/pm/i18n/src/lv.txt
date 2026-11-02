@@ -569,3 +569,89 @@
 569|Izlīdzināt tagad
 570|Atsaukt pēdējo palaišanu
 571|Palaišanu vēsture
+572|Skats „{{title}}” atjaunots; kāds projekts, uzdevums vai resurss no tā jums nav pieejams, un tā filtrs tika notīrīts
+573|Skats „{{title}}” atjaunots
+574|Lauki
+575|Neviens lauks nav atzīmēts: pārskatā nav skaitļu. Atzīmējiet vismaz vienu lauku.
+576|Atjaunot
+577|Automātiska atjaunošana
+578|posms
+579|manuāli
+580|Katrs projekta uzdevums atrodas kādā no šiem posmiem (jaunie uzdevumi — pirmajā). Posma %: 1..100 = tas ir katrai posma kartītei; 0 = % tiek ievadīts katrā kartītē Kanban panelī.
+581|manuāls %
+582|Posma procents (0..100)
+583|1..100 = katrai posma kartītei ir šis procents. 0 = procents tiek ievadīts katrā kartītē Kanban panelī.
+584|Šī uzdevuma procents ir tā Kanban posma procents (Projekta iestatījumi → Kanban → Kanban posmi).
+585|Kanban % (posma procents)
+586|Pārskatā
+587|Lauks
+588|Grupa
+589|Atlasīt visu
+590|Notīrīt visu
+591|{{n}} no {{total}} laukiem ir pārskatā
+592|Grupas
+593|Visi lauki
+594|Nav grupas
+595|Skats „{{title}}” izdzēsts
+596|jūs
+597|Skata nosaukums
+598|Iespējots citiem lietotājiem
+599|Īpašnieks
+600|Saglabāts
+601|Dzēst?
+602|Dzēst skatu
+603|Atjaunot skatu
+604|Skati
+605|Skats
+606|Saglabātu skatu vēl nav. Izmantojiet Skats → Saglabāt skatu.
+607|Skats „{{title}}” saglabāts
+608|Saglabāt skatu
+609|Tagad saglabā atzīmētos laukus, datumu filtrus un citus pārskata iestatījumus.
+610|Jums jau ir skats ar šo nosaukumu: saglabājot tas tiks aizstāts.
+611|Jūsu organizācijas lietotāji var atjaunot šo skatu, bet nevar to mainīt.
+612|Atjaunināt uzdevuma izpildes % no Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Izslēgts: Kanban nekad nemaina uzdevuma izpildes %. Ieslēgts: kartīte, kas pārvietota uz posmu ar procentu (1..100), uzstāda uzdevuma izpildes % uz to; posmam ar 0 % procents tiek ievadīts kartītē un arī uzstāda uzdevuma izpildes %.
+614|Kur tiek aprēķināta palaide? (resourceLevelingComputationSide)
+615|Plusi
+616|Mīnusi
+617|Nav pieejams ar aprēķiniem serverī: ātrajam režīmam vajadzīgas tūlītējas atbildes no šīs ierīces.
+618|Aprēķini klientā
+619|Palaide tiek aprēķināta šajā ierīcē ar to pašu plānotāju, kas zīmē Ganta diagrammu.
+620|Priekšskatījums ir precīzs: tas ir jūsu ekrāna plāns, ko aprēķinājis tas pats plānotājs.
+621|Darbojas ar visiem projekta iestatījumiem: uzdevumu kalendāriem, ierobežojumiem, sadalījumiem, plānošanu no beigām, manuāliem uzdevumiem.
+622|Datubāzē nekas nav jāinstalē, un tā netiek noslogota.
+623|Gatavs ātrajam režīmam: tūlītējas atbildes, kamēr velkat joslu vai ievadāt stundas.
+624|Liels plāns (tūkstošiem uzdevumu) palaides laikā var palēnināt tālruni vai vecu pārlūku.
+625|Visam projektam jābūt atvērtam un aprēķinātam šajā ierīcē.
+626|Palaides ātrums ir atkarīgs no ierīces, kas to sāk.
+627|Aprēķini serverī
+628|Palaidi aprēķina datubāze; šī ierīce tikai pārbauda priekšlikumu, parāda to un piemēro.
+629|Liels plāns nepalēnina jūsu ekrānu: darbs tiek veikts līdzās datiem.
+630|Vienāds ātrums tālrunī un datorā.
+631|Priekšlikumu pārbauda jūsu ekrāna plānotājs, pirms varat to piemērot.
+632|Nepieciešams datubāzes SQL atjauninājums (42. DAĻA); bez tā palaide tiek aprēķināta šajā ierīcē, un lietotne to paziņo.
+633|Aprēķina tikai plānus ar vienu kalendāru (no pirmdienas līdz piektdienai vai katru dienu) un četrus saišu veidus starp uzdevumiem un posmiem, bez sadalījumiem, ierobežojumiem, uzdevumu kalendāriem, manuāliem vai kalendārā ilguma uzdevumiem, apakšprojektiem un plānošanas no beigām; jebkurš cits plāns tiek aprēķināts šajā ierīcē, un lietotne to paziņo.
+634|Datubāzei ir laika ierobežojums (5 sekundes): ļoti lielam plānam var vajadzēt vairāk, tad tas tiek aprēķināts šajā ierīcē, un lietotne to paziņo.
+635|Vēl viens apmaiņas cikls ar datubāzi: mazs plāns klientā ir ātrāks.
+636|Nav ātrā režīma: tam vajadzīgas tūlītējas atbildes no šīs ierīces.
+637|plāns tiek plānots no beigu datuma
+638|projekta kalendārā ir sava darba nedēļa vai izņēmumi
+639|uzdevumam ir savs kalendārs
+640|uzdevumam ir ierobežojums
+641|uzdevums tiek plānots manuāli
+642|uzdevums ir sadalīts
+643|uzdevumam ir kalendārais ilgums
+644|uzdevumam ir priekštecis citā projektā
+645|uzdevums ir neaktīvs
+646|plānā ir apakšprojekta uzdevums
+647|laika līnija izmanto citu sadalījumu nekā vienmērīgo
+648|saites veido ciklu
+649|plāns ir par lielu datubāzes funkcijai
+650|plānam vajag vairāk laika, nekā ļauj datubāze
+651|datubāze šo pieprasījumu nepazīst
+652|Datubāze vēl nevar aprēķināt palaidi (palaidiet start2_sql_code.sql, 42. DAĻA): aprēķināts šajā ierīcē.
+653|Datubāze šo plānu neaprēķina: aprēķināts šajā ierīcē.
+654|Datubāze nevarēja aprēķināt palaidi: aprēķināts šajā ierīcē.
+655|Kāpēc
+656|Aprēķinājusi datubāze un pārbaudīts šajā ierīcē: pielāgoti {{n}} uzdevumi.
+657|Aprēķinājusi datubāze un pārbaudīts šajā ierīcē.

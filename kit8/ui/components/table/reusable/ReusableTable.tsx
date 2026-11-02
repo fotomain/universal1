@@ -7,6 +7,7 @@
 //   headers   ▾ = sort + filter of the column (light Tasks Tree "Filter & sort"); optional column drag & resize
 //   rows      like the Tasks Tree: context menu (right-click / long-press / ⋮), drag & drop by the ⠿ handle
 //             (web), move up / down / first / last, add above / below, duplicate, selection + sql_for_delete selected
+//   local     localRows + onLocalRowsChange: the rows are held by the screen (no Supabase table, no redux entity), every change goes up as the whole list
 //   folders   uxuiTable.showFoldersTree + the foldersTree prop: a FolderTreeReusable beside the table - pick a folder = filter
 //             the rows (with subfolders), drag rows (⠿) onto a folder = save their folder column, "Add" inside a folder
 //             creates the row in it; uxuiTable.foldersTree* calibrate position, width, heights, row alignment, stacking
@@ -417,7 +418,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     );
   };
 
-  if (!listOwnerGUID) {
+  if (!listOwnerGUID && props.localRows === undefined) {
     return (
       <View style={[styles.root, styles.state, { backgroundColor: c.surface, borderColor: c.border }]} testID={`${testID}-no-owner`}>
         <Text style={{ color: c.text, opacity: 0.7 }}>Awaiting listOwnerGUID… select the owner to see its {crudListTitle.toLowerCase()}.</Text>

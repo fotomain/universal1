@@ -569,3 +569,89 @@
 569|Niveler maintenant
 570|Annuler la dernière exécution
 571|Historique des exécutions
+572|Vue « {{title}} » restaurée ; un projet, une tâche ou une ressource de cette vue n'est pas disponible pour vous et son filtre a été effacé
+573|Vue « {{title}} » restaurée
+574|Champs
+575|Aucun champ n'est coché : le rapport n'affiche aucun chiffre. Cochez au moins un champ.
+576|Actualiser
+577|Actualisation automatique
+578|étape
+579|manuel
+580|Chaque tâche du projet se trouve dans l'une de ces étapes (nouvelles tâches : la première). Le % d'une étape : 1..100 = chaque carte de l'étape l'a ; 0 = le % est saisi sur chaque carte du tableau Kanban.
+581|% manuel
+582|Pourcentage de l'étape (0..100)
+583|1..100 = chaque carte de l'étape a ce pourcentage. 0 = le pourcentage est saisi sur chaque carte du tableau Kanban.
+584|Le pourcentage de cette tâche est celui de son étape Kanban (Paramètres du projet → Kanban → Étapes Kanban).
+585|% Kanban (le pourcentage de l'étape)
+586|Dans le rapport
+587|Champ
+588|Groupe
+589|Tout sélectionner
+590|Tout désélectionner
+591|{{n}} champs sur {{total}} sont dans le rapport
+592|Groupes
+593|Tous les champs
+594|Aucun groupe
+595|Vue « {{title}} » supprimée
+596|vous
+597|Titre de la vue
+598|Activée pour les autres utilisateurs
+599|Propriétaire
+600|Enregistrée
+601|Supprimer ?
+602|Supprimer la vue
+603|Restaurer la vue
+604|Vues
+605|Vue
+606|Aucune vue enregistrée. Utilisez Vue → Enregistrer la vue.
+607|Vue « {{title}} » enregistrée
+608|Enregistrer la vue
+609|Enregistre maintenant les champs cochés, les filtres de dates et les autres paramètres du rapport.
+610|Vous avez déjà une vue avec ce titre : Enregistrer la remplace.
+611|Les utilisateurs de votre organisation peuvent restaurer cette vue, mais pas la modifier.
+612|Mettre à jour le % d'avancement de la tâche depuis le Kanban (autoUpdateTaskProgressPercentFromKanban)
+613|Désactivé : le Kanban ne modifie jamais le % d'avancement d'une tâche. Activé : une carte déplacée dans une étape avec un pourcentage (1..100) fixe le % d'avancement de la tâche à cette valeur ; pour une étape à 0 %, le pourcentage est saisi sur la carte et fixe aussi le % d'avancement de la tâche.
+614|Où une exécution est-elle calculée ? (resourceLevelingComputationSide)
+615|Avantages
+616|Inconvénients
+617|Indisponible avec le calcul côté serveur : le Mode rapide a besoin de réponses instantanées de cet appareil.
+618|Calcul côté client
+619|L'exécution est calculée sur cet appareil par le même planificateur que celui qui dessine le diagramme de Gantt.
+620|L'aperçu est exact : c'est le plan de votre écran, calculé par le même planificateur.
+621|Fonctionne avec tous les paramètres du projet : calendriers de tâches, contraintes, fractionnements, planification depuis la fin, tâches manuelles.
+622|Rien à installer dans la base de données, et aucune charge sur elle.
+623|Prêt pour le Mode rapide : réponses instantanées pendant que vous glissez une barre ou saisissez des heures.
+624|Un grand plan (des milliers de tâches) peut ralentir un téléphone ou un vieux navigateur pendant l'exécution.
+625|Tout le projet doit être ouvert et calculé sur cet appareil.
+626|La vitesse d'une exécution dépend de l'appareil qui la lance.
+627|Calcul côté serveur
+628|L'exécution est calculée par la base de données ; cet appareil ne fait que vérifier la proposition, l'afficher et l'appliquer.
+629|Un grand plan ne ralentit pas votre écran : le travail se fait auprès des données.
+630|La même vitesse sur un téléphone et sur un ordinateur.
+631|La proposition est vérifiée par le planificateur de votre écran avant que vous puissiez l'appliquer.
+632|Nécessite la mise à jour SQL de la base de données (PARTIE 42) ; sans elle l'exécution est calculée sur cet appareil et l'application le signale.
+633|Ne calcule que des plans à un seul calendrier (du lundi au vendredi, ou tous les jours) avec les quatre types de liens entre tâches et étapes, sans fractionnements, contraintes, calendriers de tâches, tâches manuelles ou à durée écoulée, sous-projets ni planification depuis la fin ; tout autre plan est calculé sur cet appareil et l'application le signale.
+634|La base de données a une limite de temps (5 secondes) : un très grand plan peut en demander plus, il est alors calculé sur cet appareil et l'application le signale.
+635|Un aller-retour de plus vers la base de données : un petit plan est plus rapide côté client.
+636|Pas de Mode rapide : il a besoin de réponses instantanées de cet appareil.
+637|le plan est planifié depuis la date de fin
+638|le calendrier du projet a une semaine de travail propre ou des exceptions
+639|une tâche a son propre calendrier
+640|une tâche a une contrainte
+641|une tâche est planifiée manuellement
+642|une tâche est fractionnée
+643|une tâche a une durée écoulée
+644|une tâche a un prédécesseur dans un autre projet
+645|une tâche est inactive
+646|le plan contient une tâche de sous-projet
+647|une ligne de temps utilise une répartition autre qu'uniforme
+648|les liens forment une boucle
+649|le plan est trop grand pour la fonction de la base de données
+650|le plan demande plus de temps que la base de données n'en permet
+651|la base de données ne connaît pas cette requête
+652|La base de données ne peut pas encore calculer d'exécution (lancez start2_sql_code.sql, PARTIE 42) : calculée sur cet appareil.
+653|La base de données ne calcule pas ce plan : calculé sur cet appareil.
+654|La base de données n'a pas pu calculer l'exécution : calculée sur cet appareil.
+655|Pourquoi
+656|Calculé par la base de données et vérifié sur cet appareil : {{n}} tâche(s) ajustée(s).
+657|Calculé par la base de données et vérifié sur cet appareil.

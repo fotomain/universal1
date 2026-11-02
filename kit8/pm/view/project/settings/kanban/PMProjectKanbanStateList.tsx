@@ -8,7 +8,8 @@ import IconApp from '../../../../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../../../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../../../../redux/reusable/useRealtimeEntity';
 import { PROJECT_KANBAN_STAGE_ENTITY } from '../../../../model/constants';
-import { PM_KANBAN_STAGE_COLORS } from '../../../../model/kanbanTypes';
+import { PM_KANBAN_STAGE_COLORS, isKanbanStageManualPercent, kanbanStagePercentOf, parseKanbanStagePercent } from '../../../../model/kanbanTypes';
+import { KANBAN_STAGE_PERCENT_ERROR } from '../../../kanban/PMKanbanStagePercentInput';
 import KanbanStageCard from '../../../../../catalog/kanbanstage/KanbanStageCard';
 import type { CardItem } from '../../../../../ui/components/list/web/lib/types';
 import { pmT } from '../../../../i18n/pmT';
@@ -59,7 +60,7 @@ export default function PMProjectKanbanStateList({
   const mapItemToCard = (item: any, index: number): CardItem => ({
     id: item.rowGUID,
     title: item.rowJSON?.stageName || `Stage ${index + 1}`,
-    description: [item.rowJSON?.stageColor, item.rowJSON?.wipLimit ? `WIP: ${item.rowJSON.wipLimit}` : ''].filter(Boolean).join(' · '),
+    description: [item.rowJSON?.stageColor, isKanbanStageManualPercent(item.rowJSON) ? pmT('manual %') : `${kanbanStagePercentOf(item.rowJSON)}%`, item.rowJSON?.wipLimit ? `WIP: ${item.rowJSON.wipLimit}` : ''].filter(Boolean).join(' · '),
     orderInList: item.orderInList ?? (index + 1) * 1000,
     rawItem: item,
   });
@@ -186,9 +187,13 @@ function StageEditDialog({
   const [name, setName] = useState(initialRow?.rowJSON?.stageName || '');
   const [color, setColor] = useState(initialRow?.rowJSON?.stageColor || PM_KANBAN_STAGE_COLORS[1]);
   const [wip, setWip] = useState(String(initialRow?.rowJSON?.wipLimit ?? ''));
+  const [percent, setPercent] = useState(String(initialRow ? kanbanStagePercentOf(initialRow.rowJSON) : 0));
+  const [error, setError] = useState<string | null>(null);
 
   const save = () => {
     if (!name.trim()) return;
+    const stageProgressPercent = parseKanbanStagePercent(percent);
+    if (stageProgressPercent === null) return setError(KANBAN_STAGE_PERCENT_ERROR);
     const wipLimit = parseInt(wip, 10) || 0;
     if (initialRow) {
       if (actions?.updateOne) {
@@ -201,6 +206,7 @@ function StageEditDialog({
               stageName: name.trim(),
               stageColor: color,
               wipLimit,
+              stageProgressPercent,
             },
           })
         );
@@ -217,6 +223,7 @@ function StageEditDialog({
               stageName: name.trim(),
               stageColor: color,
               wipLimit,
+              stageProgressPercent,
             },
           })
         );
@@ -256,6 +263,22 @@ function StageEditDialog({
               />
             ))}
           </View>
+
+          <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('Percent of the stage (0..100)')}</Text>
+          <TextInput
+            testID="pm-kanban-stage-dialog-percent"
+            value={percent}
+            onChangeText={(t) => {
+              setError(null);
+              setPercent(t.replace(/[^0-9]/g, '').slice(0, 3));
+            }}
+            placeholder="0"
+            placeholderTextColor={c.border}
+            keyboardType="numeric"
+            style={[styles.input, { color: c.text, borderColor: c.border }]}
+          />
+          <Text style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>{pmT('1..100 = every card of the stage has this percent. 0 = the percent is typed on each card of the Kanban dashboard.')}</Text>
+          {!!error && <Text style={{ color: c.error, fontSize: 12 }}>{error}</Text>}
 
           <Text style={[styles.fieldLabel, { color: c.text }]}>{pmT('WIP Limit (optional)')}</Text>
           <TextInput

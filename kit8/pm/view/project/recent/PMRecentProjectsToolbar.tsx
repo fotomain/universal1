@@ -71,6 +71,8 @@ import PMProjectVendorTab, { vendorValuesOf, type PMProjectVendorValues } from "
 import PMProjectCustomerTab, { customerValuesOf, type PMProjectCustomerValues } from "../settings/PMProjectCustomerTab";
 import PMProjectProductTab, { productValuesOf, type PMProjectProductValues } from "../settings/PMProjectProductTab";
 import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } from "../settings/PMProjectSubprojectsTab";
+import PMProjectKanbanSettingsSection from "../settings/kanban/PMProjectKanbanSettingsSection";
+import { kanbanValuesOf, type PMKanbanSettingsValues } from "../settings/kanban/kanbanSettings";
 import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
 import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourceLevelingValues } from "../../../resourceleveling/PMResourceLevelingSettingsTab";
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
@@ -91,7 +93,7 @@ import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues, PMResourceLevelingValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -285,6 +287,7 @@ export default function PMRecentProjectsToolbar({
       ...subprojectValuesOf(null),
       ...roiValuesOf(null),
       ...resourceLevelingValuesOf(null),
+      ...kanbanValuesOf(null),
       ...paymentsValuesOf(null),
       ...ganttValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
@@ -335,6 +338,7 @@ export default function PMRecentProjectsToolbar({
       ...subprojectValuesOf(project.rowJSON),
       ...roiValuesOf(project.rowJSON),
       ...resourceLevelingValuesOf(project.rowJSON),
+      ...kanbanValuesOf(project.rowJSON),
       ...paymentsValuesOf(project.rowJSON),
       ...ganttValuesOf(project.rowJSON),
     });
@@ -455,6 +459,7 @@ export default function PMRecentProjectsToolbar({
             ...subprojectValuesOf(draft),
             ...roiValuesOf(draft),
             ...resourceLevelingValuesOf(draft),
+            ...kanbanValuesOf(draft),
             ...paymentsValuesOf(draft),
             ...ganttValuesOf(draft),
           },
@@ -486,7 +491,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), paymentsValuesOf(draft), ganttValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), ganttValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -1182,6 +1187,7 @@ export default function PMRecentProjectsToolbar({
 
                 {activeTab === 'TabKanban' && (
                   <View testID="pm-project-tab-kanban-content" style={{ flex: 1 }}>
+                    <PMProjectKanbanSettingsSection values={draft} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                     <PMProjectKanbanStateList
                       projectGUID={draft?.rowGUID}
                       onOpenKanbanStages={() => setKanbanStagesOpen(true)}

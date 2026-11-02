@@ -99,9 +99,9 @@ it('existing stage: updateOne; sql_for_delete asks twice', () => {
   press('kanban-stage-edit-save');
   expect(dispatched.find((a) => a.type === 'kanbanStageReusable/updateOne').payload).toMatchObject({ rowGUID: 'plan', rowJSON: { stageName: 'Planning', stageCode: 'plan' } });
   mount({ rowGUID: 'plan' });
-  press('kanban-stage-edit-sql_for_delete');
+  press('kanban-stage-edit-delete');
   expect(dispatched.some((a) => a.type === 'kanbanStageReusable/deleteOne')).toBe(false);
-  press('kanban-stage-edit-sql_for_delete');
+  press('kanban-stage-edit-delete');
   expect(dispatched.find((a) => a.type === 'kanbanStageReusable/deleteOne').payload).toMatchObject({ rowGUID: 'plan', rowOwnerGUID: 'kanbanStageCatalog' });
 });
 
@@ -117,4 +117,24 @@ it('realtime: clean form follows, dirty form offers Reload; deleted elsewhere bl
   expect(value('kanban-stage-edit-stageName')).toBe('Plan v3');
   remote({ eventType: 'DELETE', table: 'kanban_stage_table', new: null, old: { rowGUID: 'plan' } });
   expect(q('kanban-stage-edit-gone')!.textContent).toMatch(/deleted in another window/);
+});
+
+it('percent: shown, edited, saved with the stage; a value over 100 is refused', () => {
+  mount({ rowGUID: 'plan' });
+  expect(value('kanban-stage-edit-stageProgressPercent')).toBe('10'); // standard percent of the code 'plan' (the seed row has none)
+  typeInto('kanban-stage-edit-stageProgressPercent', '150');
+  press('kanban-stage-edit-save');
+  expect(q('kanban-stage-edit-stageProgressPercent-error')!.textContent).toMatch(/whole number from 0 to 100/);
+  expect(dispatched.some((a) => a.type === 'kanbanStageReusable/updateOne')).toBe(false);
+  typeInto('kanban-stage-edit-stageProgressPercent', '45');
+  press('kanban-stage-edit-save');
+  expect(dispatched.find((a) => a.type === 'kanbanStageReusable/updateOne').payload).toMatchObject({ rowGUID: 'plan', rowJSON: { stageProgressPercent: 45 } });
+});
+
+it('percent: a new stage starts with 0 (typed on each card) and can be created with it', () => {
+  mount({});
+  expect(value('kanban-stage-edit-stageProgressPercent')).toBe('0');
+  typeInto('kanban-stage-edit-stageName', 'Manual stage');
+  press('kanban-stage-edit-save');
+  expect(dispatched.find((a) => a.type === 'kanbanStageReusable/createOne').payload.rowJSON).toMatchObject({ stageName: 'Manual stage', stageProgressPercent: 0 });
 });

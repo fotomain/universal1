@@ -47,6 +47,7 @@
 --   40. create_task_template.sql - the TASK TEMPLATES (documentation/TASK_TEMPLATE_WBS.html): the RPCs task_template_save / _fill / _set_title, the RLS (every user of the organization reads, the creator or the administrator deletes)
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): the RPCs route_visit_register / route_visits_clear / route_visits_enabled, RLS (a user reads and deletes his own rows), realtime
 --   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): the RPCs project_resource_leveling_inputs / _apply / _clear / _undo, RLS (the owner of the project reads the runs), the check of the leveling delay on project_task_table
+--   43. create_report_views.sql - the saved VIEWS of a report (kit8/pm/reports/monitor01): the RPCs report_view_save / _list / _share / _delete, RLS (a user reads his own views and the views of his organization marked forOtherUsersEnabled), realtime
 -- ===============================================================================================
 
 DO $$
@@ -15640,6 +15641,151 @@ END $$;
 REVOKE ALL ON FUNCTION public.project_resource_leveling_server_plan(uuid, jsonb) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.project_resource_leveling_server_plan(uuid, jsonb) TO authenticated;
+
+-- ===============================================================================================
+-- PART 43: create_report_views.sql
+-- The saved VIEWS of a report (kit8/pm/reports/monitor01): project_report_settings (start1) is written ONLY by these RPCs.
+--   report_view_save(report, title, settings, forOthers)   saves (or replaces, the title is compared without case) the view of the current user         -> the row GUID
+--   report_view_list(report)                               the views the current user may restore: his own + the views of his organization marked forOtherUsersEnabled
+--                                                          -> a jsonb array [{ viewGUID, viewTitle, forOtherUsersEnabled, settings, ownerGUID, ownerName, isMine, updatedAt }], own first
+--   report_view_share(viewGUID, enabled)                   the owner switches "for other users enabled"                                             -> the new value
+--   report_view_delete(viewGUID)                           the owner deletes the view                                                                -> true when deleted
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_report_settings') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 43 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('project_report_settings');
+
+REVOKE ALL ON public.project_report_settings FROM anon, authenticated;
+
+GRANT SELECT ON public.project_report_settings TO authenticated;
+
+DROP POLICY IF EXISTS project_report_settings_select ON public.project_report_settings;
+
+CREATE POLICY project_report_settings_select ON public.project_report_settings FOR SELECT TO authenticated
+  USING ("rowOwnerGUID" = (SELECT public.app_user_guid()::text)
+         OR (COALESCE(("rowJSON"->>'forOtherUsersEnabled')::boolean, false)
+             AND public.organization_of_user("rowOwnerGUID") IS NOT DISTINCT FROM public.organization_of_current_user()
+             AND public.organization_of_current_user() IS NOT NULL));
+
+CREATE OR REPLACE FUNCTION public.report_view_save(p_report text, p_title text, p_settings jsonb, p_for_others boolean DEFAULT false) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user   text := public.app_user_guid()::text;
+  v_report text := left(btrim(COALESCE(p_report, '')), 100);
+  v_title  text := left(btrim(COALESCE(p_title, '')), 200);
+  v_guid   text;
+  v_json   jsonb;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'report_view_save: sign in first' USING ERRCODE = '28000'; END IF;
+  IF v_report = '' THEN RAISE EXCEPTION 'report_view_save: the report GUID is obligatory' USING ERRCODE = '22023'; END IF;
+  IF v_title = '' THEN RAISE EXCEPTION 'report_view_save: the ReportViewTitle is obligatory' USING ERRCODE = '22023'; END IF;
+  IF p_settings IS NULL OR jsonb_typeof(p_settings) <> 'object' THEN
+    RAISE EXCEPTION 'report_view_save: settings must be a JSON object' USING ERRCODE = '22023';
+  END IF;
+  v_json := jsonb_build_object('viewTitle', v_title, 'forOtherUsersEnabled', COALESCE(p_for_others, false), 'settings', p_settings);
+  INSERT INTO public.project_report_settings AS t ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  VALUES (v_user, v_report, v_json)
+  ON CONFLICT ("rowOwnerGUID", "rowParentGUID", lower("rowJSON"->>'viewTitle')) DO UPDATE
+    SET "rowJSON" = EXCLUDED."rowJSON"
+  RETURNING "rowGUID" INTO v_guid;
+  RETURN v_guid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.report_view_save(text, text, jsonb, boolean) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.report_view_save(text, text, jsonb, boolean) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.report_view_list(p_report text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user text := public.app_user_guid()::text;
+  v_org  text;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'report_view_list: sign in first' USING ERRCODE = '28000'; END IF;
+  v_org := public.organization_of_user(v_user);
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object(
+             'viewGUID', t."rowGUID",
+             'viewTitle', t."rowJSON"->>'viewTitle',
+             'forOtherUsersEnabled', COALESCE((t."rowJSON"->>'forOtherUsersEnabled')::boolean, false),
+             'settings', COALESCE(t."rowJSON"->'settings', '{}'::jsonb),
+             'ownerGUID', t."rowOwnerGUID",
+             'ownerName', COALESCE(NULLIF(btrim(concat_ws(' ', u."rowJSON"->>'firstName', u."rowJSON"->>'secondName')), ''), u."rowJSON"->>'userEmail', t."rowOwnerGUID"),
+             'isMine', t."rowOwnerGUID" = v_user,
+             'updatedAt', t.updated_at)
+           ORDER BY (t."rowOwnerGUID" <> v_user), lower(t."rowJSON"->>'viewTitle'))
+      FROM public.project_report_settings t
+      LEFT JOIN public."userTable" u ON u."rowGUID" = t."rowOwnerGUID"
+     WHERE t."rowParentGUID" = btrim(COALESCE(p_report, ''))
+       AND (t."rowOwnerGUID" = v_user
+            OR (COALESCE((t."rowJSON"->>'forOtherUsersEnabled')::boolean, false) AND v_org IS NOT NULL AND public.organization_of_user(t."rowOwnerGUID") = v_org))
+  ), '[]'::jsonb);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.report_view_list(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.report_view_list(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.report_view_share(p_view text, p_enabled boolean) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user text := public.app_user_guid()::text;
+  v_new  boolean := COALESCE(p_enabled, false);
+  v_n    integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'report_view_share: sign in first' USING ERRCODE = '28000'; END IF;
+  UPDATE public.project_report_settings t
+     SET "rowJSON" = t."rowJSON" || jsonb_build_object('forOtherUsersEnabled', v_new)
+   WHERE t."rowGUID" = p_view AND t."rowOwnerGUID" = v_user;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  IF v_n = 0 THEN RAISE EXCEPTION 'report_view_share: only the owner of a view can change it' USING ERRCODE = '42501'; END IF;
+  RETURN v_new;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.report_view_share(text, boolean) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.report_view_share(text, boolean) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.report_view_delete(p_view text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user text := public.app_user_guid()::text;
+  v_n    integer;
+BEGIN
+  IF v_user IS NULL THEN RAISE EXCEPTION 'report_view_delete: sign in first' USING ERRCODE = '28000'; END IF;
+  DELETE FROM public.project_report_settings t WHERE t."rowGUID" = p_view AND t."rowOwnerGUID" = v_user;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n > 0;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.report_view_delete(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.report_view_delete(text) TO authenticated;
+
+-- realtime: the list of the views follows the other users
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'project_report_settings') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public.project_report_settings;
+    END IF;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 

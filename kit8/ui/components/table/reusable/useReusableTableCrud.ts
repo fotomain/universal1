@@ -11,19 +11,21 @@ import { showSnackbar } from '../../../../redux/uxuiSlice';
 import type { ReusableTableProps, ReusableTableRow } from './reusableTableTypes';
 import { builtInCellError, cellPatch, emptyRowJSON, insertRow, moveRow, moveSelectedRows, newRowColumns, sortRows, tableScope } from './tableRows';
 
-type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'onRowEdit' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON' | 'duplicateOverrides'>;
+type Args = Pick<ReusableTableProps, 'entityName' | 'entityForArchivationName' | 'listOwnerGUID' | 'listParentGUID' | 'readParams' | 'realtime' | 'visualColumns' | 'defaultRowJSON' | 'reorderEnabled' | 'onRowsChange' | 'onRowEdit' | 'rowFilter' | 'newRowDefaults' | 'computeRowJSON' | 'duplicateOverrides' | 'localRows' | 'onLocalRowsChange'>;
 
-export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, onRowEdit, rowFilter, newRowDefaults, computeRowJSON, duplicateOverrides }: Args) {
+export function useReusableTableCrud({ entityName, entityForArchivationName, listOwnerGUID, listParentGUID = 'empty', readParams, realtime = true, visualColumns, defaultRowJSON, reorderEnabled = true, onRowsChange, onRowEdit, rowFilter, newRowDefaults, computeRowJSON, duplicateOverrides, localRows, onLocalRowsChange }: Args) {
   const dispatch = useDispatch();
   const entityState = useSelector((s: any) => s?.[entityName]);
-  const actions = SystemMetaData[entityName]?.actions;
-  const archiveActions = entityForArchivationName ? SystemMetaData[entityForArchivationName]?.actions : undefined;
+  // LOCAL ROWS mode (the rows are held by the screen): no redux entity, no read, no realtime, no scope; a change goes to onLocalRowsChange as the whole list
+  const local = localRows !== undefined;
+  const actions = local ? undefined : SystemMetaData[entityName]?.actions;
+  const archiveActions = !local && entityForArchivationName ? SystemMetaData[entityForArchivationName]?.actions : undefined;
 
   /**
    * scope of this table: the rows of ONE owner + ONE parent (server read, realtime and the shown rows);
    * REUSABLE_TABLE_ALL ('*') leaves that column out (all-rows mode)
    */
-  const scope = useMemo(() => tableScope(listOwnerGUID, listParentGUID, readParams?.match), [listOwnerGUID, listParentGUID, readParams]);
+  const scope = useMemo(() => (local ? {} : tableScope(listOwnerGUID, listParentGUID, readParams?.match)), [local, listOwnerGUID, listParentGUID, readParams]);
   /** the owner every row of this table has (undefined in all-rows mode) */
   const scopedOwner: string | undefined = scope.rowOwnerGUID;
   const fullReadParams = useMemo(() => {
@@ -33,7 +35,7 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   }, [readParams, scope]);
   const readKey = JSON.stringify(fullReadParams);
 
-  useRealtimeEntity(entityName, { enabled: realtime && !!listOwnerGUID, readParams: fullReadParams });
+  useRealtimeEntity(entityName, { enabled: !local && realtime && !!listOwnerGUID, readParams: fullReadParams });
   useEffect(() => {
     if (actions?.readData && listOwnerGUID) dispatch(actions.readData(fullReadParams));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -49,11 +51,19 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   const setRows = useCallback((next: ReusableTableRow[], byUser = true) => {
     rowsRef.current = next;
     setRowsState(next);
-    if (byUser) onRowsChange?.(next);
-  }, [onRowsChange]);
+    if (byUser) { onRowsChange?.(next); if (local) onLocalRowsChange?.(next); }
+  }, [onRowsChange, local, onLocalRowsChange]);
+
+  // local rows -> the shown list (the screen owns them; a change of the user went up through setRows and comes back here)
+  useEffect(() => {
+    if (!local) return;
+    setRows(sortRows([...(localRows as ReusableTableRow[])]), false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local, localRows]);
 
   // redux (server read / realtime / *Success) -> the local list
   useEffect(() => {
+    if (local) return;
     const all = entityState?.entityDataFromServer;
     if (!Array.isArray(all)) return;
     const scoped = all.filter((r: any) => matchRow(r, scope) && (!rowFilter || rowFilter(r)));
@@ -63,7 +73,7 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityState?.entityDataFromServer, readKey, rowFilter]);
 
-  const loading = !!listOwnerGUID && entityState?.readSuccessful !== 1 && !entityState?.lastRealtimeEvent && rows.length === 0 && !entityState?.readErrorData;
+  const loading = !local && !!listOwnerGUID && entityState?.readSuccessful !== 1 && !entityState?.lastRealtimeEvent && rows.length === 0 && !entityState?.readErrorData;
 
   // ---- create ----
   const newRow = useCallback((rowJSON?: Record<string, any>): ReusableTableRow => {
@@ -78,7 +88,7 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   }, [listOwnerGUID, listParentGUID, defaultRowJSON, visualColumns, newRowDefaults]);
 
   const createAt = useCallback((index: number, rowJSON?: Record<string, any>): string | null => {
-    if (!listOwnerGUID) return null;
+    if (!listOwnerGUID && !local) return null;
     const { rows: next, inserted } = insertRow(rowsRef.current, newRow(rowJSON), index);
     setRows(next);
     if (actions?.createOne) {

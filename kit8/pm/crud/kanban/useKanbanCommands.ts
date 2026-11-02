@@ -8,7 +8,9 @@
 //   clearTreeRowKanbanState(guid)                   the same for a tree row (task / stage / the checked rows)
 //   createStage(name, color) · updateStage(guid, patch) · moveStage(guid, -1 | 1) · deleteStage(guid)
 //
-// The stage of a task is independent of its progress % (never written here).
+// The stage of a task is independent of its progress % - EXCEPT while the project switch autoUpdateTaskProgressPercentFromKanban is on
+// (Project settings -> Kanban): then a card moved into a FIXED stage (percent 1..100), or a percent typed on a card of a MANUAL stage (percent 0),
+// also sets project_task_table.rowProgress (applyTaskProgress; the actual dates follow like in the tree's % cell). A card of a FIXED stage cannot be typed.
 
 import { useCallback, useMemo } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
@@ -16,12 +18,19 @@ import { usePMStore } from '../../store/store_pm';
 import { usePMKanbanStore } from '../../store/store_kanban';
 import { newGUID } from '../api/apiUtils';
 import { PMKanbanStateWrite } from '../api/kanbanApi';
-import { PMKanbanStageJSON, PMProjectKanbanData, PMProjectKanbanStageRow, PMTaskKanbanStateRow, PM_KANBAN_ORDER_STEP, PM_KANBAN_STAGE_NAME_MAX } from '../../model/kanbanTypes';
-import { applyKanbanStateWrites, buildKanbanBoard, kanbanLeavesOf, planKanbanClear, planKanbanMove } from '../../view/kanban/kanbanModel';
+import { PMKanbanStageJSON, PMProjectKanbanData, PMProjectKanbanStageRow, PMTaskKanbanStateRow, PM_KANBAN_ORDER_STEP, PM_KANBAN_STAGE_NAME_MAX, isKanbanStageManualPercent } from '../../model/kanbanTypes';
+import type { PMTaskJSON } from '../../model/types';
+import { isExtended } from '../../extended/extendedModel';
+import { actualPatchOnProgress } from '../../extended/tracking';
+import { autoUpdateTaskProgressFromKanbanOf } from '../../view/project/settings/kanban/kanbanSettings';
+import { useUpdateTasksMutation } from '../task/taskQueries';
+import { applyKanbanStateWrites, buildKanbanBoard, kanbanLeavesOf, kanbanStageOfTask, planKanbanClear, planKanbanMove, planKanbanTaskProgress } from '../../view/kanban/kanbanModel';
 import { pmKeys, usePMApi } from '../shared/queryShared';
 import { useKanbanMutation } from './kanbanQueries';
 
 const readOnlyMessage = 'The Kanban tables are missing - run kit8/sql/init/done/create_tables.sql in Supabase.';
+/** shown when a percent is typed on a card of a stage that has its own percent */
+export const KANBAN_FIXED_PERCENT_MESSAGE = 'The percent of this card is the percent of its stage. Change it in Project settings → Kanban → Kanban Stages.';
 
 /**
  * Cards a dragged / picked row stands for. Multi selection: when the row is checked (round check box),
@@ -91,6 +100,39 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     })
   );
 
+  const updateTasks = useUpdateTasksMutation(projectGUID);
+
+  /**
+   * Sets the task progress % of the cards (switch autoUpdateTaskProgressPercentFromKanban on; the caller checks it). Leaves only; tasks that already have the % are skipped.
+   * With Extended "Actual start and finish" the actual dates follow, like in the tree's % cell.
+   */
+  const applyTaskProgress = useCallback(
+    (items: { taskGUID: string; progress: number }[]) => {
+      const s = usePMStore.getState();
+      const pj = projectGUID ? s.projectsById[projectGUID]?.rowJSON : undefined;
+      const actualOn = isExtended(pj, 'ganttActualDatesEnabled');
+      const patches: { rowGUID: string; patch: { rowProgress: number; rowJSON?: any } }[] = [];
+      for (const { taskGUID, progress } of items) {
+        const t = s.tasksById[taskGUID];
+        if (!t || (s.tree.childrenById[taskGUID]?.length ?? 0) > 0) continue;
+        const p = Math.round(Math.min(100, Math.max(0, progress)));
+        if (Math.round(t.rowProgress || 0) === p) continue;
+        if (actualOn) {
+          const actual = actualPatchOnProgress(t.rowJSON as PMTaskJSON, t.rowProgress || 0, p, s.schedule[taskGUID], Date.now());
+          patches.push({ rowGUID: taskGUID, patch: { rowProgress: p, rowJSON: { ...t.rowJSON, ...actual } } });
+        } else patches.push({ rowGUID: taskGUID, patch: { rowProgress: p } });
+      }
+      if (patches.length) updateTasks.mutate(patches);
+    },
+    [projectGUID, updateTasks]
+  );
+
+  /** true while the project asks the Kanban to set the task progress %. */
+  const autoProgressOn = useCallback((): boolean => {
+    const s = usePMStore.getState();
+    return !!projectGUID && autoUpdateTaskProgressFromKanbanOf(s.projectsById[projectGUID]?.rowJSON);
+  }, [projectGUID]);
+
   const qc = useQueryClient();
   /** The project's Kanban cache (React Query = server truth + optimistic writes), null = not loaded / read-only. */
   const current = useCallback((): { stages: PMProjectKanbanStageRow[]; statesByTask: Record<string, PMTaskKanbanStateRow> } | null => {
@@ -126,8 +168,16 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
       }
       const writes = planKanbanMove(board, k.statesByTask, taskGUIDs.filter((g) => !!s.tasksById[g]), stageGUID, at);
       if (writes.length) saveStates.mutate(writes);
+      // switch on + a FIXED target stage: the progress % of the tasks that changed column follows the stage
+      if (autoProgressOn()) {
+        const stage = k.stages.find((x) => x.rowGUID === stageGUID);
+        if (stage && !isKanbanStageManualPercent(stage.rowJSON)) {
+          const items = planKanbanTaskProgress(board, taskGUIDs.filter((g) => !!s.tasksById[g]), stageGUID);
+          if (items.length) applyTaskProgress(items);
+        }
+      }
     },
-    [current, projectGUID, saveStates]
+    [current, projectGUID, saveStates, autoProgressOn, applyTaskProgress]
   );
 
   const moveTreeRowToStage = useCallback(
@@ -159,7 +209,7 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
   const clearTreeRowKanbanState = useCallback((guid: string) => clearTasksKanbanState(kanbanLeavesForRow(guid)), [clearTasksKanbanState]);
 
   const createStage = useCallback(
-    (name: string, color: string) => {
+    (name: string, color: string, percent = 0) => {
       const cur = current();
       if (!cur) return;
       const stages = cur.stages;
@@ -169,7 +219,7 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
         rowOwnerGUID: projectGUID as string,
         rowParentGUID: 'empty',
         orderInList: last + PM_KANBAN_ORDER_STEP,
-        rowJSON: { stageName: name.trim().slice(0, PM_KANBAN_STAGE_NAME_MAX), stageColor: color },
+        rowJSON: { stageName: name.trim().slice(0, PM_KANBAN_STAGE_NAME_MAX), stageColor: color, stageProgressPercent: Math.max(0, Math.min(100, Math.round(percent))) },
       });
     },
     [current, createStageM, projectGUID]
@@ -219,48 +269,43 @@ export function useKanbanCommands(projectGUID: string | null | undefined) {
     [current, deleteStageM]
   );
 
-  /** Sets the independent Kanban stage progress % (0..100) of a single task. */
-  const setTaskKanbanProgress = useCallback(
-    (taskGUID: string, percent: number) => {
+  /**
+   * Writes the percent typed on cards of MANUAL stages (stage percent 0). Cards of FIXED stages are refused (their percent is the stage percent) and
+   * kanbanNoState cards are skipped. Returns how many cards were written. Switch autoUpdateTaskProgressPercentFromKanban on: the task progress % follows.
+   */
+  const writeCardPercent = useCallback(
+    (taskGUIDs: string[], percent: number): number => {
       const cur = current();
-      if (!cur || !projectGUID) return;
+      if (!cur || !projectGUID || !taskGUIDs.length || !cur.stages.length) return 0;
       const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-      const existing = cur.statesByTask[taskGUID];
-      const stageGUID = existing?.rowJSON?.stageGUID ?? (cur.stages[0]?.rowGUID || '');
-      const orderInList = existing?.orderInList ?? PM_KANBAN_ORDER_STEP;
-      saveStates.mutate([
-        {
-          taskGUID,
-          stageGUID,
-          orderInList,
-          kanbanStageProgressPercent: clamped,
-        },
-      ]);
+      const writes: PMKanbanStateWrite[] = [];
+      let refused = 0;
+      for (const g of Array.from(new Set(taskGUIDs))) {
+        const existing = cur.statesByTask[g];
+        const stageGUID = kanbanStageOfTask(g, cur.stages, cur.statesByTask);
+        if (!stageGUID) continue; // kanbanNoState: not on the board
+        const stage = cur.stages.find((x) => x.rowGUID === stageGUID);
+        if (stage && !isKanbanStageManualPercent(stage.rowJSON)) {
+          refused += 1;
+          continue;
+        }
+        writes.push({ taskGUID: g, stageGUID, orderInList: existing?.orderInList ?? PM_KANBAN_ORDER_STEP, kanbanStageProgressPercent: clamped });
+      }
+      if (refused && !writes.length) usePMStore.getState().setError(KANBAN_FIXED_PERCENT_MESSAGE);
+      if (writes.length) {
+        saveStates.mutate(writes);
+        if (autoProgressOn()) applyTaskProgress(writes.map((w) => ({ taskGUID: w.taskGUID, progress: clamped })));
+      }
+      return writes.length;
     },
-    [current, projectGUID, saveStates]
+    [current, projectGUID, saveStates, autoProgressOn, applyTaskProgress]
   );
 
-  /** Sets the independent Kanban stage progress % (0..100) of multiple tasks (e.g. leaves of a stage row). */
-  const setTasksKanbanProgress = useCallback(
-    (taskGUIDs: string[], percent: number) => {
-      const cur = current();
-      if (!cur || !projectGUID || !taskGUIDs.length) return;
-      const clamped = Math.max(0, Math.min(100, Math.round(percent)));
-      const writes: PMKanbanStateWrite[] = taskGUIDs.map((g) => {
-        const existing = cur.statesByTask[g];
-        const stageGUID = existing?.rowJSON?.stageGUID ?? (cur.stages[0]?.rowGUID || '');
-        const orderInList = existing?.orderInList ?? PM_KANBAN_ORDER_STEP;
-        return {
-          taskGUID: g,
-          stageGUID,
-          orderInList,
-          kanbanStageProgressPercent: clamped,
-        };
-      });
-      saveStates.mutate(writes);
-    },
-    [current, projectGUID, saveStates]
-  );
+  /** Sets the Kanban percent (0..100) typed on the card of a single task - only a card of a MANUAL stage (percent 0). */
+  const setTaskKanbanProgress = useCallback((taskGUID: string, percent: number) => writeCardPercent([taskGUID], percent), [writeCardPercent]);
+
+  /** Sets the Kanban percent (0..100) typed on several cards (e.g. leaves of a stage row); cards of FIXED stages are skipped. */
+  const setTasksKanbanProgress = useCallback((taskGUIDs: string[], percent: number) => writeCardPercent(taskGUIDs, percent), [writeCardPercent]);
 
   return useMemo(
     () => ({

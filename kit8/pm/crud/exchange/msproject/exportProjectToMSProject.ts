@@ -11,8 +11,7 @@ import { ensureCalculated } from '../../project/ensureCalculated';
 import { usePMStore } from '../../../store/store_pm';
 import { usePMKanbanStore } from '../../../store/store_kanban';
 import { flattenAll } from '../../../view/project/scheduling';
-import { derivedKanbanProgress, isKanbanCardRow, kanbanStageForRow } from '../../../view/kanban/kanbanModel';
-import { kanbanStageProgressOf } from '../../../model/kanbanTypes';
+import { kanbanPercentForRow, kanbanStageForRow } from '../../../view/kanban/kanbanModel';
 import { downloadTextFile, PMDownloadResult } from '../project/export/downloadTextFile';
 import { pmT } from '../../../i18n/pmT';
 import { buildMSProjectXml, MSProjectExportInput, MSProjectExportOptions, msProjectFileName } from './msProjectXml';
@@ -39,9 +38,7 @@ export function msProjectInputFromStore(projectGUID: string, options: MSProjectE
   if (kanbanLoaded && (options.exportKanbanStage || options.exportKanbanPercent)) {
     for (const g of guids) {
       kanbanStageNameByTask[g] = kanbanStageForRow(g, s.tasksById, s.tree, k.stages, k.statesByTask)?.rowJSON?.stageName ?? null;
-      kanbanPercentByTask[g] = isKanbanCardRow(s.tasksById[g], s.tree)
-        ? kanbanStageProgressOf(k.statesByTask[g], 0)
-        : derivedKanbanProgress(g, s.tasksById, s.tree, k.statesByTask);
+      kanbanPercentByTask[g] = kanbanPercentForRow(g, s.tasksById, s.tree, k.stages, k.statesByTask);
     }
   }
   return {

@@ -7,6 +7,7 @@ import type { CardItem } from '../../../../../ui/components/list/web/lib/types';
 import { usePMStore } from '../../../../store/store_pm';
 import { usePMKanbanStore } from '../../../../store/store_kanban';
 import { pmT } from '../../../../i18n/pmT';
+import { isKanbanStageManualPercent, kanbanStagePercentOf } from '../../../../model/kanbanTypes';
 
 export interface PMTaskKanbanStateCardProps {
   card: CardItem;
@@ -36,12 +37,13 @@ export default function PMTaskKanbanStateCard({
 
   const taskGUID = rawItem.rowParentGUID;
   const stageGUID = j.stageGUID;
-  const progressPct = j.kanbanStageProgressPercent;
 
   // Look up task name and stage from PM and Kanban stores
   const task = usePMStore((s) => (taskGUID ? s.tasksById[taskGUID] : undefined));
   const stages = usePMKanbanStore((s) => s.stages || []);
   const stage = stages.find((st) => st.rowGUID === stageGUID);
+  // a stage with a percent (1..100): the card has the percent of the stage; a manual stage (0): the percent typed on the card
+  const progressPct = stage && !isKanbanStageManualPercent(stage.rowJSON) ? kanbanStagePercentOf(stage.rowJSON) : j.kanbanStageProgressPercent;
 
   const taskName = task?.rowJSON?.taskDescription || card.title || `Task (${taskGUID?.slice(0, 8) || 'unknown'})`;
   const stageName = stage?.rowJSON?.stageName || 'Default stage';
