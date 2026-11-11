@@ -3,7 +3,7 @@ import {FlatList, StyleSheet, TouchableOpacity, View} from 'react-native';
 import {IconButton, Surface, Text, TextInput as PaperTextInput, useTheme} from 'react-native-paper';
 import {changeAppLanguage, LanguageItem, LANGUAGES} from '../../i18n/i18n';
 import {getUserSettings, saveUserSettings} from '../../settings/userSettings';
-import {useAuthWithGoogle} from '../../hooks/useAuth';
+import {useAuthWithGoogle} from '../../auth/google/useAuth';
 import {getUserData} from '../../lib/localSecureStorage';
 
 export interface LanguageSelectorProps {

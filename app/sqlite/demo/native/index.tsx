@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, FlatList, Platform } from 'react-native';
 import { useRouter } from 'expo-router';
 import ActivityIndicatorCircleApp from '../../../../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { useTranslation } from 'react-i18next';
-import { useAuthWithGoogle } from '../../../../kit8/hooks/useAuth';
+import { useAuthWithGoogle } from '../../../../kit8/auth/google/useAuth';
 import { getUserData } from '../../../../kit8/lib/localSecureStorage';
 import H1App from '../../../../kit8/ui/components/common/H1App';
 import TextInputApp from '../../../../kit8/ui/components/common/TextInputApp';

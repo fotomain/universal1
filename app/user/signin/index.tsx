@@ -6,9 +6,11 @@ import { useDispatch } from 'react-redux';
 import { useTheme, Surface, Text } from 'react-native-paper';
 import { ButtonPrimaryApp, ButtonTextApp } from '../../../kit8/ui/components/common';
 import ActivityIndicatorCircleApp from '../../../kit8/ui/components/activityindicator/ActivityIndicatorCircleApp';
-import SignInWithGoogleButton from '../../../kit8/ui/components/auth/SignInWithGoogleButton';
-import SignInWithEmailOtp from '../../../kit8/ui/components/auth/SignInWithEmailOtp';
-import { useAuthWithGoogle } from '../../../kit8/hooks/useAuth';
+import SignInWithGoogleButton from '../../../kit8/auth/google/SignInWithGoogleButton';
+import SignInWithMicrosoftButton from '../../../kit8/auth/microsoft/SignInWithMicrosoftButton';
+import { useAuthWithMicrosoft } from '../../../kit8/auth/microsoft/useAuthWithMicrosoft';
+import SignInWithEmailOtp from '../../../kit8/auth/otp/SignInWithEmailOtp';
+import { useAuthWithGoogle } from '../../../kit8/auth/google/useAuth';
 import { useSupabase } from '../../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../../kit8/lib/localSecureStorage';
 import { setActiveUser, formatTo32CharGUID } from '../../../kit8/redux/activeUserSlice';
@@ -28,6 +30,8 @@ export default function SignInScreen() {
   const leaveToReturnTo = () => { if (navigation.isFocused()) router.replace(returnTo as any); };
 
   const { user: googleUser, loading: googleLoading, signIn: signInWithGoogle } = useAuthWithGoogle();
+  // Microsoft keeps no user here: the session raises SIGNED_IN, which the Google hook above also hears (it reacts to any provider)
+  const { loading: microsoftLoading, error: microsoftError, signIn: signInWithMicrosoft } = useAuthWithMicrosoft(supabase);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -144,6 +148,21 @@ export default function SignInScreen() {
               {t('screens.signInWithGoogle')}
             </SignInWithGoogleButton>
           )}
+        </View>
+
+        <View style={styles.buttonWrapper}>
+          {microsoftLoading ? (
+            <ActivityIndicatorCircleApp />
+          ) : (
+            <SignInWithMicrosoftButton onPress={signInWithMicrosoft}>
+              {t('screens.signInWithMicrosoft')}
+            </SignInWithMicrosoftButton>
+          )}
+          {microsoftError ? (
+            <Text testID="signin-microsoft-error" style={{ color: theme.colors.error, marginTop: 8, textAlign: 'center' }}>
+              {microsoftError}
+            </Text>
+          ) : null}
         </View>
 
         <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>{t('screens.or')}</Text>

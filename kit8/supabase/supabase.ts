@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import Constants from 'expo-constants';
 import { useSupabase } from '../providers/WithSupabase';
-import { loginWithSupabaseTokenAutoRefresh, supabaseAuthOptions } from './auto_refresh_token/loginWithSupabaseTokenAutoRefresh';
+import { loginWithSupabaseTokenAutoRefresh, supabaseAuthOptions } from '../auth/session/loginWithSupabaseTokenAutoRefresh';
 
 const supabaseUrl =
   process.env.EXPO_PUBLIC_SUPABASE_URL ||

@@ -6,7 +6,7 @@ import { cleanupUI, press, q, renderUI, toggleSwitch, wait } from '../../pm/ui/p
 // OrganizationEdit imports the whole common barrel (ApplicationBarApp -> auth -> native browser modules): not needed here
 jest.mock('expo-web-browser', () => ({ maybeCompleteAuthSession: jest.fn(), openAuthSessionAsync: jest.fn() }), { virtual: true });
 jest.mock('expo-auth-session', () => ({}), { virtual: true });
-jest.mock('../../../kit8/hooks/useAppSignOut', () => ({ useAppSignOut: () => jest.fn(), default: () => jest.fn() }));
+jest.mock('../../../kit8/auth/session/useAppSignOut', () => ({ useAppSignOut: () => jest.fn(), default: () => jest.fn() }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'mock-uuid-123' }), { virtual: true });
 
 const mockReplace = jest.fn();

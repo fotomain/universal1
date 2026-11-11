@@ -1,10 +1,44 @@
 /** @jest-environment node */
 // The pure model of the file attachments and the app side of the upload (kit8/files): kinds, sizes, chunks, the answer of the function, and the whole upload flow with a fake function and a fake Google.
-import { chunkRanges, driveStateText, FILE_KIND_ICON, fileKindOf, fileTitleOf, filesEnabledOfProject, filesErrorText, formatBytes, isLinkRow, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, type FileRow } from '../../kit8/files/fileModel';
+import { chunkRanges, driveStateText, FILE_KIND_ICON, filterFilesByName, fileKindOf, fileTitleOf, filesEnabledOfProject, filesErrorText, formatBytes, isLinkRow, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, type FileRow } from '../../kit8/files/fileModel';
 import { functionResultOf, moveFile, replacePickedFile, repairHealth, runHealthCheck, uploadPickedFile } from '../../kit8/files/filesDriveApi';
 
 const mockInvoke = jest.fn();
 jest.mock('../../kit8/supabase/supabase', () => ({ supabase: { functions: { invoke: (...a: any[]) => mockInvoke(...a) } } }), { virtual: true });
+
+describe('the search of the Files panel (filterFilesByName)', () => {
+  const row = (guid: string, json: any): FileRow => ({ rowGUID: guid, rowOwnerGUID: 'o', rowParentGUID: 'p', orderInList: 1, rowJSON: json });
+  const rows = [
+    row('a', { mediaPostTitle: 'Plan of the Hall.pdf', fileName: 'scan0001.pdf', googleDriveFileId: 'D1' }),
+    row('b', { fileName: 'Photo_2026.JPG', googleDriveFileId: 'D2' }),
+    row('c', { mediaPostTitle: 'Video', mediaPostOriginType: 'url', mediaPostOrigin: 'https://youtu.be/abc' }),
+    row('d', { mediaPostOriginType: 'url', mediaPostOrigin: 'https://example.com/Spec' }),
+  ];
+  const guids = (q: string | null | undefined) => filterFilesByName(rows, q).map((r) => r.rowGUID);
+  it('an empty or blank query keeps every row, in the same order (and never the same array)', () => {
+    expect(guids('')).toEqual(['a', 'b', 'c', 'd']);
+    expect(guids('   ')).toEqual(['a', 'b', 'c', 'd']);
+    expect(guids(undefined)).toEqual(['a', 'b', 'c', 'd']);
+    expect(filterFilesByName(rows, '')).not.toBe(rows);
+  });
+  it('a case-insensitive substring of the name the user sees', () => {
+    expect(guids('plan')).toEqual(['a']);
+    expect(guids('HALL')).toEqual(['a']);
+    expect(guids('  photo ')).toEqual(['b']);
+    expect(guids('.pdf')).toEqual(['a']);
+  });
+  it('a renamed file is also found by its original file name', () => {
+    expect(guids('scan0001')).toEqual(['a']);
+  });
+  it('links: by the title, and by the address while the link has no title', () => {
+    expect(guids('video')).toEqual(['c']);
+    expect(guids('spec')).toEqual(['d']);
+    expect(guids('youtu')).toEqual([]);
+  });
+  it('nothing matches = an empty list', () => {
+    expect(guids('zzz')).toEqual([]);
+  });
+});
 
 describe('the model', () => {
   it('the project switch is TRUE unless it is stored false', () => {

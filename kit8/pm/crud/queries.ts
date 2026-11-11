@@ -37,7 +37,7 @@ const noSubscribe = () => () => {};
 
 /**
  * Owner of PM rows = the user's ONE GUID: userTable.rowGUID of his email, kept in redux as
- * activeUserState.userGUID by the login step (kit8/auth/userTableLogin.ts). RLS compares the owner
+ * activeUserState.userGUID by the login step (kit8/auth/user/userTableLogin.ts). RLS compares the owner
  * with the same value (SQL public.app_user_guid()). Needs a Supabase session - without one RLS
  * shows nothing. Until the login step has answered, the Supabase auth uid is used (for a user
  * created by this app they are the same value).

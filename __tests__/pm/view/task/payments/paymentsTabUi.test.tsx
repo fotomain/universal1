@@ -411,10 +411,10 @@ describe('the sixth tab "Files" (kit8/files)', () => {
     expect(q(`${T}-files`)).not.toBeNull();
     expect(q(`${T}-payments`)).toBeNull();
     expect(mockFilesApi.listFiles).toHaveBeenCalledWith({ scope: 'task', guid: 't1', projectGUID: 'p1' });
-    expect(q(`${T}-files-row-f1`)!.textContent).toContain('Plan.pdf');
-    expect(q(`${T}-files-row-f1`)!.textContent).toContain('2.0 MB');
-    expect(q(`${T}-files-row-f1`)!.textContent).toContain('Cabinet 3');
-    expect(q(`${T}-files-row-f2`)!.textContent).toContain('Video');
+    expect(q(`${T}-files-table-row-f1`)!.textContent).toContain('Plan.pdf');
+    expect(q(`${T}-files-table-row-f1`)!.textContent).toContain('2.0 MB');
+    expect(q(`${T}-files-table-row-f1`)!.textContent).toContain('Cabinet 3');
+    expect(q(`${T}-files-table-row-f2`)!.textContent).toContain('Video');
     expect(q(`${T}-files-state`)!.textContent).toBe('Google Drive: connected as drive@gmail.test');
   });
 

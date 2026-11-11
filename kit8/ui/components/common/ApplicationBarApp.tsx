@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from './IconApp';
 import ArrowToLeftApp from './ArrowToLeftApp';
-import { useAppSignOut } from '../../../hooks/useAppSignOut';
+import { useAppSignOut } from '../../../auth/session/useAppSignOut';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   setHideGanttChartNode,

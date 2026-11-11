@@ -72,6 +72,7 @@ const resources = {
         email: 'Email',
         password: 'Password',
         signInWithGoogle: 'Sign in with Google',
+        signInWithMicrosoft: 'Sign in with Microsoft',
         signInWithEmail: 'SignIn with email',
         emailOtpHint: "We'll email you a one-time sign-in code. No password needed.",
         sendCode: "Send code",

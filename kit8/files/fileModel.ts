@@ -65,6 +65,16 @@ export function formatBytes(bytes: number | null | undefined): string {
 
 export const fileTitleOf = (row: FileRow): string => row.rowJSON.mediaPostTitle || row.rowJSON.fileName || row.rowJSON.mediaPostOrigin || '';
 
+/**
+ * the search of the Files panel: a case-insensitive substring of the NAME of a file (the title the user sees, and the original file name when the file was renamed) or of the
+ * title / address of a link. An empty (or blank) query keeps every row; the order of the rows never changes.
+ */
+export function filterFilesByName(rows: readonly FileRow[], query: string | null | undefined): FileRow[] {
+  const q = String(query ?? '').trim().toLowerCase();
+  if (!q) return rows.slice();
+  return rows.filter((r) => [fileTitleOf(r), r.rowJSON.fileName, r.rowJSON.mediaPostTitle].some((t) => String(t || '').toLowerCase().includes(q)));
+}
+
 /** a link row (an address, no Drive file) */
 export const isLinkRow = (row: FileRow): boolean => row.rowJSON.mediaPostOriginType === 'url' || !row.rowJSON.googleDriveFileId;
 

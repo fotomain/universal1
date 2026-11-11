@@ -4,9 +4,9 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Surface, Text } from 'react-native-paper';
 import { ButtonPrimaryApp, ButtonTextApp } from '../../../kit8/ui/components/common';
-import SignInWithEmailOtp from '../../../kit8/ui/components/auth/SignInWithEmailOtp';
+import SignInWithEmailOtp from '../../../kit8/auth/otp/SignInWithEmailOtp';
 import { useSelector, useDispatch } from 'react-redux';
-import { useAppSignOut } from '../../../kit8/hooks/useAppSignOut';
+import { useAppSignOut } from '../../../kit8/auth/session/useAppSignOut';
 import { ActiveUserState, clearActiveUser, selectIsLoggedIn } from '../../../kit8/redux/activeUserSlice';
 import MyPersonSection from '../../../kit8/catalog/person/MyPersonSection';
 

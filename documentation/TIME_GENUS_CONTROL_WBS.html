@@ -597,7 +597,7 @@ Booked: 6 + 4 = 10 h  &gt;  8 h  ->  BUSY by 2 h        (a day-grain check sees 
     <tr><td><code>kit8/sql/start/start2_sql_code.sql</code> <span class="pill chg">changed</span></td><td>the DDL / function half</td></tr>
     <tr><td><code>kit8/sql/start/start5_sql_upsert_all.sql</code> <span class="pill chg">changed</span></td><td>the Standard work week, the folders</td></tr>
     <tr><td><code>kit8/sql/start/delete_sql_structure.sql</code> <span class="pill chg">changed</span></td><td>drops, in the right order (the column <code>rowParentGUID</code> and its triggers before the organization)</td></tr>
-    <tr><td rowspan="6">App</td><td><code>kit8/auth/userTableLogin.ts</code>, <code>kit8/redux/activeUserSlice.ts</code>, <code>app/_layout.tsx</code> <span class="pill chg">changed</span></td><td>organization first; <code>userState.userOrganization</code></td></tr>
+    <tr><td rowspan="6">App</td><td><code>kit8/auth/user/userTableLogin.ts</code>, <code>kit8/redux/activeUserSlice.ts</code>, <code>app/_layout.tsx</code> <span class="pill chg">changed</span></td><td>organization first; <code>userState.userOrganization</code></td></tr>
     <tr><td><code>kit8/catalog/organization/ensureUserOrganization.ts</code> <span class="pill chg">changed</span></td><td>replaced by the SQL function (the rule becomes "1 user in 1 organization")</td></tr>
     <tr><td><code>kit8/pm/model/types.ts</code>, <code>kit8/pm/crud/api/projectApi.ts</code> <span class="pill chg">changed</span></td><td><code>rowParentGUID</code> read-only</td></tr>
     <tr><td><code>kit8/catalog/management/calendar/*</code> <span class="pill chg">changed</span></td><td>Hours column, reasons, Fill with hours, lock icons</td></tr>

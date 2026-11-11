@@ -9,8 +9,9 @@ import IconApp from '../ui/components/common/IconApp';
 import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
 import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
 import { pmT } from '../pm/i18n/pmT';
-import { PMIconButton } from '../pm/inner/buttons/PMIconButton';
-import { driveStateText, FILE_KIND_ICON, fileKindOf, fileTitleOf, formatBytes, isLinkRow, type FileRow } from './fileModel';
+import TextInputApp from '../ui/components/common/TextInputApp';
+import { driveStateText, filterFilesByName, fileTitleOf, formatBytes, isLinkRow, type FileRow } from './fileModel';
+import FilesTable from './FilesTable';
 import { useCanChangeFiles, useDocumentTypes, useDriveStatus, useFileVersions, useFilesActions, useFilesList } from './useFiles';
 import { pickFiles, fromWebFile } from './pickFiles';
 import type { PickedFile } from './filesDriveApi';
@@ -42,8 +43,6 @@ function VersionsList({ postGUID, testID }: { postGUID: string; testID: string }
   );
 }
 
-const typeTitleOf = (types: { rowGUID: string; rowJSON: { title: string } }[], guid?: string): string => (guid ? types.find((t) => t.rowGUID === guid)?.rowJSON.title || '' : '');
-
 const openAddress = async (url: string) => {
   if (Platform.OS === 'web' && typeof window !== 'undefined') window.open(url, '_blank', 'noopener');
   else await Linking.openURL(url);
@@ -64,10 +63,14 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
   const [movingRow, setMovingRow] = useState<FileRow | null>(null);
   const [versionsOf, setVersionsOf] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<FileRow | null>(null);
+  const [search, setSearch] = useState('');
   const [linkDraft, setLinkDraft] = useState<{ url: string; title: string } | null>(null);
   const dropRef = useRef<any>(null);
   const [dragOver, setDragOver] = useState(false);
 
+  // the search by name: live, case-insensitive, files AND links of the scope; the order of the rows stays
+  const shownRows = useMemo(() => filterFilesByName(rows, search), [rows, search]);
+  const versionsRow = useMemo(() => rows.find((r) => r.rowGUID === versionsOf) || null, [rows, versionsOf]);
   const driveReady = status?.state === 'ok';
   const addEnabled = canChange && driveReady;
 
@@ -182,36 +185,41 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
       {error ? <Text style={{ color: c.error, fontSize: 12 }}>{error}</Text> : null}
       {!loading && rows.length === 0 && uploads.length === 0 ? <Text testID={`${testID}-empty`} style={[styles.hint, { color: c.text }]}>{pmT(scope === 'task' ? 'No files on this task.' : scope === 'project' ? 'No files on this project.' : 'No files in the organization.')}</Text> : null}
 
-      <ScrollView style={{ flexShrink: 1 }}>
-        {rows.map((row) => {
-          const j = row.rowJSON;
-          const kind = j.fileKind || fileKindOf(j.mediaPostMIME, j.fileName);
-          return (
-            <View key={row.rowGUID} testID={`${testID}-row-${row.rowGUID}`} style={[styles.row, { borderColor: c.border }]}>
-              <IconApp name={isLinkRow(row) ? 'link' : FILE_KIND_ICON[kind]} size={22} color={c.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ color: c.text, fontSize: 14, fontWeight: '600' }} numberOfLines={1}>{fileTitleOf(row)}</Text>
-                <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }} numberOfLines={1}>
-                  {[typeTitleOf(types, j.fileDocumentTypeGUID), formatBytes(j.fileSizeBytes), j.paperDocumentPlace ? `${pmT('Paper')}: ${j.paperDocumentPlace}` : '', (j.fileVersionNumber || 1) > 1 ? `v${j.fileVersionNumber}` : ''].filter(Boolean).join('  ·  ')}
-                </Text>
-                {versionsOf === row.rowGUID ? <VersionsList postGUID={row.rowGUID} testID={`${testID}-versions-${row.rowGUID}`} /> : null}
-              </View>
-              {(j.fileVersionNumber || 1) > 1 ? (
-                <PMIconButton tipScope="app" testID={`${testID}-versions-button-${row.rowGUID}`} icon="history" title={pmT('Show / hide the older versions')} color={c.text} onPress={() => setVersionsOf(versionsOf === row.rowGUID ? null : row.rowGUID)} />
-              ) : null}
-              <PMIconButton tipScope="app" testID={`${testID}-view-${row.rowGUID}`} icon="open_in_new" title={pmT('View the file (opens it in a new tab)')} color={c.text} onPress={() => onView(row)} />
-              {canChange ? (
-                <>
-                  {!isLinkRow(row) ? <PMIconButton tipScope="app" testID={`${testID}-replace-${row.rowGUID}`} icon="upload_file" title={pmT('Replace with a new version (the old one is kept)')} color={c.text} onPress={() => onReplace(row)} /> : null}
-                  <PMIconButton tipScope="app" testID={`${testID}-move-${row.rowGUID}`} icon="drive_file_move" title={pmT('Move to the project or the organization files')} color={c.text} onPress={() => setMovingRow(row)} />
-                  <PMIconButton tipScope="app" testID={`${testID}-edit-${row.rowGUID}`} icon="edit" title={pmT('Edit the name, the type and the paper place')} color={c.text} onPress={() => setEditing({ row, title: j.mediaPostTitle || j.fileName || '', place: j.paperDocumentPlace || '', type: j.fileDocumentTypeGUID || '' })} />
-                  <PMIconButton tipScope="app" testID={`${testID}-delete-${row.rowGUID}`} icon="delete" title={pmT('Delete the file from Google Drive permanently')} color={c.error} onPress={() => setDeleting(row)} />
-                </>
-              ) : null}
-            </View>
-          );
-        })}
-      </ScrollView>
+      {rows.length > 0 ? (
+        <TextInputApp
+          testID={`${testID}-search`}
+          value={search}
+          onChangeText={setSearch}
+          placeholder={pmT('Search files by name')}
+          heightVariant="smallestHeight"
+          leftIcons={[{ icon: 'search', testID: `${testID}-search-icon`, accessibilityLabel: pmT('Search files by name') }]}
+        />
+      ) : null}
+      {rows.length > 0 && shownRows.length === 0 ? <Text testID={`${testID}-no-match`} style={[styles.hint, { color: c.text }]}>{pmT('No files match "{{q}}".', { q: search.trim() })}</Text> : null}
+
+      {shownRows.length > 0 ? (
+        <ScrollView style={{ flexShrink: 1 }} nestedScrollEnabled>
+          <FilesTable
+            testID={testID}
+            rows={shownRows}
+            types={types}
+            canChange={canChange}
+            onView={onView}
+            onReplace={onReplace}
+            onMove={(row) => setMovingRow(row)}
+            onEdit={(row) => setEditing({ row, title: row.rowJSON.mediaPostTitle || row.rowJSON.fileName || '', place: row.rowJSON.paperDocumentPlace || '', type: row.rowJSON.fileDocumentTypeGUID || '' })}
+            onDelete={(row) => setDeleting(row)}
+            onVersions={(row) => setVersionsOf(versionsOf === row.rowGUID ? null : row.rowGUID)}
+          />
+        </ScrollView>
+      ) : null}
+
+      {versionsRow ? (
+        <View testID={`${testID}-versions-panel`} style={[styles.form, { borderColor: c.border }]}>
+          <Text style={{ color: c.text, fontSize: 13, fontWeight: '600' }}>{pmT('Older versions of {{name}}', { name: fileTitleOf(versionsRow) })}</Text>
+          <VersionsList postGUID={versionsRow.rowGUID} testID={`${testID}-versions-${versionsRow.rowGUID}`} />
+        </View>
+      ) : null}
 
       {editing ? (
         <View testID={`${testID}-edit-form`} style={[styles.form, { borderColor: c.border }]}>

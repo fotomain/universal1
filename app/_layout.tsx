@@ -16,14 +16,14 @@ import ApplicationBarApp from '../kit8/ui/components/common/ApplicationBarApp';
 import CustomDrawerContent from '../kit8/ui/components/CustomDrawerContent';
 import WithSQLiteNative from '../kit8/providers/WithSQLiteNative';
 import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
-import { useAuthRedirectHandler } from '../kit8/hooks/useAuthRedirectHandler';
+import { useAuthRedirectHandler } from '../kit8/auth/session/useAuthRedirectHandler';
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
 import BusyConflictsWindow from '../kit8/pm/view/task/plan/BusyConflictsWindow';
 import {formatTo32CharGUID, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
-import { loginUserTable } from '../kit8/auth/userTableLogin';
+import { loginUserTable } from '../kit8/auth/user/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/ui/theme/palettes';

@@ -8,13 +8,13 @@ export interface ActiveUserData {
   /** string(32) - 32 character GUID */
   activeUserGUID: string; /* userGUID32 */
   /**
-   * The user's ONE GUID = userTable.rowGUID of his email, full length (kit8/auth/userTableLogin.ts).
+   * The user's ONE GUID = userTable.rowGUID of his email, full length (kit8/auth/user/userTableLogin.ts).
    * Only the login step passes it. Owner of projects (project.rowOwnerGUID).
    * activeUserGUID is this value cut to 32 characters (older tables are keyed by that).
    */
   userGUID?: string;
   /**
-   * The organization of the user = userTable.rowJSON.userOrganization (kit8/auth/userTableLogin.ts), obligatory for a real user. Only the login step passes it.
+   * The organization of the user = userTable.rowJSON.userOrganization (kit8/auth/user/userTableLogin.ts), obligatory for a real user. Only the login step passes it.
    * Resources are shared by all projects of one organization (project.rowParentGUID).
    */
   userOrganization?: UserOrganization;

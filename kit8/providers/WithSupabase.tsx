@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { createClient, SupabaseClient } from "@supabase/supabase-js"
 import { SystemMetaData } from "../redux/SystemMetaData"
-import { loginWithSupabaseTokenAutoRefresh, supabaseAuthOptions } from "../supabase/auto_refresh_token/loginWithSupabaseTokenAutoRefresh"
+import { loginWithSupabaseTokenAutoRefresh, supabaseAuthOptions } from "../auth/session/loginWithSupabaseTokenAutoRefresh"
 
 interface SupabaseContextType {
   supabase: SupabaseClient;

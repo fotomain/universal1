@@ -5,7 +5,7 @@ import { View, StyleSheet, ScrollView } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme, Surface, Text } from 'react-native-paper';
-import ForgotPassword from '../../../kit8/ui/components/auth/ForgotPassword';
+import ForgotPassword from '../../../kit8/auth/password/ForgotPassword';
 
 export default function ForgotPasswordScreen() {
   const router = useRouter();

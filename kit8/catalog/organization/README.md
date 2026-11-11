@@ -5,7 +5,7 @@ A user may work in **many organizations** (`organizationMemberTable`, PART 45: `
 the capacity check reads the organization of a *user* - the scope is always the organization of the *project*.
 
 * **Creation of a user**: `organization_ensure_user(email, auth uid, first, last)` (SQL, one transaction) makes the organization (the one he owns, else the one he was invited to, else a new one) and the
-  userTable row. The client calls it at sign-in (`kit8/auth/userTableLogin.ts` → `userState.userOrganization.rowGUID`); it can no longer insert into `userTable`.
+  userTable row. The client calls it at sign-in (`kit8/auth/user/userTableLogin.ts` → `userState.userOrganization.rowGUID`); it can no longer insert into `userTable`.
 * **Admin** = an active administrator member (`organizationMemberTable.rowJSON.organizationAdministrator`; the creator is the first one; before PART 45 only the creator, `createdByUser`). Only an admin changes the organization and invites: `organization_invite_user(email)`, `organization_revoke_invitation`.
   An existing user accepts with `organization_accept_invitation` (his old projects keep their organization). A user cannot change his own `userOrganization`.
 * **Setting** `resourceCapacityStrongMode` (Organization edit → Resource capacity): `capacityModeOff | capacityModeWarn | capacityModeBlock`, see `kit8/pm/view/task/plan/README.md`.
