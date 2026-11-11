@@ -3,7 +3,7 @@
 -- Run it AFTER start1_sql_tables.sql + start2_sql_code.sql (Supabase -> SQL Editor -> paste -> Run), once the structure has been created. Idempotent (every seed is ON CONFLICT ... DO NOTHING /
 -- guarded): safe to run twice. Same order as in the structure file, so a row that points at another seed row finds it.
 --
--- What is here: the rows the app starts with - countries, currencies, the ECB exchange rates, the standing roles, the demo persons / partners / contracts, the kanban stages, the product
+-- What is here: the rows the app starts with - countries, currencies, the ECB exchange rates, the demo persons / partners / contracts, the kanban stages, the product
 -- catalog (VAT, units, descriptors, product types, products, properties, variants, prices, barcodes), the resource roles / types / folders / rates, the management genus, distributions,
 -- budget items, person types and the person descriptors, resource contract templates, calendars (and their days), equipment, CFR types, business units, budget scenarios.
 -- What is NOT here: the BACKFILLS of data that already exists in a database (userTable from auth.users, project_user_settings_table, task_line_plan_timeline, the first fill of
@@ -147,7 +147,6 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('resourceRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('resourceRoleTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('rolePriceTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
-    ('roleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('task_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('task_fact_usage_timeline', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('task_line_plan_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
@@ -169,7 +168,6 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('templates_project_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('themeStoreTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('userAuthTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
-    ('userRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('userTable', ARRAY['CRUD', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('user_calendar_event_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('user_calendar_invitation_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
@@ -280,15 +278,6 @@ SELECT v.ord, jsonb_build_object('currencyCode', v.code, 'currencyName', v.name,
   ) AS v(ord, code, name, sym, num, dec)
  WHERE NOT EXISTS (SELECT 1 FROM public."currencyTable" c WHERE upper(c."rowJSON"->>'currencyCode') = v.code);
 
-INSERT INTO public."roleTable" ("orderInList", "rowJSON")
-SELECT v.ord, v.j::jsonb
-  FROM (VALUES
-    (1000, '{"roleName":"roleUser","roleTitle":"User","roleDescription":"Standard user","isActive":true}'),
-    (2000, '{"roleName":"roleOrganizationAdmin","roleTitle":"Organization Admin","roleDescription":"Organization administrator","isActive":true}'),
-    (3000, '{"roleName":"roleProjectManager","roleTitle":"Project Manager","roleDescription":"Project manager","isActive":true}'),
-    (4000, '{"roleName":"roleAppAdmin","roleTitle":"App Admin","roleDescription":"Application administrator","isActive":true}')
-  ) AS v(ord, j)
- WHERE NOT EXISTS (SELECT 1 FROM public."roleTable" r WHERE r."rowJSON"->>'roleName' = (v.j::jsonb->>'roleName'));
 
 -- demo rows (fixed ids, skipped when present)
 INSERT INTO public."personTable" ("rowGUID", "orderInList", "rowJSON") VALUES
@@ -6984,7 +6973,9 @@ SELECT 'pp_cert_' || pg || '_' || k, pg, pre || 'p2', 210000 + n * 10 + k,
        jsonb_build_object('descriptorValueGUID', (ARRAY['dv18', 'dv19', 'dv20', 'dv21'])[1 + ((n + k) % 4)])
   FROM cfg CROSS JOIN generate_series(1, 3) AS k
  WHERE k <= 1 + (n % 3)
-ON CONFLICT ("rowGUID") DO NOTHING;
+-- no conflict target on purpose: n (the row_number over ALL persons) shifts when a person is added, so the certificate of a person
+-- can land on another k and meet the unique index idx_propertyValueTable_owner_plan (owner, plan line, value) - skip it too
+ON CONFLICT DO NOTHING;
 
 -- Variants: Seniority (Junior .. Lead by order) x English; every second person can also be booked in Latvian
 WITH cfg AS (
@@ -7004,7 +6995,7 @@ INSERT INTO public."variantTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "
 SELECT 'pvar_' || pg || '_' || k, pg, 'empty', 220000 + n * 10 + k,
        jsonb_build_object('title', sen_title || ', ' || lang_title, 'descriptorKey', pre || 'v1=' || sen || '|' || pre || 'v2=' || lang, 'isActive', true)
   FROM combo
-ON CONFLICT ("rowGUID") DO NOTHING;
+ON CONFLICT DO NOTHING;   -- also idx_variantTable_owner_key (n shifts when a person is added)
 
 WITH cfg AS (
   SELECT p."rowGUID" AS pg, row_number() OVER (ORDER BY p."orderInList", p."rowGUID") AS n,
@@ -7021,7 +7012,7 @@ INSERT INTO public."variantValueTable" ("rowGUID", "rowOwnerGUID", "rowParentGUI
 SELECT 'pvv_' || pg || '_' || k || '_' || part, 'pvar_' || pg || '_' || k, pre || CASE part WHEN 's' THEN 'v1' ELSE 'v2' END, 230000 + n * 10 + k,
        jsonb_build_object('descriptorValueGUID', CASE part WHEN 's' THEN sen ELSE lang END)
   FROM combo CROSS JOIN (VALUES ('s'), ('l')) AS parts(part)
-ON CONFLICT ("rowGUID") DO NOTHING;
+ON CONFLICT DO NOTHING;
 
 -- ---- a contract for every person without an ACTIVE one (the Time line of a task takes the cost from it) ------------------------
 WITH cfg AS (

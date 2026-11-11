@@ -207,12 +207,4 @@ SELECT tt.eq((SELECT string_agg(p.proname, ',' ORDER BY p.proname)
              'create_payment_fact_from_customer_invoice,create_payment_fact_from_vendor_invoice,payment_fact_header_after_write,payment_fact_header_before_write,payment_fact_invoice_open,payment_fact_lines_before_write,payment_fact_lines_delete_guard,payment_fact_plan_open,payment_fact_state,roi_include_vat,roi_trg_history_switch,roi_trg_task_month_new,roi_trg_task_month_old,roi_trg_task_month_upd,task_template_set_title,task_template_visible',
              'only wrappers, triggers and read helpers do not ask the matrix themselves: a NEW write RPC without perm_can / perm_require / perm_can_in fails this test');
 
--- ---- audit E6: the legacy roles every user gives himself at login (userRoleTable) -------------------------------------------------------------------
-SELECT tt.as_user('boris@acme.test', '22222222-2222-2222-2222-222222222222');
-INSERT INTO public."userRoleTable" ("rowOwnerGUID", "rowJSON") VALUES ('boris@acme.test', '{"userEmail": "boris@acme.test", "roleName": "roleUser"}');
-SELECT tt.eq((SELECT count(*) FROM public."userRoleTable" WHERE "rowOwnerGUID" = 'boris@acme.test'), 1::bigint, 'a plain member gives himself the legacy role roleUser at login');
-SELECT tt.fails($q$INSERT INTO public."userRoleTable" ("rowOwnerGUID", "rowJSON") VALUES ('boris@acme.test', '{"roleName": "roleAppAdmin"}')$q$, 'row-level security', '... but never roleAppAdmin');
-SELECT tt.fails($q$INSERT INTO public."userRoleTable" ("rowOwnerGUID", "rowJSON") VALUES ('clara@acme.test', '{"roleName": "roleUser"}')$q$, 'row-level security', '... and never for another e-mail');
-SELECT tt.eq(tt.rows_of($q$UPDATE public."userRoleTable" SET "rowJSON" = "rowJSON" || '{"roleName": "roleAppAdmin"}' WHERE "rowOwnerGUID" = 'boris@acme.test'$q$), 0::bigint, '... and cannot promote the row afterwards');
-
 ROLLBACK;

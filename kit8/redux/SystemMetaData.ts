@@ -10,9 +10,6 @@ import {ORGANIZATION_ENTITY, organizationTable, organizationExample} from "../ca
 import {COUNTRY_ENTITY, countryTable, emptyCountry} from "../catalog/country/countryModel";
 import {PROJECT_ENTITY} from "../catalog/project/projectCatalogModel";
 import {PROJECT_KANBAN_STAGE_ENTITY, PROJECT_TASK_KANBAN_STATE_ENTITY, projectKanbanStageTable, projectTaskKanbanStateTable, projectTable} from "../pm/model/constants";
-import {ROLE_ENTITY, rolesTable, emptyRole} from "../catalog/role/roleModel";
-import {USER_ROLE_ENTITY, userRolesTable, emptyUserRole} from "../catalog/userrole/userRoleModel";
-import {checkIsAppAdmin} from "../catalog/role/rolePermissions";
 import {productSystemMetaData} from "../catalog/product/productMetaData";
 import {resourceRoleSystemMetaData} from "../catalog/resourcerole/resourceRoleMetaData";
 import {managementGenusSystemMetaData} from "../catalog/management/genus/managementGenusMetaData";
@@ -216,42 +213,7 @@ const SystemMetaData:any = {
     [COUNTRY_ENTITY]: {
         tableName: countryTable,
         itemLabel: "Country",
-        updateValidator: (action: any, state: any) => {
-            if (state && !checkIsAppAdmin(state)) {
-                throw new Error("Only roleAppAdmin can modify countries.");
-            }
-        },
         defaultData: emptyCountry(),
-        prepareCreateApi: (p: any) => {
-            return { newItem: p.action.payload };
-        },
-        prepareReadApi: (p: any) => {},
-    },
-    // Role catalog (kit8/catalog/role): /catalog/role/list, roleAppAdmin only
-    [ROLE_ENTITY]: {
-        tableName: rolesTable,
-        itemLabel: "Role",
-        updateValidator: (action: any, state: any) => {
-            if (state && !checkIsAppAdmin(state)) {
-                throw new Error("Only roleAppAdmin can modify roles.");
-            }
-        },
-        defaultData: emptyRole(),
-        prepareCreateApi: (p: any) => {
-            return { newItem: p.action.payload };
-        },
-        prepareReadApi: (p: any) => {},
-    },
-    // User Role entity (kit8/catalog/userrole): /user/roles/list, roleAppAdmin only
-    [USER_ROLE_ENTITY]: {
-        tableName: userRolesTable,
-        itemLabel: "User Role",
-        updateValidator: (action: any, state: any) => {
-            if (state && !checkIsAppAdmin(state)) {
-                throw new Error("Only roleAppAdmin can modify user roles.");
-            }
-        },
-        defaultData: emptyUserRole(),
         prepareCreateApi: (p: any) => {
             return { newItem: p.action.payload };
         },

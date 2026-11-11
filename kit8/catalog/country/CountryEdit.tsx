@@ -21,7 +21,7 @@ import {
   normalizeCountry,
   validateCountry,
 } from './countryModel';
-import { useIsAppAdmin } from '../role/useIsAppAdmin';
+import { usePermissions } from '../../permissions/usePermissions';
 
 type Form = {
   countryName: string;
@@ -64,7 +64,7 @@ export default function CountryEdit() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
-  const isAdmin = useIsAppAdmin();
+  const isAdmin = usePermissions().can('countryTable', 'U');   // the matrix: the administrator of the organization writes the catalogs
   const { rowGUID } = useLocalSearchParams<{ rowGUID?: string }>();
   const isNew = !rowGUID;
 
@@ -101,7 +101,7 @@ export default function CountryEdit() {
 
   const handleSave = () => {
     if (!isAdmin) {
-      setSaveError('Permission denied: only roleAppAdmin can modify countries.');
+      setSaveError('Permission denied: only the administrator of the organization can modify countries.');
       return;
     }
     const json = fromForm(form);

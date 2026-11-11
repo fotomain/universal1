@@ -237,7 +237,6 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
     projectsQuery.isLoading ||
     (!!selectedProjectGUID && !dataQuery.isError && (loadedProjectGUID !== selectedProjectGUID || awaitingProject === selectedProjectGUID));
   const loadError = (projectsQuery.error || dataQuery.error) as Error | null;
-  const projectName = selectedProjectGUID ? usePMStore.getState().projectsById[selectedProjectGUID]?.rowJSON.name : undefined;
 
   return (
     <View style={[styles.root, { backgroundColor: themeColors.background }]}>
@@ -267,9 +266,6 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
       ) : loading ? (
         <Centered color={themeColors.background}>
           <ActivityIndicatorCircleApp testID="pm-loading" />
-          {!!selectedProjectGUID && !projectsQuery.isLoading && (
-            <Text style={{ color: themeColors.text, opacity: 0.6, marginTop: 10 }}>Loading {projectName || 'project'}…</Text>
-          )}
         </Centered>
       ) : !selectedProjectGUID && projectCount > 0 ? (
         <Centered color={themeColors.background}>

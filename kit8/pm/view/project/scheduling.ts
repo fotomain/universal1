@@ -10,6 +10,7 @@ import { DAY_MS } from '../../model/constants';
 import { PMLinkType, PMScheduledRow, PMTaskDependencyRow, PMTaskJSON, PMTaskRow } from '../../model/types';
 import { constraintOf, PMConstraint, PMConstraintType } from '../../model/taskConstraint';
 import { manualStartOf, taskModeOf } from '../../model/taskScheduleMode';
+import { ROOT_KEY } from './rootKey';
 
 // =====================================================================================
 // ltree
@@ -201,7 +202,7 @@ export function parseDateISO(value: string): number | null {
 // Tree index (Project -> Stage -> Task) derived from ltree treePath.
 // =====================================================================================
 
-export const ROOT_KEY = '__root__';
+export { ROOT_KEY };   // lives in ./rootKey (kanbanModel needs it without importing this file: require cycle)
 
 export interface PMTreeIndex {
   parentById: Record<string, string | null>;

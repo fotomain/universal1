@@ -335,40 +335,6 @@ CREATE INDEX IF NOT EXISTS "idx_contractTable_owner_order" ON public."contractTa
 
 CREATE INDEX IF NOT EXISTS "idx_contractTable_number" ON public."contractTable" ((lower("rowJSON"->>'contractNumber')));
 
--- ---- roleTable: rowOwnerGUID = 'roleCatalog', rowParentGUID = 'empty' -------------------------
-CREATE TABLE IF NOT EXISTS public."roleTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'roleCatalog',
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-
-CREATE INDEX IF NOT EXISTS "idx_roleTable_name" ON public."roleTable" ((lower("rowJSON"->>'roleName')));
-
--- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
-
-
--- ---- userRoleTable: rowOwnerGUID = user email / uid, rowParentGUID = roleGUID or 'empty' ------
-CREATE TABLE IF NOT EXISTS public."userRoleTable" (
-  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
-  "rowOwnerGUID"  TEXT        NOT NULL,
-  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  PRIMARY KEY ("rowGUID")
-);
-
-CREATE INDEX IF NOT EXISTS "idx_userRoleTable_owner" ON public."userRoleTable" ("rowOwnerGUID");
-
-CREATE INDEX IF NOT EXISTS "idx_userRoleTable_role" ON public."userRoleTable" ((lower("rowJSON"->>'roleName')));
-
--- (the seed rows of this part are in start4_sql_insert_missing.sql, PART 1)
 
 
 

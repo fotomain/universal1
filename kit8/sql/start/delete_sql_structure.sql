@@ -1222,6 +1222,7 @@ DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_table CASCADE;
 DROP TABLE IF EXISTS public.project_table CASCADE;
 
+-- legacy app roles (removed from start1 / start2 on 2026-11-11, see del_roles.sql): dropped here only for a database that still has them
 DROP TABLE IF EXISTS public."userRoleTable" CASCADE;
 DROP TABLE IF EXISTS public."roleTable" CASCADE;
 DROP TABLE IF EXISTS public."contractTable" CASCADE;

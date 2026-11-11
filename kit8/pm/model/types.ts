@@ -552,12 +552,8 @@ export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSet
 /** Shape of the dependency arrow lines in the chart. */
 export type PMLinkLineForm = 'smoothForm' | 'squareForm';
 
-/** Task bar color from rowJSON (taskColor, legacy color fallback). */
-export function taskColorOf(json: PMRowJSONCommon | undefined | null): string | null {
-  if (!json) return null;
-  if (json.taskColor !== undefined) return json.taskColor || null; // explicit (null = automatic)
-  return json.color || null;
-}
+// taskColorOf lives in ./taskColor (no runtime import of this file: kanbanModel needs it, and types.ts -> treeColumnFilter -> kanbanModel -> types.ts was a require cycle)
+export { taskColorOf } from './taskColor';
 
 export interface PMProjectData {
   tasks: PMTaskRow[];

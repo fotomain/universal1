@@ -335,17 +335,13 @@ SELECT public.kit8_setup_def_table('personTable');
 
 SELECT public.kit8_setup_def_table('partnerTable');
 
-SELECT public.kit8_setup_def_table('roleTable');
 
-SELECT public.kit8_setup_def_table('userRoleTable');
-
-
--- person / partner / contract / role / userRole: full CRUD for signed-in users only
+-- person / partner / contract: full CRUD for signed-in users only
 DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['personTable', 'partnerTable', 'contractTable'] LOOP
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
@@ -1959,7 +1955,6 @@ DECLARE
     -- catalogs
     'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
     'personTable', 'partnerTable', 'contractTable',
-    'roleTable', 'userRoleTable',
     -- PM (React Query invalidation: kit8/pm/crud/realtime, kit8/pm/crud/kanban)
     'project_table', 'project_task_table', 'project_task_dependencies_table', 'project_user_settings_table',
     'kanban_stage_table', 'project_kanban_stage_table', 'project_task_kanban_state_table'
@@ -17232,7 +17227,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'budgetScenarioTable', 'businessUnitTable', 'cfrTypeTable', 'contractTable', 'countryTable', 'currencyExchangeRateTable', 'currencyTable', 'descriptorDestinationTable', 'descriptorGenusTable', 'descriptorModeTable', 'descriptorPlanTable', 'descriptorValueTable', 'distributionGenericTable', 'dtcCatalogExecutiveTable', 'dtcFreeExecutiveTable', 'dtcTaskFinishedTable', 'dtcTaskProgressTable', 'dtcTaskRegisteredTable', 'dtcTaskWaitingTable', 'equipmentTable', 'equipmentTypeTable', 'kanban_stage_table', 'legalEntityTable', 'managementCalendarDaysTable', 'managementCalendarTable', 'measureUnitTable', 'moneyAccountTable', 'partnerTable', 'personTable', 'personTypeTable', 'priceTypeTable', 'productBarcodeTable', 'productFolderTable', 'productPackageTable', 'productPriceTable', 'productSeriesTable', 'productTable', 'productTypeTable', 'propertyValueTable', 'raciMemberTable', 'resourceRoleFolderTable', 'resourceRoleTable', 'resourceRoleTypeTable', 'rolePriceTable', 'roleTable', 'templateResourceContractTable', 'userRoleTable', 'valueAddedTaxTable', 'variantTable', 'variantValueTable', 'workCenterTable', 'budgetItemGenericKeyTable', 'managementActivityGenusTable', 'managementGenusTable'] LOOP
+  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'budgetScenarioTable', 'businessUnitTable', 'cfrTypeTable', 'contractTable', 'countryTable', 'currencyExchangeRateTable', 'currencyTable', 'descriptorDestinationTable', 'descriptorGenusTable', 'descriptorModeTable', 'descriptorPlanTable', 'descriptorValueTable', 'distributionGenericTable', 'dtcCatalogExecutiveTable', 'dtcFreeExecutiveTable', 'dtcTaskFinishedTable', 'dtcTaskProgressTable', 'dtcTaskRegisteredTable', 'dtcTaskWaitingTable', 'equipmentTable', 'equipmentTypeTable', 'kanban_stage_table', 'legalEntityTable', 'managementCalendarDaysTable', 'managementCalendarTable', 'measureUnitTable', 'moneyAccountTable', 'partnerTable', 'personTable', 'personTypeTable', 'priceTypeTable', 'productBarcodeTable', 'productFolderTable', 'productPackageTable', 'productPriceTable', 'productSeriesTable', 'productTable', 'productTypeTable', 'propertyValueTable', 'raciMemberTable', 'resourceRoleFolderTable', 'resourceRoleTable', 'resourceRoleTypeTable', 'rolePriceTable', 'templateResourceContractTable', 'valueAddedTaxTable', 'variantTable', 'variantValueTable', 'workCenterTable', 'budgetItemGenericKeyTable', 'managementActivityGenusTable', 'managementGenusTable'] LOOP
     IF to_regclass('public.' || quote_ident(t)) IS NULL THEN CONTINUE; END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = t AND policyname = t || '_insert') THEN CONTINUE; END IF;
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
@@ -17320,13 +17315,6 @@ $$;
 REVOKE ALL ON FUNCTION public.organization_texts(text) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.organization_texts(text) TO authenticated;
-
--- ---- audit E6 (documentation/PERMISSIONS_WBS.html): the app gives every user his three legacy roles at EVERY login (app/_layout.tsx checkAndCreateUserRoles = INSERT into userRoleTable with
--- rowOwnerGUID = his e-mail). Without this exception a plain member would be refused at each login. roleAppAdmin is never self-assigned (the app knows its administrator by e-mail).
-DROP POLICY IF EXISTS "userRoleTable_insert_self" ON public."userRoleTable";
-
-CREATE POLICY "userRoleTable_insert_self" ON public."userRoleTable" FOR INSERT TO authenticated
-  WITH CHECK ("rowOwnerGUID" = lower(COALESCE(auth.jwt()->>'email', '')) AND "rowJSON"->>'roleName' IN ('roleUser', 'roleOrganizationAdmin', 'roleProjectManager'));
 
 NOTIFY pgrst, 'reload schema';
 

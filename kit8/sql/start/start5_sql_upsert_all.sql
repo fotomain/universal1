@@ -129,7 +129,6 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('resourceRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('resourceRoleTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('rolePriceTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
-    ('roleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('task_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('task_fact_usage_timeline', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('task_line_plan_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
@@ -151,7 +150,6 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('templates_project_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('themeStoreTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('userAuthTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
-    ('userRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('userTable', ARRAY['CRUD', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('user_calendar_event_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('user_calendar_invitation_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
@@ -257,15 +255,6 @@ SELECT v.ord, jsonb_build_object('currencyCode', v.code, 'currencyName', v.name,
   ) AS v(ord, code, name, sym, num, dec)
  WHERE NOT EXISTS (SELECT 1 FROM public."currencyTable" c WHERE upper(c."rowJSON"->>'currencyCode') = v.code);
 
-INSERT INTO public."roleTable" ("orderInList", "rowJSON")
-SELECT v.ord, v.j::jsonb
-  FROM (VALUES
-    (1000, '{"roleName":"roleUser","roleTitle":"User","roleDescription":"Standard user","isActive":true}'),
-    (2000, '{"roleName":"roleOrganizationAdmin","roleTitle":"Organization Admin","roleDescription":"Organization administrator","isActive":true}'),
-    (3000, '{"roleName":"roleProjectManager","roleTitle":"Project Manager","roleDescription":"Project manager","isActive":true}'),
-    (4000, '{"roleName":"roleAppAdmin","roleTitle":"App Admin","roleDescription":"Application administrator","isActive":true}')
-  ) AS v(ord, j)
- WHERE NOT EXISTS (SELECT 1 FROM public."roleTable" r WHERE r."rowJSON"->>'roleName' = (v.j::jsonb->>'roleName'));
 
 -- -- demo rows (fixed ids, skipped when present)
 INSERT INTO public."personTable" ("rowGUID", "orderInList", "rowJSON") VALUES

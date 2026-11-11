@@ -9,6 +9,7 @@ import IconApp from './common/IconApp';
 import { usePermissions } from '../../permissions/usePermissions';
 import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
 import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
+import { afterNextPopState, isDrawerOpenInHistory, isFirefoxWeb } from './drawerHistorySettle';
 
 interface MenuItem {
   id: string;
@@ -39,15 +40,24 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const navigateAndClose = (route: string) => {
     const fullRoute = route.startsWith('/') ? route : `/${route}`;
-    try {
-      if ((router as any).navigate) {
-        (router as any).navigate(fullRoute);
-      } else {
+    const go = () => {
+      try {
+        if ((router as any).navigate) {
+          (router as any).navigate(fullRoute);
+        } else {
+          router.replace(fullRoute as any);
+        }
+      } catch (e) {
         router.replace(fullRoute as any);
       }
-    } catch (e) {
-      router.replace(fullRoute as any);
+    };
+    if (isFirefoxWeb() && isDrawerOpenInHistory((props as any).state)) {
+      // see drawerHistorySettle.ts: close first, navigate when the browser has finished the history.go of the closing
+      afterNextPopState(go);
+      navigation.closeDrawer();
+      return;
     }
+    go();
     navigation.closeDrawer();
   };
 
@@ -126,8 +136,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         // resource role catalog: role types, roles (folder tree + table), properties, variants, hourly rates, checks
         { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
-        { id: 'roles', label: 'Roles', icon: 'admin_panel_settings', route: 'catalog/role/list' },
-        { id: 'user-roles', label: 'User roles', icon: 'manage_accounts', route: 'user/roles/list' },
         // a Person, an Equipment or a Partner (supplier) as a resource with its own calendar and variant, in folders = business units; a Time line of a task can book it
         { id: 'workcenters', label: 'Work centers', icon: 'precision_manufacturing', route: 'catalog/work/center' },
       ],

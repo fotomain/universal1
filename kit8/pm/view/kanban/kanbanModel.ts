@@ -12,12 +12,13 @@
 // autoUpdateTaskProgressPercentFromKanban is on (planKanbanTaskProgress; useKanbanCommands applies it).
 // Every stage has a percent (rowJSON.stageProgressPercent): 1..100 = FIXED (every card of the stage shows it), 0 = MANUAL (typed on the card).
 
-import { ROOT_KEY, PMTreeIndex } from '../project/scheduling';
+import { ROOT_KEY } from '../project/rootKey';
+import type { PMTreeIndex } from '../project/scheduling';
 
 /** what the percent helpers read of the tree: the children of a row (they never need the parent, the depth or the WBS) */
 type PMKanbanChildrenIndex = Pick<PMTreeIndex, 'childrenById'>;
 import type { PMScheduledRow, PMTaskRow } from '../../model/types';
-import { taskColorOf } from '../../model/types';
+import { taskColorOf } from '../../model/taskColor';
 import {
   PMProjectKanbanStageRow,
   PMTaskKanbanStateRow,

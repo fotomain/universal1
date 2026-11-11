@@ -42,7 +42,7 @@ def block(upsert):
     return '\n'.join(L)
 
 def main():
-    assert len(M.crud_rows()) == 135 - 7 + 0 or True
+    assert len(M.crud_rows()) == 133
     for fn, up in (('start4_sql_insert_missing.sql', False), ('start5_sql_upsert_all.sql', True)):
         p = os.path.join(START, fn)
         t = open(p, encoding='utf-8').read()

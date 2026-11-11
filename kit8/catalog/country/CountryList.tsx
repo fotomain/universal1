@@ -19,7 +19,7 @@ import {
   countryToCard,
 } from './countryModel';
 
-import { useIsAppAdmin } from '../role/useIsAppAdmin';
+import { usePermissions } from '../../permissions/usePermissions';
 
 const ListWebCardsComponent: any =
   Platform.OS === 'web'
@@ -30,7 +30,7 @@ export default function CountryList() {
   const router = useRouter();
   const dispatch = useDispatch();
   const { themeColors: c } = useDesignSystem();
-  const isAdmin = useIsAppAdmin();
+  const isAdmin = usePermissions().can('countryTable', 'U');   // the matrix: the administrator of the organization writes the catalogs
   const status = useRealtimeEntity(COUNTRY_ENTITY, { readParams: COUNTRY_READ_PARAMS });
 
   const rows: CountryRow[] =
