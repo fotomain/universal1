@@ -65,6 +65,19 @@ SPECIAL = {
     'organizationMemberTable': row('CRUD', 'R', *['N'] * 9),
     'project_permission_profile_user_table': row('CRUD', 'CRUD', *['N'] * 9),
     'task_user_permission_table': row('R', 'R', *['N'] * 9),
+    # PART 49 file attachments (documentation/FILE_ATTACHMENT_WBS.html): the two permissions the owner named (CRUD for the administrator and the project manager, nothing for the others) -
+    # projectFileManager = files of the organization and of documents, the Google Drive connection and root url, the health check; projectMediaPostManager = any post of a project.
+    # They are asked like a table: perm_can('projectFileManager', 'U') / perm_can_in('projectMediaPostManager', 'U', project).
+    'projectFileManager': row('CRUD', 'CRUD', *['N'] * 9),
+    'projectMediaPostManager': row('CRUD', 'CRUD', *['N'] * 9),
+    # the tables of the Drive connection are written by the Edge Function (service role) and the files_ RPCs only: no client letter at all
+    'files_google_connection_table': row(*['N'] * 11),
+    'files_folder_table': row(*['N'] * 11),
+    'files_drive_cleanup_table': row(*['N'] * 11),
+    'files_upload_pending_table': row(*['N'] * 11),
+    'files_version_history': row(*['N'] * 11),
+    # the document types of a file: everybody reads, the administrator writes the organization's own (policies of PART 49)
+    'files_document_type_catalog': row('CRUD', 'R', *['R'] * 9),
 }
 # keys of a CRUD row next to permissionSet: permissionWritableFields = ONLY these columns / rowJSON keys may change; permissionLockedFields = these may NOT change;
 # permissionLockedActions = named actions refused by a trigger. A user's profiles ADD UP: a field is writable if any profile that gives U allows it.
@@ -101,6 +114,7 @@ UX = [
     ('permissionOrganizationMembers', ('CRUD', 'R', 'N', 'N', 'N', 'N', 'N')),
     ('permissionProjectMembers', ('CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N')),
     ('permissionMatrixEditor permissionEditTexts', ('CRUD', 'N', 'N', 'N', 'N', 'N', 'N')),
+    ('projectFileManager projectMediaPostManager', ('CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N')),
 ]
 
 def ux_rows():

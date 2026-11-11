@@ -13,6 +13,7 @@ import { productValuesOf, type PMProjectProductValues } from '../../pm/view/proj
 import { subprojectValuesOf, type PMSubprojectValues } from '../../pm/subproject/subprojectModel';
 import { roiValuesOf, type PMProjectRoiValues } from '../../pm/reports/roi/roiSettings';
 import { paymentsValuesOf, type PMProjectPaymentsValues } from '../../pm/view/project/settings/PMProjectPaymentsTab';
+import { filesValuesOf, type PMProjectFilesValues } from '../../pm/view/project/settings/PMProjectFilesTab';
 import { resourceLevelingValuesOf, type PMResourceLevelingValues } from '../../pm/resourceleveling/resourceLevelingSettings';
 import { PROJECT_CENTER_FIELDS } from '../business_unit/businessUnitModel';
 
@@ -27,7 +28,7 @@ export interface PMProjectMainValues {
   planDateInputFormat?: PMPlanDateInputFormat;
 }
 
-export interface DefaultProjectSettings extends PMProjectMainValues, PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMResourceLevelingValues {}
+export interface DefaultProjectSettings extends PMProjectMainValues, PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectFilesValues, PMResourceLevelingValues {}
 
 export const mainValuesOf = (j: PMProjectMainValues | undefined | null): Required<PMProjectMainValues> => ({
   skipWeekends: !!j?.skipWeekends,
@@ -52,6 +53,7 @@ export const defaultProjectSettingsOf = (source: DefaultProjectSettings | undefi
   ...subprojectValuesOf(source),
   ...roiValuesOf(source),
   ...paymentsValuesOf(source),
+  ...filesValuesOf(source),
   ...resourceLevelingValuesOf(source),
 });
 

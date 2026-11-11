@@ -66,6 +66,9 @@ import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
 import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
+import PMTaskFilesPanel from '../../../../files/PMTaskFilesPanel';
+import { FILES_TAB_ID, filesEnabledOfProject } from '../../../../files/fileModel';
+import { useFilesList } from '../../../../files/useFiles';
 import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
 
@@ -156,6 +159,10 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const paymentEnv = usePaymentPlanEnvironment(projectGUID, taskGUID, payments);
   usePaymentPlanFollowsTask(projectGUID, taskGUID, payments, paymentEnv);
   const paymentsActive = !picker && pickedGenus === PAYMENT_TAB_ID;
+  // the sixth tab "Files" (kit8/files, documentation/FILE_ATTACHMENT_WBS.html): the files of the task in Google Drive; offered while the project switch filesFunctionalityEnabled is not false and the screen is no picker
+  const filesOffered = !picker && filesEnabledOfProject(projectJSON);
+  const filesActive = filesOffered && pickedGenus === FILES_TAB_ID;
+  const { rows: fileRows } = useFilesList({ scope: 'task', guid: taskGUID, projectGUID }, filesOffered && !!taskGUID);
   // Post: the whole task; the state of the button (Post · Posted · Post needed) comes from the lines of ALL tabs
   const { state: postState, post } = useTaskPost({ projectGUID, taskGUID, lines: taskLines, distributions: data.distribution });
 
@@ -291,14 +298,33 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
             )}
           </Pressable>
         ) : null}
+        {filesOffered ? (
+          <Pressable
+            accessibilityRole="tab"
+            aria-selected={filesActive}
+            testID={`${testID}-tab-${FILES_TAB_ID}`}
+            onPress={() => setGenus(FILES_TAB_ID)}
+            style={[styles.tab, { borderBottomColor: filesActive ? c.primary : 'transparent' }]}
+          >
+            <IconApp name="attach_file" size={16} color={filesActive ? c.primary : c.text} />
+            <Text style={{ color: filesActive ? c.primary : c.text, fontWeight: filesActive ? '700' : '500', fontSize: 13 }}>{pmT('Files')}</Text>
+            {fileRows.length > 0 && (
+              <View testID={`${testID}-tab-${FILES_TAB_ID}-count`} style={[styles.badge, { backgroundColor: c.primary }]}>
+                <Text style={styles.badgeText}>{fileRows.length > 99 ? '99+' : String(fileRows.length)}</Text>
+              </View>
+            )}
+          </Pressable>
+        ) : null}
       </ScrollableTabBar>
 
-      {!paymentsActive && raciWarn ? (
+      {!paymentsActive && !filesActive && raciWarn ? (
         <Text testID={`${testID}-raci-warning`} style={{ color: c.error, fontSize: 12, paddingHorizontal: 12, paddingVertical: 4 }}>{pmT(raciWarn)}</Text>
       ) : null}
 
       {paymentsActive ? (
         <PMTaskPaymentPlan projectGUID={projectGUID} taskGUID={taskGUID} data={data} taskLines={taskLines} payments={payments} testID={`${testID}-payments`} />
+      ) : filesActive ? (
+        <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} testID={`${testID}-files`} />
       ) : (
         <ReusableTable
           key={def.genus}

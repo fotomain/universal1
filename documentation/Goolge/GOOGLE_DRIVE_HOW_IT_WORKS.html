@@ -1,0 +1,317 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Google Drive – how it works (F0 spike)</title>
+<style>
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+  .note.good { border-color: var(--emerald); background: var(--emerald-soft); }
+  .note.bad { border-color: var(--rose); background: var(--rose-soft); }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Google Drive – how it works</div>
+  <nav><ul>
+    <li><a href="#summary">Summary</a></li><li><a href="#model">Model</a></li><li><a href="#scopes">Scopes</a></li><li><a href="#roles">Roles</a></li><li><a href="#delete">Delete</a></li>
+    <li><a href="#props">Properties</a></li><li><a href="#move">Move / copy</a></li><li><a href="#create">Shared drives</a></li><li><a href="#limits">Limits</a></li>
+    <li><a href="#impact">Impact on the plan</a></li><li><a href="#tests">Test status</a></li><li><a href="#free">Free account</a></li><li><a href="#wayc">Way C test</a></li><li><a href="#sources">Sources</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="summary">
+  <h1>Google Drive – how it works (result of spike F0)</h1>
+  <p class="lead">What the Google Drive API really does for the file attachments plan (<code>documentation/FILE_ATTACHMENT_WBS.html</code>): who may delete, what the narrow scope sees, what a Shared drive changes, what cannot be moved, and the limits. Written 2026-11-11 from Google's own reference pages (section 11).</p>
+  <div class="note"><b>Status of F0.</b> The 8 questions of F0 were first answered from <b>Google's documentation</b> (sections 1–11). <b>Way C is decided and was run live on 2026-11-11</b> against a real free Gmail account with only the scope <code>drive.file</code>: <b>12 of 13 lines PASS, one real finding</b> (a folder cannot be deleted in one call; delete bottom-up) – section 12. The two-account test for way B (<code>f0/f0_drive_spike.sh</code>, section 10) was NOT run and is only needed if way B is ever built.</div>
+  <div class="note bad"><b>Three findings change the plan.</b>
+    <ol class="steps">
+      <li><b>Permanent delete in a Shared drive needs the <i>Manager</i> (<code>organizer</code>) role</b> – not Content manager (<code>fileOrganizer</code>), as the plan v2–v5 wrote. A Content manager can only move a file to the trash and reorganize. (section 3, 4)</li>
+      <li><b>The narrow scope <code>drive.file</code> does not see files that someone else made</b> – access is per file and comes from the app creating it or the user picking it. So the plan's "app finds the folder of the administrator" works only with the full scope <code>drive</code>, which is <i>restricted</i>; it needs no Google verification only when the OAuth app is <b>Internal</b> to one Workspace domain. (section 2)</li>
+      <li><b>A folder cannot be moved from My Drive into a Shared drive</b> (error <code>teamDrivesFolderMoveInNotSupported</code>). "Move the root" between those two must copy file by file. (section 6)</li>
+    </ol></div>
+</section>
+
+<section id="model">
+  <h2>1. The model: My Drive and Shared drives</h2>
+  <div class="card scroll"><table>
+    <tr><th></th><th>My Drive</th><th>Shared drive (Google Workspace only)</th></tr>
+    <tr><td>Owner of a file</td><td>One user – the one who made it</td><td>The organization (the drive), not a person</td></tr>
+    <tr><td>Parents of a file</td><td>Many allowed in the web UI, <b>one</b> in the API</td><td>Exactly one folder</td></tr>
+    <tr><td>Account removed</td><td>His files go with him</td><td>The files stay</td></tr>
+    <tr><td>Who sees it</td><td>Whoever the owner shares it with</td><td>The members of the drive (and per-item sharing if the drive allows)</td></tr>
+    <tr><td>Items allowed</td><td>500,000 per folder (not the root); 500 million per user</td><td><b>500,000 per drive</b> – files, folders, shortcuts <b>and items in the trash</b></td></tr>
+    <tr><td>Folder depth</td><td>100 levels</td><td>100 levels</td></tr>
+    <tr><td>API flag</td><td>–</td><td><code>supportsAllDrives=true</code> on files / permissions / changes calls; lists also <code>corpora=drive</code>, <code>driveId</code>, <code>includeItemsFromAllDrives=true</code></td></tr>
+  </table></div>
+  <p>A file lives in a Shared drive <i>or</i> in My Drive, never both. Shortcuts can point across. <code>ownedByMe</code> is not filled for Shared drive files.</p>
+</section>
+
+<section id="scopes">
+  <h2>2. Scopes and tokens</h2>
+  <h3>What the scopes give</h3>
+  <div class="card scroll"><table>
+    <tr><th>Scope</th><th>Gives</th><th>Class</th></tr>
+    <tr><td><code>drive.file</code></td><td>Per-file access: the files the app created, and the files the user opened with the app (Google Picker). A file shared with the user by somebody else is <b>not</b> visible automatically.</td><td>recommended, not restricted</td></tr>
+    <tr><td><code>drive</code></td><td>"View and manage all your Drive files" – also Shared drives; needed for <code>drives.create</code></td><td><b>restricted</b></td></tr>
+  </table></div>
+  <ul>
+    <li><b>Restricted scope and verification.</b> A public app that asks for <code>drive</code> needs Google's verification and a security assessment. An app whose consent screen user type is <b>Internal</b> (only available when the Google Cloud project is owned by a Workspace organization) is used only by accounts of that domain and its restricted scopes need no review; no 100-user test limit, no "unverified app" screen. The Workspace administrator can still block or limit the app.</li>
+    <li><b>Internal means ONE domain:</b> only the Workspace organization that owns the Google Cloud project can use an Internal app. A product used by many customer organizations (this one has organizations) cannot be Internal for all of them: it needs a public app with the restricted scope (verification + security assessment), or one Google Cloud project per customer. This is the strongest reason for way C (scope <code>drive.file</code> only).</li>
+    <li><b>Consequence:</b> with <code>drive</code> + Internal, users with a plain Gmail account (or another domain) cannot sign in to the Drive features at all. A My Drive fallback for organizations without Workspace is therefore only possible with the narrow scope + Picker, or with a verified public app.</li>
+    <li><b>Token.</b> The Google sign-in of Supabase asks for no Drive scope; the Drive token is a second consent (<code>expo-auth-session</code>, like the calendar). An access token lives about one hour; the cleanup worker and the upload queue must ask for it again.</li>
+  </ul>
+</section>
+
+<section id="roles">
+  <h2>3. Who can do what (roles)</h2>
+  <div class="card scroll"><table>
+    <tr><th>Operation in a <b>Shared drive</b></th><th>reader</th><th>commenter</th><th>writer<br>(Contributor)</th><th>fileOrganizer<br>(Content manager)</th><th>organizer<br>(Manager)</th></tr>
+    <tr><td>View, download</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td><td>yes</td></tr>
+    <tr><td>Add and edit files, make folders</td><td>–</td><td>–</td><td>yes</td><td>yes</td><td>yes</td></tr>
+    <tr><td>Reorganize inside the drive (move, rename folders)</td><td>–</td><td>–</td><td>–</td><td>yes</td><td>yes</td></tr>
+    <tr><td>Move to the trash / restore from the trash</td><td>–</td><td>–</td><td>–</td><td>yes</td><td>yes</td></tr>
+    <tr><td><b>Delete permanently</b> (<code>files.delete</code>)</td><td>–</td><td>–</td><td>–</td><td><b>no</b></td><td><b>yes</b></td></tr>
+    <tr><td>Empty the trash (<code>files.emptyTrash</code>)</td><td>–</td><td>–</td><td>–</td><td>no</td><td>yes</td></tr>
+    <tr><td>Move items out of the drive</td><td>–</td><td>–</td><td>–</td><td>no</td><td>yes</td></tr>
+    <tr><td>Add / remove members, rename or delete the drive</td><td>–</td><td>–</td><td>–</td><td>no</td><td>yes</td></tr>
+  </table></div>
+  <p><b>My Drive</b> for comparison: the owner and organizers delete and trash; <code>files.delete</code> removes only what the caller <b>owns</b> – for a folder, only "all descendants owned by the user". A file made by user B inside the administrator's folder is owned by B. (The trash guide also says "only the file owner can trash a file" – the reference is not consistent here; the live test decides.)</p>
+</section>
+
+<section id="delete">
+  <h2>4. Delete: trash and permanent</h2>
+  <div class="card scroll"><table>
+    <tr><th></th><th>Trash (<code>files.update</code> with <code>trashed: true</code>)</th><th>Delete (<code>files.delete</code>)</th></tr>
+    <tr><td>Kept</td><td>30 days, then Drive deletes it; restorable before that</td><td>Never – no recovery step</td></tr>
+    <tr><td>Shared drive: who</td><td>fileOrganizer, organizer</td><td><b>organizer</b> on the item or a parent folder</td></tr>
+    <tr><td>Folder</td><td>trashes its contents too</td><td>deletes the descendants the caller owns (Shared drive: those under it)</td></tr>
+    <tr><td>Storage / item cap</td><td>does NOT free storage; trashed items <b>still count</b> toward the 500,000 items</td><td>frees storage and the item count</td></tr>
+    <tr><td>Others who had access</td><td>keep it until the file is deleted</td><td>lose access at once</td></tr>
+  </table></div>
+  <ul>
+    <li>Both need <code>supportsAllDrives=true</code> for Shared drive items. A deleted shared drive must first be empty (all content in the trash or deleted); <code>drives.delete</code> needs organizer, and <code>allowItemDeletion</code> needs domain admin access.</li>
+    <li>"Delete" of a <b>task</b> in the app = a Drive folder delete by an organizer. A fileOrganizer's attempt returns a 403 (<code>insufficientFilePermissions</code>).</li>
+  </ul>
+</section>
+
+<section id="props">
+  <h2>5. Properties on files and folders (S2)</h2>
+  <div class="card scroll"><table>
+    <tr><th></th><th><code>properties</code></th><th><code>appProperties</code></th></tr>
+    <tr><td>Visible to</td><td><b>all apps</b> that can see the file</td><td>only the app (OAuth client id) that wrote it</td></tr>
+    <tr><td>Limit</td><td colspan="2">100 custom properties per file in all; 30 private per application; key + value together max <b>124 bytes</b> (UTF-8)</td></tr>
+    <tr><td>Search (<code>files.list q</code>)</td><td><code>properties has { key='kit8Kind' and value='root' }</code></td><td><code>appProperties has { … }</code></td></tr>
+  </table></div>
+  <p>The web, iOS and Android builds of this app use different OAuth client ids, so only <code>properties</code> works across them. A key such as <code>kit8TaskGUID</code> (12 bytes) + a GUID (36) = 48 bytes, well inside the limit. With the narrow scope a search sees only the app's own files; with <code>drive</code> it sees every file the user may see in the drive.</p>
+</section>
+
+<section id="move">
+  <h2>6. Move and copy (S7, S11)</h2>
+  <ul>
+    <li><b>Move</b> = <code>files.update</code> with <code>addParents</code> and <code>removeParents</code> (read the old parent with <code>fields=parents</code>). The id and the url of the file stay. Inside one Shared drive: roles fileOrganizer or organizer.</li>
+    <li><b>My Drive → Shared drive:</b> a <b>folder</b> cannot be moved in (<code>teamDrivesFolderMoveInNotSupported</code>); a file can. Moving items <b>out</b> of a Shared drive needs organizer. Folder moves between two Shared drives: not stated in the reference – the live test checks it (script step 11).</li>
+    <li><b>Copy</b> = <code>files.copy</code>: costs 50 quota units, counts against the 750 GB per day upload limit of the copier, the copy is owned by the copier (My Drive) or by the drive; maximum size 750 GB.</li>
+    <li><b>Revisions</b> (S4): <code>files.update</code> with new media makes a revision; <code>revisions.update</code> with <code>keepForever</code> keeps an old one; a permanent delete removes them.</li>
+  </ul>
+</section>
+
+<section id="create">
+  <h2>7. Creating a Shared drive and adding members</h2>
+  <ul>
+    <li><b>Create:</b> <code>drives.create</code> with a <code>requestId</code> (a random UUID – the same id twice does not make two drives; an existing one gives 409). Scope <code>drive</code>. Not possible with a free <code>@gmail.com</code> account; the user's organizational unit must be <b>allowed to create</b> Shared drives (administrator setting). The creator becomes <code>organizer</code>.</li>
+    <li><b>Members:</b> <code>permissions.create</code> on the drive id with <code>supportsAllDrives=true</code>; only an organizer adds or removes members. Limits: 600 members in all, 100 groups, 50,000 individuals through groups.</li>
+    <li><b>Outside the domain:</b> the administrator setting "Allow users outside your organization to access files in shared drives" – unchecked, nobody outside can be a member, and managers cannot add them.</li>
+    <li><b>Domain administrators</b> can manage any Shared drive with <code>useDomainAdminAccess=true</code> without being members.</li>
+  </ul>
+</section>
+
+<section id="limits">
+  <h2>8. Limits and speed</h2>
+  <div class="card scroll"><table>
+    <tr><th>Limit</th><th>Value</th><th>What it means here</th></tr>
+    <tr><td>Items in a Shared drive</td><td>500,000 (trash included)</td><td>Every task with files costs 2 folders (<code>task/&lt;GUID&gt;</code> + <code>files</code>) + its files; 10,000 tasks with files ≈ 20,000 folders. Permanent delete matters for the cap. Option: drop the inner <code>files</code> folder to halve the folder count.</td></tr>
+    <tr><td>Folder depth</td><td>100</td><td>our deepest path is 6 levels</td></tr>
+    <tr><td>Upload per user per day</td><td>750 GB (copies count)</td><td>no issue; the move-root copy of S7 counts</td></tr>
+    <tr><td>Max file</td><td>5 TB upload, 750 GB copy</td><td>the app limits itself to 100 MB (Q6)</td></tr>
+    <tr><td>Requests</td><td>325,000 quota units / minute / user (1,000,000 / project); create and copy = 50 units; over it: 403 / 429</td><td>retry with exponential backoff (2ⁿ s + jitter, max 32–64 s); the health check lists page by page</td></tr>
+  </table></div>
+</section>
+
+<section id="impact">
+  <h2>9. Impact on the file attachments plan</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Finding</th><th>Change to the plan</th></tr>
+    <tr><td>1</td><td>Permanent delete = organizer; Content manager only trashes</td><td><b>Drive role follows the app permission:</b> a holder of <code>projectFileManager</code> / <code>projectMediaPostManager</code> (administrator, project manager) is added to the Shared drive as <b>organizer</b>; every other member is a <b>reader</b> (the app already forbids them to add, edit or delete – the Drive role then agrees with it and a plain member cannot damage the drive from the Drive web UI). Permanent deletes and the cleanup queue run only on clients of organizers. <span class="pill ask">Q20</span></td></tr>
+    <tr><td>2</td><td><code>drive.file</code> does not see files of others</td><td>The scope is <code>drive</code> with an <b>Internal</b> OAuth app; the Picker is not used (as decided). Cost: only accounts of the Workspace domain can use Drive features. <span class="pill ask">Q21</span></td></tr>
+    <tr><td>3</td><td>No folder move My Drive → Shared drive</td><td>S7 "move the root" between those two = copy file by file + delete the old; inside one drive = move the four folders.</td></tr>
+    <tr><td>4</td><td>The trash counts toward 500,000 items</td><td>Permanent delete (Q4) is right for the cap; the health check also reports the trash size of the drive.</td></tr>
+    <tr><td>5</td><td>Only <code>properties</code> work across web / iOS / Android</td><td>Already planned (Finding 4); confirmed by the reference.</td></tr>
+    <tr><td>6</td><td>My Drive fallback</td><td>With the Internal app it cannot serve non-Workspace organizations; it stays only for a Workspace organization that prefers a folder in a user's My Drive (owner rules apply).</td></tr>
+    <tr><td>7</td><td>Item cap per drive</td><td>New question: one Shared drive per organization is enough for ordinary use; very large organizations may need a second drive (not built). <span class="pill ask">Q22</span></td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>10. F0 questions – answer and test status</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>F0 question</th><th>Answer from the documentation</th><th>Live test</th></tr>
+    <tr><td>1</td><td>Can member B's app find the folder made by A with <code>drive.file</code>?</td><td><b>No</b> (per-file access). With <code>drive</code>: yes, for what B may see</td><td><span class="pill ask">script T4, T4b</span></td></tr>
+    <tr><td>2</td><td>Which Shared drive role can add AND delete files made by others?</td><td>Add: writer and up. Permanent delete: <b>organizer only</b>. Trash: fileOrganizer, organizer</td><td><span class="pill ask">script T6–T8</span></td></tr>
+    <tr><td>3</td><td><code>properties</code> written by the web client visible to the iOS client?</td><td><b>Yes</b> (<code>properties</code> are visible to all apps)</td><td><span class="pill ask">script T9 (needs a token of a second OAuth client)</span></td></tr>
+    <tr><td>4</td><td>Can an ordinary user create a Shared drive?</td><td>Only if the administrator allowed it for the user's organizational unit; never with <code>@gmail.com</code></td><td><span class="pill ask">script T1</span></td></tr>
+    <tr><td>5</td><td>Can a member with a plain Gmail account be added?</td><td>Only if "Allow users outside your organization to access files in shared drives" is on</td><td><span class="pill ask">manual, runbook step M1</span></td></tr>
+    <tr><td>6</td><td>Move a folder inside a drive / between drives</td><td>Inside: yes. My Drive → Shared drive: no for folders. Between two Shared drives: not stated</td><td><span class="pill ask">script T10, T11</span></td></tr>
+    <tr><td>7</td><td>My Drive fallback: what does the owner delete when a folder holds files of others?</td><td>Only the descendants the owner owns</td><td><span class="pill ask">script T12 (optional)</span></td></tr>
+    <tr><td>8</td><td>(added) Does a copy by member B work and who owns it?</td><td>Yes; the copy is owned by the drive / the copier</td><td><span class="pill ask">script T13</span></td></tr>
+  </table></div>
+  <h3>How to run the live test (about 20 minutes, nothing is installed)</h3>
+  <ol class="steps">
+    <li>You need a Google Workspace with <b>two accounts</b> A (will be organizer) and B, and <code>jq</code> + <code>curl</code> on the Mac (both present).</li>
+    <li>Get an access token for each account in the <a href="https://developers.google.com/oauthplayground">OAuth 2.0 Playground</a> (sign in as that account, pick the scope <code>https://www.googleapis.com/auth/drive</code>, Authorize, Exchange authorization code for tokens, copy the <i>access token</i>). For test T4b get a third token of B with only <code>https://www.googleapis.com/auth/drive.file</code>. The tokens live one hour. <b>You</b> do these sign-ins – I cannot.</li>
+    <li>Run (tokens only in the shell, never in a file; the script removes everything it made):</li>
+  </ol>
+<pre>export TOKEN_A='...'  TOKEN_B='...'  EMAIL_B='b@your-domain.com'
+export TOKEN_B_FILE='...'        # optional: B's drive.file token (T4b)
+export TOKEN_A_OTHER='...'       # optional: A's token from ANOTHER OAuth client (T9)
+export DRIVE_ID=''               # optional: an existing Shared drive where A is organizer; empty = the script creates "kit8-f0-spike"
+documentation/Goolge/f0/f0_drive_spike.sh</pre>
+  <p>Output: one line per test, <code>PASS</code> / <code>FAIL</code> / <code>INFO</code> with the HTTP code, and at the end a table to paste back to me. Then I correct the plan with facts instead of readings.</p>
+  <h3>Manual step M1 (external member)</h3>
+  <p>In the Shared drive add a person with a plain Gmail address as <i>Viewer</i>. Allowed = "Allow users outside your organization…" is on. Refused = it is off (Admin console → Apps → Google Workspace → Drive and Docs → Sharing settings → Sharing options for shared drives).</p>
+</section>
+
+<section id="free">
+  <h2>11. A free Google account (no Workspace) – three ways</h2>
+  <p class="lead" style="font-size:15px">The question: <i>the administrator (free Google tier) signs in the first time and the app creates the root folder; he adds the managers in the native Drive window; the users then sign in and automatically have Drive permission.</i></p>
+  <div class="card scroll"><table>
+    <tr><th></th><th>A. Your scenario as written</th><th>B. Per-user tokens, Workspace Internal app (plan v6)</th><th>C. Administrator-connected Drive through a Supabase Edge Function <span class="pill yes">recommended</span></th></tr>
+    <tr><td>Works with a free Gmail</td><td>Partly</td><td><b>No</b> (Shared drive and Internal app need Workspace)</td><td><b>Yes</b></td></tr>
+    <tr><td>Step "app creates the root folder"</td><td>Yes (<code>drive.file</code> sees what the app made)</td><td>Yes</td><td>Yes</td></tr>
+    <tr><td>"Users automatically have Drive permission"</td><td><b>No.</b> Being Editor in Drive is not enough: the narrow scope shows each app only the files <i>it</i> made, so a manager's app cannot see the folder the administrator shared. It needs the scope <code>drive</code> (restricted) = Google verification + a yearly security assessment for a public app, or "Testing" status: 100 users, refresh token dies after 7 days, warning screen</td><td>Yes, for domain accounts, after the administrator adds them (the app can do the sharing itself)</td><td><b>Yes.</b> Nobody except the administrator ever sees a Google consent. A user signs in to the app (Supabase) and the app permission (<code>projectFileManager</code> …) decides; no Drive sharing at all</td></tr>
+    <tr><td>Who owns the files</td><td>The uploader (each manager) – counts against his 15 GB, disappears with his account, only he can delete it permanently</td><td>The Shared drive (the organization)</td><td>The administrator – he can always delete permanently; one 15 GB quota</td></tr>
+    <tr><td>Permanent delete / cleanup queue</td><td>Each owner's client (as the fallback of section 4)</td><td>Managers' clients</td><td>The server: pg_cron or a trigger calls the function – <b>the database can finally delete Drive files</b>; no client has to be open</td></tr>
+    <tr><td>Phone upload queue (S9)</td><td>Needs a fresh Drive token (1 h)</td><td>Same</td><td>Needs only the Supabase session</td></tr>
+    <tr><td>What you must build</td><td>Nothing extra, but it does not meet the goal</td><td>Plan v6 as it is</td><td>An Edge Function (Deno) like <code>organization-invite</code>: it stores the administrator's refresh token (encrypted, never readable by clients), checks the caller's app permission, then calls Drive. Upload: the function opens a <i>resumable upload session</i> and gives the client its url – the bytes go straight to Google. Download / view: the function streams the file (pass <code>Range</code> through for video)</td></tr>
+    <tr><td>Risks</td><td>The two above</td><td>Domain accounts only</td><td>The administrator's token is a secret to protect (Supabase secrets / Vault); if the administrator revokes the app or his account closes, files are unreachable until another administrator reconnects (ownership transfer is a manual Google step); download bandwidth goes through Supabase; the function limits: 2 s CPU per request (waiting for I/O does not count), 150 s (Free) / 400 s (paid) wall clock, 256 MB memory – stream, never buffer</td></tr>
+  </table></div>
+  <ul>
+    <li><b>Verdict:</b> your scenario is a good <i>first step</i> (the administrator signs in once, the app makes <code>kit8root</code> and stores the url) but "users automatically have Drive permission" does not follow from Drive sharing on a free account. Way <b>C</b> gives exactly the behaviour you describe – sign in to the app and have the access the app permission allows – and it also solves delete, the upload queue and the cleanup.</li>
+    <li><b>Scope in C:</b> only <code>drive.file</code> for the administrator. Every file is made by the same app and the same user, so the narrow scope is enough and the Picker is not needed. Put the Google OAuth app in <b>"In production"</b> status – in "Testing" the refresh token expires after 7 days. I could not confirm in Google's pages whether <code>drive.file</code> needs any verification before production; the Google Cloud console tells it at publishing time (open point).</li>
+    <li><b>Way C also works with Workspace</b> (the administrator connects a Shared drive folder), so the choice does not close the Shared drive door. Ways B and C can both exist: the organization row says <code>organizationGoogleDriveMode</code> = <code>perUser</code> | <code>adminProxy</code>.</li>
+  </ul>
+</section>
+
+<section id="wayc">
+  <h2>12. Live test of way C – results (run 2026-11-11)</h2>
+  <div class="note good"><b>Status: RUN against real Google.</b> Account <code>expow1native@gmail.com</code> (a free Gmail account, no Workspace), token with <b>only</b> the scope <code>drive.file</code>, script <code>documentation/Goolge/f0/f0_wayc_spike.sh</code>, run id <code>3fa8c88c</code>. <b>12 of 13 lines PASS; one FAIL (W12, folder delete) – a real finding, section 12.1.</b> The test folder was removed from the Drive afterwards (checked: nothing with the test marks is left) and the token was revoked (Google answered HTTP 200; tokeninfo then HTTP 400).</div>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>What it proves for way C</th><th>Documented expectation</th><th>Result (observed)</th></tr>
+    <tr><td>W1</td><td>The token has exactly the narrow scope <code>drive.file</code></td><td>PASS</td><td><span class="pill yes">PASS</span> scope is exactly <code>drive.file</code></td></tr>
+    <tr><td>W2</td><td>The app makes <code>kit8root</code> with description and properties</td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200</td></tr>
+    <tr><td>W3</td><td>The function finds the folder again by its property with <code>drive.file</code></td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200 – <b>an app finds again what it made, by property, with the narrow scope</b></td></tr>
+    <tr><td>W4</td><td>The layout <code>project/&lt;g&gt;/task/&lt;g&gt;/files</code> (5 levels) is made</td><td>PASS</td><td><span class="pill yes">PASS</span></td></tr>
+    <tr><td>W5</td><td>A property of 121 bytes accepted, 131 refused (limit 124)</td><td>PASS</td><td><span class="pill yes">PASS</span> limit confirmed</td></tr>
+    <tr><td>W6</td><td>The function opens a resumable session; the app uploads 3 MB to the session url with <b>no token</b></td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200 – <b>the bytes can go straight from the app to Google; the function only hands out the session url</b></td></tr>
+    <tr><td>W7, W7b</td><td>A <code>Range</code> read returns HTTP 206 and the right bytes</td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 206, 1000 bytes, equal to the uploaded bytes (video seeking works)</td></tr>
+    <tr><td>W8</td><td>Trash and restore</td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200 / 200</td></tr>
+    <tr><td>W9, W10</td><td>Replace the content on the same file id (S4); keep the old revision forever</td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200 / 200</td></tr>
+    <tr><td>W11</td><td>Copy inside the layout (S11)</td><td>PASS</td><td><span class="pill yes">PASS</span> HTTP 200</td></tr>
+    <tr><td>W12</td><td>Permanent delete of a file and of the whole <code>kit8root</code> tree</td><td>PASS – HTTP 204</td><td><span class="pill no">FAIL</span> file: HTTP 204 (permanent delete works); <b>folder: HTTP 403 <code>appNotAuthorizedToChild</code></b> – see 12.1</td></tr>
+  </table></div>
+  <h3>12.1 Finding: with <code>drive.file</code> a folder cannot be deleted in one call</h3>
+  <div class="note"><b>Observed.</b> <code>files.delete</code> on <code>kit8root</code> answered <b>403 <code>appNotAuthorizedToChild</code></b>: <i>"The user may not have granted the app … write access to all of the children of file …"</i>. Three attempts: with the copy of W11 still inside; again with only an empty folder chain left; both 403 (the app could read <code>canDelete: true</code> on every folder). <b>Deleting bottom-up worked:</b> the file (204), then <code>files</code>, <code>t1</code>, <code>task</code>, <code>p1</code>, <code>project</code>, <code>kit8root</code> – every call HTTP 204. Why the one-call delete is refused I could not establish (it may be the check of children that the narrow scope cannot see); the observed rule is enough to design against.
+    <br><b>Consequence for the plan:</b> the Edge Function deletes a task / project / organization tree <b>bottom-up</b> (list the children with <code>files.list</code> page by page, delete files, then folders from the deepest) – never one <code>files.delete</code> on the top folder. That is more calls: an organization delete walks the whole tree (S1 health check already lists it). Not tested: whether <code>files.update trashed=true</code> on a whole folder works with <code>drive.file</code>.</div>
+  <h3>What the run settles and what it does not</h3>
+  <ul>
+    <li><b>Settled (free Gmail, <code>drive.file</code> only):</b> find by property, nested folders, resumable upload with no token, range reads, trash / restore, replace + keep revision, copy, permanent delete of a file. Way C is possible with no restricted scope.</li>
+    <li><b>Not settled:</b> the Edge Function itself (2 s CPU, 150 s wall clock with a large streamed download); whether the Google app needs verification before it is "In production" (the Playground used Google's own client id, not this app's three client ids); two-account behaviour (not needed for way C); the Workspace / Shared drive questions of section 10 (way B only); trashing a whole folder.</li>
+  </ul>
+  <h3>12.2 Token lifecycle: auto refresh is REQUIRED (in the Edge Function, not in the app)</h3>
+  <div class="card">
+    <p><b>Observed:</b> the access token of the run had <code>expires_in = 3598</code> seconds (one hour); the Playground request used <code>access_type=offline</code> and <code>prompt=consent</code>, which is what makes Google issue a refresh token. A way C that stops after an hour would be useless, so the refresh is part of the design:</p>
+    <ol class="steps">
+      <li><b>Connect (once, by the administrator):</b> authorization-code flow with <code>access_type=offline</code> and <code>prompt=consent</code>, scope <code>drive.file</code> only; the redirect goes to the Edge Function, which exchanges the code (needs the client secret) and stores the <b>refresh token</b> encrypted in a table that no client policy can read (or Supabase Vault). The app client never sees any Google token.</li>
+      <li><b>Every Drive call:</b> the function asks <code>getAccessToken(organization)</code>: a cached access token while it has more than 5 minutes left; otherwise <code>POST https://oauth2.googleapis.com/token</code> with <code>grant_type=refresh_token</code>, the client id and the client secret → a new access token (the refresh token normally stays). One refresh at a time per organization (single-flight), so ten parallel uploads do not make ten refreshes. A Drive answer 401 triggers one forced refresh and one retry.</li>
+      <li><b>When the refresh fails</b> with <code>invalid_grant</code> – the administrator revoked the app, the account password / security settings changed, the token was unused for about 6 months, or the Google app is still in "Testing" (refresh token dies after 7 days) – the function sets <code>organizationGoogleDriveState = needsReconnect</code> (and the error text, never the secret). The app shows a banner to the administrator and project managers: <i>Google Drive is disconnected – reconnect</i>; uploads and views say so; the cleanup queue and the phone upload queue simply wait.</li>
+      <li><b>Keep-alive:</b> a weekly pg_cron call refreshes every connected organization once, so an unused connection does not expire after 6 months, and the status banner is current.</li>
+      <li><b>Secrets:</b> the Google client id and client secret are Edge Function secrets (<code>GOOGLE_DRIVE_CLIENT_ID</code>, <code>GOOGLE_DRIVE_CLIENT_SECRET</code>), never <code>EXPO_PUBLIC_…</code> and never in the app bundle; the Google OAuth client is of type <i>Web</i> with the function url as the authorized redirect.</li>
+      <li><b>In the app:</b> nothing to refresh for Drive – the app only holds its Supabase session, which <code>supabase-js</code> already refreshes by itself. The resumable upload session url that the function hands out is the only Google credential a client touches; it is single-purpose and has a limited lifetime (check the exact period when building), so the upload queue (S9) asks for a new session when one is too old.</li>
+    </ol>
+    <p>New data on the organization row: <code>organizationGoogleDriveMode</code> = <code>adminProxy</code>, <code>organizationGoogleDriveState</code> = <code>ok</code> | <code>needsReconnect</code>, <code>organizationGoogleDriveLastRefreshAt</code>, <code>organizationGoogleDriveConnectedByGUID</code>, <code>organizationGoogleDriveAccountEmail</code>. The token itself lives in its own table (planned <code>files_google_connection_table</code>, no client policy). Not built – this is the plan; the test above proved only the access-token half (the run used a one-hour token).</p>
+  </div>
+  <h3>12.3 Second spike F0b – results (run 2026-11-11, same account, token drive.file only, revoked afterwards)</h3>
+  <div class="note good"><b>What was run:</b> items 1 (Google side + a real browser) and 3 of F0b. <b>Not run:</b> item 2 (a 200 MB download through the Edge Function) and item 4 (a real connect through the function) – both need the deployed function. Everything made in the Drive was deleted (checked: nothing left); the token was revoked.</div>
+  <div class="card scroll"><table>
+    <tr><th>Question</th><th>Observed</th><th>What it means</th></tr>
+    <tr><td><b>Browser PUT to the session url</b> (page at <code>http://localhost:8099</code>)</td><td>Google answers the preflight (OPTIONS) with <code>access-control-allow-origin: http://localhost:8099</code> and allows <code>Content-Range</code>. A <b>single PUT of 1 MB</b> from the browser reached Google (the file exists, size 1,048,576) but the browser <b>could not read the answer</b> (console: no <code>Access-Control-Allow-Origin</code> on the final 200). A <b>chunked upload</b> (2 × 512 KB with <code>Content-Range</code>) worked fully: HTTP 308 for the first chunk with <code>Range: bytes=0-524287</code>, then HTTP 200 with the file id and size, both readable.</td><td>The app uploads in <b>chunks</b> (multiples of 256 KB, e.g. 8 MB) with <code>Content-Range</code>. The session is opened by the function with the page's <code>Origin</code>. The same worked for a session opened with no Origin in the control – the preflight allowed the origin both times, so <i>passing Origin is harmless but was not shown to be required</i>; keep it.</td></tr>
+    <tr><td>Find the file when the answer is unreadable</td><td>A property written at session creation (<code>kit8Upload = &lt;uploadId&gt;</code>) finds the file again with <code>properties has {…}</code> (tested with curl).</td><td><code>upload_session</code> returns an <code>uploadId</code>; <code>upload_finish</code> accepts it instead of a file id (built and Jest-tested).</td></tr>
+    <tr><td><b>Delete of a whole folder, top-down</b> (T1, T2, T5; nested tree; a file uploaded through a session; trashed first)</td><td>All <b>HTTP 204</b>, and the children were gone with the folder (a nested 3-level tree: folder, sub folder, file all 404 afterwards). Bisecting single steps (properties PATCH, trash + restore, replace content, keepForever, copy) in small trials: all 204.</td><td>The 403 <code>appNotAuthorizedToChild</code> of the first run is <b>real but not reproducible in small trials</b>. It reproduced again in the full 13-step script (a 5-level tree, a 3 MB file, then a copy) and cleared as soon as the copy was deleted by id. <b>Cause not established</b> – so the function keeps <b>bottom-up delete</b> (always worked, 100 %), and may <i>try</i> a one-call delete first and fall back to bottom-up on a 403.</td></tr>
+    <tr><td><b>Trash a whole folder in one call</b> (T3)</td><td>HTTP 200, <code>trashed: true</code>. The file inside stays readable (HTTP 200, its own <code>trashed</code> flag false). <code>files.delete</code> on the trashed folder: HTTP 204; in the nested trials everything below it was gone too.</td><td>Trashing a folder works with <code>drive.file</code>. Not needed for the plan (delete is permanent), but "trash first, then delete" is a possible fallback.</td></tr>
+  </table></div>
+  <p><b>Still open for F0b:</b> item 2 (streaming 200 MB through the function inside its CPU / wall-clock limits) and item 4 (does a connect through the real Web client show an "unverified app" screen) – run them after the deploy with <code>f0/f0b_stream_test.sh</code> and a real Connect.</p>
+</section>
+
+<section id="sources">
+  <h2>13. Sources (Google, read 2026-11-11)</h2>
+  <ul>
+    <li><a href="https://developers.google.com/workspace/drive/api/reference/rest/v3/files/delete">files.delete</a> – owner; Shared drive: organizer on the parent; descendants owned by the user</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/ref-roles">Roles and permissions</a> – the role table of section 4</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/delete">Trash or delete</a> – 30 days, emptyTrash, quota</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/api-specific-auth">Choose Drive API scopes</a> – <code>drive.file</code> per file, <code>drive</code> restricted</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/manage-shareddrives">Manage shared drives</a> – create, members, 500,000 items, 100 levels, delete</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/reference/rest/v3/drives/create">drives.create</a> – <code>requestId</code>, scope <code>drive</code></li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/enable-shareddrives">Implement shared drive support</a> – <code>supportsAllDrives</code>, corpora</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/folder">Create and populate folders</a> – move, <code>teamDrivesFolderMoveInNotSupported</code></li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/properties">Custom file properties</a> – <code>properties</code> / <code>appProperties</code>, 124 bytes</li>
+    <li><a href="https://developers.google.com/workspace/drive/api/guides/limits">Usage limits</a> – 750 GB per day, quota units</li>
+    <li><a href="https://developers.google.com/workspace/guides/configure-oauth-consent">Configure the OAuth consent screen</a> and <a href="https://developers.google.com/identity/protocols/oauth2/production-readiness/restricted-scope-verification">restricted scope verification</a> – Internal user type</li>
+    <li><a href="https://supabase.com/docs/guides/functions/limits">Supabase Edge Functions limits</a> – CPU 2 s, wall clock 150 / 400 s, 256 MB</li>
+    <li><a href="https://developers.google.com/identity/protocols/oauth2/production-readiness/overview">OAuth app state overview</a> – Testing status: 100 users, 7-day refresh token</li>
+    <li><a href="https://support.google.com/a/answer/7662202">Manage shared drives as an admin</a> – external members setting, member limits</li>
+  </ul>
+  <p class="sub">The reference pages were read through a page-summarizing tool, not copied; wording of single sentences can differ from the original. The live script is the check.</p>
+</section>
+
+</main>
+</body>
+</html>

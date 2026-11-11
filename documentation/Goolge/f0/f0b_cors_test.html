@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>F0b CORS test</title>
+<style>body{font:15px/1.5 system-ui;margin:24px;max-width:860px}input,button{font:inherit;padding:6px 10px}input{width:100%;margin:4px 0}pre{background:#f1f5f9;padding:12px;border-radius:8px;white-space:pre-wrap}.ok{color:#059669}.bad{color:#e11d48}</style></head>
+<body>
+<h1>F0b – can a BROWSER send the bytes to a Google resumable session url?</h1>
+<p><b>Result of the run of 2026-11-11:</b> yes – <b>in chunks with a Content-Range header</b> (every answer, also the last one with the file id, is readable). A single PUT of the whole body also arrives at Google, but the browser cannot read its answer (no CORS header). The app therefore uploads in chunks (multiples of 256 KB) and finds its file by the <code>uploadId</code> property (<code>upload_finish</code>).</p>
+<p>Serve this page from the origin the app will use, e.g. <code>python3 -m http.server 8099</code> in this folder, then open <code>http://localhost:8099/f0b_cors_test.html</code>.
+Google allows the PUT from a page only if the session was opened with that page's <code>Origin</code> header – the Edge Function passes it on (<code>upload_session</code>).</p>
+<h3>A. Google only (a session url that was opened with Origin: this page's origin)</h3>
+<input id="sess" placeholder="paste the session url">
+<button id="runA">PUT 1 MB from this page</button>
+<h3>B. Through the deployed function (full flow)</h3>
+<input id="fn" placeholder="function url: https://<project>.supabase.co/functions/v1/files-drive">
+<input id="jwt" placeholder="Supabase access token of an administrator (devtools: localStorage sb-...-auth-token -> access_token)">
+<input id="org" placeholder="organization GUID">
+<button id="runB">upload_session → PUT 1 MB → upload_finish → download_url → Range read → delete</button>
+<pre id="log"></pre>
+<script>
+const $ = (id) => document.getElementById(id);
+const log = (t, ok) => { const p = $('log'); p.innerHTML += `<span class="${ok === true ? 'ok' : ok === false ? 'bad' : ''}">${t}</span>\n`; };
+async function putChunked(url, data, chunk = 524288) {
+  const total = data.length; let last;
+  for (let start = 0; start < total; start += chunk) {
+    const end = Math.min(start + chunk, total);
+    last = await fetch(url, { method: 'PUT', headers: { 'Content-Range': `bytes ${start}-${end - 1}/${total}` }, body: data.slice(start, end) });
+  }
+  return last;
+}
+const bytes = () => { const b = new Uint8Array(1024 * 1024); for (let i = 0; i < b.length; i += 65536) crypto.getRandomValues(b.subarray(i, Math.min(i + 65536, b.length))); return b; };
+$('runA').onclick = async () => {
+  log(`origin of this page: ${location.origin}`);
+  try {
+    const r = await putChunked($('sess').value.trim(), bytes());
+    log(`last chunk -> HTTP ${r.status} ${r.ok ? '(the browser may send bytes to the session url in chunks: CORS works)' : ''}`, r.ok);
+    try { log(JSON.stringify(await r.json())); } catch {}
+  } catch (e) { log(`PUT failed in the browser: ${e} - CORS refused (the session was probably opened without this Origin)`, false); }
+};
+$('runB').onclick = async () => {
+  const fn = $('fn').value.trim(), jwt = $('jwt').value.trim(), org = $('org').value.trim();
+  const call = async (b) => (await fetch(fn, { method: 'POST', headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ organizationGUID: org, ...b }) })).json();
+  try {
+    const s = await call({ action: 'upload_session', scope: 'organization', name: 'f0b-cors.bin', mime: 'application/octet-stream', size: 1048576 });
+    if (!s.sessionUrl) return log(`upload_session failed: ${JSON.stringify(s)}`, false);
+    log('upload_session ok', true);
+    const put = await putChunked(s.sessionUrl, bytes());
+    const f = await put.json();
+    log(`browser chunked PUT -> HTTP ${put.status}, file ${f.id}`, put.ok);
+    const fin = await call({ action: 'upload_finish', uploadId: s.uploadId }); log(`upload_finish by uploadId: ${JSON.stringify(fin)}`, !fin.error);
+    const d = await call({ action: 'download_url', fileId: f.id });
+    const part = await fetch(d.url, { headers: { Range: 'bytes=1000-1999' } });
+    log(`Range read through the function from the browser -> HTTP ${part.status}, ${(await part.arrayBuffer()).byteLength} bytes (expect 206, 1000)`, part.status === 206);
+    log(`delete: ${JSON.stringify(await call({ action: 'delete', id: f.id }))}`);
+  } catch (e) { log(`failed: ${e}`, false); }
+};
+</script></body></html>

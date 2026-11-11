@@ -73,6 +73,9 @@ const ALIAS_MAP: Record<string, string> = {
     microphone: 'mic',
     video: 'videocam',
     assessment: 'analytics',
+    auto_fix_high: 'wand_stars',
+    auto_fix_normal: 'wand_stars',
+    auto_fix: 'wand_stars',
     add_circle_outline: 'add_circle',
     'add-circle-outline': 'add_circle',
 

@@ -6,9 +6,9 @@ SELECT tt.as_admin();
 
 -- ---- the seed ------------------------------------------------------------------------------------------------------------------------------
 SELECT tt.eq((SELECT count(*) FROM public.project_permission_profile_catalog), 11::bigint, '11 profiles');
-SELECT tt.eq((SELECT count(*) FROM public.project_permission_profile_crud_table), 1463::bigint, 'the CRUD matrix: 133 tables x 11 profiles');
-SELECT tt.eq((SELECT count(DISTINCT "rowJSON"->>'permissionTable') FROM public.project_permission_profile_crud_table), 133::bigint, '133 tables');
-SELECT tt.eq((SELECT count(*) FROM public.project_permission_profile_uxui_table), 275::bigint, 'the interface matrix: 25 objects x 11 profiles');
+SELECT tt.eq((SELECT count(*) FROM public.project_permission_profile_crud_table), 1551::bigint, 'the CRUD matrix: 141 tables x 11 profiles');
+SELECT tt.eq((SELECT count(DISTINCT "rowJSON"->>'permissionTable') FROM public.project_permission_profile_crud_table), 141::bigint, '141 tables');
+SELECT tt.eq((SELECT count(*) FROM public.project_permission_profile_uxui_table), 297::bigint, 'the interface matrix: 27 objects x 11 profiles');
 SELECT tt.eq((SELECT "rowJSON"->>'permissionSet' FROM public.project_permission_profile_crud_table WHERE "rowParentGUID" = 'permissionProjectManager' AND "rowJSON"->>'permissionTable' = 'partnerTable'), 'RC', 'project manager: RC on a catalog (Q21)');
 SELECT tt.eq((SELECT "rowJSON"->>'permissionSet' FROM public.project_permission_profile_crud_table WHERE "rowParentGUID" = 'permissionOrganizationAdmin' AND "rowJSON"->>'permissionTable' = 'project_task_table'), 'R', 'administrator: R on the tasks');
 SELECT tt.eq((SELECT "rowJSON"->>'permissionSet' FROM public.project_permission_profile_crud_table WHERE "rowParentGUID" = 'permissionTaskResponsible' AND "rowJSON"->>'permissionTable' = 'project_task_table'), 'RU', 'responsible: RU on the tasks ...');

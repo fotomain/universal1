@@ -53,6 +53,7 @@
 --   46. create_permission_profiles.sql - PERMISSION PROFILES (documentation/PERMISSIONS_WBS.html section 5): perm_profiles / perm_can / perm_require / perm_my_matrix, the field lock triggers, the creator of a project = its project manager, the assignment rules, the RACI derivation of task_user_permission_table, the backfill
 --   47. create_permission_enforcement.sql - ENFORCEMENT (documentation/PERMISSIONS_WBS.html section 7): the matrix policies next to the owner policies (perm_projects / perm_tasks), create-project right, the catalogs (administrator writes, project manager inserts), the document RPC guards, the members read
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): policies, the guard trigger, organization_texts(language)
+--   49. create_files.sql - FILE ATTACHMENTS (first slice): RLS of files_google_connection_table (no policy, no grant: only the Edge Function reads it) and files_connection_status(organization) = the state without any secret
 -- ===============================================================================================
 
 DO $$
@@ -17315,6 +17316,810 @@ $$;
 REVOKE ALL ON FUNCTION public.organization_texts(text) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.organization_texts(text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 49: create_files.sql
+-- FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C), first slice: the table files_google_connection_table (start1) has RLS ON and NO policy / NO grant for anon or authenticated -
+-- only the service role (the Edge Function files-drive) reads and writes it. files_connection_status(organization) tells a member the state of the Google Drive connection of HIS organization
+-- (never the token). More of the plan (folders, cleanup queue, file rows, permissions, triggers) comes with the next slices.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.files_google_connection_table') IS NULL OR to_regclass('public.files_folder_table') IS NULL OR to_regclass('public.files_drive_cleanup_table') IS NULL OR to_regclass('public.files_upload_pending_table') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 49 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('files_google_connection_table');
+SELECT public.kit8_setup_def_table('files_folder_table');
+SELECT public.kit8_setup_def_table('files_drive_cleanup_table');
+SELECT public.kit8_setup_def_table('files_upload_pending_table');
+
+REVOKE ALL ON public.files_google_connection_table, public.files_folder_table, public.files_drive_cleanup_table, public.files_upload_pending_table FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  -- kit8_setup_def_table may leave policies of the generic tables: this table has NONE for any client role
+  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('files_google_connection_table', 'files_folder_table', 'files_drive_cleanup_table', 'files_upload_pending_table') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $$;
+
+-- the state of the Google Drive connection of the caller's ACTIVE organization (or of p_organization when the caller is a member of it): { state, accountEmail, lastRefreshAt }; no row = notConnected
+CREATE OR REPLACE FUNCTION public.files_connection_status(p_organization text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := COALESCE(NULLIF(p_organization, ''), public.organization_of_current_user());
+  v_row jsonb;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN jsonb_build_object('state', 'notConnected'); END IF;
+  IF v_org IS NULL OR v_org IS DISTINCT FROM public.organization_of_current_user() THEN
+    RETURN jsonb_build_object('state', 'notConnected');
+  END IF;
+  SELECT c."rowJSON" INTO v_row
+    FROM public.files_google_connection_table c
+   WHERE c."rowOwnerGUID" = v_org AND COALESCE(c."rowJSON"->>'role', 'current') = 'current';
+  IF v_row IS NULL THEN RETURN jsonb_build_object('state', 'notConnected'); END IF;
+  RETURN jsonb_build_object('state', COALESCE(v_row->>'state', 'ok'), 'accountEmail', v_row->>'accountEmail', 'lastRefreshAt', v_row->>'lastRefreshAt');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_connection_status(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_connection_status(text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ---- PART 49, SECOND SLICE: who may do what, the file rows in mediaPostTable, the cleanup queue, the delete triggers ---------------------------------------------------------------
+-- (documentation/FILE_ATTACHMENT_WBS.html sections 6, 7, 12). Rows of mediaPostTable:
+--   * a post OUTSIDE a project (no fileSourceKind: recordings, links ...) is seen, changed and deleted by its AUTHOR only (rowOwnerGUID = the user); anon sees nothing;
+--   * a post of a PROJECT (a file row of the scope project / stage / task, or any post whose parent is a project of the organization) is read by every member of the organization and
+--     written only by a holder of projectMediaPostManager (administrator and project manager by default);
+--   * a file of the ORGANIZATION or of a DOCUMENT is read by every member and written only by a holder of projectFileManager.
+-- File rows are written ONLY by the files_ RPCs below (SECURITY DEFINER); no policy lets a client write one directly.
+
+CREATE OR REPLACE FUNCTION public.files_uuid_or_null(p text) RETURNS uuid
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN p ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN p::uuid END
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_project_org(p text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT pr."rowParentGUID" FROM public.project_table pr WHERE pr."rowGUID" = public.files_uuid_or_null(p)
+$$;
+
+-- may the caller change a post whose parent is this project (projectMediaPostManager in THAT project, and the project is of his organization)
+CREATE OR REPLACE FUNCTION public.files_project_post_manage(p_parent text, p_op text) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v uuid := public.files_uuid_or_null(p_parent);
+BEGIN
+  IF v IS NULL THEN RETURN false; END IF;
+  IF public.files_project_org(p_parent) IS DISTINCT FROM public.organization_of_current_user() THEN RETURN false; END IF;
+  RETURN public.perm_can_in('projectMediaPostManager', p_op, v);
+END;
+$$;
+
+-- is this post (parent text) a post of a project of the caller's organization
+CREATE OR REPLACE FUNCTION public.files_is_project_post(p_parent text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.files_project_org(p_parent) IS NOT NULL AND public.files_project_org(p_parent) = public.organization_of_current_user()
+$$;
+
+REVOKE ALL ON FUNCTION public.files_uuid_or_null(text), public.files_project_org(text), public.files_project_post_manage(text, text), public.files_is_project_post(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_uuid_or_null(text), public.files_project_org(text), public.files_project_post_manage(text, text), public.files_is_project_post(text) TO authenticated;
+
+REVOKE ALL ON public."mediaPostTable" FROM anon;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."mediaPostTable" TO authenticated;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  -- the open policies of the generic loop (and of an older install) are replaced; this block runs after that loop on every install
+  FOR r IN SELECT policyname FROM pg_policies WHERE schemaname = 'public' AND tablename = 'mediaPostTable' LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public."mediaPostTable"', r.policyname);
+  END LOOP;
+END $$;
+
+CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
+  USING (
+    ("rowJSON" ? 'fileSourceKind' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
+    OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
+  );
+
+CREATE POLICY "mediaPost_insert" ON public."mediaPostTable" FOR INSERT TO authenticated
+  WITH CHECK (NOT ("rowJSON" ? 'fileSourceKind') AND ("rowOwnerGUID" = (SELECT public.app_user_guid()::text) OR public.files_project_post_manage("rowParentGUID", 'C')));
+
+CREATE POLICY "mediaPost_update" ON public."mediaPostTable" FOR UPDATE TO authenticated
+  USING (NOT ("rowJSON" ? 'fileSourceKind') AND ("rowOwnerGUID" = (SELECT public.app_user_guid()::text) OR public.files_project_post_manage("rowParentGUID", 'U')))
+  WITH CHECK (NOT ("rowJSON" ? 'fileSourceKind') AND ("rowOwnerGUID" = (SELECT public.app_user_guid()::text) OR public.files_project_post_manage("rowParentGUID", 'U')));
+
+CREATE POLICY "mediaPost_delete" ON public."mediaPostTable" FOR DELETE TO authenticated
+  USING (NOT ("rowJSON" ? 'fileSourceKind') AND ("rowOwnerGUID" = (SELECT public.app_user_guid()::text) OR public.files_project_post_manage("rowParentGUID", 'D')));
+
+-- the kind of a file from its MIME type / name (one rule; the app has the same in kit8/files/fileModel.ts)
+CREATE OR REPLACE FUNCTION public.files_kind_of(p_mime text, p_name text) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE
+    WHEN lower(COALESCE(p_name, '')) ~ '\.(md|markdown)$' THEN 'markdown'
+    WHEN COALESCE(p_mime, '') ILIKE 'audio/%' THEN 'audio'
+    WHEN COALESCE(p_mime, '') ILIKE 'video/%' THEN 'video'
+    WHEN COALESCE(p_mime, '') ILIKE 'image/%' THEN 'image'
+    WHEN COALESCE(p_mime, '') = 'application/pdf' OR lower(COALESCE(p_name, '')) LIKE '%.pdf' THEN 'pdf'
+    WHEN COALESCE(p_mime, '') ILIKE 'text/%' OR lower(COALESCE(p_name, '')) ~ '\.(txt|csv|json|log|xml)$' THEN 'text'
+    ELSE 'other' END
+$$;
+
+-- ---- files_authorize: the ONE question every file action asks (the Edge Function asks it with the caller's JWT before any Drive call) ---------------------------------------------
+--   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document
+--   p_guid: the project / task / stage / document GUID (the organization scope needs none)          p_project: the project GUID for a stage / task
+-- Answer { allowed, reason, organizationGUID, userGUID, projectGUID, scope, guid }. reason: signIn | unknownAction | scope | project | task | switchOff | noPermission.
+CREATE OR REPLACE FUNCTION public.files_authorize(p_action text, p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_user    uuid := public.app_user_guid();
+  v_org     text := public.organization_of_current_user();
+  v_scope   text := lower(COALESCE(p_scope, ''));
+  v_project uuid;
+  v_ok      boolean;
+  v_deny    text;
+BEGIN
+  IF v_user IS NULL OR v_org IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'signIn'); END IF;
+  IF p_action NOT IN ('read', 'add', 'update', 'delete', 'reorder', 'move', 'connect') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'unknownAction'); END IF;
+  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+  IF p_action <> 'connect' THEN
+    IF v_scope = 'project' THEN v_project := public.files_uuid_or_null(p_guid);
+    ELSIF v_scope IN ('stage', 'task') THEN v_project := public.files_uuid_or_null(p_project);
+    END IF;
+    IF v_scope IN ('project', 'stage', 'task') THEN
+      IF v_project IS NULL OR public.files_project_org(v_project::text) IS DISTINCT FROM v_org THEN RETURN jsonb_build_object('allowed', false, 'reason', 'project'); END IF;
+      IF v_scope IN ('stage', 'task') AND NOT EXISTS (SELECT 1 FROM public.project_task_table t WHERE t."rowGUID" = public.files_uuid_or_null(p_guid) AND t."projectGUID" = v_project) THEN
+        RETURN jsonb_build_object('allowed', false, 'reason', 'task');
+      END IF;
+      IF NOT public.vendor_project_setting(v_project, 'filesFunctionalityEnabled') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'switchOff'); END IF;
+    ELSIF v_scope = 'document' AND COALESCE(p_guid, '') = '' THEN
+      RETURN jsonb_build_object('allowed', false, 'reason', 'scope');
+    END IF;
+  END IF;
+  IF p_action = 'read' THEN v_ok := true;
+  ELSIF p_action = 'connect' THEN v_ok := public.perm_can('projectFileManager', 'U');
+  ELSIF v_scope IN ('project', 'stage', 'task') THEN v_ok := public.perm_can_in('projectMediaPostManager', 'U', v_project);
+  ELSE v_ok := public.perm_can('projectFileManager', 'U');
+  END IF;
+  IF NOT v_ok THEN v_deny := 'noPermission'; END IF;
+  RETURN jsonb_build_object('allowed', v_ok, 'reason', v_deny, 'organizationGUID', v_org, 'userGUID', v_user, 'projectGUID', v_project, 'scope', v_scope, 'guid', p_guid);
+END;
+$$;
+
+-- the same, but it raises (SQLSTATE 42501) and returns the answer
+CREATE OR REPLACE FUNCTION public.files_require(p_action text, p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb := public.files_authorize(p_action, p_scope, p_guid, p_project);
+BEGIN
+  IF (v->>'allowed')::boolean IS NOT TRUE THEN
+    RAISE EXCEPTION 'No permission: files, % (%)', p_action, COALESCE(v->>'reason', 'denied') USING ERRCODE = '42501';
+  END IF;
+  RETURN v;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_kind_of(text, text), public.files_authorize(text, text, text, text), public.files_require(text, text, text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_kind_of(text, text), public.files_authorize(text, text, text, text), public.files_require(text, text, text, text) TO authenticated;
+
+-- ---- the list of files of a scope; the file row of a post ---------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.files_list(p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb := public.files_require('read', p_scope, p_guid, p_project);
+  v_org text := v->>'organizationGUID';
+  v_scope text := v->>'scope';
+BEGIN
+  RETURN COALESCE((
+    SELECT jsonb_agg(to_jsonb(m) ORDER BY m."orderInList", m."created_at")
+      FROM public."mediaPostTable" m
+     WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind'
+       AND CASE v_scope
+             WHEN 'organization' THEN true
+             WHEN 'project' THEN m."rowJSON"->>'fileSourceProjectGUID' = p_guid
+             WHEN 'document' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'document'
+             ELSE m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' IN ('task', 'stage')
+           END), '[]'::jsonb);
+END;
+$$;
+
+-- the first file and the count per task of a project (the tree column Files)
+CREATE OR REPLACE FUNCTION public.files_first_per_task(p_project text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb := public.files_require('read', 'project', p_project);
+BEGIN
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('taskGUID', x.parent, 'count', x.cnt, 'firstGUID', x.first_guid, 'firstName', x.first_name))
+      FROM (SELECT m."rowParentGUID" AS parent, count(*) AS cnt,
+                   (array_agg(m."rowGUID" ORDER BY m."orderInList", m."created_at"))[1] AS first_guid,
+                   (array_agg(COALESCE(m."rowJSON"->>'mediaPostTitle', m."rowJSON"->>'fileName') ORDER BY m."orderInList", m."created_at"))[1] AS first_name
+              FROM public."mediaPostTable" m
+             WHERE m."rowOwnerGUID" = v->>'organizationGUID' AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceKind' IN ('task', 'stage')
+               AND m."rowJSON"->>'fileSourceProjectGUID' = p_project
+             GROUP BY m."rowParentGUID") x), '[]'::jsonb);
+END;
+$$;
+
+-- how many files go with a task (and everything under it), a project or the organization (the delete window says it)
+CREATE OR REPLACE FUNCTION public.files_count_for_delete(p_kind text, p_guid text DEFAULT NULL) RETURNS bigint
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_current_user();
+  v_n bigint;
+BEGIN
+  IF public.app_user_guid() IS NULL OR v_org IS NULL THEN RETURN 0; END IF;
+  IF p_kind = 'task' THEN
+    SELECT count(*) INTO v_n FROM public."mediaPostTable" m
+     WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowParentGUID" IN (
+       SELECT t."rowGUID"::text FROM public.project_task_table t
+        WHERE t."treePath" <@ (SELECT t0."treePath" FROM public.project_task_table t0 WHERE t0."rowGUID" = public.files_uuid_or_null(p_guid))
+          AND public.files_project_org(t."projectGUID"::text) = v_org);
+  ELSIF p_kind = 'project' THEN
+    IF public.files_project_org(p_guid) IS DISTINCT FROM v_org THEN RETURN 0; END IF;
+    SELECT count(*) INTO v_n FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceProjectGUID' = p_guid;
+  ELSIF p_kind = 'organization' THEN
+    SELECT count(*) INTO v_n FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind';
+  ELSE RETURN 0;
+  END IF;
+  RETURN COALESCE(v_n, 0);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_list(text, text, text), public.files_first_per_task(text), public.files_count_for_delete(text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_list(text, text, text), public.files_first_per_task(text), public.files_count_for_delete(text, text) TO authenticated;
+
+-- ---- service role only: the Edge Function's pending uploads and folders -----------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.files_upload_pending_add(p_org text, p_user text, p_upload text, p_json jsonb) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  INSERT INTO public.files_upload_pending_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  VALUES (p_org, p_user, COALESCE(p_json, '{}'::jsonb) || jsonb_build_object('uploadId', p_upload, 'state', 'pending'));
+$$;
+
+-- the function saw the file in Drive: the facts it found are what files_add trusts (never the numbers of the client)
+CREATE OR REPLACE FUNCTION public.files_upload_pending_verify(p_upload text, p_file_id text, p_size bigint, p_folder_id text, p_path text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb;
+BEGIN
+  UPDATE public.files_upload_pending_table
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('state', 'verified', 'fileId', p_file_id, 'fileSize', p_size, 'folderId', p_folder_id, 'relativePath', p_path)
+   WHERE "rowJSON"->>'uploadId' = p_upload
+   RETURNING "rowJSON" INTO v;
+  RETURN v;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_upload_pending_get(p_upload text) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT jsonb_build_object('organizationGUID', "rowOwnerGUID", 'userGUID', "rowParentGUID") || "rowJSON" FROM public.files_upload_pending_table WHERE "rowJSON"->>'uploadId' = p_upload
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_folder_get(p_org text, p_scope_key text) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT "rowJSON" FROM public.files_folder_table WHERE "rowOwnerGUID" = p_org AND "rowJSON"->>'scopeKey' = p_scope_key
+$$;
+
+-- the first writer wins: a second call with another folder id gets the first one back
+CREATE OR REPLACE FUNCTION public.files_folder_set(p_org text, p_scope_key text, p_json jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb;
+BEGIN
+  INSERT INTO public.files_folder_table ("rowOwnerGUID", "rowJSON") VALUES (p_org, COALESCE(p_json, '{}'::jsonb) || jsonb_build_object('scopeKey', p_scope_key))
+  ON CONFLICT ("rowOwnerGUID", (("rowJSON"->>'scopeKey'))) DO NOTHING;
+  SELECT "rowJSON" INTO v FROM public.files_folder_table WHERE "rowOwnerGUID" = p_org AND "rowJSON"->>'scopeKey' = p_scope_key;
+  RETURN v;
+END;
+$$;
+
+-- the cleanup queue for the Edge Function: take up to p_limit waiting lines (they become running, attempts + 1)
+CREATE OR REPLACE FUNCTION public.files_cleanup_pending(p_limit integer DEFAULT 20) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v jsonb;
+BEGIN
+  WITH picked AS (
+    SELECT c."rowGUID" FROM public.files_drive_cleanup_table c
+     WHERE c."rowJSON"->>'state' = 'waiting' ORDER BY c."created_at" LIMIT GREATEST(1, LEAST(COALESCE(p_limit, 20), 200)) FOR UPDATE SKIP LOCKED
+  ), upd AS (
+    UPDATE public.files_drive_cleanup_table c
+       SET "rowJSON" = c."rowJSON" || jsonb_build_object('state', 'running', 'attempts', COALESCE((c."rowJSON"->>'attempts')::int, 0) + 1)
+      FROM picked WHERE c."rowGUID" = picked."rowGUID"
+    RETURNING c."rowGUID", c."rowOwnerGUID", c."rowJSON"
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('id', "rowGUID", 'organizationGUID', "rowOwnerGUID", 'driveItemId', "rowJSON"->>'driveItemId', 'itemKind', "rowJSON"->>'itemKind',
+                                               'allowRoot', COALESCE(("rowJSON"->>'allowRoot')::boolean, false), 'attempts', ("rowJSON"->>'attempts')::int)), '[]'::jsonb) INTO v FROM upd;
+  RETURN v;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_cleanup_done(p_id text) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  UPDATE public.files_drive_cleanup_table SET "rowJSON" = "rowJSON" || jsonb_build_object('state', 'done', 'doneAt', now()) WHERE "rowGUID" = p_id
+$$;
+
+-- a failed try goes back to waiting; after 5 tries it stays failed (the administrator sees it)
+CREATE OR REPLACE FUNCTION public.files_cleanup_failed(p_id text, p_error text) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  UPDATE public.files_drive_cleanup_table
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('state', CASE WHEN COALESCE(("rowJSON"->>'attempts')::int, 0) >= 5 THEN 'failed' ELSE 'waiting' END, 'lastError', left(COALESCE(p_error, ''), 300))
+   WHERE "rowGUID" = p_id
+$$;
+
+-- the connection of an organization: the Edge Function gets the account e-mail for the file rows
+CREATE OR REPLACE FUNCTION public.files_org_facts(p_org text) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT jsonb_build_object('rootFolderId', o."rowJSON"->>'organizationGoogleDriveRootFolderId', 'accountEmail', o."rowJSON"->>'organizationGoogleDriveAccountEmail',
+                            'rootFolderUrl', o."rowJSON"->>'organizationGoogleDriveRootFolderUrl', 'limitMegabytes', o."rowJSON"->>'filesStorageLimitMegabytes') FROM public."organizationTable" o WHERE o."rowGUID" = p_org
+$$;
+
+REVOKE ALL ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text), public.files_upload_pending_get(text),
+  public.files_folder_get(text, text), public.files_folder_set(text, text, jsonb), public.files_cleanup_pending(integer), public.files_cleanup_done(text), public.files_cleanup_failed(text, text),
+  public.files_org_facts(text) FROM PUBLIC, anon, authenticated;
+
+GRANT EXECUTE ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text), public.files_upload_pending_get(text),
+  public.files_folder_get(text, text), public.files_folder_set(text, text, jsonb), public.files_cleanup_pending(integer), public.files_cleanup_done(text), public.files_cleanup_failed(text, text),
+  public.files_org_facts(text) TO service_role;
+
+-- ---- the file rows: add (a verified upload, or a link), update, reorder, delete ----------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.files_next_order(p_org text, p_parent text) RETURNS numeric
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(max(m."orderInList"), 0) + 1 FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = p_org AND m."rowParentGUID" = p_parent AND m."rowJSON" ? 'fileSourceKind'
+$$;
+
+-- the row of a verified upload; the numbers (size, file id, folder) come from the pending row the Edge Function verified in Drive
+CREATE OR REPLACE FUNCTION public.files_add(p_upload_id text, p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL, p_file jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v        jsonb := public.files_require('add', p_scope, p_guid, p_project);
+  v_org    text := v->>'organizationGUID';
+  v_scope  text := v->>'scope';
+  v_pend   public.files_upload_pending_table%ROWTYPE;
+  v_parent text;
+  v_name   text;
+  v_limit  numeric;
+  v_used   numeric;
+  v_row    public."mediaPostTable"%ROWTYPE;
+  v_facts  jsonb := public.files_org_facts(v_org);
+BEGIN
+  SELECT * INTO v_pend FROM public.files_upload_pending_table WHERE "rowJSON"->>'uploadId' = p_upload_id AND "rowOwnerGUID" = v_org AND "rowParentGUID" = (v->>'userGUID');
+  IF NOT FOUND OR v_pend."rowJSON"->>'state' <> 'verified' OR (v_pend."rowJSON"->>'expiresAt')::timestamptz < now() THEN
+    RAISE EXCEPTION 'files_add: the upload is not finished, or it is not yours, or it has expired' USING ERRCODE = '42501';
+  END IF;
+  IF v_pend."rowJSON"->>'scope' <> v_scope OR COALESCE(v_pend."rowJSON"->>'scopeGUID', '') <> COALESCE(p_guid, '') THEN
+    RAISE EXCEPTION 'files_add: the upload was made for another place' USING ERRCODE = '42501';
+  END IF;
+  v_limit := NULLIF(v_facts->>'limitMegabytes', '')::numeric;
+  IF v_limit IS NOT NULL THEN
+    SELECT COALESCE(sum((m."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_used FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind';
+    IF v_used + (v_pend."rowJSON"->>'fileSize')::numeric > v_limit * 1048576 THEN
+      RAISE EXCEPTION 'files_add: the storage limit of % MB of the organization would be exceeded', v_limit USING ERRCODE = '53400';
+    END IF;
+  END IF;
+  IF NOT public.files_document_type_ok(p_file->>'documentTypeGUID', v_org) THEN RAISE EXCEPTION 'files_add: no such document type' USING ERRCODE = '22023'; END IF;
+  v_parent := CASE WHEN v_scope = 'organization' THEN v_org ELSE p_guid END;
+  v_name := COALESCE(NULLIF(btrim(p_file->>'title'), ''), v_pend."rowJSON"->>'name');
+  INSERT INTO public."mediaPostTable" ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES (v_org, v_parent, public.files_next_order(v_org, v_parent), jsonb_strip_nulls(jsonb_build_object(
+    'fileSourceKind', v_scope,
+    'fileSourceProjectGUID', v->>'projectGUID',
+    'fileDocumentKind', NULLIF(p_file->>'documentKind', ''),
+    'mediaPostTitle', v_name,
+    'mediaPostDescription', NULLIF(p_file->>'description', ''),
+    'paperDocumentPlace', NULLIF(p_file->>'paperDocumentPlace', ''),
+    'fileDocumentTypeGUID', NULLIF(p_file->>'documentTypeGUID', ''),
+    'mediaPostOriginType', 'googleDrive',
+    'mediaPostOrigin', 'https://drive.google.com/file/d/' || (v_pend."rowJSON"->>'fileId') || '/view',
+    'googleDriveFileId', v_pend."rowJSON"->>'fileId',
+    'googleDriveFolderId', v_pend."rowJSON"->>'folderId',
+    'googleDriveRelativePath', v_pend."rowJSON"->>'relativePath',
+    'googleDriveRootFolderId', v_facts->>'rootFolderId',
+    'googleDriveAccountEmail', v_facts->>'accountEmail',
+    'fileVersionNumber', 1,
+    'mediaPostMIME', v_pend."rowJSON"->>'mime',
+    'fileName', v_pend."rowJSON"->>'name',
+    'fileSizeBytes', (v_pend."rowJSON"->>'fileSize')::bigint,
+    'fileKind', public.files_kind_of(v_pend."rowJSON"->>'mime', v_pend."rowJSON"->>'name'),
+    'fileUploadedByGUID', v->>'userGUID',
+    'fileUploadedAt', now()))) RETURNING * INTO v_row;
+  DELETE FROM public.files_upload_pending_table WHERE "rowGUID" = v_pend."rowGUID";
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- a link (any https address, a YouTube url ...): no Drive involved
+CREATE OR REPLACE FUNCTION public.files_add_link(p_scope text, p_guid text, p_project text, p_url text, p_title text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v        jsonb := public.files_require('add', p_scope, p_guid, p_project);
+  v_org    text := v->>'organizationGUID';
+  v_parent text := CASE WHEN v->>'scope' = 'organization' THEN v_org ELSE p_guid END;
+  v_row    public."mediaPostTable"%ROWTYPE;
+BEGIN
+  IF COALESCE(p_url, '') !~* '^https://[^\s]+$' THEN RAISE EXCEPTION 'files_add_link: a link must be an https address' USING ERRCODE = '22023'; END IF;
+  INSERT INTO public."mediaPostTable" ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES (v_org, v_parent, public.files_next_order(v_org, v_parent), jsonb_strip_nulls(jsonb_build_object(
+    'fileSourceKind', v->>'scope', 'fileSourceProjectGUID', v->>'projectGUID', 'mediaPostTitle', COALESCE(NULLIF(btrim(p_title), ''), p_url), 'mediaPostOriginType', 'url',
+    'mediaPostOrigin', p_url, 'fileKind', 'other', 'fileUploadedByGUID', v->>'userGUID', 'fileUploadedAt', now()))) RETURNING * INTO v_row;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- the scope facts of an existing file row, as files_authorize wants them
+CREATE OR REPLACE FUNCTION public.files_row_scope(p_row public."mediaPostTable") RETURNS jsonb
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT jsonb_build_object('scope', p_row."rowJSON"->>'fileSourceKind',
+                            'guid', CASE WHEN p_row."rowJSON"->>'fileSourceKind' = 'organization' THEN NULL ELSE p_row."rowParentGUID" END,
+                            'project', p_row."rowJSON"->>'fileSourceProjectGUID')
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_update(p_post text, p_patch jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+  v_keep  jsonb := '{}'::jsonb;
+  k       text;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind';
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_update: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_row);
+  PERFORM public.files_require('update', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_update: not your organization' USING ERRCODE = '42501'; END IF;
+  IF p_patch ? 'fileDocumentTypeGUID' AND NOT public.files_document_type_ok(p_patch->>'fileDocumentTypeGUID', v_row."rowOwnerGUID") THEN RAISE EXCEPTION 'files_update: no such document type' USING ERRCODE = '22023'; END IF;
+  FOREACH k IN ARRAY ARRAY['mediaPostTitle', 'mediaPostDescription', 'paperDocumentPlace', 'fileDocumentTypeGUID'] LOOP
+    IF p_patch ? k THEN v_keep := v_keep || jsonb_build_object(k, p_patch->k); END IF;
+  END LOOP;
+  UPDATE public."mediaPostTable" SET "rowJSON" = jsonb_strip_nulls("rowJSON" || v_keep) WHERE "rowGUID" = p_post RETURNING * INTO v_row;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- the posts must be file rows of ONE parent of the caller's organization; they get orderInList 1..n in the given order
+CREATE OR REPLACE FUNCTION public.files_reorder(p_posts text[]) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_first public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+  v_n     integer;
+BEGIN
+  IF COALESCE(array_length(p_posts, 1), 0) = 0 THEN RETURN; END IF;
+  SELECT * INTO v_first FROM public."mediaPostTable" WHERE "rowGUID" = p_posts[1] AND "rowJSON" ? 'fileSourceKind';
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_reorder: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_first);
+  PERFORM public.files_require('reorder', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  SELECT count(*) INTO v_n FROM public."mediaPostTable" m WHERE m."rowGUID" = ANY (p_posts) AND m."rowOwnerGUID" = v_first."rowOwnerGUID" AND m."rowParentGUID" = v_first."rowParentGUID" AND m."rowJSON" ? 'fileSourceKind';
+  IF v_n <> array_length(p_posts, 1) OR v_first."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_reorder: the files are not of one place of your organization' USING ERRCODE = '42501'; END IF;
+  UPDATE public."mediaPostTable" m SET "orderInList" = x.pos FROM (SELECT g AS guid, ord AS pos FROM unnest(p_posts) WITH ORDINALITY AS u(g, ord)) x WHERE m."rowGUID" = x.guid;
+END;
+$$;
+
+-- deletes the row and queues the Drive file; the Edge Function deletes it from Drive at once (or the next cleanup tick does)
+CREATE OR REPLACE FUNCTION public.files_delete(p_post text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+  v_file  text;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind';
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_delete: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_row);
+  PERFORM public.files_require('delete', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_delete: not your organization' USING ERRCODE = '42501'; END IF;
+  v_file := v_row."rowJSON"->>'googleDriveFileId';
+  IF v_file IS NOT NULL THEN
+    INSERT INTO public.files_drive_cleanup_table ("rowOwnerGUID", "rowJSON") VALUES (v_row."rowOwnerGUID", jsonb_build_object('driveItemId', v_file, 'itemKind', 'file', 'why', 'file deleted', 'state', 'waiting', 'attempts', 0, 'requestedBy', public.app_user_guid()::text));
+  END IF;
+  DELETE FROM public."mediaPostTable" WHERE "rowGUID" = p_post;
+  RETURN jsonb_build_object('deleted', true, 'driveFileId', v_file);
+END;
+$$;
+
+-- one file row of the caller's organization (read permission of its scope): the Edge Function asks it before it signs a download link
+CREATE OR REPLACE FUNCTION public.files_get(p_post text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind';
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_get: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_row);
+  PERFORM public.files_require('read', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_get: not your organization' USING ERRCODE = '42501'; END IF;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_get(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_get(text) TO authenticated;
+
+-- the pg_cron tick (start3, every minute): when lines wait, ask the Edge Function to work the queue (pg_net). Two database settings tell it where and with which secret:
+--   ALTER DATABASE postgres SET app.settings.files_function_url = 'https://<project>.supabase.co/functions/v1/files-drive';
+--   ALTER DATABASE postgres SET app.settings.files_cleanup_secret = '<the value of the function secret FILES_CLEANUP_SECRET>';
+-- Without them, without pg_net or without waiting lines it does nothing (the client poke after a delete and the Run cleanup button still work). A line stuck in "running" for 10 minutes waits again.
+CREATE OR REPLACE FUNCTION public.files_cleanup_poke() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_url    text := current_setting('app.settings.files_function_url', true);
+  v_secret text := current_setting('app.settings.files_cleanup_secret', true);
+BEGIN
+  UPDATE public.files_drive_cleanup_table SET "rowJSON" = "rowJSON" || '{"state": "waiting"}'::jsonb WHERE "rowJSON"->>'state' = 'running' AND "updated_at" < now() - interval '10 minutes';
+  IF COALESCE(v_url, '') = '' OR COALESCE(v_secret, '') = '' OR to_regnamespace('net') IS NULL THEN RETURN; END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.files_drive_cleanup_table WHERE "rowJSON"->>'state' = 'waiting') THEN RETURN; END IF;
+  EXECUTE format($f$SELECT net.http_post(url := %L, headers := jsonb_build_object('Content-Type', 'application/json', 'x-files-cleanup-secret', %L), body := '{"action": "cleanup"}'::jsonb)$f$, v_url, v_secret);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_cleanup_poke() FROM PUBLIC, anon, authenticated;
+
+-- the cleanup state for the Files tab: waiting / failed lines of the organization (holders of projectFileManager)
+CREATE OR REPLACE FUNCTION public.files_cleanup_counts() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text := public.organization_of_current_user();
+BEGIN
+  IF v_org IS NULL OR NOT public.perm_can('projectFileManager', 'R') THEN RETURN jsonb_build_object('waiting', 0, 'failed', 0); END IF;
+  RETURN (SELECT jsonb_build_object('waiting', count(*) FILTER (WHERE c."rowJSON"->>'state' IN ('waiting', 'running')), 'failed', count(*) FILTER (WHERE c."rowJSON"->>'state' = 'failed'))
+            FROM public.files_drive_cleanup_table c WHERE c."rowOwnerGUID" = v_org);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_next_order(text, text), public.files_add(text, text, text, text, jsonb), public.files_add_link(text, text, text, text, text), public.files_update(text, jsonb),
+  public.files_reorder(text[]), public.files_delete(text), public.files_cleanup_counts() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_add(text, text, text, text, jsonb), public.files_add_link(text, text, text, text, text), public.files_update(text, jsonb), public.files_reorder(text[]),
+  public.files_delete(text), public.files_cleanup_counts() TO authenticated;
+
+-- ---- delete triggers: the file rows of a deleted task / project / organization go with it, and the Drive items are queued -------------------------------------------------------------
+-- (statement triggers with a transition table: a task tree is deleted in ONE statement. The queue line carries the organization as plain text.)
+CREATE OR REPLACE FUNCTION public.files_queue(p_org text, p_item text, p_kind text, p_why text, p_allow_root boolean DEFAULT false) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  INSERT INTO public.files_drive_cleanup_table ("rowOwnerGUID", "rowJSON")
+  SELECT p_org, jsonb_build_object('driveItemId', p_item, 'itemKind', p_kind, 'why', p_why, 'state', 'waiting', 'attempts', 0, 'allowRoot', p_allow_root)
+   WHERE COALESCE(p_item, '') <> ''
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_on_task_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceKind' IN ('task', 'stage') AND m."rowParentGUID" IN (SELECT o."rowGUID"::text FROM old_rows o)
+           RETURNING m."rowOwnerGUID" AS org, m."rowJSON"->>'googleDriveFileId' AS fid LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'task deleted');
+  END LOOP;
+  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'scopeKey' IN (SELECT 'task:' || o."rowGUID"::text FROM old_rows o) RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'driveFolderId' AS fid LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'folder', 'task deleted');
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_on_project_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceKind' IN ('project', 'task', 'stage') AND m."rowJSON"->>'fileSourceProjectGUID' IN (SELECT o."rowGUID"::text FROM old_rows o)
+           RETURNING m."rowOwnerGUID" AS org, m."rowJSON"->>'googleDriveFileId' AS fid LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'project deleted');
+  END LOOP;
+  -- only the project folder is queued (the function deletes the tree below it bottom-up); the rows of the sub folders go
+  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'projectGUID' IN (SELECT o."rowGUID"::text FROM old_rows o) RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'scopeKey' AS sk, f."rowJSON"->>'driveFolderId' AS fid LOOP
+    IF r.sk LIKE 'project:%' THEN PERFORM public.files_queue(r.org, r.fid, 'folder', 'project deleted'); END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_on_organization_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  DELETE FROM public."mediaPostTable" m WHERE m."rowJSON" ? 'fileSourceKind' AND m."rowOwnerGUID" IN (SELECT o."rowGUID" FROM old_rows o);
+  DELETE FROM public.files_folder_table f WHERE f."rowOwnerGUID" IN (SELECT o."rowGUID" FROM old_rows o);
+  DELETE FROM public.files_upload_pending_table u WHERE u."rowOwnerGUID" IN (SELECT o."rowGUID" FROM old_rows o);
+  -- the root folder named in the url: ALWAYS (Q10); the Edge Function deletes the tree bottom-up, then revokes and removes the token
+  FOR r IN SELECT o."rowGUID" AS org, o."rowJSON"->>'organizationGoogleDriveRootFolderId' AS fid FROM old_rows o LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'folder', 'organization deleted', true);
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_queue(text, text, text, text, boolean), public.files_on_task_delete(), public.files_on_project_delete(), public.files_on_organization_delete() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_files_task_delete ON public.project_task_table;
+CREATE TRIGGER trg_files_task_delete AFTER DELETE ON public.project_task_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_task_delete();
+
+DROP TRIGGER IF EXISTS trg_files_project_delete ON public.project_table;
+CREATE TRIGGER trg_files_project_delete AFTER DELETE ON public.project_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_project_delete();
+
+DROP TRIGGER IF EXISTS trg_files_organization_delete ON public."organizationTable";
+CREATE TRIGGER trg_files_organization_delete AFTER DELETE ON public."organizationTable" REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_organization_delete();
+
+NOTIFY pgrst, 'reload schema';
+
+-- ---- PART 49, THIRD SLICE: document types (S5), replace + versions (S4), move (S7), storage used (S8), health rows (S1) -----------------------------------------------------------------------
+SELECT public.kit8_setup_def_table('files_document_type_catalog');
+SELECT public.kit8_setup_def_table('files_version_history');
+
+REVOKE ALL ON public.files_document_type_catalog, public.files_version_history FROM PUBLIC, anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.files_document_type_catalog TO authenticated;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('files_document_type_catalog', 'files_version_history') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $$;
+
+-- the types: everybody reads the seeded ones (rowOwnerGUID = 'empty') and those of his organization; the ADMINISTRATOR of the organization writes the organization's own; a seeded row is read only
+CREATE POLICY "files_document_type_select" ON public.files_document_type_catalog FOR SELECT TO authenticated
+  USING ("rowOwnerGUID" = 'empty' OR "rowOwnerGUID" = (SELECT public.organization_of_current_user()));
+
+CREATE POLICY "files_document_type_insert" ON public.files_document_type_catalog FOR INSERT TO authenticated
+  WITH CHECK ("rowOwnerGUID" <> 'empty' AND public.organization_is_admin("rowOwnerGUID"));
+
+CREATE POLICY "files_document_type_update" ON public.files_document_type_catalog FOR UPDATE TO authenticated
+  USING ("rowOwnerGUID" <> 'empty' AND public.organization_is_admin("rowOwnerGUID")) WITH CHECK ("rowOwnerGUID" <> 'empty' AND public.organization_is_admin("rowOwnerGUID"));
+
+CREATE POLICY "files_document_type_delete" ON public.files_document_type_catalog FOR DELETE TO authenticated
+  USING ("rowOwnerGUID" <> 'empty' AND public.organization_is_admin("rowOwnerGUID"));
+
+-- a file row with a document type that does not exist (or is another organization's) is refused: the type of a file is checked by files_add / files_update below
+CREATE OR REPLACE FUNCTION public.files_document_type_ok(p_type text, p_org text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(p_type, '') = '' OR EXISTS (SELECT 1 FROM public.files_document_type_catalog t WHERE t."rowGUID" = p_type AND t."rowOwnerGUID" IN ('empty', p_org))
+$$;
+
+REVOKE ALL ON FUNCTION public.files_document_type_ok(text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_document_type_ok(text, text) TO authenticated;
+
+-- ---- replace (S4): the Edge Function opened an UPDATE session for the same Drive file and saw the new bytes; the pending row carries replaceOf = the post, the old revision and the new facts ------------------------
+CREATE OR REPLACE FUNCTION public.files_replace(p_upload_id text, p_post text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+  v_pend  public.files_upload_pending_table%ROWTYPE;
+  v_ver   integer;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_replace: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_row);
+  PERFORM public.files_require('update', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_replace: not your organization' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_pend FROM public.files_upload_pending_table WHERE "rowJSON"->>'uploadId' = p_upload_id AND "rowOwnerGUID" = v_row."rowOwnerGUID" AND "rowParentGUID" = public.app_user_guid()::text;
+  IF NOT FOUND OR v_pend."rowJSON"->>'state' <> 'verified' OR v_pend."rowJSON"->>'replaceOf' IS DISTINCT FROM p_post THEN
+    RAISE EXCEPTION 'files_replace: the new version is not finished, or it is not yours' USING ERRCODE = '42501';
+  END IF;
+  v_ver := COALESCE((v_row."rowJSON"->>'fileVersionNumber')::int, 1);
+  INSERT INTO public.files_version_history ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES (v_row."rowOwnerGUID", p_post, v_ver, jsonb_strip_nulls(jsonb_build_object('version', v_ver, 'driveRevisionId', v_pend."rowJSON"->>'oldRevisionId', 'fileName', v_row."rowJSON"->>'fileName',
+          'fileSizeBytes', (v_row."rowJSON"->>'fileSizeBytes')::bigint, 'mediaPostMIME', v_row."rowJSON"->>'mediaPostMIME', 'replacedByGUID', public.app_user_guid()::text, 'replacedAt', now())));
+  UPDATE public."mediaPostTable" SET "rowJSON" = jsonb_strip_nulls("rowJSON" || jsonb_build_object('fileVersionNumber', v_ver + 1, 'fileSizeBytes', (v_pend."rowJSON"->>'fileSize')::bigint,
+         'mediaPostMIME', v_pend."rowJSON"->>'mime', 'fileName', v_pend."rowJSON"->>'name', 'fileKind', public.files_kind_of(v_pend."rowJSON"->>'mime', v_pend."rowJSON"->>'name'),
+         'fileReplacedAt', now(), 'fileReplacedByGUID', public.app_user_guid()::text))
+   WHERE "rowGUID" = p_post RETURNING * INTO v_row;
+  DELETE FROM public.files_upload_pending_table WHERE "rowGUID" = v_pend."rowGUID";
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.files_versions_list(p_post text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public."mediaPostTable"%ROWTYPE;
+  v_scope jsonb;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind';
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_versions_list: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_scope := public.files_row_scope(v_row);
+  PERFORM public.files_require('read', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_versions_list: not your organization' USING ERRCODE = '42501'; END IF;
+  RETURN COALESCE((SELECT jsonb_agg(to_jsonb(h) ORDER BY h."orderInList" DESC) FROM public.files_version_history h WHERE h."rowParentGUID" = p_post), '[]'::jsonb);
+END;
+$$;
+
+-- ---- move (S7): the Edge Function moved the Drive file; this moves the row (kind, parent, project, folder). The caller needs update rights at the source AND add rights at the target ----------------------------------
+CREATE OR REPLACE FUNCTION public.files_move(p_post text, p_scope text, p_guid text, p_project text, p_folder_id text, p_relative_path text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row    public."mediaPostTable"%ROWTYPE;
+  v_from   jsonb;
+  v_to     jsonb;
+  v_parent text;
+BEGIN
+  SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind' FOR UPDATE;
+  IF NOT FOUND THEN RAISE EXCEPTION 'files_move: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_from := public.files_row_scope(v_row);
+  PERFORM public.files_require('move', v_from->>'scope', v_from->>'guid', v_from->>'project');
+  v_to := public.files_require('add', p_scope, p_guid, p_project);
+  IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_move: not your organization' USING ERRCODE = '42501'; END IF;
+  v_parent := CASE WHEN v_to->>'scope' = 'organization' THEN v_row."rowOwnerGUID" ELSE p_guid END;
+  UPDATE public."mediaPostTable"
+     SET "rowParentGUID" = v_parent, "orderInList" = public.files_next_order(v_row."rowOwnerGUID", v_parent),
+         "rowJSON" = jsonb_strip_nulls(("rowJSON" - 'fileSourceProjectGUID') || jsonb_build_object('fileSourceKind', v_to->>'scope', 'fileSourceProjectGUID', v_to->>'projectGUID',
+                     'googleDriveFolderId', NULLIF(p_folder_id, ''), 'googleDriveRelativePath', NULLIF(p_relative_path, '')))
+   WHERE "rowGUID" = p_post RETURNING * INTO v_row;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- ---- storage used (S8): bytes of the files of the organization / a project (links count 0; the old versions of a replaced file are counted too) ------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.files_storage_used(p_scope text DEFAULT 'organization', p_guid text DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v     jsonb := public.files_require('read', p_scope, p_guid);
+  v_org text := v->>'organizationGUID';
+  v_files bigint; v_bytes numeric; v_old numeric;
+BEGIN
+  SELECT count(*), COALESCE(sum((m."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_files, v_bytes
+    FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'googleDriveFileId' IS NOT NULL
+     AND (p_scope = 'organization' OR m."rowJSON"->>'fileSourceProjectGUID' = p_guid);
+  SELECT COALESCE(sum((h."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_old FROM public.files_version_history h
+   WHERE h."rowOwnerGUID" = v_org AND (p_scope = 'organization' OR h."rowParentGUID" IN (SELECT m."rowGUID" FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceProjectGUID' = p_guid));
+  RETURN jsonb_build_object('files', v_files, 'bytes', v_bytes, 'oldVersionBytes', v_old, 'totalBytes', v_bytes + v_old,
+                            'limitMegabytes', NULLIF(public.files_org_facts(v_org)->>'limitMegabytes', '')::numeric);
+END;
+$$;
+
+-- ---- health rows (S1): the file rows with their Drive ids and the folders the app knows; the Edge Function compares them with Drive (holders of projectFileManager) -------------------------------------------------
+CREATE OR REPLACE FUNCTION public.files_health_rows() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v     jsonb := public.files_require('connect', 'organization');
+  v_org text := v->>'organizationGUID';
+BEGIN
+  RETURN jsonb_build_object(
+    'files', COALESCE((SELECT jsonb_agg(jsonb_build_object('post', m."rowGUID", 'fileId', m."rowJSON"->>'googleDriveFileId', 'folderId', m."rowJSON"->>'googleDriveFolderId', 'name', m."rowJSON"->>'fileName'))
+                         FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'googleDriveFileId' IS NOT NULL), '[]'::jsonb),
+    'folders', COALESCE((SELECT jsonb_agg(jsonb_build_object('scopeKey', f."rowJSON"->>'scopeKey', 'folderId', f."rowJSON"->>'driveFolderId', 'filesFolderId', f."rowJSON"->>'driveFilesFolderId'))
+                           FROM public.files_folder_table f WHERE f."rowOwnerGUID" = v_org), '[]'::jsonb),
+    'rootFolderId', public.files_org_facts(v_org)->>'rootFolderId');
+END;
+$$;
+
+-- a row whose Drive file is gone (the health check proved it): the row goes, nothing is queued
+CREATE OR REPLACE FUNCTION public.files_delete_row_only(p_post text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.files_require('connect', 'organization');
+  DELETE FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind' AND "rowOwnerGUID" = public.organization_of_current_user();
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.files_replace(text, text), public.files_versions_list(text), public.files_move(text, text, text, text, text, text), public.files_storage_used(text, text),
+  public.files_health_rows(), public.files_delete_row_only(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.files_replace(text, text), public.files_versions_list(text), public.files_move(text, text, text, text, text, text), public.files_storage_used(text, text),
+  public.files_health_rows(), public.files_delete_row_only(text) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

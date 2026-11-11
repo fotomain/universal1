@@ -54,6 +54,7 @@
 --   46. create_permission_profiles.sql - PERMISSION PROFILES (documentation/PERMISSIONS_WBS.html section 5): project_permission_profile_catalog / _crud_table / _uxui_table / _user_table and task_user_permission_table (the profiles, the two matrices, who holds which profile, the rows derived from RACI)
 --   47. create_permission_enforcement.sql - ENFORCEMENT of the matrix (start2 only: the policies, the RPC guards, the catalogs - no table)
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): organizationTextTable = the texts an administrator replaces for the whole organization, per language
+--   49. create_files.sql - FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C; first slice): files_google_connection_table = the Google Drive connection of an organization (the encrypted refresh token; NO client can read it)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3732,6 +3733,114 @@ CREATE TABLE IF NOT EXISTS public."organizationTextTable" (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationText" ON public."organizationTextTable" ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'textKind'), ("rowJSON"->>'textKey'));
+
+-- ===============================================================================================
+-- PART 49: create_files.sql
+-- FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C). This is the FIRST SLICE: only the table the Edge Function files-drive needs to keep the Google Drive connection.
+--   files_google_connection_table   rowOwnerGUID = the organization (plain text, NO foreign key: the row must survive the delete of the organization until the Drive cleanup is done)
+--                                   rowParentGUID = 'empty' · rowJSON { role ('current' | 'old'), state ('ok' | 'needsReconnect'), accountEmail, refreshTokenEncrypted (AES-GCM, key = the function secret
+--                                   FILES_TOKEN_KEY - the database never sees the plain token), lastRefreshAt, lastError, connectedByGUID }
+-- RLS is on and there is NO policy and NO grant: only the service role (the Edge Function) reads or writes it. The app reads the state through files_connection_status() (start2), which returns no secret.
+-- SECOND SLICE (same PART): the Drive folders, the cleanup queue and the pending uploads (all written by the Edge Function / the files_ RPCs only), and two partial indexes on mediaPostTable
+-- (the file rows live there, next to the recordings: rowJSON.fileSourceKind marks them). The document types, versions and template files come with the next slices.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.files_google_connection_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+-- one connection per organization and role (the role 'old' is for the move to another account, later)
+CREATE UNIQUE INDEX IF NOT EXISTS uq_files_google_connection ON public.files_google_connection_table ("rowOwnerGUID", (COALESCE("rowJSON"->>'role', 'current')));
+
+
+-- one row per Drive folder the app made (first writer wins): scopeKey = organization | project:<g> | task:<g> | document:<kind>:<g> | template:<g>:<taskG>
+CREATE TABLE IF NOT EXISTS public.files_folder_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT files_folder_key_chk CHECK (COALESCE("rowJSON"->>'scopeKey', '') <> '' AND COALESCE("rowJSON"->>'driveFolderId', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_files_folder_scope ON public.files_folder_table ("rowOwnerGUID", ("rowJSON"->>'scopeKey'));
+
+-- what has to be removed in Google Drive: rowOwnerGUID = the organization (plain text, NO foreign key: a line must outlive the organization)
+-- rowJSON { driveItemId, itemKind (file | folder), why, allowRoot, requestedBy, state (waiting | running | done | failed), attempts, lastError, doneAt }
+CREATE TABLE IF NOT EXISTS public.files_drive_cleanup_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT files_cleanup_item_chk CHECK (COALESCE("rowJSON"->>'driveItemId', '') <> '' AND "rowJSON"->>'itemKind' IN ('file', 'folder'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_cleanup_state ON public.files_drive_cleanup_table (("rowJSON"->>'state'), "created_at");
+
+-- an upload that was opened (upload_session) and not yet registered: rowOwnerGUID = the organization, rowParentGUID = the user GUID who asked
+-- rowJSON { uploadId, scope, scopeGUID, projectGUID, name, mime, size, expiresAt, state (pending | verified), fileId, fileSize, folderId, relativePath }
+CREATE TABLE IF NOT EXISTS public.files_upload_pending_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT files_upload_id_chk CHECK (COALESCE("rowJSON"->>'uploadId', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_files_upload_id ON public.files_upload_pending_table (("rowJSON"->>'uploadId'));
+
+-- the file rows inside mediaPostTable (rowJSON has the key fileSourceKind): by parent in order, and by project
+CREATE INDEX IF NOT EXISTS idx_mediaPost_files_parent ON public."mediaPostTable" ("rowOwnerGUID", "rowParentGUID", "orderInList") WHERE "rowJSON" ? 'fileSourceKind';
+
+CREATE INDEX IF NOT EXISTS idx_mediaPost_files_project ON public."mediaPostTable" (("rowJSON"->>'fileSourceProjectGUID')) WHERE "rowJSON" ? 'fileSourceKind';
+
+
+-- THIRD SLICE (same PART): the file document types (S5: Contract, Invoice, Drawing ... a catalog; rowOwnerGUID = 'empty' for the seeded rows, else the organization) and the version history of
+-- a replaced file (S4: one row per REPLACED version; rowOwnerGUID = the organization, rowParentGUID = the post GUID).
+CREATE TABLE IF NOT EXISTS public.files_document_type_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT files_document_type_title_chk CHECK (COALESCE("rowJSON"->>'title', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_files_document_type_title ON public.files_document_type_catalog ("rowOwnerGUID", lower("rowJSON"->>'title'));
+
+CREATE TABLE IF NOT EXISTS public.files_version_history (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_files_version_post ON public.files_version_history ("rowParentGUID", "orderInList");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

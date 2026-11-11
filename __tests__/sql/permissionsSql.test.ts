@@ -48,13 +48,13 @@ describe('the seed is generated from the matrix data', () => {
     expect(b).toContain('DO UPDATE SET');
     expect(a.replace(/ON CONFLICT[^;]*;/g, '')).toBe(b.replace(/ON CONFLICT[^;]*;/g, ''));
   });
-  it('11 profiles, 133 tables and 25 interface objects', () => {
+  it('11 profiles, 141 tables and 27 interface objects', () => {
     const a = block(s4);
     expect(a.match(/\('permission[A-Za-z]+', 'permissionCatalog', 'empty'/g)).toHaveLength(11);
     const crud = a.slice(a.indexOf('INSERT INTO public."project_permission_profile_crud_table"'), a.indexOf('INSERT INTO public."project_permission_profile_uxui_table"'));
-    expect(crud.match(/^ {4}\('[A-Za-z0-9_]+', ARRAY\[/gm)).toHaveLength(133);
+    expect(crud.match(/^ {4}\('[A-Za-z0-9_]+', ARRAY\[/gm)).toHaveLength(141);
     const ux = a.slice(a.indexOf('INSERT INTO public."project_permission_profile_uxui_table"'));
-    expect(ux.match(/^ {4}\('permission[A-Za-z0-9]+', ARRAY\[/gm)).toHaveLength(25);
+    expect(ux.match(/^ {4}\('(permission|project)[A-Za-z0-9]+', ARRAY\[/gm)).toHaveLength(27);
   });
   it('the matrix data names every table once and the sets are known letters', () => {
     expect(matrixPy).toContain("'project_task_table': row('R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'RU', 'RU', 'R', 'R')");
@@ -67,7 +67,9 @@ describe('the seed is generated from the matrix data', () => {
     const known = (n: string) => new RegExp(`(CREATE TABLE IF NOT EXISTS|CREATE TABLE) (public\\.)?"?${n}"?\\b`).test(tablesSql) || new RegExp(`(CREATE|ALTER) (TABLE|VIEW) (IF NOT EXISTS )?(public\\.)?"?${n}"?\\b`).test(codeSql + tablesSql);
     // the tables the app creates by kit8_setup_def_table(...) / loops are found by name anywhere in the structure
     const anywhere = (n: string) => (tablesSql + codeSql).includes(n);
-    expect(names.filter((n) => !known(n) && !anywhere(n))).toEqual([]);
+    // projectFileManager / projectMediaPostManager (PART 49) are permissions asked like a table, not tables
+    const permissionsNotTables = ['projectFileManager', 'projectMediaPostManager'];
+    expect(names.filter((n) => !permissionsNotTables.includes(n) && !known(n) && !anywhere(n))).toEqual([]);
   });
 });
 

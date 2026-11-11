@@ -82,6 +82,7 @@ import { kanbanValuesOf, type PMKanbanSettingsValues } from "../settings/kanban/
 import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
 import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourceLevelingValues } from "../../../resourceleveling/PMResourceLevelingSettingsTab";
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
+import PMProjectFilesTab, { filesValuesOf, type PMProjectFilesValues } from "../settings/PMProjectFilesTab";
 import PMProjectGanttTab, { ganttValuesOf, type PMProjectGanttValues } from "../settings/PMProjectGanttTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
 import CreateTemplateFromProject from "../CreateTemplateFromProject";
@@ -97,9 +98,9 @@ import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabMembers';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabMembers';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectFilesValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -300,6 +301,7 @@ export default function PMRecentProjectsToolbar({
       ...resourceLevelingValuesOf(null),
       ...kanbanValuesOf(null),
       ...paymentsValuesOf(null),
+      ...filesValuesOf(null),
       ...ganttValuesOf(null),
       // a NEW project has its four business units (obligatory): the first unit that fits each field, the user may change them (Budgets tab)
       ...defaultProjectCenters(units.rows, units.cfrRows),
@@ -351,6 +353,7 @@ export default function PMRecentProjectsToolbar({
       ...resourceLevelingValuesOf(project.rowJSON),
       ...kanbanValuesOf(project.rowJSON),
       ...paymentsValuesOf(project.rowJSON),
+      ...filesValuesOf(project.rowJSON),
       ...ganttValuesOf(project.rowJSON),
     });
   };
@@ -472,6 +475,7 @@ export default function PMRecentProjectsToolbar({
             ...resourceLevelingValuesOf(draft),
             ...kanbanValuesOf(draft),
             ...paymentsValuesOf(draft),
+            ...filesValuesOf(draft),
             ...ganttValuesOf(draft),
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
@@ -502,7 +506,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), ganttValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), ganttValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -799,6 +803,7 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabGantt' as const, label: 'Gantt', icon: 'view_timeline' },
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
                   { id: 'TabPayments' as const, label: 'Payments', icon: 'account_balance_wallet' },
+                  { id: 'TabFiles' as const, label: 'Files', icon: 'attach_file' },
                   { id: 'TabVendor' as const, label: 'Vendor', icon: 'receipt_long' },
                   { id: 'TabCustomer' as const, label: 'Customer', icon: 'request_quote' },
                   { id: 'TabProduct' as const, label: 'Product', icon: 'inventory_2' },
@@ -942,6 +947,10 @@ export default function PMRecentProjectsToolbar({
 
                 {activeTab === 'TabPayments' && (
                   <PMProjectPaymentsTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
+
+                {activeTab === 'TabFiles' && (
+                  <PMProjectFilesTab projectGUID={draft?.rowGUID} values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabVendor' && (

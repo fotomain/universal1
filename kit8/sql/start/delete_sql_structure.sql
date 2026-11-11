@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
 --  1a-000000000000000. delete_organization_texts.sql - PART 48: drops organizationTextTable (data included: the replaced texts of ALL organizations), its guard trigger and organization_texts (runs very first: it is the newest)
 --  1a-00000000000000. delete_permissions.sql - PARTs 46 + 47: drops the permission tables (data included: the profiles, the matrices and ALL assignments), the matrix policies "*_perm_*" next to the owner policies, the lock triggers and the perm_* functions; the catalogs get their old open policies back only by running start2 again (runs very first: it is the newest)
 --  1a-0000000000000. delete_organization_members.sql - PART 45: drops organizationMemberTable (data included: every member and invitation of ALL organizations) and its functions / triggers (runs very first: it is the newest)
@@ -40,6 +41,44 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-0000000000000000: delete_files.sql  (PART 49 of the structure file: the FILE ATTACHMENTS, first slice - runs before everything else, it is the newest)
+-- The files in Google Drive itself are NOT touched (this file only knows the database).
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regnamespace('cron') IS NOT NULL THEN
+    BEGIN PERFORM cron.unschedule('files_cleanup_tick'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  END IF;
+END $$;
+DROP TABLE IF EXISTS public.files_google_connection_table CASCADE;
+DROP TABLE IF EXISTS public.files_document_type_catalog CASCADE;
+DROP TABLE IF EXISTS public.files_version_history CASCADE;
+DROP TABLE IF EXISTS public.files_folder_table CASCADE;
+DROP TABLE IF EXISTS public.files_drive_cleanup_table CASCADE;
+DROP TABLE IF EXISTS public.files_upload_pending_table CASCADE;
+DROP INDEX IF EXISTS public."idx_mediaPost_files_parent";
+DROP INDEX IF EXISTS public."idx_mediaPost_files_project";
+DROP FUNCTION IF EXISTS public.files_connection_status(text) CASCADE;
+DROP TRIGGER IF EXISTS trg_files_task_delete ON public.project_task_table;
+DROP TRIGGER IF EXISTS trg_files_project_delete ON public.project_table;
+DROP TRIGGER IF EXISTS trg_files_organization_delete ON public."organizationTable";
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname LIKE 'files\_%' LOOP
+    EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', r.sig);
+  END LOOP;
+  -- the open policies of mediaPostTable are not brought back here: the generic loop of start2 makes them again on the next install
+  DROP POLICY IF EXISTS "mediaPost_select" ON public."mediaPostTable";
+  DROP POLICY IF EXISTS "mediaPost_insert" ON public."mediaPostTable";
+  DROP POLICY IF EXISTS "mediaPost_update" ON public."mediaPostTable";
+  DROP POLICY IF EXISTS "mediaPost_delete" ON public."mediaPostTable";
+END $$;
 
 
 

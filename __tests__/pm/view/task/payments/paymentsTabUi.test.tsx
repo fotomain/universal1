@@ -61,6 +61,26 @@ const mockStartPaymentFact = jest.fn();
 jest.mock('../../../../../kit8/documents/payment/fact/usePaymentFact', () => ({ useStartPaymentFact: () => ({ start: mockStartPaymentFact, busy: false, error: null }) }));
 const mockCreateTimesheet = jest.fn(async () => ({ status: 'created', documentGUID: 'ts-1', skipped: [] }));
 jest.mock('../../../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockCreateTimesheet as any)(...a), busy: false, error: null }) }));
+// the Files tab (kit8/files): the calls to the database and to the Edge Function are test doubles; by default nothing is connected and nobody may add
+const mockFilesApi: Record<string, jest.Mock> = { listFiles: jest.fn(), authorizeFiles: jest.fn(), fetchDriveStatus: jest.fn(), fetchDownloadUrl: jest.fn(), startDriveConnect: jest.fn(), deleteFileRow: jest.fn(), updateFile: jest.fn(), addLink: jest.fn(), moveFile: jest.fn() };
+mockFilesApi.listFiles.mockResolvedValue({ ok: true, data: [] });
+mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: false } });
+mockFilesApi.fetchDriveStatus.mockResolvedValue({ ok: true, data: { state: 'notConnected', accountEmail: null, lastRefreshAt: null, rootFolderUrl: null, cleanup: { waiting: 0, failed: 0 } } });
+jest.mock('../../../../../kit8/files/filesDriveApi', () => ({
+  ...jest.requireActual('../../../../../kit8/files/filesDriveApi'),
+  listFiles: (...a: any[]) => mockFilesApi.listFiles(...a),
+  authorizeFiles: (...a: any[]) => mockFilesApi.authorizeFiles(...a),
+  fetchDriveStatus: (...a: any[]) => mockFilesApi.fetchDriveStatus(...a),
+  fetchDownloadUrl: (...a: any[]) => mockFilesApi.fetchDownloadUrl(...a),
+  startDriveConnect: (...a: any[]) => mockFilesApi.startDriveConnect(...a),
+  deleteFileRow: (...a: any[]) => mockFilesApi.deleteFileRow(...a),
+  updateFile: (...a: any[]) => mockFilesApi.updateFile(...a),
+  addLink: (...a: any[]) => mockFilesApi.addLink(...a),
+  moveFile: (...a: any[]) => mockFilesApi.moveFile(...a),
+  listDocumentTypes: async () => ({ ok: true, data: [{ rowGUID: 'ty1', rowOwnerGUID: 'empty', rowJSON: { title: 'Contract' } }] }),
+  listVersions: async () => ({ ok: true, data: [] }),
+  fetchStorageUsed: async () => ({ ok: false, error: 'none' }),
+}));
 const mockStartPurchaseOrder = jest.fn();
 jest.mock('../../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockStartPurchaseOrder, busy: false }) }));
 const mockPick: Record<string, string> = {};
@@ -211,7 +231,8 @@ describe('the fifth tab "Payments" and its three sub-tabs', () => {
     mount();
     expect(q(`${T}-tab-TabPayments`)).not.toBeNull();
     const tabs = Array.from(document.querySelectorAll(`[data-testid^="${T}-tab-"]`)).map((e) => e.getAttribute('data-testid')).filter((id) => !/-(count|sum)$/.test(id!));
-    expect(tabs).toEqual([`${T}-tab-timeGenus`, `${T}-tab-materialGenus`, `${T}-tab-expenseGenus`, `${T}-tab-revenueGenus`, `${T}-tab-TabPayments`]);
+    // the sixth tab Files (kit8/files) comes right after Payments
+    expect(tabs).toEqual([`${T}-tab-timeGenus`, `${T}-tab-materialGenus`, `${T}-tab-expenseGenus`, `${T}-tab-revenueGenus`, `${T}-tab-TabPayments`, `${T}-tab-TabFiles`]);
     expect(q(`${T}-tab-TabPayments-count`)!.textContent).toBe('3');
     expect(q(`${P}`)).toBeNull();   // the payments are not drawn until the tab is open
   });
@@ -365,5 +386,163 @@ describe('the Errors column', () => {
     mount({ payments: [out1] });
     press(`${T}-tab-TabPayments`);
     expect(q(`${PT}-header-errors`)).toBeNull();
+  });
+});
+
+describe('the sixth tab "Files" (kit8/files)', () => {
+  const fileRow = (guid: string, json: any, order = 1) => ({ rowGUID: guid, rowOwnerGUID: 'org1', rowParentGUID: 't1', orderInList: order, rowJSON: { fileSourceKind: 'task', fileSourceProjectGUID: 'p1', ...json } });
+  const pdf = fileRow('f1', { mediaPostTitle: 'Plan.pdf', fileName: 'Plan.pdf', fileSizeBytes: 2 * 1048576, fileKind: 'pdf', googleDriveFileId: 'D1', mediaPostOriginType: 'googleDrive', paperDocumentPlace: 'Cabinet 3' });
+  const link = fileRow('f2', { mediaPostTitle: 'Video', mediaPostOriginType: 'url', mediaPostOrigin: 'https://youtu.be/x', fileKind: 'other' }, 2);
+  const settle = async () => { await act(async () => { await Promise.resolve(); await Promise.resolve(); }); };
+  beforeEach(() => {
+    mockFilesApi.listFiles.mockResolvedValue({ ok: true, data: [pdf, link] });
+    mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: true } });
+    mockFilesApi.fetchDriveStatus.mockResolvedValue({ ok: true, data: { state: 'ok', accountEmail: 'drive@gmail.test', lastRefreshAt: null, rootFolderUrl: 'https://drive.google.com/drive/folders/R', cleanup: { waiting: 0, failed: 0 } } });
+    mockFilesApi.fetchDownloadUrl.mockResolvedValue({ ok: true, data: { url: 'https://fn.test/download?sig=1' } });
+  });
+
+  it('is right after Payments, shows the number of files, and opens the list of the task', async () => {
+    mount();
+    await settle();
+    expect(q(`${T}-tab-TabFiles-count`)!.textContent).toBe('2');
+    expect(q(`${T}-files`)).toBeNull(); // not drawn until the tab is open
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files`)).not.toBeNull();
+    expect(q(`${T}-payments`)).toBeNull();
+    expect(mockFilesApi.listFiles).toHaveBeenCalledWith({ scope: 'task', guid: 't1', projectGUID: 'p1' });
+    expect(q(`${T}-files-row-f1`)!.textContent).toContain('Plan.pdf');
+    expect(q(`${T}-files-row-f1`)!.textContent).toContain('2.0 MB');
+    expect(q(`${T}-files-row-f1`)!.textContent).toContain('Cabinet 3');
+    expect(q(`${T}-files-row-f2`)!.textContent).toContain('Video');
+    expect(q(`${T}-files-state`)!.textContent).toBe('Google Drive: connected as drive@gmail.test');
+  });
+
+  it('a person who may change files sees Add file / Add link / Edit / Delete; a plain member sees the list and View only', async () => {
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-add`)).not.toBeNull();
+    expect(q(`${T}-files-add-link`)).not.toBeNull();
+    expect(q(`${T}-files-edit-f1`)).not.toBeNull();
+    expect(q(`${T}-files-delete-f1`)).not.toBeNull();
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: false, reason: 'noPermission' } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-add`)).toBeNull();
+    expect(q(`${T}-files-edit-f1`)).toBeNull();
+    expect(q(`${T}-files-delete-f1`)).toBeNull();
+    expect(q(`${T}-files-view-f1`)).not.toBeNull();
+  });
+
+  it('Drive not connected: the administrator gets Connect Google Drive and no Add; a member gets the words "ask the administrator"', async () => {
+    mockFilesApi.fetchDriveStatus.mockResolvedValue({ ok: true, data: { state: 'notConnected', accountEmail: null, lastRefreshAt: null, rootFolderUrl: null, cleanup: { waiting: 0, failed: 0 } } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-connect`)).not.toBeNull();
+    expect(q(`${T}-files-add`)).toBeNull();
+    expect(q(`${T}-files-state`)!.textContent).toBe('Google Drive is not connected');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: false } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-connect`)).toBeNull();
+    expect(document.body.textContent).toContain('ask the administrator');
+  });
+
+  it('View asks the function for a signed link of the post (a link row opens its own address)', async () => {
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    press(`${T}-files-view-f1`);
+    await settle();
+    expect(mockFilesApi.fetchDownloadUrl).toHaveBeenCalledWith('f1');
+    expect(openSpy).toHaveBeenCalledWith('https://fn.test/download?sig=1', '_blank', 'noopener');
+    press(`${T}-files-view-f2`);
+    await settle();
+    expect(mockFilesApi.fetchDownloadUrl).toHaveBeenCalledTimes(1);
+    expect(openSpy).toHaveBeenLastCalledWith('https://youtu.be/x', '_blank', 'noopener');
+    openSpy.mockRestore();
+  });
+
+  it('Delete asks first and says "permanently"; Yes deletes the row through the function', async () => {
+    mockFilesApi.deleteFileRow.mockResolvedValue({ ok: true, data: { deleted: true } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    press(`${T}-files-delete-f1`);
+    await settle();
+    expect(document.body.textContent).toContain('deleted from Google Drive permanently');
+    expect(mockFilesApi.deleteFileRow).not.toHaveBeenCalled();
+    press(`${T}-files-delete-ask-confirm`);
+    await settle();
+    expect(mockFilesApi.deleteFileRow).toHaveBeenCalledWith('f1');
+  });
+
+  it('Edit saves the name and the paper place (an empty field clears it)', async () => {
+    mockFilesApi.updateFile.mockResolvedValue({ ok: true, data: pdf });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    press(`${T}-files-edit-f1`);
+    await settle();
+    expect(q(`${T}-files-edit-form`)).not.toBeNull();
+    press(`${T}-files-edit-save`);
+    await settle();
+    expect(mockFilesApi.updateFile).toHaveBeenCalledWith('f1', { mediaPostTitle: 'Plan.pdf', paperDocumentPlace: 'Cabinet 3', fileDocumentTypeGUID: null });
+  });
+
+  it('the type of a document is chosen in the edit form and saved with the file', async () => {
+    mockFilesApi.updateFile.mockResolvedValue({ ok: true, data: pdf });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    press(`${T}-files-edit-f1`);
+    await settle();
+    press(`${T}-files-edit-type-ty1`);
+    await settle();
+    press(`${T}-files-edit-save`);
+    await settle();
+    expect(mockFilesApi.updateFile).toHaveBeenCalledWith('f1', expect.objectContaining({ fileDocumentTypeGUID: 'ty1' }));
+  });
+
+  it('Replace and Move are offered to a person who may change files (a link has no Replace); Move asks where to and calls the function', async () => {
+    mockFilesApi.moveFile.mockResolvedValue({ ok: true, data: { file: pdf } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-replace-f1`)).not.toBeNull();
+    expect(q(`${T}-files-replace-f2`)).toBeNull();
+    expect(q(`${T}-files-move-f2`)).not.toBeNull();
+    press(`${T}-files-move-f1`);
+    await settle();
+    expect(q(`${T}-files-move-form`)).not.toBeNull();
+    press(`${T}-files-move-organization`);
+    await settle();
+    expect(mockFilesApi.moveFile).toHaveBeenCalledWith('f1', { scope: 'organization' });
+    expect(q(`${T}-files-move-form`)).toBeNull();
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: false } });
+    mount();
+    press(`${T}-tab-TabFiles`);
+    await settle();
+    expect(q(`${T}-files-replace-f1`)).toBeNull();
+    expect(q(`${T}-files-move-f1`)).toBeNull();
+  });
+
+  it('is not offered while the project switch filesFunctionalityEnabled is false, nor in a picker', async () => {
+    mount({ project: { filesFunctionalityEnabled: false } });
+    await settle();
+    expect(q(`${T}-tab-TabFiles`)).toBeNull();
+    expect(mockFilesApi.listFiles).not.toHaveBeenCalled();
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockPicker = { mode: 'line', onPick: jest.fn() };
+    mount();
+    expect(q(`${T}-tab-TabFiles`)).toBeNull();
   });
 });

@@ -62,6 +62,12 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('dtcTaskWaitingTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('equipmentTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('equipmentTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('files_document_type_catalog', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('files_drive_cleanup_table', ARRAY['N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('files_folder_table', ARRAY['N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('files_google_connection_table', ARRAY['N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('files_upload_pending_table', ARRAY['N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('files_version_history', ARRAY['N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
     ('googleDriveCommandTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('kanban_stage_table', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('legalEntityTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
@@ -95,6 +101,8 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('productTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('product_receipt_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
     ('product_receipt_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('projectFileManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('projectMediaPostManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
     ('project_kanban_stage_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('project_payment_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
     ('project_payment_fact_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
@@ -204,7 +212,9 @@ SELECT 'permUxui.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('permissionTaskPaymentPlan', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
     ('permissionTaskTimeTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
     ('permissionTimesheet', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
-    ('permissionVendorInvoice', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD'])
+    ('permissionVendorInvoice', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('projectFileManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('projectMediaPostManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N'])
   ) AS v(name, sets)
   CROSS JOIN LATERAL unnest(ARRAY['permissionOrganizationAdmin', 'permissionProjectManager', 'permissionProjectReadOnly', 'permissionProjectSponsor', 'permissionProjectCurator', 'permissionProjectInvestor', 'permissionProjectMember', 'permissionTaskResponsible', 'permissionTaskManager', 'permissionFinancialManagerPlan', 'permissionFinancialManagerFact']) WITH ORDINALITY AS p(code, n)
   LEFT JOIN (SELECT NULL::text AS code, NULL::text AS name, NULL::jsonb AS extra WHERE false) AS x ON x.code = p.code AND x.name = v.name
@@ -7201,3 +7211,15 @@ INSERT INTO public."managementRACIGenusTable" ("rowGUID", "rowOwnerGUID", "rowPa
   ('raciInformedGUID', 'managementRACIGenusCatalog', 'empty', 4000, '{"title": "Informed", "description": "told after, one-way"}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
 
+-- File document types (PART 49 of start1_sql_tables.sql + start2_sql_code.sql): upsert
+INSERT INTO public.files_document_type_catalog ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('filesTypeContract', 'empty', 'empty', 1000, '{"title": "Contract"}'),
+  ('filesTypeInvoice', 'empty', 'empty', 2000, '{"title": "Invoice"}'),
+  ('filesTypeSpecification', 'empty', 'empty', 3000, '{"title": "Specification"}'),
+  ('filesTypeDrawing', 'empty', 'empty', 4000, '{"title": "Drawing"}'),
+  ('filesTypePhoto', 'empty', 'empty', 5000, '{"title": "Photo"}'),
+  ('filesTypeReport', 'empty', 'empty', 6000, '{"title": "Report"}'),
+  ('filesTypeMinutes', 'empty', 'empty', 7000, '{"title": "Minutes"}'),
+  ('filesTypeCertificate', 'empty', 'empty', 8000, '{"title": "Certificate"}'),
+  ('filesTypeOther', 'empty', 'empty', 9000, '{"title": "Other"}')
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
