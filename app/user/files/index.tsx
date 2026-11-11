@@ -3,13 +3,15 @@ import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme, Surface, Text, Button } from 'react-native-paper';
 import { bumpFiles } from '../../../kit8/files/useFiles';
+import { providerTitleOf } from '../../../kit8/files/fileModel';
 
 // The page Google Drive consent comes back to (FILES_APP_RETURN_URL = <app>/user/files, documentation/FILE_ATTACHMENT_WBS.html section 4):
 // the Edge Function redirects here with ?filesConnect=ok | error (&reason=...). It says what happened and goes back to the project dashboard.
 export default function FilesConnectReturnScreen() {
     const theme = useTheme();
     const router = useRouter();
-    const params = useLocalSearchParams<{ filesConnect?: string; reason?: string }>();
+    const params = useLocalSearchParams<{ filesConnect?: string; reason?: string; provider?: string }>();
+    const title = providerTitleOf(params.provider); // Google Drive unless the function says oneDrive
     const ok = params.filesConnect === 'ok';
     const failed = params.filesConnect === 'error';
 
@@ -24,7 +26,7 @@ export default function FilesConnectReturnScreen() {
         <View testID="files-connect-return" style={[styles.container, { backgroundColor: theme.colors.background }]}>
             <Surface style={styles.card} elevation={2}>
                 <Text variant="headlineSmall" style={{ color: failed ? theme.colors.error : theme.colors.primary, textAlign: 'center', fontWeight: 'bold' }}>
-                    {ok ? 'Google Drive is connected' : failed ? 'Google Drive was not connected' : 'Google Drive'}
+                    {ok ? `${title} is connected` : failed ? `${title} was not connected` : title}
                 </Text>
                 {failed && !!params.reason && (
                     <Text testID="files-connect-reason" variant="bodyMedium" style={{ color: theme.colors.onSurface, marginTop: 8, textAlign: 'center' }}>
@@ -33,7 +35,7 @@ export default function FilesConnectReturnScreen() {
                 )}
                 {!ok && !failed && (
                     <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8, textAlign: 'center' }}>
-                        Connect Google Drive in Project settings, tab Files.
+                        Connect the files storage in Project settings, tab Files.
                     </Text>
                 )}
                 <Button testID="files-connect-back" mode="contained" style={styles.button} onPress={() => router.replace('/pm/project/dashboard')}>

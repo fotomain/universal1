@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>File attachments on Microsoft OneDrive - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 840px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+  .note.good { border-color: var(--emerald); background: var(--emerald-soft); }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+  table.mini td:first-child { white-space: nowrap; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">OneDrive files</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#setting">The setting</a></li><li><a href="#arch">Architecture</a></li><li><a href="#ms">Microsoft facts</a></li><li><a href="#inv">Investigation log</a></li><li><a href="#diff">Google vs OneDrive</a></li>
+    <li><a href="#conn">Connection + sign-in</a></li><li><a href="#map">Operations</a></li><li><a href="#data">Data + SQL</a></li><li><a href="#ui">UI</a></li><li><a href="#wbs">WBS</a></li><li><a href="#spike">Spike OD0</a></li><li><a href="#risk">Risks</a></li><li><a href="#accept">Acceptance</a></li><li><a href="#questions">Decisions</a></li><li><a href="#src">Sources</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>W2 File attachments on Microsoft OneDrive – Work Breakdown Structure (v4)</h1>
+  <p class="lead">The file attachments (<code>documentation/FILE_ATTACHMENT_WBS.html</code>, built on Google Drive, way C) get a SECOND storage: <b>Microsoft OneDrive</b> (personal accounts and work / school accounts), through <b>Microsoft Graph</b>. A project chooses where ITS files live with one new setting, <code>projectFilesStorageProvider</code>. Everything above the storage stays as it is: the Files tab, the permissions, the viewer, the database rows, the delete rules, the Edge Function <code>files-drive</code> (its actions, its signed links, its cleanup queue).</p>
+  <p class="sub">Status: <b>PLAN ONLY – no code</b> (2026-11-11). <b>v4: OD1-OD6 are BUILT (2026-11-11); OD7 (the live test) waits for the SQL on the owner's database and the Web redirect uri.</b> <b>v3: the spike OD0 was RUN on a personal account (2026-11-11): CORS passes, the browser uploads straight to OneDrive, folder permanentDelete works in one call – see <code>documentation/OneDrive/ONEDRIVE_HOW_IT_WORKS.html</code>; sections 3.7, 3.13, 3A, 4, 9, 10 are updated. v2: the owner accepted all recommended answers (section 14 = decisions) and the open facts were investigated (section 3A = investigation log).</b> Facts from Microsoft's documentation are marked with their source (section 15); what is NOT proven on a real account is listed as the spike OD0 (section 10) – the same way the Google plan started. Items marked <span class="pill ask">verify</span> are still unproven on a real account (the spike).</p>
+  <div class="note"><b>About "Sign in with Microsoft is ready".</b> The repository has no Microsoft sign-in code today (searched <code>kit8</code>, <code>app</code>, <code>supabase</code>, <code>package.json</code>: only the MS Project XML export mentions Microsoft). I read your sentence as: the <b>Microsoft Entra app registration exists</b>. Sign-in of USERS and the connection of the STORAGE are two different OAuth flows (section 5), so the plan lists exactly what I need from that registration (section 5.2).</div>
+</section>
+
+<section id="setting">
+  <h2>1. The setting <code>projectFilesStorageProvider</code></h2>
+  <p class="sub">Project settings → tab <b>Files</b> (the tab built after Payments). The tab keeps its switch <code>filesFunctionalityEnabled</code> and gets a radio set under it.</p>
+  <div class="card">
+    <table class="mini">
+      <tr><th>Item</th><th>Rule</th></tr>
+      <tr><td>Key</td><td><code>project_table.rowJSON.projectFilesStorageProvider</code> – a text: <code>googleDrive</code> | <code>oneDrive</code>. No SQL column: a JSONB key like every project switch.</td></tr>
+      <tr><td>Radio set</td><td>Two items, in this order: <b>1. Google Drive</b> · <b>2. Microsoft OneDrive</b> (<code>SelectItemFromListApp</code> is not needed: a radio like the other radio sets of the project settings, e.g. <code>resourceLevelingComputationSide</code>).</td></tr>
+      <tr><td>Enabled</td><td>The radio set is ENABLED only while <code>filesFunctionalityEnabled = true</code>. While the switch is off the radio is shown disabled with the stored value (the value is not lost; the files stay where they are).</td></tr>
+      <tr><td>Default</td><td>A missing value = <code>googleDrive</code> (every project made before this feature keeps working with no migration). The helper is <code>filesProviderOfProject(json)</code> next to <code>filesEnabledOfProject</code> in <code>kit8/files/fileModel.ts</code>.</td></tr>
+      <tr><td>Organization defaults</td><td>The same key is part of <code>defaultProjectSettings</code> (Organization edit → Projects → Settings): a NEW project starts with it. "Save settings to organization" copies it like the other switches.</td></tr>
+      <tr><td>A provider that is not available</td><td>The item <b>Microsoft OneDrive</b> is shown disabled with the hint "not configured on this server" while the Edge Function has no Microsoft client id (status answer <code>providerConfigured: false</code>). Same for Google. The user never picks a storage that cannot work.</td></tr>
+      <tr><td>Below the radio</td><td>The connection block of the CHOSEN provider (state, account, Connect / Reconnect / Disconnect, storage used, Check files) – the present <code>FilesDriveBlock</code> becomes <code>FilesProviderBlock</code>; the other provider's state is one line ("Google Drive: connected as …").</td></tr>
+    </table>
+  </div>
+  <h3>1.1 What happens when the choice changes</h3>
+  <ul>
+    <li><b>Every file row remembers its storage</b> (<code>rowJSON.fileStorageProvider</code>). View, Replace, Move, Delete and the cleanup of an OLD file always use the provider OF THE ROW, never the current setting of the project.</li>
+    <li><b>New uploads</b> go to the provider chosen NOW. A project can therefore hold files of both storages for a while; the Files tab shows a small badge (Google Drive / OneDrive) on a row only while the project holds both.</li>
+    <li>On a change, when the project already has files, a window asks: "N files stay in Google Drive. New files will be stored in Microsoft OneDrive." (Cancel / Change). No file is moved. A tool "Move all files to the other storage" is NOT part of this plan <span class="pill yes">Q1 decided</span>.</li>
+    <li>If the new provider is not connected yet, the choice is saved, the tab shows "Connect Microsoft OneDrive to add files" and Add is disabled – the same words and behaviour as for an unconnected Google Drive today.</li>
+    <li><b>Files with no project</b> (the organization's files and the document files) use the ORGANIZATION default of the same key <span class="pill yes">Q2 decided</span>.</li>
+    <li>The right to change the setting is the right to change Project settings (project manager); the right to CONNECT a storage is <code>projectFileManager</code> (administrator + project manager by default) – unchanged.</li>
+  </ul>
+</section>
+
+<section id="arch">
+  <h2>2. Architecture – one function, two storage adapters</h2>
+  <p>Way C stays: the administrator signs in to the storage ONCE; the Edge Function <code>files-drive</code> keeps the encrypted refresh token, refreshes the access token by itself, checks the permission (<code>files_authorize</code>) and does every storage call. Members never see a Microsoft (or Google) screen. The app never holds a storage token.</p>
+  <div class="two">
+    <div class="card"><b>Today</b><pre>app ─▶ files-drive ─▶ googleDrive.ts ─▶ Google
+              token.ts (Google refresh)
+              handler.ts (the actions)</pre></div>
+    <div class="card"><b>Planned</b><pre>app ─▶ files-drive ─▶ provider interface
+              ├─ googleDrive.ts  (as is)
+              └─ oneDrive.ts     (Microsoft Graph)
+              token.ts   one provider-aware token cache
+              handler.ts the SAME actions</pre></div>
+  </div>
+  <h3>2.1 The provider interface (inside <code>supabase/functions/files-drive</code>)</h3>
+  <p>The handler already talks to a small object (<code>createDrive</code>). It is made explicit as <code>StorageProvider</code> and the handler asks <code>providerFor(row | project)</code> for it:</p>
+  <pre>interface StorageProvider {
+  id: 'googleDrive' | 'oneDrive';
+  authUrl(state, redirectUri): string;                 // consent
+  exchangeCode(code, redirectUri): Tokens;             // code -> refresh + access (+ account email)
+  refresh(refreshToken): Tokens;                       // OneDrive: returns a NEW refresh token every time
+  revoke(token): void;                                 // best effort
+  findOrCreateRoot(token, org): Item;                  // kit8root
+  ensureFolderChain(token, rootId, chain): Item[];     // organization/project/task/... /files
+  openUploadSession(token, folder, name, mime, size, origin): { sessionUrl, ... };
+  openUpdateSession(token, itemId, ...): { sessionUrl };       // replace = a new version
+  getItem(token, id) / listChildren(token, folderId);
+  openMedia(token, id, range): Response;               // streamed to the browser
+  moveItem(token, id, newParentId);
+  deleteItem(token, id);                               // permanent (see 3.7)
+  versions(token, id) / keepVersion(token, id, v);
+  quota(token): { used, total };                       // S8 storage line
+}</pre>
+  <p>The Google adapter is the present code moved behind the interface with NO change of behaviour (its Jest tests stay green). The OneDrive adapter is new. The handler's actions keep their names (<code>connect_start</code>, <code>status</code>, <code>upload_session</code>, <code>upload_finish</code>, <code>download_url</code>, <code>delete_file</code>, <code>cleanup</code>, <code>disconnect</code>, <code>replace_session / _finish</code>, <code>move</code>, <code>health</code> …); the body gets an optional <code>provider</code> (default: the project's, resolved by the database through <code>files_authorize</code>, which now also returns it).</p>
+  <h3>2.2 What does not change</h3>
+  <ul>
+    <li>The Files tab, the panel, the viewer route <code>/files/view</code>, the permissions <code>projectFileManager</code> / <code>projectMediaPostManager</code>, the row rules of <code>mediaPostTable</code>, the cleanup queue and its pg_cron tick, the signed download links (HMAC) and Range streaming.</li>
+    <li>Upload still goes straight from the app to the storage (resumable session); the bytes do not pass the function (fallback in 10, check 1).</li>
+  </ul>
+</section>
+
+<section id="ms">
+  <h2>3. Microsoft facts the plan relies on</h2>
+  <p class="sub">From Microsoft Learn (links in section 15). Everything marked <span class="pill ask">verify</span> is a claim I could not confirm from the documentation and is a step of the spike OD0.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>#</th><th>Topic</th><th>Fact</th></tr>
+      <tr><td>3.1</td><td>Endpoints</td><td>Microsoft identity platform v2: authorize and token at <code>https://login.microsoftonline.com/{tenant}/oauth2/v2.0/…</code>; <code>{tenant}</code> = <code>common</code> (personal + work/school), <code>organizations</code>, <code>consumers</code> or one directory id. Files API: <code>https://graph.microsoft.com/v1.0/me/drive/…</code> (OneDrive of the signed-in user).</td></tr>
+      <tr><td>3.2</td><td>Permission (scope)</td><td>Delegated <b>Files.ReadWrite</b> is the least privileged permission for upload sessions, delete and (with <b>Files.Read</b> being enough for download) works for BOTH a personal Microsoft account and a work / school account. Plus <b>offline_access</b> (to get a refresh token) and <b>User.Read</b> (the account's e-mail / name). <b>No admin consent is required</b> for Files.ReadWrite (OneDrive permission reference); only a tenant policy or the publisher rule (3.17) can still require an administrator. <b>Careful:</b> on a PERSONAL account Files.ReadWrite also grants access to files <i>shared with</i> the signed-in user – the app must never browse outside <code>kit8root</code>.</td></tr>
+      <tr><td>3.3</td><td>No "only my files" scope</td><td>Google's <code>drive.file</code> sees only the files the app made. <b>Microsoft has no equivalent for a user's drive</b>: <code>Files.ReadWrite</code> can reach the WHOLE OneDrive of that account. <code>Files.ReadWrite.AppFolder</code> limits the app to its own folder <code>Apps/&lt;app name&gt;</code> but is valid for <b>personal accounts only</b> (not OneDrive for Business / SharePoint) and is still labelled <b>preview</b> in Microsoft's reference. See section 4 for what we do about it.</td></tr>
+      <tr><td>3.4</td><td>Refresh token</td><td>Default lifetime <b>90 days</b> (24 hours only for a single-page app redirect URI – ours is a server redirect, so 90). A refresh token <b>replaces itself on every use</b>: the answer of the token endpoint carries a NEW refresh token, which must be stored (Google's does not rotate). It can be revoked at any time: the user revokes it, an admin revokes all tokens, an admin resets the password (for confidential clients too). → state <code>needsReconnect</code> exactly like Google's <code>invalid_grant</code>.</td></tr>
+      <tr><td>3.5</td><td>Upload session</td><td><code>POST /me/drive/items/{parentId}:/{name}:/createUploadSession</code> (body: <code>item.@microsoft.graph.conflictBehavior</code> fail | replace | rename, optional <code>deferCommit</code>) → <code>uploadUrl</code> (pre-authenticated). Fragments by <code>PUT</code> with <code>Content-Range</code>, in order. <b>Each fragment must be a multiple of 320 KiB (327 680 bytes)</b>, under 60 MiB; 5–10 MiB recommended. Answer <code>202</code> + <code>nextExpectedRanges</code> while more is expected, <code>200 / 201</code> + the driveItem at the end. <b>Do NOT send an Authorization header to the uploadUrl</b> (it can cause 401). <code>GET</code> on the uploadUrl = which ranges are missing (resume); <code>DELETE</code> = cancel; a session expires after inactivity (every fragment extends it); a lost session = <code>404</code> = start again. A name conflict at the end = <code>409 nameAlreadyExists</code>. Use sessions above 10 MiB (below that a plain PUT would do; we always use sessions: one code path).</td></tr>
+      <tr><td>3.6</td><td>Download</td><td><code>GET …/content</code> answers <code>302</code> to a <b>pre-authenticated, short-lived (minutes)</b> URL (= the property <code>@microsoft.graph.downloadUrl</code>); no Authorization header on it; <b><code>Range</code> works on that URL</b> (206), not on <code>/content</code>. Our function reads <code>?select=@microsoft.graph.downloadUrl</code> for EVERY view request (never cached) and streams it with the browser's <code>Range</code> – so the signed-link model of the Files tab is unchanged.</td></tr>
+      <tr><td>3.7</td><td>Delete</td><td><code>DELETE /me/drive/items/{id}</code> moves to the <b>recycle bin</b> (204), it is NOT permanent. <b>Permanent delete exists in v1.0</b>: <code>POST /drives/{driveId}/items/{itemId}/permanentDelete</code>, no body, <code>204</code>, "permanently removed, not sent to the recycle bin, cannot be restored"; permission delegated <code>Files.ReadWrite</code> for BOTH account types. (Needs the <code>driveId</code>: kept in the connection row.) <b>Spike: it deletes a FOLDER with content in one call</b> (204, then 404) on a personal account, so the OneDrive adapter needs no bottom-up order; work accounts still to be confirmed.</td></tr>
+      <tr><td>3.8</td><td>Versions</td><td>OneDrive keeps version history itself: a new upload session on an EXISTING item id makes a new version; <code>GET /items/{id}/versions</code> lists them. How many are kept: <b>work / school accounts</b> – default 500 major versions, never expiring (the organization setting for NEW libraries / OneDrive accounts; an administrator can change it). <b>Personal accounts</b> – no current figure in Microsoft's documentation (old forum answers say 25 versions or 30 days) <span class="pill ask">verify</span>. So "an old version is kept forever" can be promised for work accounts only; the Replace window says so. (Google needed <code>keepForever</code>.)</td></tr>
+      <tr><td>3.9</td><td>No custom properties</td><td>A driveItem has no free key / value bag like Google's <code>properties</code> (<code>description</code> exists for personal accounts only). The "is this file ours" mark is therefore NOT on the file: the database holds every item id and every id the function uses comes from a database row (never from the client); a check compares the item's <code>parentReference.id</code> with the folder the database recorded.</td></tr>
+      <tr><td>3.10</td><td>Names and paths</td><td><b>ID addressing is stable</b> (an item's id survives rename and move) – every stored reference is an id; a path is used only to find <code>kit8root</code> and its first folders, and each path segment is percent-encoded. <b>Reserved characters</b> in names: <code>/ \ * &lt; &gt; ? : |</code>, and for OneDrive for Business also <code>#</code> and <code>%</code>; a folder name cannot end with <code>.</code>; a business name cannot begin with <code>~</code>. Rule for the adapter: each of these (and a leading <code>~</code>, a trailing <code>.</code>) becomes <code>_</code> in the NAME on OneDrive; the real title stays in the database row. The planned paths are about 150 characters (the exact path limit per account type is not in the pages read <span class="pill ask">verify</span>).</td></tr>
+      <tr><td>3.11</td><td>Quota</td><td><code>GET /me/drive</code> → <code>quota { total, used, remaining, state }</code> (personal free tier is small, a work account usually has 1 TB). The storage line (S8) shows it and the upload refuses when <code>remaining</code> is smaller than the file.</td></tr>
+      <tr><td>3.12</td><td>Throttling</td><td>Graph answers <code>429 Too Many Requests</code> with a <code>Retry-After</code> header (seconds). Microsoft: wait exactly that long, never retry at once (every request counts against the limit), repeat until it succeeds; no header = exponential back-off; writes are throttled earlier than reads. The adapter waits <code>Retry-After</code> (bounded by the function's time budget, 3.14), then answers the app "try again"; the cleanup queue retries later. No polling loops (the health check reads folders only on request).</td></tr>
+      <tr><td>3.13</td><td>CORS of the upload URL</td><td><b>Resolved by the spike (personal account):</b> the preflight for <code>PUT</code> with <code>Content-Range</code> to <code>my.microsoftpersonalcontent.com</code> passes, the 202 answer and the final 201 driveItem are readable by the browser. A work / school account uses another upload host (SharePoint) and is still to be checked <span class="pill ask">verify (work)</span>. So the browser uploads straight to OneDrive; the fallback through the function is kept only for a work tenant that fails.</td>
+      <tr><td>3.14</td><td>Limits of the Supabase function</td><td>256 MB memory, <b>400 s</b> wall clock on paid plans (150 s free), <b>2 s CPU per request</b> (waiting for I/O is not counted), 150 s idle timeout, function size 20 MB (CLI bundle). <b>A maximum request body size is not documented</b> <span class="pill ask">verify</span>. Consequences: streaming a download is fine (the body is piped, never held); the fallback "fragment through the function" must keep fragments small (5 MiB fits the memory) and its body limit is measured in the spike; a 100 MB file through the function takes minutes, still under 400 s.</td></tr>
+      <tr><td>3.15</td><td>When the account goes away</td><td><b>Work account</b>: a deleted user's OneDrive is kept 30 days by default (an administrator can set 30–3650), then 93 days in a "deleted" state that only a global / SharePoint administrator can restore. And a NEW Microsoft rule (message MC1381110, in force from July 2026): the OneDrive of an <b>unlicensed</b> account becomes <b>read-only after 60 days</b>, is <b>archived after 93 days</b> (users cannot reach it) and may be deleted after about 365 unlicensed days; a licence or pay-as-you-go billing stops it. So a service account must keep a <b>licence</b> that includes OneDrive. A <b>personal</b> Microsoft account has none of this.</td></tr>
+      <tr><td>3.16</td><td>Client secret lifetime</td><td>The admin center allows at most <b>24 months</b>; Microsoft recommends less than 12. The plan: 12 months, the expiry date written into the status of the function (warning 30 days before) and into the connection note.</td></tr>
+      <tr><td>3.17</td><td>Publisher verification / consent in OTHER tenants</td><td>Since November 2020, where risk-based step-up consent is on, users of a tenant other than the app's home tenant cannot consent to a multi-tenant app that is NOT publisher verified and asks for more than basic sign-in (our <code>Files.ReadWrite</code> is more) – they see a warning and an administrator of that tenant must approve once. <b>Personal accounts and the owner's own tenant are not affected.</b> Verification is free but needs a verified Microsoft AI Cloud Partner Program account, an app registered with a WORK / SCHOOL account (an app registered with a personal Microsoft account cannot be verified) and a publisher domain that is not <code>*.onmicrosoft.com</code>. Plan: not needed for the first release; documented for customers' administrators.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="inv">
+  <h2>3A. Investigation log (2026-11-11)</h2>
+  <p class="sub">Every point that v1 marked "verify" or asked about, what the research found, and what is left for the spike OD0.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Point</th><th>Finding</th><th>Status</th></tr>
+      <tr><td>permanentDelete exists for both account types?</td><td>Yes: Graph v1.0, delegated Files.ReadWrite (personal and work), 204, not restorable.</td><td><span class="pill yes">resolved</span> (confirm on a real account in OD0)</td></tr>
+      <tr><td>Delete of a folder with content in one call?</td><td>Yes on a personal account: permanentDelete 204 + GET 404; plain DELETE also 204.</td><td><span class="pill yes">resolved (personal)</span></td></tr>
+      <tr><td>Admin consent for Files.ReadWrite?</td><td>Not required (OneDrive permission reference). A tenant that blocks user consent, or the unverified-publisher rule (3.17), can still need an administrator in OTHER tenants.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>AppFolder for work accounts?</td><td>No: personal only, and still "preview".</td><td><span class="pill yes">resolved</span> (decision Q3: not used)</td></tr>
+      <tr><td>Does Files.ReadWrite reach only our files?</td><td>No: the whole drive; on personal accounts also files shared with the user. Mitigation = one folder + ids from the database only.</td><td><span class="pill yes">resolved</span> (risk accepted, section 11)</td></tr>
+      <tr><td>Invalid names, path rules</td><td>Reserved characters listed (3.10); ids survive rename / move; path segments must be percent-encoded. The path limit is 400 characters of URL path (spike: failed at 375 with <code>pathIsTooLong</code>); a trailing dot and <code>?</code> are refused, <code>#</code> <code>%</code> <code>~</code> accepted on a personal account.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>Upload fragments</td><td>Confirmed: multiple of 320 KiB, under 60 MiB, 5–10 MiB recommended, no Authorization on the PUT, 202 / 200 / 201, resume by GET, 404 = start again, 409 at the end for a name conflict.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>CORS of the upload URL</td><td>Passes on a personal account: preflight OK, 202 and the final 201 + driveItem readable, 5 MiB fragments accepted, no Authorization header (a 401 if sent).</td><td><span class="pill yes">resolved (personal)</span> <span class="pill ask">work account</span></td></tr>
+      <tr><td>Download with Range</td><td>Confirmed: Range on the <code>@microsoft.graph.downloadUrl</code> (206), not on <code>/content</code>; the URL is pre-authenticated and short-lived.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>Refresh token lifetime / rotation</td><td>Confirmed: 90 days, replaced on every use, revoked by user / admin / password reset. Whether the 90 days SLIDE with use for a personal account is not stated.</td><td><span class="pill yes">resolved</span> + <span class="pill ask">spike 3</span> (sliding)</td></tr>
+      <tr><td>Revoking our token at disconnect</td><td>No per-app revoke endpoint for the v2 endpoint found. The administrator removes the app's access in the Microsoft account / My Apps page; the function forgets the token.</td><td><span class="pill yes">resolved</span> (spike 10 only confirms the screens)</td></tr>
+      <tr><td>Versions</td><td>Work accounts default 500 versions, never expire (settable); personal accounts: no current figure.</td><td><span class="pill yes">resolved</span> for work, <span class="pill ask">spike 7</span> for personal</td></tr>
+      <tr><td>Throttling</td><td>429 + <code>Retry-After</code>; wait exactly that long; no immediate retries.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>Function limits (Supabase)</td><td>256 MB, 400 s, 2 s CPU per request, 150 s idle; request body size not documented.</td><td><span class="pill yes">resolved</span> except the body size (spike 1, fallback)</td></tr>
+      <tr><td>Deleted user / unlicensed OneDrive</td><td>30 + 93 days for a deleted user; NEW rule from July 2026: unlicensed OneDrive read-only after 60 days, archived after 93. The service account needs a licence.</td><td><span class="pill yes">resolved</span> (new risk, section 11)</td></tr>
+      <tr><td>Client secret lifetime</td><td>Maximum 24 months, Microsoft recommends under 12 → 12 months with a reminder.</td><td><span class="pill yes">resolved</span></td></tr>
+      <tr><td>Publisher verification</td><td>Not needed for the first release (3.17): personal accounts and the owner's own tenant are not affected. A customer's work tenant that blocks consent shows an "unverified publisher" warning; its administrator approves the app once. Verification is free but needs a Microsoft AI Cloud Partner Program account and an app registered with a WORK account.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="diff">
+  <h2>4. Google Drive and OneDrive side by side</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>Subject</th><th>Google Drive (built)</th><th>Microsoft OneDrive (planned)</th><th>What we do</th></tr>
+      <tr><td>Scope of the permission</td><td><code>drive.file</code>: only files made by the app</td><td>Whole drive (<code>Files.ReadWrite</code>); <code>AppFolder</code> only on personal accounts</td><td>Everything lives under ONE folder <code>kit8root</code>; the function touches only ids from the database. The Connect window and the Project settings say in words: "the application is allowed to read and write the files of the connected account; it uses only the folder kit8root". <b>Recommend a dedicated account</b> (a company "files@" account) <span class="pill yes">Q3 decided</span>.</td></tr>
+      <tr><td>Where kit8root is</td><td>My Drive root</td><td>Personal: root of the OneDrive (or <code>Apps/&lt;app&gt;</code> if AppFolder is chosen); work: root of that user's OneDrive</td><td>Root folder found by path; its id stored in the connection and in <code>organization.rowJSON</code>.</td></tr>
+      <tr><td>Refresh token</td><td>Does not rotate; long-lived</td><td>Rotates on every use; 90 days; revoked by password reset</td><td>Store the new token after every refresh (atomically: single-flight, as now). A daily keep-alive tick refreshes it so an idle organization does not lose it at 90 days <span class="pill ask">verify</span>.</td></tr>
+      <tr><td>Chunk size</td><td>Multiple of 256 KiB (we use 4 MiB)</td><td>Multiple of 320 KiB (4 MiB is NOT)</td><td>One common size for both: <b>5 MiB = 5 242 880 bytes</b> (20 × 256 KiB and 16 × 320 KiB). <code>UPLOAD_CHUNK_BYTES</code> becomes 5 MiB for both providers; the Google tests are adapted.</td></tr>
+      <tr><td>Chunk answers</td><td>308, last 200 / 201</td><td>202, last 200 / 201 (+ <code>nextExpectedRanges</code>)</td><td>The app accepts 202 and 308 as "continue"; a retry asks the uploadUrl what is missing (OneDrive) before it sends again.</td></tr>
+      <tr><td>Finish</td><td>The browser may not read the last answer: the file is found by the property <code>kit8Upload</code> = <code>uploadId</code></td><td><b>The last answer IS readable</b> (spike): the final 201 carries the driveItem</td><td>The app sends the <code>itemId</code> to <code>upload_finish</code>; the function verifies <code>GET /me/drive/items/{id}</code>: <code>parentReference.id</code> = the recorded folder, <code>size</code> = the declared size. Fallback if the answer was lost: find by name + size + created time in the folder; conflicts are reported at session creation (409 <code>nameAlreadyExists</code>), so the database needs no "one open upload per name" rule.</td></tr>
+      <tr><td>Replace (S4)</td><td>Update session + <code>keepForever</code> on the old revision</td><td>Update session on the item id = new version, kept by OneDrive</td><td>Version rows (<code>files_version_history</code>) store the OneDrive version id; the list is read from OneDrive when the window opens.</td></tr>
+      <tr><td>Delete</td><td>Permanent, bottom-up</td><td>Recycle bin by default; permanent through <code>permanentDelete</code></td><td>Same rule "delete is permanent": the adapter calls <code>permanentDelete</code> (available for both account types, 3.7). If it ever answers "not supported" for an account, the window says "will go to the recycle bin of that account" before deleting <span class="pill yes">Q4 decided</span>.</td></tr>
+      <tr><td>Move (S7)</td><td><code>addParents / removeParents</code></td><td><code>PATCH item { parentReference: { id } }</code></td><td>Same action.</td></tr>
+      <tr><td>Health check (S1)</td><td>List by parent</td><td><code>GET /items/{id}/children</code> (paged: <code>@odata.nextLink</code>)</td><td>Same action; orphans can only be removed when their parent is a folder the database knows.</td></tr>
+      <tr><td>Whose storage</td><td>One Google account</td><td>One Microsoft account – and a <b>work account's OneDrive belongs to that user</b>: after the user is deleted it is kept 30 days (+ 93 days restorable by an administrator only), and an <b>unlicensed</b> OneDrive turns read-only after 60 days (3.15)</td><td>Strong warning in the Connect window; the service account must be a <b>licensed</b> user that is never deleted; a later phase can use a SharePoint document library (OD8).</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="conn">
+  <h2>5. Connection and "Sign in with Microsoft"</h2>
+  <h3>5.1 Two different flows</h3>
+  <ul>
+    <li><b>Sign in of users</b> (Supabase Auth with the Azure / Microsoft provider, or another way): proves WHO a person is. It gives the app no durable access to anyone's OneDrive, and a user who signs in with Microsoft does <b>not</b> thereby connect a storage.</li>
+    <li><b>Storage connection</b> (this plan): the administrator presses "Connect Microsoft OneDrive" in Project settings → Files, is sent to the consent page, comes back to <code>/user/files?filesConnect=ok</code> (the route built for Google), the function stores the encrypted refresh token. Exactly the Google flow; only the endpoints and the scope differ.</li>
+  </ul>
+  <h3>5.2 What I need from the Entra app registration <span class="pill yes">Q5 decided</span></h3>
+  <table class="mini">
+    <tr><th>Item</th><th>Value / rule</th></tr>
+    <tr><td>Supported account types</td><td><b>Decided (Q7): "Accounts in any organizational directory and personal Microsoft accounts"</b> (tenant <code>common</code>). If the existing registration is single-tenant or work-only, change it on the registration's Authentication page (or make a second registration for files).</td></tr>
+    <tr><td>Platform / redirect URI</td><td>Type <b>Web</b> (NOT "Single-page application": its refresh tokens live 24 hours). Redirect URI = the URL of the function (<code>https://&lt;project&gt;.supabase.co/functions/v1/files-drive</code>), the same one the Google flow uses. The registration used for sign-in can be the SAME one: add this second redirect URI.</td></tr>
+    <tr><td>API permissions (delegated)</td><td>Microsoft Graph: <code>Files.ReadWrite</code>, <code>offline_access</code>, <code>User.Read</code> (<code>openid</code>, <code>profile</code>, <code>email</code> come with sign-in).</td></tr>
+    <tr><td>Client secret</td><td>A secret value (shown once). <b>Choose 12 months</b> (the maximum is 24; Microsoft recommends under 12). You give me only the EXPIRY DATE; the function keeps it as the secret <code>MICROSOFT_CLIENT_SECRET_EXPIRES</code> and the administrator's status warns 30 days before. A certificate is the alternative (not planned).</td></tr>
+    <tr><td>Publisher verification</td><td>A multi-tenant app that is not "publisher verified" shows an "unverified" warning, and some tenants block user consent for unverified apps – then a tenant administrator must approve it once (admin consent URL). Not needed while only the owner's own tenant / personal account is used.</td></tr>
+    <tr><td>Secrets of the function</td><td><code>MICROSOFT_CLIENT_ID</code>, <code>MICROSOFT_CLIENT_SECRET</code>, <code>MICROSOFT_TENANT</code> (default <code>common</code>). The existing <code>FILES_TOKEN_KEY</code>, <code>FILES_URL_SECRET</code>, <code>FILES_APP_RETURN_URL</code> are reused. I never edit <code>.env</code>; the commands are given to you as <code>supabase secrets set</code> blocks.</td></tr>
+  </table>
+  <h3>5.3 The state machine</h3>
+  <p>Per organization and per provider: <code>notConnected → ok → needsReconnect → ok …</code> (the same three states, same banner words with the provider's name). The organization may have BOTH connected at the same time; each project uses the one it chose.</p>
+</section>
+
+<section id="map">
+  <h2>6. Operation by operation (the function actions)</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>Action</th><th>Google (now)</th><th>OneDrive (planned)</th></tr>
+      <tr><td><code>connect_start</code></td><td>auth URL with <code>drive.file</code>, <code>access_type=offline</code>, <code>prompt=consent</code></td><td><code>…/oauth2/v2.0/authorize?client_id&amp;response_type=code&amp;redirect_uri&amp;scope=offline_access Files.ReadWrite User.Read&amp;state</code> (<code>prompt=select_account</code> so the administrator picks the storage account); the same HMAC <code>state</code>.</td></tr>
+      <tr><td>callback (GET with <code>state</code>)</td><td>code → tokens, e-mail from <code>about</code></td><td>code → tokens at the v2 token endpoint; e-mail / name from <code>GET /me</code>; create / find <code>kit8root</code>; <b>save the refresh token that came with the code</b>.</td></tr>
+      <tr><td>token refresh</td><td>refresh → access (1 h)</td><td>refresh → access + <b>new refresh token (saved at once)</b>; <code>invalid_grant</code> / <code>interaction_required</code> → <code>needsReconnect</code>.</td></tr>
+      <tr><td><code>status</code></td><td>state, e-mail, root url, cleanup counts</td><td>the same fields for the provider asked (+ <code>providerConfigured</code>, secret expiry).</td></tr>
+      <tr><td><code>upload_session</code></td><td>resumable session on the folder</td><td><code>createUploadSession</code> in the folder (id from <code>files_folder_table</code>), <code>conflictBehavior=fail</code>; returns the <code>uploadUrl</code>; the storage pre-check uses <code>quota.remaining</code>.</td></tr>
+      <tr><td><code>upload_finish</code></td><td>find by property <code>uploadId</code></td><td>verify by item id (if the browser read the answer) or by name + size + time (see section 4).</td></tr>
+      <tr><td><code>download_url</code> + GET <code>sig</code></td><td>signed link → Drive <code>alt=media</code> with Range</td><td>the same signed link → <code>?select=@microsoft.graph.downloadUrl</code> → stream with Range (206). Content type from the row (OneDrive may answer <code>application/octet-stream</code>); <code>Content-Disposition: inline</code> as now.</td></tr>
+      <tr><td><code>delete_file</code> / <code>cleanup</code></td><td>delete file; queue; bottom-up</td><td>permanentDelete (or delete + empty), 404 = done; folders bottom-up; <code>Retry-After</code> respected.</td></tr>
+      <tr><td><code>disconnect</code></td><td>revoke at Google, forget token</td><td>no per-app token-revoke endpoint was found for the v2 endpoint: the function forgets the token, and the window tells the administrator to remove the app's access in the Microsoft account's app permissions page (personal) / My Apps (work) – the screens are confirmed in the spike.</td></tr>
+      <tr><td><code>replace_*</code>, <code>move</code>, <code>health*</code>, storage</td><td>as built</td><td>update session on the item id; PATCH parent; children listing; <code>quota</code> (section 3).</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="data">
+  <h2>7. Data and SQL (a new PART 50, written when the spike is green)</h2>
+  <p class="sub">Rule of the owner (2026-11-02): new tables are snake_case <code>files_…</code>; old tables are not renamed. Nothing below changes a Google row.</p>
+  <ul>
+    <li><b>mediaPost file row</b> (<code>mediaPostTable.rowJSON</code>): new key <code>fileStorageProvider</code> (<code>googleDrive</code> | <code>oneDrive</code>; a missing value = <code>googleDrive</code>); <code>mediaPostOriginType</code> may be <code>oneDrive</code>; the OneDrive ids are <code>oneDriveItemId</code>, <code>oneDriveFolderId</code>, <code>oneDriveRelativePath</code>, <code>oneDriveWebUrl</code> (the Google rows keep <code>googleDrive…</code>). The helper <code>fileItemIdOf(row)</code> hides the difference from the app and the function.</li>
+    <li><b>Connection</b>: a NEW table <code>files_onedrive_connection_table</code> (same shape as <code>files_google_connection_table</code>: RLS on, NO client policy, NO grant; the encrypted refresh token, account, tenant, <code>driveId</code>, state, <code>lastRefreshAt</code>, <code>lastError</code>, root folder id). <span class="pill yes">Q6 decided</span> alternative: one table with a <code>provider</code> key – more elegant, but it touches the deployed Google table.</li>
+    <li><b>Folders</b> (<code>files_folder_table</code>) and the <b>cleanup queue</b> (<code>files_drive_cleanup_table</code>): the key <code>provider</code> is added to <code>rowJSON</code> (a missing value = <code>googleDrive</code>); the unique index of the folder table gets the provider in its expression, so one scope can have a folder on each storage. <code>driveItemId</code> / <code>driveFolderId</code> keep their names (they are neutral).</li>
+    <li><b>Upload pending</b> (<code>files_upload_pending_table</code>): <code>provider</code> + the folder id + name for the "one open upload per folder and name" rule of the finish step.</li>
+    <li><b>Organization row</b> keys, next to the <code>organizationGoogleDrive…</code> ones: <code>organizationOneDriveState</code>, <code>…AccountEmail</code>, <code>…RootFolderUrl</code>, <code>…LastRefreshAt</code>, <code>…RootFolderId</code>.</li>
+    <li><b>Functions</b> (start2, PART 50, same names, REPLACED copies where a function exists): <code>files_authorize</code> returns the provider of the scope (project setting → organization default); <code>files_add / _update / _move / _replace</code> accept and keep <code>fileStorageProvider</code>; <code>files_org_facts</code> / <code>files_connection_status</code> take a provider; <code>files_folder_get / _set</code>, <code>files_cleanup_*</code>, <code>files_upload_pending_*</code> carry it; <code>files_health_rows</code> lists files per provider; a trigger refuses a change of <code>fileStorageProvider</code> of an existing file row (a file does not change storage by an update).</li>
+    <li><b>Seeds / permissions</b>: the permission matrix needs the new table (<code>permission_matrix.py</code> → the seed is regenerated: the count of tables goes up by one; the two Jest / Docker tests that count tables are updated in the same round). No new profile.</li>
+    <li><b>start3</b> (pg_cron): one more job <code>files_provider_keepalive</code> (daily) that asks the function to refresh the OneDrive token (section 4) – only when the OneDrive table has a row.</li>
+    <li><b>delete_sql_structure.sql</b>: drops the new table, the new job and the new functions.</li>
+  </ul>
+  <div class="note good">The Docker tests <code>55 / 56 / 57</code> stay as they are (Google); a new <code>58_files_onedrive.sql</code> repeats the provider-neutral checks for a OneDrive project (rows, folders, cleanup, permissions, the provider trigger).</div>
+</section>
+
+<section id="ui">
+  <h2>8. User interface</h2>
+  <ol class="steps">
+    <li><b>Project settings → Files</b>: switch <code>filesFunctionalityEnabled</code> · radio set <code>projectFilesStorageProvider</code> (1. Google Drive, 2. Microsoft OneDrive; disabled while the switch is off; an unavailable provider is disabled with its hint) · the connection block of the chosen provider · buttons "Project files" / "Organization files" (already built).</li>
+    <li><b>Connection block</b> (<code>FilesProviderBlock</code>): title with the provider's name, state line, account, root folder link, Connect / Reconnect with another account / Disconnect, storage used, Check files, the one-line state of the other provider. For OneDrive the block also shows the secret expiry warning (administrator only) and the sentence about the whole-drive permission (section 4).</li>
+    <li><b>Files tab</b> (task / project / organization): unchanged; the Add / Replace / Move / Delete texts say "the storage"; a small badge on a row only while the project holds files of both storages; View always opens the viewer route.</li>
+    <li><b>Texts</b> (<code>pmT</code>, English first, other languages fall back): "Google Drive", "Microsoft OneDrive", "Files storage", "Connect Microsoft OneDrive", "Reconnect Microsoft OneDrive", "N files stay in {{provider}}. New files will be stored in {{newProvider}}.", "not configured on this server".</li>
+    <li><b>Drive state of an unconnected project provider</b>: the present words ("Connect … to add files" / "ask the administrator"), with the provider's name.</li>
+  </ol>
+</section>
+
+<section id="wbs">
+  <h2>9. Work breakdown structure</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>ID</th><th>Task</th><th>Result / done when</th></tr>
+      <tr><td>OD0</td><td>Spike on a real Microsoft account (section 10) – <b>RUN 2026-11-11 on a personal account: all design checks passed</b></td><td>Each check passes or has a decided fallback; the facts are written into section 3 and a result page like <code>GOOGLE_DRIVE_HOW_IT_WORKS.html</code> (<code>documentation/OneDrive/ONEDRIVE_HOW_IT_WORKS.html</code>).</td></tr>
+      <tr><td>OD1</td><td>Provider interface; the Google code moved behind it; one chunk size (5 MiB) – <b>DONE 2026-11-11</b> (<code>provider.ts</code>, <code>googleProvider.ts</code>, handler / token use only the interface, rotating-refresh-token hook <code>saveRefreshToken</code>, <code>UPLOAD_CHUNK_BYTES</code> = 5 MiB; function redeployed)</td><td>All existing files tests green (they run unchanged through the adapter); new <code>storageProvider.test.ts</code>; no behaviour change.</td></tr>
+      <tr><td>OD2</td><td><code>oneDrive.ts</code> + provider-aware <code>token.ts</code> (rotating refresh token, single-flight, keep-alive) – <b>DONE 2026-11-11</b> (<code>oneDriveProvider.ts</code>, rotation hook in <code>token.ts</code>, in-memory Graph <code>filesGraphTestKit.ts</code>, <code>oneDriveProvider.test.ts</code>)</td><td>Jest with an in-memory Graph double (like <code>filesDriveTestKit.ts</code>): connect, refresh with rotation, upload (two chunks), finish, download with Range, replace, move, delete, health, quota, 429, <code>needsReconnect</code>.</td></tr>
+      <tr><td>OD3</td><td>Handler: provider resolved per request; <code>connect_start</code> / callback for Microsoft; the finish rule without properties – <b>DONE 2026-11-11</b> (per-request storage, Microsoft connect, finish by item id, <code>prov</code>/<code>ct</code> in the signed link, <code>filesOneDriveFunction.test.ts</code>)</td><td>The same action tests run for both providers (a table-driven suite).</td></tr>
+      <tr><td>OD4</td><td>SQL PART 50 (start1 / start2 / start3 / start4-5 permissions / delete), Docker test 58, Jest SQL scans – <b>DONE 2026-11-11</b> – built inside PART 49 as <b>slice 4</b> (not a new PART 50: one feature, one part): <code>files_onedrive_connection_table</code>, <code>files_provider_of_scope</code>, Docker <code>tests/58</code> (49 checks), permission matrix 142 tables</td><td><code>./test_sql.sh</code> ALL OK; tests 49 / 53 / 54 / 55 / 56 / 57 / 58 pass.</td></tr>
+      <tr><td>OD5</td><td>App: <code>filesProviderOfProject</code>, radio in <code>PMProjectFilesTab</code> + Organization defaults, <code>FilesProviderBlock</code>, provider badge, change-of-provider window, 5 MiB chunk, 202 handling – <b>DONE 2026-11-11</b> (<code>FilesStorageProviderRadio</code>, <code>FilesDriveBlock provider</code>, question on change, item id of the last answer, <code>filesStorageProviderUi.test.tsx</code>)</td><td>Jest UI tests: radio disabled while the switch is off; the choice is saved; the change window; each provider's block.</td></tr>
+      <tr><td>OD6</td><td>Docs: <code>kit8/files/README.md</code>, the function README, KNOW_HOW (feature row + PART 50), this page → status – <b>DONE 2026-11-11</b> (READMEs, KNOW_HOW, this page)</td><td>Written in the same round as the code.</td></tr>
+      <tr><td>OD7</td><td>Live test with the owner's Microsoft account(s): connect, upload 1 KB and 50 MB, view image / pdf / text / video, replace, move, delete, disconnect / reconnect, secret and consent edge cases</td><td>A written result like the Google one.</td></tr>
+      <tr><td>OD8 (later)</td><td>SharePoint document library as the storage of a work organization (application permission <code>Sites.Selected</code>, no personal OneDrive)</td><td>Own plan; only if Q3 shows the need.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="spike">
+  <h2>10. Spike OD0 – what is checked (no product code) – RUN 2026-11-11, results in <code>documentation/OneDrive/ONEDRIVE_HOW_IT_WORKS.html</code></h2>
+  <div class="note good"><b>Run on a personal account:</b> checks 1, 2, 4 (personal), 5 (file and folder permanentDelete), 6, 7, 8, 9 are done; 3 only partly (SPA flow); 10 (disconnect screens), 11 (shared files) are manual; everything for a work / school account, the 90-day sliding token and the 100 MB stream through the function are still open (OD7).</div>
+  <p>A script and a small HTML page like <code>documentation/Goolge/f0/</code>, run with your Microsoft account in the browser (you sign in and consent; I never type passwords). Tokens are never written to a file and are revoked at the end.</p>
+  <ol class="steps">
+    <li><b>CORS of the upload URL</b> (decides the design): create a session, <code>PUT</code> a fragment from a page served at <code>http://localhost:8088</code> with <code>Content-Range</code>; does the preflight pass? Can the browser read the answer (202 / 201 body)? <i>Fallback if not</i>: the app sends each fragment to the function and the function forwards it – then MEASURE the function's request body limit (not documented) with 1, 5, 10 and 20 MiB; if 5 MiB is refused a smaller common chunk is needed for both providers (the common multiple of 256 KiB and 320 KiB is 1280 KiB, e.g. 2.5 MiB).</li>
+    <li>Fragment rules: 5 MiB fragments, last fragment shorter, wrong order refused, resume with <code>GET</code> on the uploadUrl, the effect of an <code>Authorization</code> header on the PUT.</li>
+    <li>Refresh token rotation: use it twice; does the old one still work for a while? Is the 90 days window sliding (use after 1 day → new 90 days)? Personal vs work account.</li>
+    <li>Scopes: does <code>Files.ReadWrite</code> consent work for a personal account and for a work account without an administrator? What does the tenant's "user consent" policy do for an unverified multi-tenant app?</li>
+    <li>Delete: <code>permanentDelete</code> of a file on a personal and on a work account (documented: 204; confirm the recycle bin stays empty); of a FOLDER with content (one call or bottom-up?); plain <code>DELETE</code> for comparison.</li>
+    <li>Download: <code>@microsoft.graph.downloadUrl</code> lifetime, Range 206, content type of an image / pdf / md as returned, streaming 100 MB through the function (memory, time limit – the same F0b item 2 as Google).</li>
+    <li>Versions: update session on an item id → <code>/versions</code> list; the number kept on a PERSONAL account (work: 500 by default, 3.8).</li>
+    <li>Names: a file name with spaces, accents, <code>#</code>, <code>%</code>, a leading <code>~</code>, 120 characters; a path of 150 and of 400 characters (find the limit); the <code>conflictBehavior=fail</code> answer; the sanitising rule of 3.10.</li>
+    <li>Quota answer on both account types; <code>429</code> behaviour is read from the documentation only (not provoked).</li>
+    <li>Disconnect: how the administrator removes the app's access (personal, work); what the old refresh token does afterwards.</li>
+    <li>Sharing: with a personal account, confirm that the app never lists anything outside <code>kit8root</code> (a test file shared WITH the account must not appear in any function answer).</li>
+  </ol>
+</section>
+
+<section id="risk">
+  <h2>11. Risks and how the plan answers them</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>Risk</th><th>Answer</th></tr>
+      <tr><td>The app can reach a whole OneDrive (no <code>drive.file</code> equivalent)</td><td>One folder <code>kit8root</code>, ids only from the database, the words in the Connect window, a recommended dedicated account; AppFolder as an option for personal accounts <span class="pill yes">Q3 decided</span>; SharePoint library with <code>Sites.Selected</code> as the later, stricter way (OD8).</td></tr>
+      <tr><td>Refresh token lost (90 days idle, password reset, revoke)</td><td>Keep-alive tick; <code>needsReconnect</code> banner; the files are not lost (they are in the account).</td></tr>
+      <tr><td>Client secret expires</td><td>Expiry date in a secret-side note; status warning 30 days before; the command to replace it is in the banner text.</td></tr>
+      <tr><td>The work account of the administrator is deleted / the person leaves</td><td>Dedicated licensed account (3.15); the Connect window warns; "Check files" shows missing files.</td></tr>
+      <tr><td>The service account loses its OneDrive licence</td><td>New Microsoft rule: read-only after 60 days, archived after 93. The status line reads the drive state (<code>quota.state</code>) and shows "OneDrive is read-only / over quota" at once; the Connect window names the licence need.</td></tr>
+      <tr><td>A customer's tenant refuses the unverified app</td><td>Its administrator approves once (3.17); publisher verification is the later, free fix.</td></tr>
+      <tr><td>Personal account: files shared WITH the account are reachable by the permission</td><td>The function uses only ids from the database and paths under <code>kit8root</code>; spike check 11 proves nothing else is returned.</td></tr>
+      <tr><td>Browser cannot PUT to the upload URL (CORS)</td><td>Check 1 of the spike; fallback through the function.</td></tr>
+      <tr><td>No custom properties = a weaker "is this ours" mark</td><td>Parent id check against the database; one open upload per folder + name; no id from the client.</td></tr>
+      <tr><td>Two storages in one project confuse users</td><td>Badge only while both exist; the change window says what stays; no silent move.</td></tr>
+      <tr><td>Throttling (429)</td><td><code>Retry-After</code>, a bounded wait, then "try again" – and the cleanup queue retries later.</td></tr>
+      <tr><td>More code to keep</td><td>One interface, one table-driven test suite for both providers.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="accept">
+  <h2>12. Acceptance criteria</h2>
+  <ol class="steps">
+    <li>Project settings → Files shows the radio <b>1. Google Drive / 2. Microsoft OneDrive</b>; it is disabled while <code>filesFunctionalityEnabled</code> is off and enabled when it is on; a project saved before this feature shows Google Drive selected.</li>
+    <li>With OneDrive chosen and connected, <b>Add file</b> stores the file in <code>kit8root/…/files</code> of the connected Microsoft account; View shows image / pdf / text / audio / video in the browser (never a download); Download is a button.</li>
+    <li>Replace makes a new OneDrive version; Versions lists them; Move changes the folder; Delete removes the file permanently (or says before that it cannot).</li>
+    <li>A project on Google and a project on OneDrive work side by side in one organization; after a provider change the OLD files still open, replace and delete with THEIR provider.</li>
+    <li>Disconnect then Connect again works and ends on "Microsoft OneDrive is connected"; a revoked token shows "Reconnect Microsoft OneDrive" and nothing else breaks.</li>
+    <li>Every existing Google test passes unchanged except the chunk size; the new OneDrive suite and Docker test 58 pass; KNOW_HOW and the READMEs are updated in the same round.</li>
+  </ol>
+</section>
+
+<section id="first">
+  <h2>13. What I would build first</h2>
+  <p>The decisions are in (section 14). OD0 (the spike) needs the Microsoft account and ONE consent click from you, like the Google test, plus from the Entra registration: the client id, the supported account types (must be "any directory + personal") and the client secret expiry date (never the secret itself). If check 1 (CORS) fails, the design of upload changes (fallback), so nothing else is built before it. OD1 (the interface + the 5 MiB chunk) is safe to do at any time because it changes no behaviour.</p>
+</section>
+
+<section id="questions">
+  <h2 id="open-q">14. Decisions of the owner (2026-11-11: "Questions are OK")</h2>
+  <p class="sub">The owner accepted every recommended answer. They are now rules of the plan.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>#</th><th>Question</th><th>Decision</th></tr>
+      <tr><td>Q1</td><td>When a project changes its storage, are the OLD files moved?</td><td><b>No.</b> They stay (every row knows its storage). A "Move all files to the other storage" tool is a later, separate task.</td></tr>
+      <tr><td>Q2</td><td>Which storage do the organization files and the document files use (they have no project)?</td><td>The <b>organization default</b> of the same key (Organization edit → Projects → Settings → Files). A project's setting never changes them.</td></tr>
+      <tr><td>Q3</td><td>Permission level for Microsoft</td><td><code>Files.ReadWrite</code> for both account types, one code path; everything under <code>kit8root</code>; a dedicated LICENSED account recommended in the Connect window. AppFolder is NOT used (personal only, preview).</td></tr>
+      <tr><td>Q4</td><td>"Delete is permanent" also on OneDrive?</td><td>Yes, through <code>permanentDelete</code> (confirmed in the documentation for both account types).</td></tr>
+      <tr><td>Q5</td><td>One Entra app registration for sign-in AND files, or two?</td><td>One (audience <code>common</code>, type Web, two redirect URIs, delegated <code>Files.ReadWrite</code>, <code>offline_access</code>, <code>User.Read</code>). Needed from you before OD0: the client id, the account-types setting, the secret EXPIRY DATE (never the secret).</td></tr>
+      <tr><td>Q6</td><td>New connection table or a <code>provider</code> key?</td><td>The new table <code>files_onedrive_connection_table</code> (the deployed Google table stays untouched).</td></tr>
+      <tr><td>Q7</td><td>Which Microsoft accounts must work?</td><td>Both personal and work / school (<code>common</code>). A work tenant that blocks user consent needs its administrator once.</td></tr>
+      <tr><td>Q8</td><td>The 100 MB upload limit?</td><td>The same 100 MB for both providers.</td></tr>
+      <tr><td>Q9</td><td>Radio for the organization default AND for the project?</td><td>Both: the project radio is the real setting, the organization default only seeds new projects and decides Q2.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="src">
+  <h2>15. Sources (Microsoft Learn, read 2026-11-11)</h2>
+  <ul>
+    <li><a href="https://learn.microsoft.com/en-us/graph/api/driveitem-createuploadsession?view=graph-rest-1.0">driveItem: createUploadSession</a> – sessions, 320 KiB multiples, 60 MiB, no Authorization on the PUT, resume, 202 / 201 / 409, deferCommit.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/api/driveitem-get-content?view=graph-rest-1.0">Download driveItem content</a> – the 302, <code>@microsoft.graph.downloadUrl</code>, Range on the download URL, JavaScript apps.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/api/driveitem-delete?view=graph-rest-1.0">Delete a file or folder</a> – recycle bin, permissions.</li>
+    <li><a href="https://learn.microsoft.com/en-us/entra/identity-platform/refresh-tokens">Refresh tokens in the Microsoft identity platform</a> – 90 days, 24 hours for single-page apps, replacement on every use, revocation table.</li>
+    <li><a href="https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/permissions_reference">OneDrive permissions reference</a> and <a href="https://learn.microsoft.com/en-us/graph/onedrive-sharepoint-appfolder">App folder</a> – <code>Files.ReadWrite.AppFolder</code> is for personal accounts.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/api/driveitem-permanentdelete?view=graph-rest-1.0">Permanently delete a file or folder</a> – 204, not restorable, delegated Files.ReadWrite for both account types.</li>
+    <li><a href="https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/permissions_reference">Understanding OneDrive API permission scopes</a> – no admin consent for Files.ReadWrite; personal accounts also reach shared files; AppFolder personal only (preview); Sites permissions work accounts only.</li>
+    <li><a href="https://learn.microsoft.com/en-us/onedrive/developer/rest-api/concepts/addressing-driveitems">How to address resources</a> – id vs path addressing, reserved characters, percent encoding.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/throttling">Microsoft Graph throttling guidance</a> – 429, Retry-After, best practices.</li>
+    <li><a href="https://learn.microsoft.com/en-us/graph/sdks/large-file-upload">Upload large files using the Microsoft Graph SDKs</a> and <a href="https://github.com/microsoftgraph/msgraph-sdk-javascript/blob/dev/docs/tasks/LargeFileUploadTask.md">JavaScript large file upload task</a> – slice size rules, Blob / ArrayBuffer support.</li>
+    <li><a href="https://learn.microsoft.com/en-us/entra/identity-platform/publisher-verification-overview">Publisher verification overview</a> – unverified multi-tenant apps, requirements.</li>
+    <li><a href="https://learn.microsoft.com/en-us/SharePoint/document-library-version-history-limits">Version history limits</a> – 500 major versions by default for work accounts.</li>
+    <li><a href="https://mc.merill.net/message/MC1381110">MC1381110 – retention enforcement for unlicensed OneDrive accounts</a> (read-only after 60 days, archived after 93) and Microsoft's default retention of a deleted user's OneDrive (30 days + 93 days).</li>
+    <li><a href="https://supabase.com/docs/guides/functions/limits">Supabase Edge Functions limits</a> – memory, wall clock, CPU, idle timeout.</li>
+    <li>The Google facts and the live test: <code>documentation/Goolge/GOOGLE_DRIVE_HOW_IT_WORKS.html</code>; the plan this one extends: <code>documentation/FILE_ATTACHMENT_WBS.html</code>.</li>
+  </ul>
+</section>
+
+</main>
+</body>
+</html>

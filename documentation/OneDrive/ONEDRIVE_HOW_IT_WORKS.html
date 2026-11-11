@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>OneDrive - how it works (spike OD0 results)</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 840px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+  .note.good { border-color: var(--emerald); background: var(--emerald-soft); }
+  pre { background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px; overflow-x: auto; font: 13px/1.5 var(--mono); }
+  table.mini td:first-child { white-space: nowrap; font-weight: 600; }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 760px) { .two { grid-template-columns: 1fr; } }
+  table.mini td:first-child { white-space: nowrap; font-weight: 600; }
+</style></head><body>
+<header class="top"><div class="top-inner"><div class="brand">OneDrive how it works</div></div></header>
+<main>
+<section><h1>OneDrive spike OD0 – results (2026-11-11)</h1>
+<p class="lead">The checks of <code>documentation/FILE_WITH_OneDrive_WBS.html</code> section 10, run from a Chrome tab on <code>http://localhost:8765</code> with the owner's <b>personal Microsoft account</b> (free 5 GB tier), the Entra registration <i>UNIVERSAL1 Supabase login</i> (client id <code>85535755-…</code>), sign-in by authorization code + PKCE, scope <code>offline_access Files.ReadWrite User.Read</code>. Page: <code>documentation/OneDrive/f0/onedrive_spike.html</code>. No token and no download link was written to any file; the test folder was deleted at the end.</p>
+<div class="note good"><b>Verdict.</b> The planned design works on a personal account: the browser uploads straight to OneDrive (CORS passes, the last answer is readable), the item id comes back at the end, a folder is permanently deleted in ONE call, Range download and versions work. Open: a WORK / SCHOOL account (not tested – it needs one), the 90-day / sliding refresh token (needs the Web registration with the function), 100 MB through the function, the two manual checks (disconnect screens, files shared with the account).</div>
+</section>
+<section><h2>1. Results</h2>
+<div class="card scroll"><table><tr><th>#</th><th>Check</th><th>Result</th><th>What happened</th></tr>
+<tr><td>1a</td><td>createUploadSession from the browser</td><td><span class="pill yes">PASS</span></td><td>Graph answers CORS: <code>POST …/createUploadSession</code> with the bearer token works from <code>http://localhost:8765</code>; returns <code>uploadUrl</code> on host <code>my.microsoftpersonalcontent.com</code>.</td></tr>
+<tr><td>1b</td><td>PUT fragment 1 (5 MiB, Content-Range, NO Authorization)</td><td><span class="pill yes">PASS</span></td><td><b>The preflight passes and the answer is readable</b>: HTTP 202 + <code>nextExpectedRanges: ["5242880-6291455"]</code>.</td></tr>
+<tr><td>1c</td><td>PUT last fragment</td><td><span class="pill yes">PASS</span></td><td>HTTP 201 and the <b>whole driveItem is readable</b>: <code>id</code>, <code>size</code>, <code>parentReference.id</code>, <code>name</code> (plus a pre-authenticated <code>@content.downloadUrl</code> – never log or store it). So the app can send the item id to <code>upload_finish</code>.</td></tr>
+<tr><td>2a</td><td>Fragment 2 sent first (out of order)</td><td><span class="pill yes">PASS (refused)</span></td><td>HTTP 416 <code>invalidRange</code>.</td></tr>
+<tr><td>2b</td><td>Resume</td><td><span class="pill yes">PASS</span></td><td>After fragment 1 (3 276 800 bytes = 10 × 320 KiB): <code>GET</code> on the uploadUrl → <code>nextExpectedRanges: ["3276800-6291455"]</code>; the rest then → 201.</td></tr>
+<tr><td>2c</td><td>Authorization header on the uploadUrl</td><td><span class="pill ask">info</span></td><td>HTTP 401 <code>unauthenticated</code> – confirmed: never send it.</td></tr>
+<tr><td>2d</td><td>4 MiB fragments (NOT a multiple of 320 KiB)</td><td><span class="pill ask">info</span></td><td>Worked on this personal account (202, then 201) – but the documentation warns that it can fail on commit; the plan keeps the 5 MiB common chunk (multiple of 320 KiB).</td></tr>
+<tr><td>3</td><td>Refresh token rotation (SPA flow)</td><td><span class="pill ask">info</span></td><td>Use 1 → 200 and a NEW refresh token (different string); the OLD token used again → still 200; the NEW token → 200. Access token 3599 s. (A single-page registration issues a 24-hour token, so the 90-day window and the sliding rule are NOT measured here.)</td></tr>
+<tr><td>4</td><td>Account and consent</td><td><span class="pill yes">PASS</span></td><td>Drive type <code>personal</code> (host <code>my.microsoftpersonalcontent.com</code>); granted scope <code>Files.ReadWrite User.Read</code>, refresh token issued with <code>offline_access</code>. The consent page said the app can open and edit OneDrive files <b>"including files shared with you"</b> and showed "unverified".</td></tr>
+<tr><td>5a</td><td>permanentDelete of a FOLDER WITH content (one call)</td><td><span class="pill yes">PASS</span></td><td>204, and a GET afterwards = 404. <b>No bottom-up delete is needed on OneDrive.</b></td></tr>
+<tr><td>5b</td><td>Plain DELETE of a folder with content</td><td><span class="pill yes">PASS</span></td><td>204, GET afterwards 404 (goes to the recycle bin).</td></tr>
+<tr><td>5c</td><td>permanentDelete of a file</td><td><span class="pill yes">PASS</span></td><td>204.</td></tr>
+<tr><td>6a</td><td>downloadUrl with Range from the browser</td><td><span class="pill yes">PASS</span></td><td>HTTP 206, 100 bytes. (<code>Content-Range</code> is not readable by the browser – not exposed – the function does not need it.)</td></tr>
+<tr><td>6b</td><td>downloadUrl whole file</td><td><span class="pill yes">PASS</span></td><td>HTTP 200, 6 291 456 bytes; the content type was <code>application/octet-stream</code> (our function sets the type from the database row).</td></tr>
+<tr><td>6c</td><td>/content with Authorization from the browser</td><td><span class="pill ask">info</span></td><td>HTTP 200 after a redirect – it worked here; the documentation says not to rely on it. The function uses <code>@microsoft.graph.downloadUrl</code>.</td></tr>
+<tr><td>7</td><td>Update session on an item id = a new version</td><td><span class="pill yes">PASS</span></td><td>Versions list afterwards: <code>2.0</code> (1 MiB) and <code>1.0</code> (6 MiB). Personal account keeps at least these two.</td></tr>
+<tr><td>8a</td><td>File names</td><td><span class="pill ask">info</span></td><td>Accepted (201): spaces + <code>ü é</code>; <code>a#b%c.txt</code>; <code>~lead.txt</code>; a 120-character name. Refused (400 <code>invalidRequest</code>): a trailing dot (<code>trail.</code>) and <code>?</code>. (<code>#</code>, <code>%</code>, leading <code>~</code> are refused only on OneDrive for Business – not tested here.)</td></tr>
+<tr><td>8b</td><td>conflictBehavior = fail on an existing name</td><td><span class="pill ask">info</span></td><td>HTTP 409 <code>nameAlreadyExists</code> already when the session is CREATED (not at the end).</td></tr>
+<tr><td>8c</td><td>Path length</td><td><span class="pill yes">PASS (limit found)</span></td><td>Nested 38-character folders: the 9th failed at a path of 375 characters with <code>pathIsTooLong</code> – <b>"The URL path for all files and folders must be 400 characters or less"</b> (the URL path includes the encoded characters). Our planned paths (~150) are far below.</td></tr>
+<tr><td>9</td><td>Quota</td><td><span class="pill yes">PASS</span></td><td><code>total</code> 5 368 709 120 (5 GB free tier), <code>used</code> 1 151 898, <code>state: normal</code>.</td></tr>
+<tr><td>99</td><td>Cleanup</td><td><span class="pill yes">PASS</span></td><td>permanentDelete of the whole test folder: 204 / GET 404. Nothing was left in the OneDrive.</td></tr>
+</table></div></section>
+<section><h2>2. What changes in the plan</h2>
+<ul>
+<li><b>Check 1 decided the upload design</b>: browser → OneDrive directly (no fallback through the function). Chunk = 5 MiB (a multiple of 320 KiB); 202 and 308 both mean "send the next fragment"; resume with <code>GET</code> on the uploadUrl.</li>
+<li><b>Finish without custom properties is simple</b>: the last answer is readable, so the app sends the <code>itemId</code> to <code>upload_finish</code>; the function reads the item (<code>GET /me/drive/items/{id}</code>), checks that its <code>parentReference.id</code> is the folder it recorded and that <code>size</code> equals the declared size, and registers it. The "find by name + size + time" rule stays only as a fallback when the browser lost the answer.</li>
+<li><b>Delete is one call</b>: <code>permanentDelete</code> works on a folder with content (204). The OneDrive adapter does not need the bottom-up order Google needs.</li>
+<li><b>Name rules</b>: refused by a personal account: trailing dot and <code>?</code> (and the other reserved characters of the documentation); the sanitising rule of the plan stays. <b>Conflict</b> is reported when the session is created (409), so the function sees it before any byte is sent.</li>
+<li><b>Path limit</b> is 400 characters of URL path: the adapter refuses a longer chain with a clear message (our chains are about 150).</li>
+<li><b>Refresh token</b>: the new token is a different string and the old one still worked once more – the adapter must still save the new one every time (the documented rule); the 90-day sliding rule is measured in OD7 with the function.</li>
+</ul></section>
+<section><h2>3. Not run / still open</h2>
+<ul>
+<li><b>Work / school account</b>: the same checks (especially 8a names with <code>#</code> <code>%</code> <code>~</code>, 7 versions (500), permanentDelete, the unlicensed-drive state) need a work account – none is available yet.</li>
+<li><b>Disconnect screens</b> (spike 10) and <b>files shared with the account</b> (spike 11): manual; the consent page already stated "including files shared with you".</li>
+<li><b>Refresh token lifetime</b> of a Web registration (90 days, sliding) and the function streaming a 100 MB file: measured in OD7 with the real function.</li>
+<li>Housekeeping: the account's app permission now includes <code>Files.ReadWrite</code> for <i>UNIVERSAL1 Supabase login</i>; it can be removed at the Microsoft account's app permissions page. The redirect address <code>http://localhost:8765/onedrive_spike.html</code> (Single-page application) was added to the registration for the spike and can be deleted. The secret value pasted in the chat should be replaced (it was never used or stored).</li>
+</ul></section>
+<section><h2>4. OD7 – the live test through the app (2026-11-11, partial)</h2>
+<p>Run by the owner in the signed-in app, verified by read-only queries of the database. Personal account <code>expow1native@outlook.com</code>.</p>
+<div class="card scroll"><table><tr><th>Step</th><th>Evidence in the database</th><th>Result</th></tr>
+<tr><td>Connect Microsoft OneDrive (Web redirect = the function)</td><td><code>files_onedrive_connection_table</code>: 1 row; organization keys: state <code>ok</code>, account e-mail, root folder id set</td><td><span class="pill yes">PASS</span></td></tr>
+<tr><td>Project setting <code>projectFilesStorageProvider</code> = oneDrive</td><td>Project 1: <code>oneDrive</code>, <code>filesFunctionalityEnabled</code> true</td><td><span class="pill yes">PASS</span></td></tr>
+<tr><td>Upload a small image (browser → OneDrive direct, finish by item id)</td><td>1 file row: <code>fileStorageProvider</code> oneDrive, <code>oneDriveItemId</code> + <code>oneDriveWebUrl</code> set, size 44 354 bytes, mime image/jpeg, path <code>project/…/task/…/files</code>; folder row key <code>oneDrive:task:&lt;task&gt;</code>; no pending upload left</td><td><span class="pill yes">PASS</span></td></tr>
+<tr><td>Upload a file larger than 5 MiB (two fragments)</td><td>no second OneDrive row, no pending row</td><td><span class="pill ask">not done / no trace</span></td></tr>
+<tr><td>View, Replace (version 2), Move, Delete (cleanup queue)</td><td>no version row, no queue line, one OneDrive row only</td><td><span class="pill ask">not done / no trace</span></td></tr>
+</table></div></section>
+</main></body></html>

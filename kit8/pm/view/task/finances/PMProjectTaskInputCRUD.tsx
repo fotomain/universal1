@@ -67,7 +67,7 @@ import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
 import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
 import PMTaskFilesPanel from '../../../../files/PMTaskFilesPanel';
-import { FILES_TAB_ID, filesEnabledOfProject } from '../../../../files/fileModel';
+import { FILES_TAB_ID, filesEnabledOfProject, filesProviderOfProject } from '../../../../files/fileModel';
 import { useFilesList } from '../../../../files/useFiles';
 import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
@@ -324,7 +324,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
       {paymentsActive ? (
         <PMTaskPaymentPlan projectGUID={projectGUID} taskGUID={taskGUID} data={data} taskLines={taskLines} payments={payments} testID={`${testID}-payments`} />
       ) : filesActive ? (
-        <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} testID={`${testID}-files`} />
+        <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} provider={filesProviderOfProject(projectJSON)} testID={`${testID}-files`} />
       ) : (
         <ReusableTable
           key={def.genus}

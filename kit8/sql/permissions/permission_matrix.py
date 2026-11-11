@@ -72,6 +72,7 @@ SPECIAL = {
     'projectMediaPostManager': row('CRUD', 'CRUD', *['N'] * 9),
     # the tables of the Drive connection are written by the Edge Function (service role) and the files_ RPCs only: no client letter at all
     'files_google_connection_table': row(*['N'] * 11),
+    'files_onedrive_connection_table': row(*['N'] * 11),
     'files_folder_table': row(*['N'] * 11),
     'files_drive_cleanup_table': row(*['N'] * 11),
     'files_upload_pending_table': row(*['N'] * 11),

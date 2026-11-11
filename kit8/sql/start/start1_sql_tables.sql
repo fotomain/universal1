@@ -3759,6 +3759,22 @@ CREATE TABLE IF NOT EXISTS public.files_google_connection_table (
 -- one connection per organization and role (the role 'old' is for the move to another account, later)
 CREATE UNIQUE INDEX IF NOT EXISTS uq_files_google_connection ON public.files_google_connection_table ("rowOwnerGUID", (COALESCE("rowJSON"->>'role', 'current')));
 
+-- FOURTH SLICE (documentation/FILE_WITH_OneDrive_WBS.html, task OD4): the same connection for MICROSOFT OneDrive (Microsoft Graph). Same shape and same rules as the Google table
+-- (RLS on, NO policy, NO grant, only the Edge Function reads it); rowJSON { role, state, accountEmail, refreshTokenEncrypted (the token ROTATES: a new one is stored at every refresh),
+-- lastRefreshAt, lastError, connectedBy }. The folders, the cleanup queue and the pending uploads are shared with Google: their rowJSON gets the key provider ('googleDrive' when missing).
+CREATE TABLE IF NOT EXISTS public.files_onedrive_connection_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_files_onedrive_connection ON public.files_onedrive_connection_table ("rowOwnerGUID", (COALESCE("rowJSON"->>'role', 'current')));
+
 
 -- one row per Drive folder the app made (first writer wins): scopeKey = organization | project:<g> | task:<g> | document:<kind>:<g> | template:<g>:<taskG>
 CREATE TABLE IF NOT EXISTS public.files_folder_table (

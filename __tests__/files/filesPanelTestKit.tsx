@@ -5,6 +5,7 @@ import React, { act } from 'react';
 export const mockFilesApi: Record<string, jest.Mock> = {
   listFiles: jest.fn(), authorizeFiles: jest.fn(), fetchDriveStatus: jest.fn(), fetchDownloadUrl: jest.fn(), startDriveConnect: jest.fn(), deleteFileRow: jest.fn(), updateFile: jest.fn(),
   addLink: jest.fn(), moveFile: jest.fn(), listDocumentTypes: jest.fn(), listVersions: jest.fn(), uploadPickedFile: jest.fn(), replacePickedFile: jest.fn(),
+  fetchAllDriveStatus: jest.fn(), countFilesForDelete: jest.fn(), disconnectDrive: jest.fn(), fetchStorageUsed: jest.fn(), runHealthCheck: jest.fn(), repairHealth: jest.fn(),
 };
 export const mockPick = jest.fn();
 export const mockPush = jest.fn();
@@ -63,6 +64,12 @@ jest.mock('../../kit8/files/filesDriveApi', () => ({
   listVersions: (...a: any[]) => mockFilesApi.listVersions(...a),
   uploadPickedFile: (...a: any[]) => mockFilesApi.uploadPickedFile(...a),
   replacePickedFile: (...a: any[]) => mockFilesApi.replacePickedFile(...a),
+  fetchAllDriveStatus: (...a: any[]) => mockFilesApi.fetchAllDriveStatus(...a),
+  countFilesForDelete: (...a: any[]) => mockFilesApi.countFilesForDelete(...a),
+  disconnectDrive: (...a: any[]) => mockFilesApi.disconnectDrive(...a),
+  fetchStorageUsed: (...a: any[]) => mockFilesApi.fetchStorageUsed(...a),
+  runHealthCheck: (...a: any[]) => mockFilesApi.runHealthCheck(...a),
+  repairHealth: (...a: any[]) => mockFilesApi.repairHealth(...a),
 }));
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -97,6 +104,10 @@ export function resetFilesApi(files: any[] = [PDF, PHOTO, LINK], opts: { canChan
   mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: opts.canChange !== false } });
   mockFilesApi.fetchDriveStatus.mockResolvedValue({ ok: true, data: { state: opts.driveState || 'ok', accountEmail: 'drive@gmail.test', lastRefreshAt: null, rootFolderUrl: null, cleanup: { waiting: 0, failed: 0 } } });
   mockFilesApi.listDocumentTypes.mockResolvedValue({ ok: true, data: [] });
+  const st = (provider: string, over: any = {}) => ({ provider, providerConfigured: true, state: 'notConnected', accountEmail: null, lastRefreshAt: null, rootFolderUrl: null, secretExpires: null, cleanup: { waiting: 0, failed: 0 }, ...over });
+  mockFilesApi.fetchAllDriveStatus.mockResolvedValue({ ok: true, data: { googleDrive: st('googleDrive', { state: 'ok', accountEmail: 'drive@gmail.test' }), oneDrive: st('oneDrive') } });
+  mockFilesApi.countFilesForDelete.mockResolvedValue({ ok: true, data: 0 });
+  mockFilesApi.fetchStorageUsed.mockResolvedValue({ ok: false, error: 'none' });
   mockFilesApi.listVersions.mockResolvedValue({ ok: true, data: [{ rowGUID: 'v1', rowJSON: { version: 1, fileSizeBytes: 1024, replacedAt: '2026-11-01T10:00:00Z' } }] });
 }
 

@@ -10,7 +10,7 @@ import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
 import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
 import { pmT } from '../pm/i18n/pmT';
 import TextInputApp from '../ui/components/common/TextInputApp';
-import { driveStateText, filterFilesByName, fileTitleOf, formatBytes, isLinkRow, type FileRow } from './fileModel';
+import { driveStateText, filterFilesByName, fileProviderOfRow, fileTitleOf, formatBytes, isLinkRow, providerTitleOf, type FileRow, type FileStorageProvider } from './fileModel';
 import FilesTable from './FilesTable';
 import { useCanChangeFiles, useDocumentTypes, useDriveStatus, useFileVersions, useFilesActions, useFilesList } from './useFiles';
 import { pickFiles, fromWebFile } from './pickFiles';
@@ -22,6 +22,8 @@ export interface PMTaskFilesPanelProps {
   taskGUID: string;
   /** default 'task'; 'project' = the files of the whole project, 'organization' = the files of the organization (projectFileManager) */
   scope?: 'task' | 'project' | 'organization';
+  /** the storage of the scope (the project setting; the organization default for organization files): default Google Drive. Its connection state is shown and its Connect button is offered. */
+  provider?: FileStorageProvider;
   testID?: string;
 }
 
@@ -48,14 +50,15 @@ const openAddress = async (url: string) => {
   else await Linking.openURL(url);
 };
 
-export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task', testID = 'task-files' }: PMTaskFilesPanelProps) {
+export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task', provider = 'googleDrive', testID = 'task-files' }: PMTaskFilesPanelProps) {
   const { themeColors: c } = useDesignSystem();
   const router = useRouter();
   const target = useMemo(() => (scope === 'task' ? { scope: 'task' as const, guid: taskGUID, projectGUID } : scope === 'project' ? { scope: 'project' as const, guid: projectGUID, projectGUID } : { scope: 'organization' as const }), [scope, taskGUID, projectGUID]);
   const subject = scope === 'task' ? !!taskGUID : scope === 'project' ? !!projectGUID : true;
   const { rows, loading, error } = useFilesList(target, subject);
   const { canChange } = useCanChangeFiles(target, subject);
-  const { status } = useDriveStatus(true);
+  const { status } = useDriveStatus(true, provider);
+  const providerName = providerTitleOf(provider);
   const actions = useFilesActions(target);
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const types = useDocumentTypes(canChange);
@@ -132,9 +135,9 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
   };
 
   const onConnect = async () => {
-    const r = await actions.connect();
+    const r = await actions.connect(provider === 'googleDrive' ? undefined : provider);
     if (r.ok) await openAddress(r.data.url);
-    else showErrorModal(r.error, pmT('Cannot connect Google Drive'));
+    else showErrorModal(r.error, pmT('Cannot connect {{provider}}', { provider: providerName }));
   };
 
   const stateColor = status?.state === 'ok' ? c.primary : c.error;
@@ -143,13 +146,13 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
     <View ref={dropRef} testID={testID} style={[styles.root, dragOver && { borderColor: c.primary, borderWidth: 2, borderStyle: 'dashed' }]}>
       <View style={styles.bar}>
         <Text testID={`${testID}-state`} style={{ color: stateColor, fontSize: 12, flexShrink: 1 }}>
-          {pmT(driveStateText(status?.state, status?.accountEmail))}
+          {pmT(driveStateText(status?.state, status?.accountEmail, provider))}
           {status && status.cleanup && (status.cleanup.waiting > 0 || status.cleanup.failed > 0) ? `  ·  ${pmT('cleanup')}: ${status.cleanup.waiting} ${pmT('waiting')}${status.cleanup.failed ? `, ${status.cleanup.failed} ${pmT('failed')}` : ''}` : ''}
         </Text>
         <View style={styles.barButtons}>
           {canChange && status && status.state !== 'ok' ? (
             <Pressable testID={`${testID}-connect`} onPress={onConnect} style={[styles.button, { borderColor: c.primary }]}>
-              <Text style={{ color: c.primary, fontSize: 13 }}>{pmT(status.state === 'needsReconnect' ? 'Reconnect Google Drive' : 'Connect Google Drive')}</Text>
+              <Text style={{ color: c.primary, fontSize: 13 }}>{status.state === 'needsReconnect' ? pmT('Reconnect {{provider}}', { provider: providerName }) : pmT('Connect {{provider}}', { provider: providerName })}</Text>
             </Pressable>
           ) : null}
           {addEnabled ? (
@@ -167,8 +170,8 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
         </View>
       </View>
 
-      {!canChange && status?.state !== 'ok' ? <Text style={[styles.hint, { color: c.text }]}>{pmT('Google Drive is not connected - ask the administrator.')}</Text> : null}
-      {canChange && !driveReady ? <Text style={[styles.hint, { color: c.text }]}>{pmT('Connect Google Drive to add files.')}</Text> : null}
+      {!canChange && status?.state !== 'ok' ? <Text style={[styles.hint, { color: c.text }]}>{pmT('{{provider}} is not connected - ask the administrator.', { provider: providerName })}</Text> : null}
+      {canChange && !driveReady ? <Text style={[styles.hint, { color: c.text }]}>{pmT('Connect {{provider}} to add files.', { provider: providerName })}</Text> : null}
       {addEnabled && Platform.OS === 'web' ? <Text style={[styles.hint, { color: c.text }]}>{pmT('Drop files here to add them.')}</Text> : null}
 
       {uploads.map((u) => (
@@ -204,6 +207,7 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
             rows={shownRows}
             types={types}
             canChange={canChange}
+            showProvider={rows.some((x) => !isLinkRow(x) && fileProviderOfRow(x) !== provider)}
             onView={onView}
             onReplace={onReplace}
             onMove={(row) => setMovingRow(row)}
@@ -283,7 +287,7 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
         testID={`${testID}-delete-ask`}
         visible={!!deleting}
         modalTopBar={pmT('Delete the file?')}
-        modalBody={pmT('The file will be deleted from Google Drive permanently. This cannot be undone.')}
+        modalBody={pmT('The file will be deleted from {{provider}} permanently. This cannot be undone.', { provider: providerTitleOf(deleting ? fileProviderOfRow(deleting) : provider) })}
         cancelLabel={pmT('Cancel')}
         confirmLabel={pmT('Delete')}
         onCancel={() => setDeleting(null)}

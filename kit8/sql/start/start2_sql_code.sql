@@ -17328,24 +17328,25 @@ NOTIFY pgrst, 'reload schema';
 
 DO $$
 BEGIN
-  IF to_regclass('public.files_google_connection_table') IS NULL OR to_regclass('public.files_folder_table') IS NULL OR to_regclass('public.files_drive_cleanup_table') IS NULL OR to_regclass('public.files_upload_pending_table') IS NULL THEN
+  IF to_regclass('public.files_google_connection_table') IS NULL OR to_regclass('public.files_folder_table') IS NULL OR to_regclass('public.files_drive_cleanup_table') IS NULL OR to_regclass('public.files_upload_pending_table') IS NULL OR to_regclass('public.files_onedrive_connection_table') IS NULL THEN
     RAISE EXCEPTION 'start2_sql_code.sql PART 49 needs the tables: run start1_sql_tables.sql first';
   END IF;
 END $$;
 
 SELECT public.kit8_setup_def_table('files_google_connection_table');
+SELECT public.kit8_setup_def_table('files_onedrive_connection_table');
 SELECT public.kit8_setup_def_table('files_folder_table');
 SELECT public.kit8_setup_def_table('files_drive_cleanup_table');
 SELECT public.kit8_setup_def_table('files_upload_pending_table');
 
-REVOKE ALL ON public.files_google_connection_table, public.files_folder_table, public.files_drive_cleanup_table, public.files_upload_pending_table FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.files_google_connection_table, public.files_onedrive_connection_table, public.files_folder_table, public.files_drive_cleanup_table, public.files_upload_pending_table FROM PUBLIC, anon, authenticated;
 
 DO $$
 DECLARE
   r record;
 BEGIN
   -- kit8_setup_def_table may leave policies of the generic tables: this table has NONE for any client role
-  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('files_google_connection_table', 'files_folder_table', 'files_drive_cleanup_table', 'files_upload_pending_table') LOOP
+  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('files_google_connection_table', 'files_onedrive_connection_table', 'files_folder_table', 'files_drive_cleanup_table', 'files_upload_pending_table') LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
   END LOOP;
 END $$;
@@ -17463,6 +17464,17 @@ $$;
 --   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document
 --   p_guid: the project / task / stage / document GUID (the organization scope needs none)          p_project: the project GUID for a stage / task
 -- Answer { allowed, reason, organizationGUID, userGUID, projectGUID, scope, guid }. reason: signIn | unknownAction | scope | project | task | switchOff | noPermission.
+-- OD4: the STORAGE of a scope. A project / stage / task file follows the project setting projectFilesStorageProvider (a missing value = googleDrive: every project made before OneDrive is
+-- Google's); organization and document files follow the organization default of the same key (Organization edit -> Projects -> Settings). Anything but 'oneDrive' is 'googleDrive'.
+CREATE OR REPLACE FUNCTION public.files_provider_of_scope(p_scope text, p_project uuid, p_org text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN lower(COALESCE(p_scope, '')) IN ('project', 'stage', 'task') THEN
+           CASE WHEN (SELECT p."rowJSON"->>'projectFilesStorageProvider' FROM public.project_table p WHERE p."rowGUID" = p_project) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
+         ELSE
+           CASE WHEN (SELECT o."rowJSON"->'defaultProjectSettings'->>'projectFilesStorageProvider' FROM public."organizationTable" o WHERE o."rowGUID" = p_org) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
+         END
+$$;
+
 CREATE OR REPLACE FUNCTION public.files_authorize(p_action text, p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -17496,7 +17508,8 @@ BEGIN
   ELSE v_ok := public.perm_can('projectFileManager', 'U');
   END IF;
   IF NOT v_ok THEN v_deny := 'noPermission'; END IF;
-  RETURN jsonb_build_object('allowed', v_ok, 'reason', v_deny, 'organizationGUID', v_org, 'userGUID', v_user, 'projectGUID', v_project, 'scope', v_scope, 'guid', p_guid);
+  RETURN jsonb_build_object('allowed', v_ok, 'reason', v_deny, 'organizationGUID', v_org, 'userGUID', v_user, 'projectGUID', v_project, 'scope', v_scope, 'guid', p_guid,
+                            'provider', public.files_provider_of_scope(v_scope, v_project, v_org));
 END;
 $$;
 
@@ -17593,13 +17606,15 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
 $$;
 
 -- the function saw the file in Drive: the facts it found are what files_add trusts (never the numbers of the client)
-CREATE OR REPLACE FUNCTION public.files_upload_pending_verify(p_upload text, p_file_id text, p_size bigint, p_folder_id text, p_path text) RETURNS jsonb
+-- OD4: p_web_url (OneDrive: the webUrl of the item) is new: the old five-argument function is dropped first (two overloads would be ambiguous)
+DROP FUNCTION IF EXISTS public.files_upload_pending_verify(text, text, bigint, text, text);
+CREATE OR REPLACE FUNCTION public.files_upload_pending_verify(p_upload text, p_file_id text, p_size bigint, p_folder_id text, p_path text, p_web_url text DEFAULT NULL) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v jsonb;
 BEGIN
   UPDATE public.files_upload_pending_table
-     SET "rowJSON" = "rowJSON" || jsonb_build_object('state', 'verified', 'fileId', p_file_id, 'fileSize', p_size, 'folderId', p_folder_id, 'relativePath', p_path)
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('state', 'verified', 'fileId', p_file_id, 'fileSize', p_size, 'folderId', p_folder_id, 'relativePath', p_path, 'webUrl', p_web_url)
    WHERE "rowJSON"->>'uploadId' = p_upload
    RETURNING "rowJSON" INTO v;
   RETURN v;
@@ -17645,7 +17660,8 @@ BEGIN
     RETURNING c."rowGUID", c."rowOwnerGUID", c."rowJSON"
   )
   SELECT COALESCE(jsonb_agg(jsonb_build_object('id', "rowGUID", 'organizationGUID', "rowOwnerGUID", 'driveItemId', "rowJSON"->>'driveItemId', 'itemKind', "rowJSON"->>'itemKind',
-                                               'allowRoot', COALESCE(("rowJSON"->>'allowRoot')::boolean, false), 'attempts', ("rowJSON"->>'attempts')::int)), '[]'::jsonb) INTO v FROM upd;
+                                               'allowRoot', COALESCE(("rowJSON"->>'allowRoot')::boolean, false), 'attempts', ("rowJSON"->>'attempts')::int,
+                                               'provider', COALESCE("rowJSON"->>'provider', 'googleDrive'))), '[]'::jsonb) INTO v FROM upd;
   RETURN v;
 END;
 $$;
@@ -17663,20 +17679,27 @@ LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
    WHERE "rowGUID" = p_id
 $$;
 
--- the connection of an organization: the Edge Function gets the account e-mail for the file rows
-CREATE OR REPLACE FUNCTION public.files_org_facts(p_org text) RETURNS jsonb
+-- the connection of an organization to ONE storage: the Edge Function gets the root folder and the account e-mail for the file rows (OD4: p_provider, default googleDrive)
+DROP FUNCTION IF EXISTS public.files_org_facts(text);
+CREATE OR REPLACE FUNCTION public.files_org_facts(p_org text, p_provider text DEFAULT 'googleDrive') RETURNS jsonb
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
-  SELECT jsonb_build_object('rootFolderId', o."rowJSON"->>'organizationGoogleDriveRootFolderId', 'accountEmail', o."rowJSON"->>'organizationGoogleDriveAccountEmail',
-                            'rootFolderUrl', o."rowJSON"->>'organizationGoogleDriveRootFolderUrl', 'limitMegabytes', o."rowJSON"->>'filesStorageLimitMegabytes') FROM public."organizationTable" o WHERE o."rowGUID" = p_org
+  SELECT CASE WHEN p_provider = 'oneDrive' THEN
+           jsonb_build_object('rootFolderId', o."rowJSON"->>'organizationOneDriveRootFolderId', 'accountEmail', o."rowJSON"->>'organizationOneDriveAccountEmail',
+                              'rootFolderUrl', o."rowJSON"->>'organizationOneDriveRootFolderUrl', 'limitMegabytes', o."rowJSON"->>'filesStorageLimitMegabytes')
+         ELSE
+           jsonb_build_object('rootFolderId', o."rowJSON"->>'organizationGoogleDriveRootFolderId', 'accountEmail', o."rowJSON"->>'organizationGoogleDriveAccountEmail',
+                              'rootFolderUrl', o."rowJSON"->>'organizationGoogleDriveRootFolderUrl', 'limitMegabytes', o."rowJSON"->>'filesStorageLimitMegabytes') END
+    FROM public."organizationTable" o WHERE o."rowGUID" = p_org
 $$;
 
-REVOKE ALL ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text), public.files_upload_pending_get(text),
+REVOKE ALL ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text, text), public.files_upload_pending_get(text),
   public.files_folder_get(text, text), public.files_folder_set(text, text, jsonb), public.files_cleanup_pending(integer), public.files_cleanup_done(text), public.files_cleanup_failed(text, text),
-  public.files_org_facts(text) FROM PUBLIC, anon, authenticated;
+  public.files_org_facts(text, text), public.files_provider_of_scope(text, uuid, text) FROM PUBLIC, anon, authenticated;
 
-GRANT EXECUTE ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text), public.files_upload_pending_get(text),
+GRANT EXECUTE ON FUNCTION public.files_upload_pending_add(text, text, text, jsonb), public.files_upload_pending_verify(text, text, bigint, text, text, text), public.files_upload_pending_get(text),
   public.files_folder_get(text, text), public.files_folder_set(text, text, jsonb), public.files_cleanup_pending(integer), public.files_cleanup_done(text), public.files_cleanup_failed(text, text),
-  public.files_org_facts(text) TO service_role;
+  public.files_org_facts(text, text) TO service_role;
+GRANT EXECUTE ON FUNCTION public.files_provider_of_scope(text, uuid, text) TO authenticated;
 
 -- ---- the file rows: add (a verified upload, or a link), update, reorder, delete ----------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.files_next_order(p_org text, p_parent text) RETURNS numeric
@@ -17697,7 +17720,8 @@ DECLARE
   v_limit  numeric;
   v_used   numeric;
   v_row    public."mediaPostTable"%ROWTYPE;
-  v_facts  jsonb := public.files_org_facts(v_org);
+  v_facts  jsonb;
+  v_prov   text;
 BEGIN
   SELECT * INTO v_pend FROM public.files_upload_pending_table WHERE "rowJSON"->>'uploadId' = p_upload_id AND "rowOwnerGUID" = v_org AND "rowParentGUID" = (v->>'userGUID');
   IF NOT FOUND OR v_pend."rowJSON"->>'state' <> 'verified' OR (v_pend."rowJSON"->>'expiresAt')::timestamptz < now() THEN
@@ -17706,6 +17730,9 @@ BEGIN
   IF v_pend."rowJSON"->>'scope' <> v_scope OR COALESCE(v_pend."rowJSON"->>'scopeGUID', '') <> COALESCE(p_guid, '') THEN
     RAISE EXCEPTION 'files_add: the upload was made for another place' USING ERRCODE = '42501';
   END IF;
+  -- OD4: the storage the upload was made in (a pending row without the key is a Google upload)
+  v_prov := CASE WHEN v_pend."rowJSON"->>'provider' = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END;
+  v_facts := public.files_org_facts(v_org, v_prov);
   v_limit := NULLIF(v_facts->>'limitMegabytes', '')::numeric;
   IF v_limit IS NOT NULL THEN
     SELECT COALESCE(sum((m."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_used FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind';
@@ -17725,13 +17752,21 @@ BEGIN
     'mediaPostDescription', NULLIF(p_file->>'description', ''),
     'paperDocumentPlace', NULLIF(p_file->>'paperDocumentPlace', ''),
     'fileDocumentTypeGUID', NULLIF(p_file->>'documentTypeGUID', ''),
-    'mediaPostOriginType', 'googleDrive',
-    'mediaPostOrigin', 'https://drive.google.com/file/d/' || (v_pend."rowJSON"->>'fileId') || '/view',
-    'googleDriveFileId', v_pend."rowJSON"->>'fileId',
-    'googleDriveFolderId', v_pend."rowJSON"->>'folderId',
-    'googleDriveRelativePath', v_pend."rowJSON"->>'relativePath',
-    'googleDriveRootFolderId', v_facts->>'rootFolderId',
-    'googleDriveAccountEmail', v_facts->>'accountEmail',
+    'fileStorageProvider', v_prov,
+    'mediaPostOriginType', v_prov,
+    'mediaPostOrigin', CASE WHEN v_prov = 'oneDrive' THEN COALESCE(NULLIF(v_pend."rowJSON"->>'webUrl', ''), 'https://onedrive.live.com/')
+                            ELSE 'https://drive.google.com/file/d/' || (v_pend."rowJSON"->>'fileId') || '/view' END,
+    'googleDriveFileId', CASE WHEN v_prov = 'googleDrive' THEN v_pend."rowJSON"->>'fileId' END,
+    'googleDriveFolderId', CASE WHEN v_prov = 'googleDrive' THEN v_pend."rowJSON"->>'folderId' END,
+    'googleDriveRelativePath', CASE WHEN v_prov = 'googleDrive' THEN v_pend."rowJSON"->>'relativePath' END,
+    'googleDriveRootFolderId', CASE WHEN v_prov = 'googleDrive' THEN v_facts->>'rootFolderId' END,
+    'googleDriveAccountEmail', CASE WHEN v_prov = 'googleDrive' THEN v_facts->>'accountEmail' END,
+    'oneDriveItemId', CASE WHEN v_prov = 'oneDrive' THEN v_pend."rowJSON"->>'fileId' END,
+    'oneDriveFolderId', CASE WHEN v_prov = 'oneDrive' THEN v_pend."rowJSON"->>'folderId' END,
+    'oneDriveRelativePath', CASE WHEN v_prov = 'oneDrive' THEN v_pend."rowJSON"->>'relativePath' END,
+    'oneDriveRootFolderId', CASE WHEN v_prov = 'oneDrive' THEN v_facts->>'rootFolderId' END,
+    'oneDriveAccountEmail', CASE WHEN v_prov = 'oneDrive' THEN v_facts->>'accountEmail' END,
+    'oneDriveWebUrl', CASE WHEN v_prov = 'oneDrive' THEN NULLIF(v_pend."rowJSON"->>'webUrl', '') END,
     'fileVersionNumber', 1,
     'mediaPostMIME', v_pend."rowJSON"->>'mime',
     'fileName', v_pend."rowJSON"->>'name',
@@ -17824,9 +17859,10 @@ BEGIN
   v_scope := public.files_row_scope(v_row);
   PERFORM public.files_require('delete', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
   IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_delete: not your organization' USING ERRCODE = '42501'; END IF;
-  v_file := v_row."rowJSON"->>'googleDriveFileId';
+  v_file := COALESCE(v_row."rowJSON"->>'googleDriveFileId', v_row."rowJSON"->>'oneDriveItemId');
   IF v_file IS NOT NULL THEN
-    INSERT INTO public.files_drive_cleanup_table ("rowOwnerGUID", "rowJSON") VALUES (v_row."rowOwnerGUID", jsonb_build_object('driveItemId', v_file, 'itemKind', 'file', 'why', 'file deleted', 'state', 'waiting', 'attempts', 0, 'requestedBy', public.app_user_guid()::text));
+    INSERT INTO public.files_drive_cleanup_table ("rowOwnerGUID", "rowJSON") VALUES (v_row."rowOwnerGUID", jsonb_build_object('driveItemId', v_file, 'itemKind', 'file', 'why', 'file deleted', 'state', 'waiting', 'attempts', 0, 'requestedBy', public.app_user_guid()::text,
+      'provider', COALESCE(v_row."rowJSON"->>'fileStorageProvider', 'googleDrive')));
   END IF;
   DELETE FROM public."mediaPostTable" WHERE "rowGUID" = p_post;
   RETURN jsonb_build_object('deleted', true, 'driveFileId', v_file);
@@ -17892,10 +17928,12 @@ GRANT EXECUTE ON FUNCTION public.files_add(text, text, text, text, jsonb), publi
 
 -- ---- delete triggers: the file rows of a deleted task / project / organization go with it, and the Drive items are queued -------------------------------------------------------------
 -- (statement triggers with a transition table: a task tree is deleted in ONE statement. The queue line carries the organization as plain text.)
-CREATE OR REPLACE FUNCTION public.files_queue(p_org text, p_item text, p_kind text, p_why text, p_allow_root boolean DEFAULT false) RETURNS void
+-- OD4: p_provider (the storage of the item; default googleDrive); the old five-argument function is dropped first
+DROP FUNCTION IF EXISTS public.files_queue(text, text, text, text, boolean);
+CREATE OR REPLACE FUNCTION public.files_queue(p_org text, p_item text, p_kind text, p_why text, p_allow_root boolean DEFAULT false, p_provider text DEFAULT 'googleDrive') RETURNS void
 LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
   INSERT INTO public.files_drive_cleanup_table ("rowOwnerGUID", "rowJSON")
-  SELECT p_org, jsonb_build_object('driveItemId', p_item, 'itemKind', p_kind, 'why', p_why, 'state', 'waiting', 'attempts', 0, 'allowRoot', p_allow_root)
+  SELECT p_org, jsonb_build_object('driveItemId', p_item, 'itemKind', p_kind, 'why', p_why, 'state', 'waiting', 'attempts', 0, 'allowRoot', p_allow_root, 'provider', COALESCE(NULLIF(p_provider, ''), 'googleDrive'))
    WHERE COALESCE(p_item, '') <> ''
 $$;
 
@@ -17905,11 +17943,13 @@ DECLARE
   r record;
 BEGIN
   FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceKind' IN ('task', 'stage') AND m."rowParentGUID" IN (SELECT o."rowGUID"::text FROM old_rows o)
-           RETURNING m."rowOwnerGUID" AS org, m."rowJSON"->>'googleDriveFileId' AS fid LOOP
-    PERFORM public.files_queue(r.org, r.fid, 'file', 'task deleted');
+           RETURNING m."rowOwnerGUID" AS org, COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') AS fid, COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'task deleted', false, r.prov);
   END LOOP;
-  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'scopeKey' IN (SELECT 'task:' || o."rowGUID"::text FROM old_rows o) RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'driveFolderId' AS fid LOOP
-    PERFORM public.files_queue(r.org, r.fid, 'folder', 'task deleted');
+  -- the folders of a task: Google's scope key is task:<g>, OneDrive's is oneDrive:task:<g>
+  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'scopeKey' IN (SELECT 'task:' || o."rowGUID"::text FROM old_rows o UNION ALL SELECT 'oneDrive:task:' || o."rowGUID"::text FROM old_rows o)
+           RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'driveFolderId' AS fid, COALESCE(f."rowJSON"->>'provider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'folder', 'task deleted', false, r.prov);
   END LOOP;
   RETURN NULL;
 END;
@@ -17921,12 +17961,12 @@ DECLARE
   r record;
 BEGIN
   FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'fileSourceKind' IN ('project', 'task', 'stage') AND m."rowJSON"->>'fileSourceProjectGUID' IN (SELECT o."rowGUID"::text FROM old_rows o)
-           RETURNING m."rowOwnerGUID" AS org, m."rowJSON"->>'googleDriveFileId' AS fid LOOP
-    PERFORM public.files_queue(r.org, r.fid, 'file', 'project deleted');
+           RETURNING m."rowOwnerGUID" AS org, COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') AS fid, COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'project deleted', false, r.prov);
   END LOOP;
   -- only the project folder is queued (the function deletes the tree below it bottom-up); the rows of the sub folders go
-  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'projectGUID' IN (SELECT o."rowGUID"::text FROM old_rows o) RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'scopeKey' AS sk, f."rowJSON"->>'driveFolderId' AS fid LOOP
-    IF r.sk LIKE 'project:%' THEN PERFORM public.files_queue(r.org, r.fid, 'folder', 'project deleted'); END IF;
+  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'projectGUID' IN (SELECT o."rowGUID"::text FROM old_rows o) RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'scopeKey' AS sk, f."rowJSON"->>'driveFolderId' AS fid, COALESCE(f."rowJSON"->>'provider', 'googleDrive') AS prov LOOP
+    IF r.sk LIKE 'project:%' OR r.sk LIKE 'oneDrive:project:%' THEN PERFORM public.files_queue(r.org, r.fid, 'folder', 'project deleted', false, r.prov); END IF;
   END LOOP;
   RETURN NULL;
 END;
@@ -17941,14 +17981,15 @@ BEGIN
   DELETE FROM public.files_folder_table f WHERE f."rowOwnerGUID" IN (SELECT o."rowGUID" FROM old_rows o);
   DELETE FROM public.files_upload_pending_table u WHERE u."rowOwnerGUID" IN (SELECT o."rowGUID" FROM old_rows o);
   -- the root folder named in the url: ALWAYS (Q10); the Edge Function deletes the tree bottom-up, then revokes and removes the token
-  FOR r IN SELECT o."rowGUID" AS org, o."rowJSON"->>'organizationGoogleDriveRootFolderId' AS fid FROM old_rows o LOOP
-    PERFORM public.files_queue(r.org, r.fid, 'folder', 'organization deleted', true);
+  FOR r IN SELECT o."rowGUID" AS org, o."rowJSON"->>'organizationGoogleDriveRootFolderId' AS fid, o."rowJSON"->>'organizationOneDriveRootFolderId' AS fid2 FROM old_rows o LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'folder', 'organization deleted', true, 'googleDrive');
+    PERFORM public.files_queue(r.org, r.fid2, 'folder', 'organization deleted', true, 'oneDrive'); -- OneDrive: the whole kit8root, then its token is forgotten
   END LOOP;
   RETURN NULL;
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.files_queue(text, text, text, text, boolean), public.files_on_task_delete(), public.files_on_project_delete(), public.files_on_organization_delete() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.files_queue(text, text, text, text, boolean, text), public.files_on_task_delete(), public.files_on_project_delete(), public.files_on_organization_delete() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_files_task_delete ON public.project_task_table;
 CREATE TRIGGER trg_files_task_delete AFTER DELETE ON public.project_task_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_task_delete();
@@ -18055,9 +18096,11 @@ DECLARE
   v_from   jsonb;
   v_to     jsonb;
   v_parent text;
+  v_prov   text;
 BEGIN
   SELECT * INTO v_row FROM public."mediaPostTable" WHERE "rowGUID" = p_post AND "rowJSON" ? 'fileSourceKind' FOR UPDATE;
   IF NOT FOUND THEN RAISE EXCEPTION 'files_move: no such file' USING ERRCODE = 'P0002'; END IF;
+  v_prov := CASE WHEN v_row."rowJSON"->>'fileStorageProvider' = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END; -- a file never changes its storage: its folder keys are its storage's
   v_from := public.files_row_scope(v_row);
   PERFORM public.files_require('move', v_from->>'scope', v_from->>'guid', v_from->>'project');
   v_to := public.files_require('add', p_scope, p_guid, p_project);
@@ -18065,8 +18108,9 @@ BEGIN
   v_parent := CASE WHEN v_to->>'scope' = 'organization' THEN v_row."rowOwnerGUID" ELSE p_guid END;
   UPDATE public."mediaPostTable"
      SET "rowParentGUID" = v_parent, "orderInList" = public.files_next_order(v_row."rowOwnerGUID", v_parent),
-         "rowJSON" = jsonb_strip_nulls(("rowJSON" - 'fileSourceProjectGUID') || jsonb_build_object('fileSourceKind', v_to->>'scope', 'fileSourceProjectGUID', v_to->>'projectGUID',
-                     'googleDriveFolderId', NULLIF(p_folder_id, ''), 'googleDriveRelativePath', NULLIF(p_relative_path, '')))
+         "rowJSON" = jsonb_strip_nulls(("rowJSON" - 'fileSourceProjectGUID') || jsonb_build_object('fileSourceKind', v_to->>'scope', 'fileSourceProjectGUID', v_to->>'projectGUID')
+                     || CASE WHEN v_prov = 'oneDrive' THEN jsonb_build_object('oneDriveFolderId', NULLIF(p_folder_id, ''), 'oneDriveRelativePath', NULLIF(p_relative_path, ''))
+                             ELSE jsonb_build_object('googleDriveFolderId', NULLIF(p_folder_id, ''), 'googleDriveRelativePath', NULLIF(p_relative_path, '')) END)
    WHERE "rowGUID" = p_post RETURNING * INTO v_row;
   RETURN to_jsonb(v_row);
 END;
@@ -18081,7 +18125,7 @@ DECLARE
   v_files bigint; v_bytes numeric; v_old numeric;
 BEGIN
   SELECT count(*), COALESCE(sum((m."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_files, v_bytes
-    FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'googleDriveFileId' IS NOT NULL
+    FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') IS NOT NULL
      AND (p_scope = 'organization' OR m."rowJSON"->>'fileSourceProjectGUID' = p_guid);
   SELECT COALESCE(sum((h."rowJSON"->>'fileSizeBytes')::numeric), 0) INTO v_old FROM public.files_version_history h
    WHERE h."rowOwnerGUID" = v_org AND (p_scope = 'organization' OR h."rowParentGUID" IN (SELECT m."rowGUID" FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceProjectGUID' = p_guid));
@@ -18091,18 +18135,24 @@ END;
 $$;
 
 -- ---- health rows (S1): the file rows with their Drive ids and the folders the app knows; the Edge Function compares them with Drive (holders of projectFileManager) -------------------------------------------------
-CREATE OR REPLACE FUNCTION public.files_health_rows() RETURNS jsonb
+-- OD4: p_provider (default googleDrive) - the rows and folders of ONE storage; the old no-argument function is dropped first
+DROP FUNCTION IF EXISTS public.files_health_rows();
+CREATE OR REPLACE FUNCTION public.files_health_rows(p_provider text DEFAULT 'googleDrive') RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v     jsonb := public.files_require('connect', 'organization');
   v_org text := v->>'organizationGUID';
+  v_prov text := CASE WHEN p_provider = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END;
 BEGIN
   RETURN jsonb_build_object(
-    'files', COALESCE((SELECT jsonb_agg(jsonb_build_object('post', m."rowGUID", 'fileId', m."rowJSON"->>'googleDriveFileId', 'folderId', m."rowJSON"->>'googleDriveFolderId', 'name', m."rowJSON"->>'fileName'))
-                         FROM public."mediaPostTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND m."rowJSON"->>'googleDriveFileId' IS NOT NULL), '[]'::jsonb),
+    'files', COALESCE((SELECT jsonb_agg(jsonb_build_object('post', m."rowGUID", 'fileId', COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId'),
+                                                           'folderId', COALESCE(m."rowJSON"->>'googleDriveFolderId', m."rowJSON"->>'oneDriveFolderId'), 'name', m."rowJSON"->>'fileName'))
+                         FROM public."mediaPostTable" m
+                        WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind' AND COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') IS NOT NULL
+                          AND COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') = v_prov), '[]'::jsonb),
     'folders', COALESCE((SELECT jsonb_agg(jsonb_build_object('scopeKey', f."rowJSON"->>'scopeKey', 'folderId', f."rowJSON"->>'driveFolderId', 'filesFolderId', f."rowJSON"->>'driveFilesFolderId'))
-                           FROM public.files_folder_table f WHERE f."rowOwnerGUID" = v_org), '[]'::jsonb),
-    'rootFolderId', public.files_org_facts(v_org)->>'rootFolderId');
+                           FROM public.files_folder_table f WHERE f."rowOwnerGUID" = v_org AND COALESCE(f."rowJSON"->>'provider', 'googleDrive') = v_prov), '[]'::jsonb),
+    'rootFolderId', public.files_org_facts(v_org, v_prov)->>'rootFolderId');
 END;
 $$;
 
@@ -18116,10 +18166,10 @@ END;
 $$;
 
 REVOKE ALL ON FUNCTION public.files_replace(text, text), public.files_versions_list(text), public.files_move(text, text, text, text, text, text), public.files_storage_used(text, text),
-  public.files_health_rows(), public.files_delete_row_only(text) FROM PUBLIC, anon;
+  public.files_health_rows(text), public.files_delete_row_only(text) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.files_replace(text, text), public.files_versions_list(text), public.files_move(text, text, text, text, text, text), public.files_storage_used(text, text),
-  public.files_health_rows(), public.files_delete_row_only(text) TO authenticated;
+  public.files_health_rows(text), public.files_delete_row_only(text) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

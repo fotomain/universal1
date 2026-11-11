@@ -47,3 +47,15 @@ Without it the delete of a file / task works anyway through `delete_file` and th
 
 ## Second spike (F0b)
 `documentation/Goolge/f0/`: `f0b_trash_folder.sh` (folder trash / delete with `drive.file`), `f0b_cors_test.html` (a browser PUT to the session url), `f0b_stream_test.sh` (a 200 MB download through the function, timed).
+
+
+## Storage providers (OD1, 2026-11-11)
+`handler.ts` and `token.ts` talk ONLY to the `StorageProvider` interface of `provider.ts` (sign-in url / code exchange / refresh / revoke, root + folders, items, upload and update sessions, media, versions, move, delete). `googleProvider.ts` is the Google Drive adapter (the code that was inside the handler, moved with no change of behaviour; `googleDrive.ts` = its REST calls). The handler gets the adapter from `deps.providers.googleDrive` (default: built from `fetchFn`); a refresh answer that carries a NEW refresh token (a storage that rotates it, OneDrive) is stored through `deps.saveRefreshToken`. OneDrive = `oneDriveProvider.ts` (task OD2, `documentation/FILE_WITH_OneDrive_WBS.html`). Tests: `__tests__/files/storageProvider.test.ts` (the adapter's rules, the token cache with a rotating stub, the handler with a stub provider) + the unchanged `filesDriveFunction.test.ts`.
+
+## Microsoft OneDrive (OD2 + OD3, 2026-11-11)
+`oneDriveProvider.ts` = the Microsoft Graph adapter (delegated `Files.ReadWrite offline_access User.Read`; upload session on a folder with `conflictBehavior=rename`; update session on an item id = a new version; permanentDelete takes a folder with content in one call; download through
+`@microsoft.graph.downloadUrl` with Range; the refresh token ROTATES - `token.ts` stores the new one through `deps.saveRefreshToken`; Retry-After of a 429 is waited for; "ours" = the item lies under kit8root of the connected account). The handler resolves the storage PER REQUEST:
+`files_authorize` returns `provider` (project setting / organization default) for upload_session; the pending upload, the file row (`fileStorageProvider`) and the queue line carry it; connect_start / status / disconnect / health take `provider` in the body (status `all` = both);
+the consent `state` names the storage; a signed download link of a OneDrive file also signs `prov` and `ct` (the content type the browser should get when OneDrive answers octet-stream). Secrets: `MICROSOFT_CLIENT_ID`, `MICROSOFT_CLIENT_SECRET`, `MICROSOFT_TENANT` (default common),
+`MICROSOFT_CLIENT_SECRET_EXPIRES` (YYYY-MM-DD, shown as a warning 30 days before). The Web redirect uri of the Entra app = the url of this function. Connection tables: `files_google_connection_table`, `files_onedrive_connection_table`.
+Tests: `oneDriveProvider.test.ts` (adapter + `filesGraphTestKit.ts`, an in-memory Graph), `filesOneDriveFunction.test.ts` (the handler with OneDrive and Google side by side), `storageProvider.test.ts`, Docker `tests/58_files_onedrive.sql`.

@@ -1,6 +1,6 @@
 // File attachments - the app side of the Edge Function files-drive and of the files_ RPCs (kit8/sql/start PART 49). The Supabase client is loaded when a call is made, so importing this
 // file (a screen, a test) never creates it. The function answers { error, code | reason }; every call here returns { ok, ... } and never throws.
-import { chunkRanges, filesErrorText, fileKindOf, MAX_UPLOAD_BYTES, FILES_FUNCTION, type FileRow, type FileScope } from './fileModel';
+import { chunkRanges, filesErrorText, fileKindOf, MAX_UPLOAD_BYTES, FILES_FUNCTION, type FileRow, type FileScope, type FileStorageProvider } from './fileModel';
 
 // require, not import(): Jest cannot run a dynamic import, and the client is still created only when a call is made
 const client = async () => require('../supabase/supabase').supabase;
@@ -44,11 +44,18 @@ async function rpc<T = any>(fn: string, args: Record<string, any>): Promise<ApiR
   }
 }
 
-export interface DriveStatus { state: 'notConnected' | 'ok' | 'needsReconnect'; accountEmail: string | null; lastRefreshAt: string | null; rootFolderUrl: string | null; cleanup: { waiting: number; failed: number } }
+export interface DriveStatus {
+  state: 'notConnected' | 'ok' | 'needsReconnect'; accountEmail: string | null; lastRefreshAt: string | null; rootFolderUrl: string | null; cleanup: { waiting: number; failed: number };
+  /** which storage this is about; providerConfigured = the server has its client id; secretExpires = the date of the Microsoft client secret (YYYY-MM-DD) */
+  provider?: FileStorageProvider; providerConfigured?: boolean; secretExpires?: string | null;
+}
 
-export const fetchDriveStatus = () => invokeFiles('status') as Promise<ApiResult<{ data: DriveStatus }>>;
-export const startDriveConnect = () => invokeFiles('connect_start') as Promise<ApiResult<{ data: { url: string } }>>;
-export const disconnectDrive = () => invokeFiles('disconnect');
+/** the connection of ONE storage (default Google Drive: the function's default) */
+export const fetchDriveStatus = (provider?: FileStorageProvider) => invokeFiles('status', provider ? { provider } : {}) as Promise<ApiResult<{ data: DriveStatus }>>;
+/** both storages in one answer */
+export const fetchAllDriveStatus = () => invokeFiles('status', { provider: 'all' }) as Promise<ApiResult<{ data: { googleDrive: DriveStatus; oneDrive: DriveStatus } }>>;
+export const startDriveConnect = (provider?: FileStorageProvider) => invokeFiles('connect_start', provider ? { provider } : {}) as Promise<ApiResult<{ data: { url: string } }>>;
+export const disconnectDrive = (provider?: FileStorageProvider) => invokeFiles('disconnect', provider ? { provider } : {});
 export const runDriveCleanup = () => invokeFiles('cleanup');
 export const fetchDownloadUrl = (postGUID: string) => invokeFiles('download_url', { postGUID }) as Promise<ApiResult<{ data: { url: string; name?: string; mimeType?: string; size?: number } }>>;
 export const deleteFileRow = (postGUID: string) => invokeFiles('delete_file', { postGUID });
@@ -69,6 +76,16 @@ export interface UploadHooks { onProgress?: (fraction: number) => void; signal?:
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+/** the id of the item in the answer of the last fragment (OneDrive and Google both answer the driveItem / file); undefined when the answer cannot be read */
+async function itemIdOf(res: Response): Promise<string | undefined> {
+  try {
+    const j = await res.clone().json();
+    return typeof j?.id === 'string' ? j.id : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /** session (function) -> chunks straight to Google (no token) -> finish (function: the file is found by its uploadId, verified, registered) */
 export async function uploadPickedFile(target: FileTarget, file: PickedFile, hooks: UploadHooks = {}, fetchFn: typeof fetch = fetch): Promise<ApiResult<{ file: FileRow }>> {
   if (file.size > MAX_UPLOAD_BYTES) return { ok: false, error: 'The file is bigger than 100 MB.' };
@@ -77,12 +94,14 @@ export async function uploadPickedFile(target: FileTarget, file: PickedFile, hoo
   const session = await invokeFiles('upload_session', { scope: target.scope, guid: target.guid ?? null, projectGUID: target.projectGUID ?? null, name: file.name, mime, size: file.size });
   if (!session.ok) return session;
   const { sessionUrl, uploadId } = session.data as { sessionUrl: string; uploadId: string };
+  let itemId: string | undefined;
   try {
     for (const r of chunkRanges(file.size)) {
       if (hooks.signal?.aborted) return { ok: false, error: 'Cancelled.' };
       const res = await fetchFn(sessionUrl, { method: 'PUT', headers: { 'Content-Range': r.contentRange }, body: file.blob.slice(r.start, r.end) });
-      // 308 = more is expected, 200 / 201 = the last chunk; the answer of the last chunk may be unreadable in a browser - the file is found by its uploadId
-      if (res.status !== 308 && !res.ok) return { ok: false, error: `Google Drive refused the upload (HTTP ${res.status}).` };
+      // Google: 308 = more is expected; OneDrive: 202 (ok); 200 / 201 = the last chunk. The answer of the last chunk may be unreadable in a browser: Google finds the file by its uploadId
+      if (res.status !== 308 && !res.ok) return { ok: false, error: `The storage refused the upload (HTTP ${res.status}).` };
+      if (res.status === 200 || res.status === 201) itemId = await itemIdOf(res); // OneDrive: the driveItem of the last answer - the function verifies it (folder + size)
       hooks.onProgress?.(r.end / file.size);
     }
   } catch (e: any) {
@@ -91,7 +110,7 @@ export async function uploadPickedFile(target: FileTarget, file: PickedFile, hoo
   }
   let last: ApiResult<{ data: any }> = { ok: false, error: 'The upload is not finished.' };
   for (let i = 0; i < 4; i++) {
-    last = await invokeFiles('upload_finish', { uploadId, file: { title: file.name, kind: fileKindOf(mime, file.name) } });
+    last = await invokeFiles('upload_finish', { uploadId, ...(itemId ? { itemId } : {}), file: { title: file.name, kind: fileKindOf(mime, file.name) } });
     if (last.ok || (last.code !== 'notFinished')) break;
     await sleep(1000 * (i + 1));
   }
@@ -114,11 +133,13 @@ export async function replacePickedFile(row: FileRow, file: PickedFile, hooks: U
   const session = await invokeFiles('replace_session', { postGUID: row.rowGUID, name: file.name, mime: file.mime || 'application/octet-stream', size: file.size });
   if (!session.ok) return session;
   const { sessionUrl, uploadId } = session.data as { sessionUrl: string; uploadId: string };
+  let itemId: string | undefined;
   try {
     for (const r of chunkRanges(file.size)) {
       if (hooks.signal?.aborted) return { ok: false, error: 'Cancelled.' };
       const res = await fetchFn(sessionUrl, { method: 'PUT', headers: { 'Content-Range': r.contentRange }, body: file.blob.slice(r.start, r.end) });
-      if (res.status !== 308 && !res.ok) return { ok: false, error: `Google Drive refused the upload (HTTP ${res.status}).` };
+      if (res.status !== 308 && !res.ok) return { ok: false, error: `The storage refused the upload (HTTP ${res.status}).` };
+      if (res.status === 200 || res.status === 201) itemId = await itemIdOf(res);
       hooks.onProgress?.(r.end / file.size);
     }
   } catch (e: any) {
@@ -126,7 +147,7 @@ export async function replacePickedFile(row: FileRow, file: PickedFile, hooks: U
   }
   let last: ApiResult<{ data: any }> = { ok: false, error: 'The upload is not finished.' };
   for (let i = 0; i < 4; i++) {
-    last = await invokeFiles('replace_finish', { uploadId });
+    last = await invokeFiles('replace_finish', { uploadId, ...(itemId ? { itemId } : {}) });
     if (last.ok || last.code !== 'notFinished') break;
     await sleep(1000 * (i + 1));
   }
@@ -138,8 +159,8 @@ export async function replacePickedFile(row: FileRow, file: PickedFile, hooks: U
 export const moveFile = (postGUID: string, to: FileTarget) => invokeFiles('move', { postGUID, scope: to.scope, guid: to.guid ?? null, projectGUID: to.projectGUID ?? null }) as Promise<ApiResult<{ data: { file: FileRow } }>>;
 
 export interface HealthReport { checkedFolders: number; missing: { post: string; fileId: string; name: string }[]; orphans: { fileId: string; name: string; folderId: string }[]; unreadableFolders: string[] }
-export const runHealthCheck = () => invokeFiles('health') as Promise<ApiResult<{ data: HealthReport }>>;
-export const repairHealth = (missing: string[], orphans: string[]) => invokeFiles('health_repair', { missing, orphans }) as Promise<ApiResult<{ data: { rowsDeleted: number; orphansDeleted: number } }>>;
+export const runHealthCheck = (provider?: FileStorageProvider) => invokeFiles('health', provider ? { provider } : {}) as Promise<ApiResult<{ data: HealthReport }>>;
+export const repairHealth = (missing: string[], orphans: string[], provider?: FileStorageProvider) => invokeFiles('health_repair', { missing, orphans, ...(provider ? { provider } : {}) }) as Promise<ApiResult<{ data: { rowsDeleted: number; orphansDeleted: number } }>>;
 
 export interface DocumentType { rowGUID: string; rowOwnerGUID: string; rowJSON: { title: string } }
 export async function listDocumentTypes(): Promise<ApiResult<{ data: DocumentType[] }>> {

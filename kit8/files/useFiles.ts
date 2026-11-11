@@ -1,8 +1,8 @@
 // File attachments - the hooks of the Files tab: the list of a scope, the Drive state, may the user add, and the actions (they refresh every list). Plain React state with a small
 // change counter - no React Query provider is needed, so the hooks work in every screen and every test that renders the Finances view.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { authorizeFiles, fetchStorageUsed, listDocumentTypes, listVersions, moveFile, replacePickedFile, repairHealth, runHealthCheck, type DocumentType, type FileVersion, type StorageUsed, addLink, deleteFileRow, fetchDriveStatus, fetchDownloadUrl, listFiles, reorderFiles, startDriveConnect, updateFile, uploadPickedFile, disconnectDrive, runDriveCleanup, type DriveStatus, type FileTarget, type PickedFile } from './filesDriveApi';
-import type { FileRow } from './fileModel';
+import { authorizeFiles, fetchAllDriveStatus, fetchStorageUsed, listDocumentTypes, listVersions, moveFile, replacePickedFile, repairHealth, runHealthCheck, type DocumentType, type FileVersion, type StorageUsed, addLink, deleteFileRow, fetchDriveStatus, fetchDownloadUrl, listFiles, reorderFiles, startDriveConnect, updateFile, uploadPickedFile, disconnectDrive, runDriveCleanup, type DriveStatus, type FileTarget, type PickedFile } from './filesDriveApi';
+import type { FileRow, FileStorageProvider } from './fileModel';
 
 
 const NO_FILES: FileRow[] = [];
@@ -65,7 +65,8 @@ export function useCanChangeFiles(target: FileTarget, enabled = true) {
   return { canChange: state.allowed, reason: state.reason, loading: state.loading };
 }
 
-export function useDriveStatus(enabled = true) {
+/** the connection of ONE storage (default Google Drive); a change of the storage re-reads it */
+export function useDriveStatus(enabled = true, provider: FileStorageProvider = 'googleDrive') {
   const v = useFilesVersion();
   const [state, setState] = useState<{ status: DriveStatus | null; loading: boolean; error: string | null }>({ status: null, loading: false, error: null });
   const [tick, setTick] = useState(0);
@@ -78,12 +79,25 @@ export function useDriveStatus(enabled = true) {
     if (!enabled) return;
     let alive = true;
     setState((s) => ({ ...s, loading: true }));
-    fetchDriveStatus().then((r) => {
+    fetchDriveStatus(provider === 'googleDrive' ? undefined : provider).then((r) => {
       if (alive) setState(r.ok ? { status: r.data as DriveStatus, loading: false, error: null } : { status: null, loading: false, error: r.error });
     });
     return () => { alive = false; };
-  }, [enabled, v, tick]);
+  }, [enabled, v, tick, provider]);
   return { status: state.status, loading: state.loading, error: state.error };
+}
+
+/** both storages at once (the connection blocks of Project settings -> Files) */
+export function useAllDriveStatus(enabled = true) {
+  const v = useFilesVersion();
+  const [state, setState] = useState<{ all: { googleDrive: DriveStatus; oneDrive: DriveStatus } | null; error: string | null }>({ all: null, error: null });
+  useEffect(() => {
+    if (!enabled) return;
+    let alive = true;
+    fetchAllDriveStatus().then((r) => { if (alive) setState(r.ok ? { all: r.data, error: null } : { all: null, error: r.error }); });
+    return () => { alive = false; };
+  }, [enabled, v]);
+  return state;
 }
 
 export function useFilesActions(target: FileTarget) {
@@ -99,10 +113,10 @@ export function useFilesActions(target: FileTarget) {
       openUrl: (postGUID: string) => fetchDownloadUrl(postGUID),
       replaceFile: async (row: FileRow, file: PickedFile, onProgress?: (f: number) => void) => { const r = await replacePickedFile(row, file, { onProgress }); bumpFiles(); return r; },
       moveFile: async (postGUID: string, to: FileTarget) => { const r = await moveFile(postGUID, to); bumpFiles(); return r; },
-      healthCheck: () => runHealthCheck(),
-      healthRepair: async (missing: string[], orphans: string[]) => { const r = await repairHealth(missing, orphans); bumpFiles(); return r; },
-      connect: () => startDriveConnect(),
-      disconnect: async () => { const r = await disconnectDrive(); bumpFiles(); return r; },
+      healthCheck: (provider?: FileStorageProvider) => runHealthCheck(provider),
+      healthRepair: async (missing: string[], orphans: string[], provider?: FileStorageProvider) => { const r = await repairHealth(missing, orphans, provider); bumpFiles(); return r; },
+      connect: (provider?: FileStorageProvider) => startDriveConnect(provider),
+      disconnect: async (provider?: FileStorageProvider) => { const r = await disconnectDrive(provider); bumpFiles(); return r; },
       cleanup: async () => { const r = await runDriveCleanup(); bumpFiles(); return r; },
       refresh: bumpFiles,
     }),

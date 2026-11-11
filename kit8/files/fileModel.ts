@@ -6,8 +6,21 @@ export type FileScope = 'organization' | 'project' | 'stage' | 'task' | 'documen
 export type FileKind = 'text' | 'markdown' | 'audio' | 'video' | 'pdf' | 'image' | 'other';
 export type DriveState = 'notConnected' | 'ok' | 'needsReconnect';
 
+/** the storage of the files (documentation/FILE_WITH_OneDrive_WBS.html): the project setting projectFilesStorageProvider */
+export type FileStorageProvider = 'googleDrive' | 'oneDrive';
+export const FILE_STORAGE_PROVIDERS: { id: FileStorageProvider; title: string }[] = [
+  { id: 'googleDrive', title: 'Google Drive' },
+  { id: 'oneDrive', title: 'Microsoft OneDrive' },
+];
+export const providerTitleOf = (p: FileStorageProvider | string | null | undefined): string => (p === 'oneDrive' ? 'Microsoft OneDrive' : 'Google Drive');
+/** anything but 'oneDrive' is Google Drive: a project made before OneDrive has no value */
+export const filesProviderOfProject = (j: { projectFilesStorageProvider?: unknown } | null | undefined): FileStorageProvider => (j?.projectFilesStorageProvider === 'oneDrive' ? 'oneDrive' : 'googleDrive');
+export const providerOfValue = (v: unknown): FileStorageProvider => (v === 'oneDrive' ? 'oneDrive' : 'googleDrive');
+
 export interface FileRowJSON {
   fileSourceKind?: FileScope;
+  /** the storage of this file; missing = googleDrive (every file made before OneDrive) */
+  fileStorageProvider?: FileStorageProvider;
   fileSourceProjectGUID?: string;
   mediaPostTitle?: string;
   mediaPostDescription?: string;
@@ -81,8 +94,8 @@ export const isLinkRow = (row: FileRow): boolean => row.rowJSON.mediaPostOriginT
 /** the biggest file phase 1 sends (the file is read into memory by a phone): 100 MB, Q6 of the plan */
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
 
-/** a chunk of an upload: a multiple of 256 KB (Google's rule); 4 MB */
-export const UPLOAD_CHUNK_BYTES = 16 * 262144;
+/** a chunk of an upload for EVERY storage: 5 MiB = 20 x 256 KiB (Google's rule) = 16 x 320 KiB (Microsoft's rule; 5-10 MiB is Microsoft's advice) */
+export const UPLOAD_CHUNK_BYTES = 5 * 1048576;
 
 export interface ChunkRange { start: number; end: number; contentRange: string }
 
@@ -98,14 +111,20 @@ export function chunkRanges(total: number, chunk = UPLOAD_CHUNK_BYTES): ChunkRan
 }
 
 /** the words of the connection state for the Files tab (English; pmT translates where it is shown) */
-export function driveStateText(state: DriveState | string | null | undefined, accountEmail?: string | null): string {
-  if (state === 'ok') return accountEmail ? `Google Drive: connected as ${accountEmail}` : 'Google Drive: connected';
-  if (state === 'needsReconnect') return 'Google Drive is disconnected - reconnect';
-  return 'Google Drive is not connected';
+export function driveStateText(state: DriveState | string | null | undefined, accountEmail?: string | null, provider: FileStorageProvider = 'googleDrive'): string {
+  const t = providerTitleOf(provider);
+  if (state === 'ok') return accountEmail ? `${t}: connected as ${accountEmail}` : `${t}: connected`;
+  if (state === 'needsReconnect') return `${t} is disconnected - reconnect`;
+  return `${t} is not connected`;
 }
+
+/** the file row's storage */
+export const fileProviderOfRow = (row: { rowJSON?: { fileStorageProvider?: unknown } } | null | undefined): FileStorageProvider => providerOfValue(row?.rowJSON?.fileStorageProvider);
 
 /** the sentence of a refusal of the database / the function, for people */
 export function filesErrorText(reason: string | null | undefined, fallback = 'The action was refused.'): string {
+  // the function names its storage in its own words ("Microsoft OneDrive is not connected."): keep them
+  if (/^Microsoft OneDrive/.test(fallback)) return fallback;
   switch (reason) {
     case 'noPermission': return 'You have no permission to change files here.';
     case 'switchOff': return 'The files function is switched off in the settings of this project.';

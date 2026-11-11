@@ -31,7 +31,7 @@ psqlc -d "$DB" -f /sql/del_roles.sql
 left=$(psqlc -d "$DB" -At -c "select (to_regclass('public.\"roleTable\"') is not null)::int + (to_regclass('public.\"userRoleTable\"') is not null)::int + (select count(*) from public.project_permission_profile_crud_table where \"rowJSON\"->>'permissionTable' in ('roleTable','userRoleTable'))::int + (select count(*) from pg_policies where tablename in ('roleTable','userRoleTable'))::int")
 [ "$left" = 0 ] && echo "   OK: no table, no policy, no matrix row of the roles is left" || { echo "   FAILED: $left object(s) left"; exit 1; }
 m=$(psqlc -d "$DB" -At -c "select count(distinct \"rowJSON\"->>'permissionTable') from public.project_permission_profile_crud_table")
-[ "$m" = 141 ] && echo "   OK: the matrix still lists 141 tables" || { echo "   FAILED: matrix lists $m tables"; exit 1; }
+[ "$m" = 142 ] && echo "   OK: the matrix still lists 142 tables" || { echo "   FAILED: matrix lists $m tables"; exit 1; }
 echo "== the current files again on this database (they must not bring the tables back)"
 for f in start1_sql_tables start2_sql_code start4_sql_insert_missing; do psqlc -d "$DB" -f /sql/$f.sql >/dev/null; done
 n=$(psqlc -d "$DB" -At -c "select to_regclass('public.\"roleTable\"') is null and to_regclass('public.\"userRoleTable\"') is null")

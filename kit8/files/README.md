@@ -26,7 +26,7 @@ A file is a row of `mediaPostTable` with `rowJSON.fileSourceKind`; a post outsid
 - A tab and the Add actions exist only while the project switch is not false and the screen is no picker. Add / Edit / Delete show only for a holder of `projectMediaPostManager` (task scope), asked with `files_authorize`; every member reads.
 - View never gives a Google link: the function signs a 10 minute link and streams the file (`Range` works). A link row opens its own address.
 - Delete is permanent (the window says so) and works by the function: the row goes, the Drive file is queued and deleted at once; the database also queues the files of a deleted task / project / organization.
-- Phase 1 reads a file into memory (a phone) and refuses more than 100 MB (`MAX_UPLOAD_BYTES`); chunks of 4 MB go straight to Google.
+- Phase 1 reads a file into memory (a phone) and refuses more than 100 MB (`MAX_UPLOAD_BYTES`); chunks of 5 MiB (`UPLOAD_CHUNK_BYTES` = 20 x 256 KiB = 16 x 320 KiB, so the SAME size is valid for Google and for OneDrive) go straight to the storage.
 - A browser may not be able to read the answer of the LAST chunk (no CORS header): the upload finishes by the `uploadId` property the function wrote into the file.
 
 ## Not built yet (plan sections 9-11)
@@ -35,3 +35,13 @@ phone upload queue (S9), recording attach (S10), template files (S11).
 
 ## Tests
 `__tests__/files` (function with an in-memory Google + database, model + `filterFilesByName`, upload flow; `filesPanelList.test.tsx` + `filesPanelTestKit.tsx` = the table, the actions and the search) · `__tests__/pm/view/task/payments/paymentsTabUi.test.tsx` (the Files tab) · Docker `tests/55_files.sql`, `56_files_rows.sql`, `57_files_more.sql`.
+
+
+## Two storages: Google Drive and Microsoft OneDrive (OD1-OD6, 2026-11-11)
+Plan and facts: `documentation/FILE_WITH_OneDrive_WBS.html`, `documentation/OneDrive/ONEDRIVE_HOW_IT_WORKS.html` (spike OD0). The project setting **`projectFilesStorageProvider`** (`googleDrive` | `oneDrive`, a missing value = googleDrive) is the radio set
+`FilesStorageProviderRadio` in Project settings -> Files (below the switch `filesFunctionalityEnabled`; disabled while the switch is off; a storage the server has no client id for is disabled with its hint) and in the Organization defaults
+(it also decides the organization and document files). `PMProjectFilesTab` shows the connection block of the CHOSEN storage (`FilesDriveBlock provider=...`: state, account, Connect / Reconnect / Disconnect, storage used, Check files, the Microsoft client secret expiry
+warning, the whole-drive permission note) and one line for the other storage. A change on a project WITH files asks first ("N files stay in X. New files will be stored in Y."); nothing is moved.
+Every file row says its storage (`rowJSON.fileStorageProvider`, missing = googleDrive; OneDrive keys `oneDriveItemId / FolderId / RelativePath / WebUrl`); View, Replace, Move, Delete and the cleanup always use the storage of the ROW. The Files panel gets `provider` (the storage of the scope),
+reads that storage's status, and tags a file of the other storage in its Details only while the list is mixed. The upload is the same for both (5 MiB fragments, no token on the session url, 202 or 308 = send the next fragment); the app reads the driveItem of the last answer and sends its `id` as `itemId`
+to `upload_finish` / `replace_finish` (OneDrive verifies folder + size; Google ignores it). Tests: `__tests__/files/filesStorageProviderUi.test.tsx`, `filesModelAndApi.test.ts` (OneDrive section).

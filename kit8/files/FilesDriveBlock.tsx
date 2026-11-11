@@ -1,6 +1,7 @@
-// FilesDriveBlock - the Google Drive connection of the organization (documentation/FILE_ATTACHMENT_WBS.html, section 4), shown in Project settings -> Files:
-// the state, the account, the root folder, Connect / Reconnect / Disconnect (only for a holder of projectFileManager - files_authorize 'connect'), the cleanup queue with Run cleanup.
-// The administrator signs in to Google ONCE; everybody else never sees a Google screen. The token lives only in the Edge Function.
+// FilesDriveBlock - the connection of the organization to ONE storage (documentation/FILE_ATTACHMENT_WBS.html section 4, documentation/FILE_WITH_OneDrive_WBS.html), shown in Project settings -> Files
+// for the storage the project chose (Google Drive | Microsoft OneDrive): the state, the account, the root folder, Connect / Reconnect / Disconnect (only for a holder of projectFileManager -
+// files_authorize 'connect'), the cleanup queue with Run cleanup, the storage used, Check files (health) + Repair.
+// The administrator signs in to the storage ONCE; everybody else never sees a Google / Microsoft screen. The token lives only in the Edge Function.
 import React, { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../providers/WithDesignSystem';
@@ -8,9 +9,8 @@ import { pmT } from '../pm/i18n/pmT';
 import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
 import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
 import { authorizeFiles } from './filesDriveApi';
-import { driveStateText } from './fileModel';
+import { driveStateText, formatBytes, providerTitleOf, type FileStorageProvider } from './fileModel';
 import { useDriveStatus, useFilesActions, useStorageUsed } from './useFiles';
-import { formatBytes } from './fileModel';
 import type { HealthReport } from './filesDriveApi';
 
 const open = async (url: string) => {
@@ -18,9 +18,17 @@ const open = async (url: string) => {
   else await Linking.openURL(url);
 };
 
-export default function FilesDriveBlock({ testID = 'files-drive-block' }: { testID?: string }) {
+/** days from today (UTC) to a YYYY-MM-DD date; NaN for a text that is no date */
+export const daysUntil = (iso: string | null | undefined, today = new Date()): number => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
+  if (!m) return NaN;
+  return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / 86_400_000);
+};
+
+export default function FilesDriveBlock({ provider = 'googleDrive', testID = 'files-drive-block' }: { provider?: FileStorageProvider; testID?: string }) {
   const { themeColors: c } = useDesignSystem();
-  const { status, loading, error } = useDriveStatus(true);
+  const title = providerTitleOf(provider);
+  const { status, loading, error } = useDriveStatus(true, provider);
   const actions = useFilesActions({ scope: 'organization' });
   const [canConnect, setCanConnect] = useState(false);
   const [askDisconnect, setAskDisconnect] = useState(false);
@@ -36,18 +44,26 @@ export default function FilesDriveBlock({ testID = 'files-drive-block' }: { test
 
   const connect = async () => {
     setBusy(true);
-    const r = await actions.connect();
+    const r = await actions.connect(provider);
     setBusy(false);
     if (r.ok) await open(r.data.url);
-    else showErrorModal(r.error, pmT('Cannot connect Google Drive'));
+    else showErrorModal(r.error, pmT('Cannot connect {{provider}}', { provider: title }));
   };
 
   const state = status?.state ?? 'notConnected';
   const color = state === 'ok' ? c.primary : c.error;
+  const notConfigured = provider === 'oneDrive' && status?.providerConfigured === false;
+  const expiresIn = provider === 'oneDrive' ? daysUntil(status?.secretExpires) : NaN;
   return (
     <View testID={testID} style={[styles.box, { borderColor: c.border }]}>
-      <Text style={[styles.title, { color: c.text }]}>{pmT('Google Drive')}</Text>
-      <Text testID={`${testID}-state`} style={{ color, fontSize: 13 }}>{loading && !status ? pmT('Checking ...') : pmT(driveStateText(state, status?.accountEmail))}</Text>
+      <Text style={[styles.title, { color: c.text }]}>{pmT(title)}</Text>
+      <Text testID={`${testID}-state`} style={{ color, fontSize: 13 }}>{loading && !status ? pmT('Checking ...') : pmT(driveStateText(state, status?.accountEmail, provider))}</Text>
+      {notConfigured ? <Text testID={`${testID}-not-configured`} style={{ color: c.error, fontSize: 12 }}>{pmT('{{provider}} is not configured on this server.', { provider: title })}</Text> : null}
+      {canConnect && Number.isFinite(expiresIn) && expiresIn <= 30 ? (
+        <Text testID={`${testID}-secret-expiry`} style={{ color: c.error, fontSize: 12 }}>
+          {expiresIn < 0 ? pmT('The Microsoft client secret expired on {{date}}: create a new one and set it again.', { date: status!.secretExpires! }) : pmT('The Microsoft client secret expires in {{n}} days ({{date}}): create a new one before that.', { n: expiresIn, date: status!.secretExpires! })}
+        </Text>
+      ) : null}
       {error ? <Text style={{ color: c.error, fontSize: 12 }}>{error}</Text> : null}
       {status?.rootFolderUrl ? (
         <Pressable testID={`${testID}-root`} onPress={() => open(status.rootFolderUrl!)}>
@@ -55,7 +71,7 @@ export default function FilesDriveBlock({ testID = 'files-drive-block' }: { test
         </Pressable>
       ) : null}
       {status && status.cleanup && (status.cleanup.waiting > 0 || status.cleanup.failed > 0) ? (
-        <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Google Drive cleanup')}: {status.cleanup.waiting} {pmT('waiting')}, {status.cleanup.failed} {pmT('failed')}</Text>
+        <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Cleanup')}: {status.cleanup.waiting} {pmT('waiting')}, {status.cleanup.failed} {pmT('failed')}</Text>
       ) : null}
       {used ? (
         <Text testID={`${testID}-storage`} style={{ color: c.text, fontSize: 12 }}>
@@ -64,8 +80,8 @@ export default function FilesDriveBlock({ testID = 'files-drive-block' }: { test
       ) : null}
       {canConnect ? (
         <View style={styles.buttons}>
-          <Pressable testID={`${testID}-connect`} disabled={busy} onPress={connect} style={[styles.button, { backgroundColor: c.primary, borderColor: c.primary, opacity: busy ? 0.6 : 1 }]}>
-            <Text style={{ color: '#fff', fontSize: 13 }}>{pmT(state === 'ok' ? 'Reconnect with another account' : state === 'needsReconnect' ? 'Reconnect Google Drive' : 'Connect Google Drive')}</Text>
+          <Pressable testID={`${testID}-connect`} disabled={busy || notConfigured} onPress={connect} style={[styles.button, { backgroundColor: c.primary, borderColor: c.primary, opacity: busy || notConfigured ? 0.6 : 1 }]}>
+            <Text style={{ color: '#fff', fontSize: 13 }}>{state === 'ok' ? pmT('Reconnect with another account') : state === 'needsReconnect' ? pmT('Reconnect {{provider}}', { provider: title }) : pmT('Connect {{provider}}', { provider: title })}</Text>
           </Pressable>
           {state !== 'notConnected' ? (
             <Pressable testID={`${testID}-disconnect`} onPress={() => setAskDisconnect(true)} style={[styles.button, { borderColor: c.border }]}>
@@ -73,7 +89,7 @@ export default function FilesDriveBlock({ testID = 'files-drive-block' }: { test
             </Pressable>
           ) : null}
           {state === 'ok' ? (
-            <Pressable testID={`${testID}-health`} disabled={busy} onPress={async () => { setBusy(true); const r = await actions.healthCheck(); setBusy(false); if (r.ok) setHealth(r.data); else showErrorModal(r.error, pmT('Health check failed')); }} style={[styles.button, { borderColor: c.border }]}>
+            <Pressable testID={`${testID}-health`} disabled={busy} onPress={async () => { setBusy(true); const r = await actions.healthCheck(provider); setBusy(false); if (r.ok) setHealth(r.data); else showErrorModal(r.error, pmT('Health check failed')); }} style={[styles.button, { borderColor: c.border }]}>
               <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Check files')}</Text>
             </Pressable>
           ) : null}
@@ -84,28 +100,32 @@ export default function FilesDriveBlock({ testID = 'files-drive-block' }: { test
           ) : null}
         </View>
       ) : (
-        <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('Only an administrator or a project manager connects Google Drive.')}</Text>
+        <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('Only an administrator or a project manager connects {{provider}}.', { provider: title })}</Text>
       )}
       {health ? (
         <View testID={`${testID}-health-result`} style={{ gap: 4 }}>
-          <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Folders checked')}: {health.checkedFolders}. {pmT('Missing in Google Drive')}: {health.missing.length}. {pmT('Not in the app')}: {health.orphans.length}.</Text>
+          <Text style={{ color: c.text, fontSize: 12 }}>{pmT('Folders checked')}: {health.checkedFolders}. {pmT('Missing in the storage')}: {health.missing.length}. {pmT('Not in the app')}: {health.orphans.length}.</Text>
           {health.missing.length + health.orphans.length > 0 ? (
-            <Pressable testID={`${testID}-health-repair`} disabled={busy} onPress={async () => { setBusy(true); const r = await actions.healthRepair(health.missing.map((m) => m.post), health.orphans.map((o) => o.fileId)); setBusy(false); if (r.ok) setHealth(null); else showErrorModal(r.error, pmT('Repair failed')); }} style={[styles.button, { borderColor: c.border, alignSelf: 'flex-start' }]}>
+            <Pressable testID={`${testID}-health-repair`} disabled={busy} onPress={async () => { setBusy(true); const r = await actions.healthRepair(health.missing.map((m) => m.post), health.orphans.map((o) => o.fileId), provider); setBusy(false); if (r.ok) setHealth(null); else showErrorModal(r.error, pmT('Repair failed')); }} style={[styles.button, { borderColor: c.border, alignSelf: 'flex-start' }]}>
               <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Repair: remove the rows without a file and the files without a row')}</Text>
             </Pressable>
           ) : null}
         </View>
       ) : null}
-      <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('One Google account stores the files of the whole organization; the other people never sign in to Google. Files belong to that account.')}</Text>
+      {provider === 'oneDrive' ? (
+        <Text testID={`${testID}-permission-note`} style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('One Microsoft account stores the files of the whole organization; the other people never sign in to Microsoft. The application may read and write the files of that account (Microsoft has no narrower permission) but uses only the folder kit8root. Use a dedicated account that keeps its OneDrive licence.')}</Text>
+      ) : (
+        <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('One Google account stores the files of the whole organization; the other people never sign in to Google. Files belong to that account.')}</Text>
+      )}
       <ModalAskComponent
         testID={`${testID}-disconnect-ask`}
         visible={askDisconnect}
-        modalTopBar={pmT('Disconnect Google Drive?')}
-        modalBody={pmT('The files stay in Google Drive, but nobody can open or add files until Google Drive is connected again.')}
+        modalTopBar={pmT('Disconnect {{provider}}?', { provider: title })}
+        modalBody={pmT('The files stay in {{provider}}, but nobody can open or add files until it is connected again.', { provider: title })}
         cancelLabel={pmT('Cancel')}
         confirmLabel={pmT('Disconnect')}
         onCancel={() => setAskDisconnect(false)}
-        onConfirm={async () => { setAskDisconnect(false); const r = await actions.disconnect(); if (!r.ok) showErrorModal(r.error, pmT('Cannot disconnect')); }}
+        onConfirm={async () => { setAskDisconnect(false); const r = await actions.disconnect(provider); if (!r.ok) showErrorModal(r.error, pmT('Cannot disconnect')); }}
       />
     </View>
   );

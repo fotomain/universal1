@@ -10,7 +10,7 @@ import ReusableTable from '../ui/components/table/reusable/ReusableTable';
 import type { ReusableTableRow, VisualColumn } from '../ui/components/table/reusable/reusableTableTypes';
 import { pmT } from '../pm/i18n/pmT';
 import { PMIconButton } from '../pm/inner/buttons/PMIconButton';
-import { FILE_KIND_ICON, fileKindOf, fileTitleOf, formatBytes, isLinkRow, type FileRow } from './fileModel';
+import { FILE_KIND_ICON, fileKindOf, fileProviderOfRow, fileTitleOf, formatBytes, isLinkRow, providerTitleOf, type FileRow } from './fileModel';
 
 export interface FilesTableActions {
   onView: (row: FileRow) => void;
@@ -27,6 +27,8 @@ export interface FilesTableProps extends FilesTableActions {
   rows: FileRow[];
   /** the document types (title of `fileDocumentTypeGUID`) */
   types: { rowGUID: string; rowJSON: { title: string } }[];
+  /** the list holds files of more than one storage: every row says where its file is */
+  showProvider?: boolean;
   /** the holder of projectMediaPostManager: Replace / Move / Edit / Delete are shown */
   canChange: boolean;
   testID?: string;
@@ -35,14 +37,15 @@ export interface FilesTableProps extends FilesTableActions {
 const typeTitleOf = (types: FilesTableProps['types'], guid?: string): string => (guid ? types.find((t) => t.rowGUID === guid)?.rowJSON.title || '' : '');
 
 /** the text of the Details column: document type · paper place · version (only what exists) */
-export function fileDetailsOf(row: FileRow, types: FilesTableProps['types']): string {
+export function fileDetailsOf(row: FileRow, types: FilesTableProps['types'], showProvider = false): string {
   const j = row.rowJSON;
-  return [typeTitleOf(types, j.fileDocumentTypeGUID), j.paperDocumentPlace ? `${pmT('Paper')}: ${j.paperDocumentPlace}` : '', (j.fileVersionNumber || 1) > 1 ? `v${j.fileVersionNumber}` : ''].filter(Boolean).join('  ·  ');
+  // the storage of the file, only while the list holds files of more than one storage (the project changed its storage)
+  return [showProvider && !isLinkRow(row) ? providerTitleOf(fileProviderOfRow(row)) : '', typeTitleOf(types, j.fileDocumentTypeGUID), j.paperDocumentPlace ? `${pmT('Paper')}: ${j.paperDocumentPlace}` : '', (j.fileVersionNumber || 1) > 1 ? `v${j.fileVersionNumber}` : ''].filter(Boolean).join('  ·  ');
 }
 
 const BUTTON_W = 34;
 
-export default function FilesTable({ rows, types, canChange, testID = 'task-files', onView, onReplace, onMove, onEdit, onDelete, onVersions }: FilesTableProps) {
+export default function FilesTable({ rows, types, canChange, showProvider = false, testID = 'task-files', onView, onReplace, onMove, onEdit, onDelete, onVersions }: FilesTableProps) {
   const { themeColors: c } = useDesignSystem();
   // the handlers change every render of the panel: the columns read them through a ref, so the columns (and the table) stay stable
   const h = useRef<FilesTableActions>({ onView, onReplace, onMove, onEdit, onDelete, onVersions });
@@ -89,7 +92,7 @@ export default function FilesTable({ rows, types, canChange, testID = 'task-file
                   {!link ? <PMIconButton tipScope="app" testID={`${testID}-replace-${id}`} icon="upload_file" title={pmT('Replace with a new version (the old one is kept)')} color={c.text} onPress={() => h.current.onReplace(f)} /> : null}
                   <PMIconButton tipScope="app" testID={`${testID}-move-${id}`} icon="drive_file_move" title={pmT('Move to the project or the organization files')} color={c.text} onPress={() => h.current.onMove(f)} />
                   <PMIconButton tipScope="app" testID={`${testID}-edit-${id}`} icon="edit" title={pmT('Edit the name, the type and the paper place')} color={c.text} onPress={() => h.current.onEdit(f)} />
-                  <PMIconButton tipScope="app" testID={`${testID}-delete-${id}`} icon="delete" title={pmT('Delete the file from Google Drive permanently')} color={c.error} onPress={() => h.current.onDelete(f)} />
+                  <PMIconButton tipScope="app" testID={`${testID}-delete-${id}`} icon="delete" title={pmT('Delete the file from its storage permanently')} color={c.error} onPress={() => h.current.onDelete(f)} />
                 </>
               ) : null}
             </View>
@@ -98,11 +101,11 @@ export default function FilesTable({ rows, types, canChange, testID = 'task-file
       },
       {
         key: 'details', title: pmT('Details'), type: 'custom', width: 230,
-        searchText: (row) => fileDetailsOf(fileOf(row), types),
-        renderCell: (row) => <Text testID={`${testID}-details-${row.rowGUID}`} numberOfLines={1} style={{ flex: 1, color: c.text, opacity: 0.75, fontSize: 12 }}>{fileDetailsOf(fileOf(row), types)}</Text>,
+        searchText: (row) => fileDetailsOf(fileOf(row), types, showProvider),
+        renderCell: (row) => <Text testID={`${testID}-details-${row.rowGUID}`} numberOfLines={1} style={{ flex: 1, color: c.text, opacity: 0.75, fontSize: 12 }}>{fileDetailsOf(fileOf(row), types, showProvider)}</Text>,
       },
     ];
-  }, [byGuid, types, canChange, c.primary, c.text, c.error, testID]);
+  }, [byGuid, types, canChange, showProvider, c.primary, c.text, c.error, testID]);
 
   return (
     <ReusableTable

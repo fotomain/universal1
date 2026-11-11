@@ -2,10 +2,11 @@
 //   * An access token lives about one hour (observed 3598 s). A cached token is used while it has more than 5 minutes left.
 //   * The refresh token is stored ENCRYPTED (FILES_TOKEN_KEY); invalid_grant (revoked, password changed, unused about 6 months, Google app in Testing for 7 days)
 //     marks the connection needsReconnect - the app shows "Google Drive is disconnected - reconnect".
-import { decryptToken } from './crypto.ts';
-import type { FetchFn } from './googleDrive.ts';
+import { decryptToken, encryptToken } from './crypto.ts';
+import type { FetchFn, StorageProvider } from './provider.ts';
+import { createGoogleProvider } from './googleProvider.ts';
 
-export const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token';
+export { GOOGLE_TOKEN_URL } from './googleProvider.ts';
 export const REFRESH_MARGIN_MS = 5 * 60 * 1000;
 
 export class NeedsReconnectError extends Error {
@@ -17,6 +18,8 @@ export class NeedsReconnectError extends Error {
 
 export interface TokenDeps {
   fetchFn: FetchFn;
+  /** the storage the token belongs to (default: Google Drive) */
+  provider?: StorageProvider;
   clientId: string;
   clientSecret: string;
   tokenKey: string;
@@ -26,39 +29,33 @@ export interface TokenDeps {
   markNeedsReconnect: (organization: string, error: string) => Promise<void>;
   /** after a successful refresh: lastRefreshAt, state ok */
   markRefreshed: (organization: string, iso: string) => Promise<void>;
+  /** a storage whose refresh token ROTATES (OneDrive) answers a refresh with a NEW token: it is stored (encrypted) before the access token is used. Google never rotates: not called. */
+  saveRefreshToken?: (organization: string, refreshTokenEncrypted: string) => Promise<void>;
 }
 
 export function createTokenProvider(deps: TokenDeps) {
   const cache = new Map<string, { token: string; expiresAt: number }>();
   const inflight = new Map<string, Promise<string>>();
+  const provider = deps.provider ?? createGoogleProvider(deps.fetchFn);
 
   async function refresh(organization: string): Promise<string> {
     const conn = await deps.loadConnection(organization);
     if (!conn || !conn.refreshTokenEncrypted) throw new NeedsReconnectError('Google Drive is not connected.');
     if (conn.state === 'needsReconnect') throw new NeedsReconnectError();
     const refreshToken = await decryptToken(conn.refreshTokenEncrypted, deps.tokenKey);
-    const res = await deps.fetchFn(GOOGLE_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'refresh_token', refresh_token: refreshToken, client_id: deps.clientId, client_secret: deps.clientSecret }).toString(),
-    });
-    let body: any = {};
-    try {
-      body = await res.json();
-    } catch {
-      body = {};
-    }
-    if (!res.ok || !body.access_token) {
-      if (body.error === 'invalid_grant' || res.status === 400 || res.status === 401) {
-        await deps.markNeedsReconnect(organization, String(body.error_description || body.error || `HTTP ${res.status}`).slice(0, 300));
+    const r = await provider.refresh({ refreshToken, clientId: deps.clientId, clientSecret: deps.clientSecret });
+    if (!r.ok) {
+      if (r.revoked) {
+        await deps.markNeedsReconnect(organization, r.error.slice(0, 300));
         throw new NeedsReconnectError();
       }
-      throw new Error(`Google token refresh failed (HTTP ${res.status}).`);
+      throw new Error(`${provider.title} token refresh failed (HTTP ${r.status}).`);
     }
-    const expiresAt = deps.now() + Math.max(60, Number(body.expires_in) || 3600) * 1000;
-    cache.set(organization, { token: body.access_token, expiresAt });
+    if (r.refreshToken && deps.saveRefreshToken) await deps.saveRefreshToken(organization, await encryptToken(r.refreshToken, deps.tokenKey));
+    const expiresAt = deps.now() + Math.max(60, r.expiresInSeconds) * 1000;
+    cache.set(organization, { token: r.accessToken, expiresAt });
     await deps.markRefreshed(organization, new Date(deps.now()).toISOString());
-    return body.access_token as string;
+    return r.accessToken;
   }
 
   return {

@@ -2,19 +2,17 @@
 // Facts this code relies on come from the live test of 2026-11-11 (documentation/Goolge/GOOGLE_DRIVE_HOW_IT_WORKS.html, section 12):
 //   * folders / files are found again by properties; a resumable upload session url carries its own authorization; Range reads give 206;
 //   * files.delete on a folder with children gives 403 appNotAuthorizedToChild -> a tree is deleted BOTTOM-UP (deleteTreeBottomUp).
+import { StorageError, type FetchFn } from './provider.ts';
+export type { FetchFn };
+
 export const DRIVE = 'https://www.googleapis.com/drive/v3';
 export const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
 export const FOLDER_MIME = 'application/vnd.google-apps.folder';
 
-export type FetchFn = (input: string, init?: RequestInit) => Promise<Response>;
-
-export class DriveError extends Error {
-  status: number;
-  reason: string;
+/** the Google Drive flavour of StorageError (the handler catches StorageError) */
+export class DriveError extends StorageError {
   constructor(status: number, reason: string, message?: string) {
-    super(message || `Google Drive answered ${status} ${reason}`.trim());
-    this.status = status;
-    this.reason = reason;
+    super(status, reason, message || `Google Drive answered ${status} ${reason}`.trim());
   }
 }
 

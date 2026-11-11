@@ -40,6 +40,15 @@ describe('app/user/files (the return of the Google consent)', () => {
         expect(mockReplace).toHaveBeenCalledWith('/pm/project/dashboard');
         v.done();
     });
+    it('names the storage the function says: Microsoft OneDrive', () => {
+        const v = show({ filesConnect: 'error', provider: 'oneDrive', reason: 'server_error: AADSTS500000: Something went wrong.' });
+        expect(v.host.textContent).toContain('Microsoft OneDrive was not connected');
+        expect(v.host.querySelector('[data-testid="files-connect-reason"]')?.textContent).toBe('server_error: AADSTS500000: Something went wrong.');
+        v.done();
+        const ok = show({ filesConnect: 'ok', provider: 'oneDrive' });
+        expect(ok.host.textContent).toContain('Microsoft OneDrive is connected');
+        ok.done();
+    });
     it('error: shows the reason and stays until the button is pressed', () => {
         const v = show({ filesConnect: 'error', reason: 'state expired - try again' });
         expect(v.host.textContent).toContain('was not connected');

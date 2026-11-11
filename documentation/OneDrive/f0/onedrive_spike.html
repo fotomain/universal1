@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>OneDrive spike OD0</title>
+<style>
+body{font:14px/1.5 -apple-system,Segoe UI,sans-serif;margin:20px;max-width:1100px}
+code,pre{font:12px ui-monospace,Menlo,monospace;background:#f1f5f9;padding:1px 5px;border-radius:5px}
+pre{padding:10px;overflow:auto;white-space:pre-wrap}
+table{border-collapse:collapse;width:100%}td,th{border-bottom:1px solid #e2e8f0;padding:6px 8px;text-align:left;vertical-align:top}
+.ok{color:#059669;font-weight:600}.bad{color:#e11d48;font-weight:600}.info{color:#64748b}
+button{padding:6px 14px;margin-right:8px}
+</style></head><body>
+<h1>OneDrive spike OD0 (no product code)</h1>
+<p class="info">Runs in this browser page at <code id="origin"></code>. Sign-in = authorization code + PKCE (no client secret needed); tokens stay in memory. Test files live in a folder <code>kit8spike-…</code> that is deleted at the end.</p>
+<p>Client id: <input id="cid" size="40"> <button id="signin">Sign in with Microsoft</button> <button id="run" disabled>Run all checks</button> <span id="who" class="info"></span></p>
+<table id="tbl"><thead><tr><th>#</th><th>Check</th><th>Result</th><th>Detail</th></tr></thead><tbody></tbody></table>
+<h3>Report (JSON)</h3><pre id="report">(not run yet)</pre>
+<script>
+const REDIRECT = location.origin + location.pathname;
+const SCOPE = 'offline_access Files.ReadWrite User.Read';
+const AUTH = 'https://login.microsoftonline.com/common/oauth2/v2.0/';
+const G = 'https://graph.microsoft.com/v1.0';
+const $ = (id) => document.getElementById(id);
+$('origin').textContent = REDIRECT;
+const qs = new URLSearchParams(location.search);
+$('cid').value = qs.get('client_id') || sessionStorage.getItem('od_cid') || '';
+let tokens = null, rows = [], report = { startedAt: new Date().toISOString(), checks: [] };
+
+const b64u = (buf) => btoa(String.fromCharCode(...new Uint8Array(buf))).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+async function pkce() {
+  const v = b64u(crypto.getRandomValues(new Uint8Array(48)));
+  const c = b64u(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(v)));
+  return { v, c };
+}
+$('signin').onclick = async () => {
+  const cid = $('cid').value.trim(); if (!cid) return alert('client id?');
+  sessionStorage.setItem('od_cid', cid);
+  const { v, c } = await pkce(); const state = b64u(crypto.getRandomValues(new Uint8Array(16)));
+  sessionStorage.setItem('od_v', v); sessionStorage.setItem('od_state', state);
+  location.href = AUTH + 'authorize?' + new URLSearchParams({ client_id: cid, response_type: 'code', redirect_uri: REDIRECT, response_mode: 'query', scope: SCOPE, state, code_challenge: c, code_challenge_method: 'S256', prompt: 'select_account' });
+};
+async function tokenCall(body) {
+  const r = await fetch(AUTH + 'token', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body) });
+  const j = await r.json().catch(() => ({})); return { status: r.status, json: j };
+}
+(async () => {
+  if (qs.get('error')) { $('who').textContent = 'Sign-in error: ' + qs.get('error') + ' - ' + qs.get('error_description'); return; }
+  if (qs.get('code') && qs.get('state') === sessionStorage.getItem('od_state')) {
+    const t = await tokenCall({ client_id: sessionStorage.getItem('od_cid'), grant_type: 'authorization_code', code: qs.get('code'), redirect_uri: REDIRECT, code_verifier: sessionStorage.getItem('od_v'), scope: SCOPE });
+    history.replaceState({}, '', REDIRECT);
+    if (t.status !== 200) { $('who').textContent = 'Token error: ' + JSON.stringify(t.json).slice(0, 400); return; }
+    tokens = t.json; $('who').textContent = 'Signed in (token in memory).'; $('run').disabled = false;
+    if (sessionStorage.getItem('od_auto') === '1') $('run').click();
+  }
+})();
+
+// ---- helpers ------------------------------------------------------------------------------------------------------------------------------------
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const gfetch = (path, opts = {}) => fetch(G + path, { ...opts, headers: { Authorization: 'Bearer ' + tokens.access_token, ...(opts.headers || {}) } });
+const jsonOf = async (r) => { const t = await r.text(); try { return t ? JSON.parse(t) : {}; } catch { return { raw: t.slice(0, 300) }; } };
+const bytes = (n) => new Blob([new Uint8Array(n)]);
+const MIB = 1048576, K320 = 327680;
+function record(n, name, ok, detail) {
+  report.checks.push({ n, name, ok, detail });
+  const tr = document.createElement('tr');
+  tr.innerHTML = `<td>${n}</td><td>${name}</td><td class="${ok === true ? 'ok' : ok === false ? 'bad' : 'info'}">${ok === true ? 'PASS' : ok === false ? 'FAIL / differs' : 'info'}</td><td></td>`;
+  tr.lastChild.textContent = typeof detail === 'string' ? detail : JSON.stringify(detail);
+  $('tbl').tBodies[0].appendChild(tr); $('report').textContent = JSON.stringify(report, null, 1);
+}
+async function session(baseId, name, size, extra = {}) {
+  const r = await gfetch(`/me/drive/items/${baseId}:/${encodeURIComponent(name)}:/createUploadSession`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ item: { '@microsoft.graph.conflictBehavior': 'fail', ...extra } }) });
+  const j = await jsonOf(r); return { status: r.status, url: j.uploadUrl, json: j };
+}
+// one PUT of a fragment; never throws: reports whether the browser could read the answer
+async function put(url, start, endIncl, total, extraHeaders = {}) {
+  const blob = bytes(endIncl - start + 1);
+  try {
+    const r = await fetch(url, { method: 'PUT', headers: { 'Content-Range': `bytes ${start}-${endIncl}/${total}`, ...extraHeaders }, body: blob });
+    const t = await r.text().catch(() => ''); let j = {}; try { j = JSON.parse(t); } catch {}
+    return { readable: true, status: r.status, json: j, text: t.slice(0, 200) };
+  } catch (e) { return { readable: false, error: String(e) }; }
+}
+const permDelete = async (id) => (await gfetch(`/me/drive/items/${id}/permanentDelete`, { method: 'POST' })).status;
+
+$('run').onclick = async () => {
+  $('run').disabled = true; const T = Date.now();
+  try {
+    // ---- account + quota (4, 9)
+    const me = await jsonOf(await gfetch('/me')); const drv = await jsonOf(await gfetch('/me/drive?select=id,driveType,quota'));
+    const idt = tokens.id_token ? JSON.parse(atob(tokens.id_token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))) : {};
+    record(4, 'Account and consent', true, { upn: me.userPrincipalName || me.mail, driveType: drv.driveType, tenant: idt.tid, personal: idt.tid === '9188040d-6c67-4c5b-b112-36a304b66dad', scope: tokens.scope, refreshTokenIssued: !!tokens.refresh_token });
+    record(9, 'Quota', !!drv.quota, drv.quota);
+    const rootR = await gfetch('/me/drive/root/children', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'kit8spike-' + T, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' }) });
+    const base = await jsonOf(rootR); if (!base.id) { record(0, 'Create the spike folder', false, base); return; }
+    record(0, 'Create the spike folder', true, base.name);
+
+    // ---- 1 CORS of the upload URL + 5 MiB fragments
+    const S6 = 6 * MIB; const s1 = await session(base.id, 'six-mib.bin', S6);
+    record('1a', 'createUploadSession from the browser (Graph CORS)', s1.status === 200, { status: s1.status, hasUploadUrl: !!s1.url });
+    if (s1.url) {
+      const o = origin => new URL(s1.url).host;
+      const f1 = await put(s1.url, 0, 5 * MIB - 1, S6);
+      record('1b', 'PUT fragment 1 (5 MiB, Content-Range, no Authorization): preflight OK and answer READABLE?', f1.readable ? (f1.status === 202) : false, { host: o(), ...f1 });
+      const f2 = await put(s1.url, 5 * MIB, S6 - 1, S6);
+      record('1c', 'PUT last fragment: answer readable and final item id returned?', f2.readable && !!f2.json?.id, { ...f2 });
+      if (!f2.readable) { const ch = await jsonOf(await gfetch(`/me/drive/items/${base.id}/children?select=name,size`)); record('1d', 'Item exists although the final answer was unreadable', null, ch.value?.map((x) => `${x.name}:${x.size}`)); }
+    }
+    // ---- 2 fragment rules
+    const s2 = await session(base.id, 'order.bin', S6);
+    if (s2.url) { const x = await put(s2.url, 5 * MIB, S6 - 1, S6); record('2a', 'Fragment 2 sent FIRST (out of order)', x.readable ? x.status >= 400 : null, x); await fetch(s2.url, { method: 'DELETE' }).catch(() => 0); }
+    const s3 = await session(base.id, 'resume.bin', S6);
+    if (s3.url) {
+      const a = await put(s3.url, 0, 10 * K320 - 1, S6);
+      let st = null; try { const r = await fetch(s3.url); st = await r.json(); } catch (e) { st = String(e); }
+      const b = await put(s3.url, 10 * K320, S6 - 1, S6);
+      record('2b', 'Resume: GET on the uploadUrl shows nextExpectedRanges, then the rest is accepted', b.readable ? b.status === 201 || b.status === 200 : null, { first: a.status, statusGet: st, last: b.status });
+    }
+    const s4 = await session(base.id, 'auth-header.bin', S6);
+    if (s4.url) { const x = await put(s4.url, 0, 10 * K320 - 1, S6, { Authorization: 'Bearer ' + tokens.access_token }); record('2c', 'Authorization header sent to the uploadUrl', null, x); await fetch(s4.url, { method: 'DELETE' }).catch(() => 0); }
+    const S8 = 8 * MIB; const s5 = await session(base.id, 'misaligned.bin', S8);
+    if (s5.url) { const a = await put(s5.url, 0, 4 * MIB - 1, S8); const b = await put(s5.url, 4 * MIB, S8 - 1, S8); record('2d', '4 MiB (NOT a multiple of 320 KiB) fragments', null, { first: a.status ?? a.error, last: b.status ?? b.error, lastBody: b.text }); }
+
+    // ---- 3 refresh token rotation (SPA flow: refresh lives 24 h here; rotation behaviour is what is observed)
+    const rt0 = tokens.refresh_token; const cid = sessionStorage.getItem('od_cid');
+    const r1 = await tokenCall({ client_id: cid, grant_type: 'refresh_token', refresh_token: rt0, scope: SCOPE });
+    const r2 = await tokenCall({ client_id: cid, grant_type: 'refresh_token', refresh_token: rt0, scope: SCOPE });
+    const r3 = r1.json.refresh_token ? await tokenCall({ client_id: cid, grant_type: 'refresh_token', refresh_token: r1.json.refresh_token, scope: SCOPE }) : null;
+    record(3, 'Refresh token rotation (use 1, use the OLD one again, use the NEW one)', null, { use1: r1.status, newTokenDiffers: r1.json.refresh_token && r1.json.refresh_token !== rt0, oldAgain: r2.status, oldAgainError: r2.json.error, newOne: r3 && r3.status, expiresIn: r1.json.expires_in, refreshTokenExpiresIn: r1.json.refresh_token_expires_in });
+    if (r1.json.access_token) tokens.access_token = r1.json.access_token;
+
+    // ---- 6 download
+    const fl = await jsonOf(await gfetch(`/me/drive/items/${base.id}/children?select=id,name,size`)); const six = fl.value?.find((x) => x.name === 'six-mib.bin');
+    if (six) {
+      const d = await jsonOf(await gfetch(`/me/drive/items/${six.id}?select=id,@microsoft.graph.downloadUrl`)); const du = d['@microsoft.graph.downloadUrl'];
+      if (du) {
+        try { const r = await fetch(du, { headers: { Range: 'bytes=0-99' } }); record('6a', 'downloadUrl with Range from the browser', r.status === 206, { status: r.status, contentRange: r.headers.get('content-range'), type: r.headers.get('content-type'), len: (await r.arrayBuffer()).byteLength, host: new URL(du).host }); }
+        catch (e) { record('6a', 'downloadUrl with Range from the browser', false, String(e)); }
+        try { const r = await fetch(du); record('6b', 'downloadUrl whole file', r.ok, { status: r.status, type: r.headers.get('content-type'), len: (await r.arrayBuffer()).byteLength }); } catch (e) { record('6b', 'downloadUrl whole file', false, String(e)); }
+      } else record('6a', 'downloadUrl', false, d);
+      try { const r = await fetch(`${G}/me/drive/items/${six.id}/content`, { headers: { Authorization: 'Bearer ' + tokens.access_token } }); record('6c', '/content with Authorization from the browser (redirect + CORS)', null, { status: r.status, redirected: r.redirected }); } catch (e) { record('6c', '/content with Authorization from the browser (redirect + CORS)', null, 'blocked: ' + e); }
+      // ---- 7 versions: update session on the item id
+      const us = await (async () => { const r = await gfetch(`/me/drive/items/${six.id}/createUploadSession`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' }); return { status: r.status, url: (await jsonOf(r)).uploadUrl }; })();
+      if (us.url) { const u = await put(us.url, 0, MIB - 1, MIB); const v = await jsonOf(await gfetch(`/me/drive/items/${six.id}/versions`)); record(7, 'Update session on an item id makes a version', (v.value || []).length >= 2, { updateStatus: u.status ?? u.error, versions: (v.value || []).map((x) => ({ id: x.id, size: x.size })) }); }
+      else record(7, 'Update session on an item id', false, us);
+    }
+
+    // ---- 8 names
+    const names = ['plan with spaces ü é.txt', 'a#b%c.txt', '~lead.txt', 'x'.repeat(116) + '.txt', 'trail.', 'q?s.txt'];
+    const nr = [];
+    for (const n of names) { try { const r = await gfetch(`/me/drive/items/${base.id}:/${encodeURIComponent(n)}:/content`, { method: 'PUT', headers: { 'Content-Type': 'text/plain' }, body: 'x' }); const j = await jsonOf(r); nr.push(`${n.slice(0, 30)}: ${r.status}${j.error ? ' ' + j.error.code : ''}`); } catch (e) { nr.push(n.slice(0, 30) + ': ' + e); } }
+    record('8a', 'File names (spaces/accents, # %, leading ~, 120 chars, trailing dot, ?)', null, nr);
+    const dup = await session(base.id, 'six-mib.bin', S6); record('8b', 'conflictBehavior=fail on an existing name', null, { status: dup.status, error: dup.json?.error });
+    let parent = base.id, plen = ('/kit8spike-' + T).length, deep = [], failAt = null;
+    for (let i = 0; i < 14 && !failAt; i++) {
+      const nm = (i + 'x').padEnd(38, 'a'); const r = await gfetch(`/me/drive/items/${parent}/children`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nm, folder: {}, '@microsoft.graph.conflictBehavior': 'fail' }) });
+      const j = await jsonOf(r); plen += 1 + nm.length; if (!j.id) { failAt = { level: i, pathLen: plen, status: r.status, error: j.error }; break; } parent = j.id; deep.push(plen);
+    }
+    record('8c', 'Folder path length: nest 38-character folders until it fails (about 14 levels = 530 chars)', failAt ? 'differs' : true, failAt || { reachedPathLength: deep[deep.length - 1] });
+
+    // ---- 5 delete
+    const f1 = await jsonOf(await gfetch(`/me/drive/items/${base.id}/children`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'del-folder-perm', folder: {}, '@microsoft.graph.conflictBehavior': 'fail' }) }));
+    await gfetch(`/me/drive/items/${f1.id}:/inner.txt:/content`, { method: 'PUT', body: 'x' });
+    const pf = await permDelete(f1.id); const chk = (await gfetch(`/me/drive/items/${f1.id}`)).status;
+    record('5a', 'permanentDelete of a FOLDER WITH content (one call)', pf === 204 && chk === 404, { permanentDelete: pf, getAfter: chk });
+    const f2 = await jsonOf(await gfetch(`/me/drive/items/${base.id}/children`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: 'del-folder-plain', folder: {}, '@microsoft.graph.conflictBehavior': 'fail' }) }));
+    await gfetch(`/me/drive/items/${f2.id}:/inner.txt:/content`, { method: 'PUT', body: 'x' });
+    const pd = (await gfetch(`/me/drive/items/${f2.id}`, { method: 'DELETE' })).status; const chk2 = (await gfetch(`/me/drive/items/${f2.id}`)).status;
+    record('5b', 'plain DELETE of a folder with content (recycle bin)', pd === 204 && chk2 === 404, { delete: pd, getAfter: chk2 });
+    const one = await jsonOf(await gfetch(`/me/drive/items/${base.id}:/one.txt:/content`, { method: 'PUT', body: 'x' }));
+    const pfile = one.id ? await permDelete(one.id) : 'no file'; record('5c', 'permanentDelete of a file', pfile === 204, { status: pfile });
+
+    // ---- cleanup: the whole spike folder, permanently
+    const cl = await permDelete(base.id); record('99', 'Cleanup: permanentDelete of the spike folder with everything in it', cl === 204, { status: cl, getAfter: (await gfetch(`/me/drive/items/${base.id}`)).status });
+  } catch (e) { record('ERR', 'Unexpected error', false, String(e && e.stack || e)); }
+  report.finishedAt = new Date().toISOString(); $('report').textContent = JSON.stringify(report, null, 1); document.title = 'OD0 DONE';
+  window.__OD0_DONE = true;
+};
+</script></body></html>

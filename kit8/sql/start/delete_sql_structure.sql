@@ -5,7 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
---  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
+--  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table + files_onedrive_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
 --  1a-000000000000000. delete_organization_texts.sql - PART 48: drops organizationTextTable (data included: the replaced texts of ALL organizations), its guard trigger and organization_texts (runs very first: it is the newest)
 --  1a-00000000000000. delete_permissions.sql - PARTs 46 + 47: drops the permission tables (data included: the profiles, the matrices and ALL assignments), the matrix policies "*_perm_*" next to the owner policies, the lock triggers and the perm_* functions; the catalogs get their old open policies back only by running start2 again (runs very first: it is the newest)
 --  1a-0000000000000. delete_organization_members.sql - PART 45: drops organizationMemberTable (data included: every member and invitation of ALL organizations) and its functions / triggers (runs very first: it is the newest)
@@ -55,6 +55,7 @@ BEGIN
   END IF;
 END $$;
 DROP TABLE IF EXISTS public.files_google_connection_table CASCADE;
+DROP TABLE IF EXISTS public.files_onedrive_connection_table CASCADE;
 DROP TABLE IF EXISTS public.files_document_type_catalog CASCADE;
 DROP TABLE IF EXISTS public.files_version_history CASCADE;
 DROP TABLE IF EXISTS public.files_folder_table CASCADE;

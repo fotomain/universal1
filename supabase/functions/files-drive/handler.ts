@@ -4,12 +4,12 @@
 // organization and of documents, the Google Drive connection); every member reads.
 // This file is PURE (no Deno, no network of its own): index.ts injects the Supabase clients and fetch; __tests__/files/filesDriveFunction.test.ts injects doubles.
 import { signPayload, verifyPayload, signValue, verifyValue, encryptToken, decryptToken } from './crypto.ts';
-import { createDrive, DriveError, FOLDER_MIME, type FetchFn } from './googleDrive.ts';
-import { createTokenProvider, NeedsReconnectError, GOOGLE_TOKEN_URL } from './token.ts';
+import { StorageError, type FetchFn, type ProviderId, type StorageProvider } from './provider.ts';
+import { createGoogleProvider } from './googleProvider.ts';
+import { createOneDriveProvider } from './oneDriveProvider.ts';
+import { createTokenProvider, NeedsReconnectError } from './token.ts';
 
-export const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth';
-export const GOOGLE_REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
-export const DRIVE_FILE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+export { GOOGLE_AUTH_URL, GOOGLE_TOKEN_URL, GOOGLE_REVOKE_URL, DRIVE_FILE_SCOPE } from './googleProvider.ts';
 export const STATE_TTL_MS = 10 * 60 * 1000;
 export const DOWNLOAD_TTL_MS = 10 * 60 * 1000;
 export const UPLOAD_TTL_MS = 6 * 60 * 60 * 1000;
@@ -25,6 +25,8 @@ export interface FilesDriveConfig {
   urlSecret: string;
   /** the secret header of the pg_cron tick (empty = the tick is off) */
   cleanupSecret?: string;
+  /** the Microsoft Entra app (OneDrive); absent = OneDrive is not configured on this server */
+  microsoft?: { clientId: string; clientSecret: string; tenant?: string; secretExpires?: string };
 }
 
 export interface ConnectionRow {
@@ -43,11 +45,15 @@ export interface AuthResult {
   projectGUID?: string | null;
   scope?: string;
   guid?: string | null;
+  /** the storage of this scope (files_authorize: the project setting, the organization default for organization / document files); missing = googleDrive */
+  provider?: string;
 }
 
 export interface FilesDriveDeps {
   config: FilesDriveConfig;
   fetchFn: FetchFn;
+  /** the storage adapters by id (default: Google Drive built from fetchFn); OD3 resolves one per request */
+  providers?: Partial<Record<ProviderId, StorageProvider>>;
   now?: () => number;
   /** files_authorize with the caller's JWT */
   authorize: (authorization: string, action: string, scope: string, guid?: string | null, project?: string | null) => Promise<AuthResult>;
@@ -55,10 +61,11 @@ export interface FilesDriveDeps {
   callerRpc: (authorization: string, fn: string, args: Record<string, any>) => Promise<{ data: any; error: string | null }>;
   /** an RPC as the service role (pending uploads, folders, the cleanup queue, organization facts) */
   serviceRpc: (fn: string, args: Record<string, any>) => Promise<any>;
-  loadConnection: (organization: string) => Promise<ConnectionRow | null>;
+  /** the connection of an organization to ONE storage (provider default: googleDrive) */
+  loadConnection: (organization: string, provider?: ProviderId) => Promise<ConnectionRow | null>;
   /** merge into the connection row (creates it when missing); null patch value is stored as null */
-  saveConnection: (organization: string, patch: Record<string, any>) => Promise<void>;
-  deleteConnection: (organization: string) => Promise<void>;
+  saveConnection: (organization: string, patch: Record<string, any>, provider?: ProviderId) => Promise<void>;
+  deleteConnection: (organization: string, provider?: ProviderId) => Promise<void>;
   patchOrganization: (organization: string, patch: Record<string, any>) => Promise<void>;
 }
 
@@ -73,7 +80,6 @@ const json = (status: number, body: Record<string, any>): Response =>
   new Response(JSON.stringify(body), { status, headers: { ...CORS_HEADERS, 'Content-Type': 'application/json' } });
 
 const GUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const folderUrl = (id: string) => `https://drive.google.com/drive/folders/${id}`;
 
 /** a file name Drive and every file system accept: no path parts, no control characters, not empty, at most 200 characters */
 export function safeFileName(name: unknown): string {
@@ -112,63 +118,104 @@ export function chainFor(organization: string, scope: string, guid: string, proj
   return null;
 }
 
-/** the key of files_folder_table for a scope */
-export function scopeKeyFor(scope: string, guid: string): string {
-  if (scope === 'organization') return 'organization';
-  if (scope === 'project') return `project:${guid}`;
-  if (scope === 'document') return `document:${guid}`;
-  return `task:${guid}`;
+/** the key of files_folder_table for a scope; the OneDrive folders of a scope are kept apart by a prefix (a Google key stays as it was) */
+export function scopeKeyFor(scope: string, guid: string, provider: ProviderId = 'googleDrive'): string {
+  const base = scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : `task:${guid}`;
+  return provider === 'oneDrive' ? `oneDrive:${base}` : base;
+}
+
+/** the id of the file / folder in its storage, from a file row (Google rows: googleDrive*, OneDrive rows: oneDrive*) */
+export const itemIdOfRow = (rj: Record<string, any>): string => String(rj?.googleDriveFileId || rj?.oneDriveItemId || '');
+export const folderIdOfRow = (rj: Record<string, any>): string => String(rj?.googleDriveFolderId || rj?.oneDriveFolderId || '');
+export const pathOfRow = (rj: Record<string, any>): string => String(rj?.googleDriveRelativePath || rj?.oneDriveRelativePath || '');
+
+const PROVIDER_IDS: ProviderId[] = ['googleDrive', 'oneDrive'];
+/** a provider id from a request / a row; anything unknown or missing is Google Drive (every row made before OneDrive is Google's) */
+export function parseProvider(v: unknown): ProviderId {
+  return PROVIDER_IDS.includes(v as ProviderId) ? (v as ProviderId) : 'googleDrive';
+}
+
+/** the keys of the organization row that show the state of the connection of a storage */
+export function organizationKeys(id: ProviderId) {
+  return id === 'oneDrive'
+    ? { state: 'organizationOneDriveState', email: 'organizationOneDriveAccountEmail', refreshed: 'organizationOneDriveLastRefreshAt', rootId: 'organizationOneDriveRootFolderId', rootUrl: 'organizationOneDriveRootFolderUrl', mode: 'organizationOneDriveMode' }
+    : { state: 'organizationGoogleDriveState', email: 'organizationGoogleDriveAccountEmail', refreshed: 'organizationGoogleDriveLastRefreshAt', rootId: 'organizationGoogleDriveRootFolderId', rootUrl: 'organizationGoogleDriveRootFolderUrl', mode: 'organizationGoogleDriveMode' };
+}
+
+/** a provider with its token cache */
+interface Px {
+  id: ProviderId;
+  provider: StorageProvider;
+  tokens: ReturnType<typeof createTokenProvider>;
 }
 
 export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Promise<Response> {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS_HEADERS });
   const now = deps.now || Date.now;
   const cfg = deps.config;
-  const drive = createDrive(deps.fetchFn);
-  const tokens = createTokenProvider({
-    fetchFn: deps.fetchFn,
-    clientId: cfg.clientId,
-    clientSecret: cfg.clientSecret,
-    tokenKey: cfg.tokenKey,
-    now,
-    loadConnection: (org) => deps.loadConnection(org),
-    markNeedsReconnect: async (org, error) => {
-      await deps.saveConnection(org, { state: 'needsReconnect', lastError: error });
-      await deps.patchOrganization(org, { organizationGoogleDriveState: 'needsReconnect' });
-    },
-    markRefreshed: async (org, iso) => {
-      await deps.saveConnection(org, { state: 'ok', lastRefreshAt: iso, lastError: null });
-    },
-  });
+  // one adapter + one token cache per storage, made when first needed
+  const pxCache = new Map<ProviderId, Px>();
+  const credentials = (id: ProviderId) => (id === 'oneDrive' ? { clientId: cfg.microsoft?.clientId || '', clientSecret: cfg.microsoft?.clientSecret || '' } : { clientId: cfg.clientId, clientSecret: cfg.clientSecret });
+  const configured = (id: ProviderId) => !!credentials(id).clientId && !!credentials(id).clientSecret;
+  const px = (id: ProviderId): Px => {
+    let x = pxCache.get(id);
+    if (x) return x;
+    const provider: StorageProvider = deps.providers?.[id] ?? (id === 'oneDrive' ? createOneDriveProvider(deps.fetchFn, { tenant: cfg.microsoft?.tenant }) : createGoogleProvider(deps.fetchFn));
+    const keys = organizationKeys(id);
+    x = {
+      id,
+      provider,
+      tokens: createTokenProvider({
+        fetchFn: deps.fetchFn,
+        provider,
+        ...credentials(id),
+        tokenKey: cfg.tokenKey,
+        now,
+        loadConnection: (org) => deps.loadConnection(org, id),
+        markNeedsReconnect: async (org, error) => {
+          await deps.saveConnection(org, { state: 'needsReconnect', lastError: error }, id);
+          await deps.patchOrganization(org, { [keys.state]: 'needsReconnect' });
+        },
+        saveRefreshToken: (org, encrypted) => deps.saveConnection(org, { refreshTokenEncrypted: encrypted }, id),
+        markRefreshed: async (org, iso) => {
+          await deps.saveConnection(org, { state: 'ok', lastRefreshAt: iso, lastError: null }, id);
+        },
+      }),
+    };
+    pxCache.set(id, x);
+    return x;
+  };
+  /** the facts of an organization about ONE storage (root folder, account, limit): Google keeps its own two-argument call */
+  const orgFacts = (org: string, id: ProviderId) => deps.serviceRpc('files_org_facts', id === 'oneDrive' ? { p_org: org, p_provider: id } : { p_org: org });
 
-  // a Drive call with the organization's token; one forced refresh and one retry after a 401
-  const withDrive = async <T>(organization: string, fn: (token: string) => Promise<T>): Promise<T> => {
+  // a storage call with the organization's token; one forced refresh and one retry after a 401
+  const withDrive = async <T>(x: Px, organization: string, fn: (token: string) => Promise<T>): Promise<T> => {
     try {
-      return await fn(await tokens.getAccessToken(organization));
+      return await fn(await x.tokens.getAccessToken(organization));
     } catch (e) {
-      if (e instanceof DriveError && e.status === 401) return fn(await tokens.getAccessToken(organization, true));
+      if (e instanceof StorageError && e.status === 401) return fn(await x.tokens.getAccessToken(organization, true));
       throw e;
     }
   };
 
   /** the `files` folder of a scope: cached in files_folder_table, else made (the whole chain, with marks) and recorded - the first writer wins */
-  const filesFolderFor = async (org: string, scope: string, guid: string, project: string, token: string): Promise<{ folderId: string; path: string } | { error: Response }> => {
+  const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string): Promise<{ folderId: string; path: string } | { error: Response }> => {
     const chain = chainFor(org, scope, guid, project);
     if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage or document with valid GUIDs.' }) };
-    const facts = await deps.serviceRpc('files_org_facts', { p_org: org });
+    const facts = await orgFacts(org, x.id);
     const rootId = String(facts?.rootFolderId || '');
-    if (!rootId) return { error: json(409, { error: 'Google Drive is not connected.', code: 'notConnected' }) };
-    const key = scopeKeyFor(scope, guid);
+    if (!rootId) return { error: json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' }) };
+    const key = scopeKeyFor(scope, guid, x.id);
     const path = chain.map((s) => s.name).join('/');
     const known = await deps.serviceRpc('files_folder_get', { p_org: org, p_scope_key: key });
     if (known?.driveFilesFolderId) return { folderId: String(known.driveFilesFolderId), path };
     let parent = rootId;
     const ids: string[] = [];
     for (const step of chain) {
-      parent = (await drive.ensureFolder(token, parent, step.name, step.description, step.properties)).id;
+      parent = (await x.provider.ensureFolder(token, parent, { name: step.name, description: step.description, marks: step.properties })).id;
       ids.push(parent);
     }
-    const saved = await deps.serviceRpc('files_folder_set', { p_org: org, p_scope_key: key, p_json: { driveFolderId: ids[ids.length - 2], driveFilesFolderId: ids[ids.length - 1], projectGUID: project || null, rootFolderId: rootId } });
+    const saved = await deps.serviceRpc('files_folder_set', { p_org: org, p_scope_key: key, p_json: { driveFolderId: ids[ids.length - 2], driveFilesFolderId: ids[ids.length - 1], projectGUID: project || null, rootFolderId: rootId, ...(x.id === 'oneDrive' ? { provider: x.id } : {}) } });
     return { folderId: String(saved?.driveFilesFolderId || ids[ids.length - 1]), path };
   };
 
@@ -208,36 +255,37 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
 
     switch (action) {
       case 'connect_start': {
+        const x = px(parseProvider(body.provider));
+        if (x.id === 'oneDrive' && !configured('oneDrive')) return json(409, { error: `${x.provider.title} is not configured on this server.`, code: 'providerNotConfigured' });
         const a = await ask('connect', 'organization');
         if (a instanceof Response) return a;
-        const state = await signPayload(cfg.urlSecret, { org: a.organizationGUID, user: a.userGUID, exp: now() + STATE_TTL_MS });
-        const params = new URLSearchParams({
-          client_id: cfg.clientId,
-          redirect_uri: cfg.functionUrl,
-          response_type: 'code',
-          scope: DRIVE_FILE_SCOPE,
-          access_type: 'offline',
-          prompt: 'consent',
-          include_granted_scopes: 'false',
-          state,
-        });
-        return json(200, { url: `${GOOGLE_AUTH_URL}?${params.toString()}` });
+        const state = await signPayload(cfg.urlSecret, { org: a.organizationGUID, user: a.userGUID, provider: x.id, exp: now() + STATE_TTL_MS });
+        return json(200, { url: x.provider.authUrl({ clientId: credentials(x.id).clientId, redirectUri: cfg.functionUrl, state }) });
       }
 
       case 'status': {
         const a = await ask('read', 'organization');
         if (a instanceof Response) return a;
         const org = a.organizationGUID!;
-        const conn = await deps.loadConnection(org);
-        const facts = await deps.serviceRpc('files_org_facts', { p_org: org });
         const counts = await deps.callerRpc(authorization, 'files_cleanup_counts', {});
-        return json(200, {
-          state: conn ? conn.state || 'ok' : 'notConnected',
-          accountEmail: conn?.accountEmail || null,
-          lastRefreshAt: conn?.lastRefreshAt || null,
-          rootFolderUrl: facts?.rootFolderUrl || null,
-          cleanup: counts.data || { waiting: 0, failed: 0 },
-        });
+        const one = async (id: ProviderId) => {
+          const conn = await deps.loadConnection(org, id);
+          const facts = await orgFacts(org, id);
+          return {
+            provider: id,
+            providerConfigured: id === 'oneDrive' ? configured('oneDrive') : true,
+            state: conn ? conn.state || 'ok' : 'notConnected',
+            accountEmail: conn?.accountEmail || null,
+            lastRefreshAt: conn?.lastRefreshAt || null,
+            rootFolderUrl: facts?.rootFolderUrl || null,
+            // the Microsoft client secret expires: the administrator is told 30 days before (the date is a secret of the function, never read from Microsoft)
+            secretExpires: id === 'oneDrive' ? cfg.microsoft?.secretExpires || null : null,
+            cleanup: counts.data || { waiting: 0, failed: 0 },
+          };
+        };
+        // provider "all" = both storages in one answer (the connection block of Project settings)
+        if (body.provider === 'all') return json(200, { googleDrive: await one('googleDrive'), oneDrive: await one('oneDrive') });
+        return json(200, await one(parseProvider(body.provider)));
       }
 
       case 'upload_session': {
@@ -246,9 +294,10 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const a = await ask('add', scope, guid, projectGUID);
         if (a instanceof Response) return a;
         const org = a.organizationGUID!;
+        const x = px(parseProvider(a.provider)); // the storage of this scope: the project setting (files_authorize), Google Drive when none
         if (!chainFor(org, scope, guid || '', projectGUID || '')) return json(400, { error: 'scope must be organization, project, task, stage or document with valid GUIDs.' });
-        const facts0 = await deps.serviceRpc('files_org_facts', { p_org: org });
-        if (!facts0?.rootFolderId) return json(409, { error: 'Google Drive is not connected.', code: 'notConnected' });
+        const facts0 = await orgFacts(org, x.id);
+        if (!facts0?.rootFolderId) return json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' });
         // the storage limit of the organization is asked BEFORE a session is opened (files_add asks again)
         const used = await deps.callerRpc(authorization, 'files_storage_used', { p_scope: 'organization', p_guid: null });
         const limitMb = Number(used.data?.limitMegabytes);
@@ -256,20 +305,16 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
           return json(413, { error: `The storage limit of ${limitMb} MB of the organization would be exceeded.`, code: 'storageLimit' });
         }
         const uploadId = crypto.randomUUID();
-        const out = await withDrive(org, async (token) => {
-          const f = await filesFolderFor(org, scope, guid || '', a.projectGUID || projectGUID || '', token);
+        const out = await withDrive(x, org, async (token) => {
+          const f = await filesFolderFor(x, org, scope, guid || '', a.projectGUID || projectGUID || '', token);
           if ('error' in f) return f;
-          const sessionUrl = await drive.openResumableSession(
-            token,
-            { name: safeFileName(body.name), parentId: f.folderId, mime: String(body.mime || 'application/octet-stream'), size, properties: { kit8Kind: 'file', kit8OrganizationGUID: org, kit8Upload: uploadId } },
-            req.headers.get('Origin'),
-          );
+          const sessionUrl = await x.provider.openUploadSession(token, { name: safeFileName(body.name), folderId: f.folderId, mime: String(body.mime || 'application/octet-stream'), size, uploadId, organization: org, origin: req.headers.get('Origin') });
           return { sessionUrl, folderId: f.folderId, path: f.path };
         });
         if ('error' in out) return out.error;
         await deps.serviceRpc('files_upload_pending_add', {
           p_org: org, p_user: a.userGUID, p_upload: uploadId,
-          p_json: { scope, scopeGUID: guid || '', projectGUID: a.projectGUID || projectGUID || '', name: safeFileName(body.name), mime: String(body.mime || 'application/octet-stream'), size, folderId: out.folderId, relativePath: out.path, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
+          p_json: { provider: x.id, scope, scopeGUID: guid || '', projectGUID: a.projectGUID || projectGUID || '', name: safeFileName(body.name), mime: String(body.mime || 'application/octet-stream'), size, folderId: out.folderId, relativePath: out.path, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
         });
         return json(200, { sessionUrl: out.sessionUrl, parentFolderId: out.folderId, uploadId, path: out.path });
       }
@@ -283,11 +328,11 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const a = await ask('add', String(pend.scope), pend.scopeGUID || null, pend.projectGUID || null);
         if (a instanceof Response) return a;
         if (pend.organizationGUID !== a.organizationGUID || pend.userGUID !== a.userGUID) return json(403, { error: 'That upload is not yours.' });
-        const found = await withDrive(a.organizationGUID!, (token) => drive.list(token, `properties has { key='kit8Upload' and value='${uploadId.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}' } and trashed = false`));
-        if (!found.length) return json(404, { error: 'The upload is not finished (no file yet).', code: 'notFinished' });
-        const item = await withDrive(a.organizationGUID!, (token) => drive.getItem(token, found[0].id));
-        if (item.properties?.kit8OrganizationGUID !== a.organizationGUID) return json(403, { error: 'That file does not belong to this organization.' });
-        await deps.serviceRpc('files_upload_pending_verify', { p_upload: uploadId, p_file_id: item.id, p_size: Number(item.size || 0), p_folder_id: item.parents?.[0] || pend.folderId || '', p_path: pend.relativePath || '' });
+        const x = px(parseProvider(pend.provider));
+        const item = await withDrive(x, a.organizationGUID!, (token) => x.provider.findUploaded(token, { uploadId, itemId: body.itemId ? String(body.itemId) : undefined, folderId: String(pend.folderId || ''), name: String(pend.name || ''), size: Number(pend.size || 0) }));
+        if (!item) return json(404, { error: 'The upload is not finished (no file yet).', code: 'notFinished' });
+        if (!x.provider.isOurs(item, a.organizationGUID!)) return json(403, { error: 'That file does not belong to this organization.' });
+        await deps.serviceRpc('files_upload_pending_verify', { p_upload: uploadId, p_file_id: item.id, p_size: item.size, p_folder_id: item.parentId || pend.folderId || '', p_path: pend.relativePath || '', ...(item.webUrl ? { p_web_url: item.webUrl } : {}) });
         const added = await deps.callerRpc(authorization, 'files_add', { p_upload_id: uploadId, p_scope: String(pend.scope), p_guid: pend.scopeGUID || null, p_project: pend.projectGUID || null, p_file: body.file || {} });
         if (added.error) return json(409, { error: added.error });
         return json(200, { file: added.data });
@@ -299,11 +344,14 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const row = await deps.callerRpc(authorization, 'files_get', { p_post: postGUID });
         if (row.error || !row.data) return json(403, { error: row.error || 'No such file.' });
         const org = String(row.data.rowOwnerGUID);
-        const fileId = String(row.data.rowJSON?.googleDriveFileId || '');
-        if (!fileId) return json(400, { error: 'That post has no Google Drive file (a link).' });
+        const rowProvider = parseProvider(row.data.rowJSON?.fileStorageProvider);
+        const fileId = itemIdOfRow(row.data.rowJSON);
+        if (!fileId) return json(400, { error: `That post has no ${px(rowProvider).provider.title} file (a link).` });
         const exp = now() + DOWNLOAD_TTL_MS;
-        const sig = await signValue(cfg.urlSecret, `${org}|${fileId}|${exp}`);
-        const q = new URLSearchParams({ org, file: fileId, exp: String(exp), sig });
+        // a Google link is signed exactly as before; a OneDrive link carries its storage in the link AND in the signature
+        const ct = rowProvider === 'oneDrive' ? String(row.data.rowJSON?.mediaPostMIME || '') : '';
+        const sig = await signValue(cfg.urlSecret, rowProvider === 'googleDrive' ? `${org}|${fileId}|${exp}` : `${org}|${fileId}|${exp}|${rowProvider}|${ct}`);
+        const q = new URLSearchParams({ org, file: fileId, exp: String(exp), sig, ...(rowProvider === 'googleDrive' ? {} : { prov: rowProvider, ct }) });
         return json(200, { url: `${cfg.functionUrl}?${q.toString()}`, name: row.data.rowJSON?.fileName, mimeType: row.data.rowJSON?.mediaPostMIME, size: Number(row.data.rowJSON?.fileSizeBytes || 0), expiresAt: exp });
       }
 
@@ -314,19 +362,22 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const row = await deps.callerRpc(authorization, 'files_get', { p_post: postGUID });
         if (row.error || !row.data) return json(403, { error: row.error || 'No such file.' });
         const rj = row.data.rowJSON || {};
-        const fileId = String(rj.googleDriveFileId || '');
+        const x = px(parseProvider(rj.fileStorageProvider));
+        const fileId = itemIdOfRow(rj);
         if (!fileId) return json(400, { error: 'A link has no file to replace.' });
         const a = await ask('update', String(rj.fileSourceKind), rj.fileSourceKind === 'organization' ? null : String(row.data.rowParentGUID), rj.fileSourceProjectGUID || null);
         if (a instanceof Response) return a;
         const uploadId = crypto.randomUUID();
-        const out = await withDrive(a.organizationGUID!, async (token) => {
-          const revisions = await drive.revisionIds(token, fileId);
-          const sessionUrl = await drive.openUpdateSession(token, fileId, { mime: String(body.mime || rj.mediaPostMIME || 'application/octet-stream'), size, properties: { kit8Upload: uploadId } }, req.headers.get('Origin'));
-          return { sessionUrl, oldRevisionId: revisions[revisions.length - 1] || '' };
+        const out = await withDrive(x, a.organizationGUID!, async (token) => {
+          const revisions = await x.provider.versions(token, fileId);
+          // a storage without marks (OneDrive) finishes a replace by the version tag: the tag BEFORE the new bytes is kept in the pending row
+          const oldVersionTag = x.id === 'oneDrive' ? (await x.provider.getItem(token, fileId)).versionTag || '' : '';
+          const sessionUrl = await x.provider.openUpdateSession(token, fileId, { mime: String(body.mime || rj.mediaPostMIME || 'application/octet-stream'), size, uploadId, origin: req.headers.get('Origin') });
+          return { sessionUrl, oldRevisionId: revisions[revisions.length - 1] || '', oldVersionTag };
         });
         await deps.serviceRpc('files_upload_pending_add', {
           p_org: a.organizationGUID, p_user: a.userGUID, p_upload: uploadId,
-          p_json: { replaceOf: postGUID, scope: String(rj.fileSourceKind), scopeGUID: rj.fileSourceKind === 'organization' ? '' : String(row.data.rowParentGUID), projectGUID: rj.fileSourceProjectGUID || '', name: safeFileName(body.name || rj.fileName), mime: String(body.mime || rj.mediaPostMIME || 'application/octet-stream'), size, folderId: rj.googleDriveFolderId || '', relativePath: rj.googleDriveRelativePath || '', oldRevisionId: out.oldRevisionId, fileId, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
+          p_json: { replaceOf: postGUID, scope: String(rj.fileSourceKind), scopeGUID: rj.fileSourceKind === 'organization' ? '' : String(row.data.rowParentGUID), projectGUID: rj.fileSourceProjectGUID || '', name: safeFileName(body.name || rj.fileName), mime: String(body.mime || rj.mediaPostMIME || 'application/octet-stream'), size, folderId: folderIdOfRow(rj), relativePath: pathOfRow(rj), oldRevisionId: out.oldRevisionId, ...(out.oldVersionTag ? { oldVersionTag: out.oldVersionTag } : {}), provider: x.id, fileId, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
         });
         return json(200, { sessionUrl: out.sessionUrl, uploadId });
       }
@@ -338,10 +389,11 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const a = await ask('update', String(pend.scope), pend.scopeGUID || null, pend.projectGUID || null);
         if (a instanceof Response) return a;
         if (pend.organizationGUID !== a.organizationGUID || pend.userGUID !== a.userGUID) return json(403, { error: 'That upload is not yours.' });
-        const item = await withDrive(a.organizationGUID!, (token) => drive.getItem(token, String(pend.fileId), 'id,size,mimeType,parents,properties'));
-        if (item.properties?.kit8Upload !== uploadId) return json(404, { error: 'The new version is not finished (no new bytes yet).', code: 'notFinished' });
-        if (pend.oldRevisionId) await withDrive(a.organizationGUID!, (token) => drive.keepRevision(token, String(pend.fileId), String(pend.oldRevisionId))).catch(() => undefined);
-        await deps.serviceRpc('files_upload_pending_verify', { p_upload: uploadId, p_file_id: item.id, p_size: Number(item.size || 0), p_folder_id: item.parents?.[0] || pend.folderId || '', p_path: pend.relativePath || '' });
+        const x = px(parseProvider(pend.provider));
+        const item = await withDrive(x, a.organizationGUID!, (token) => x.provider.getItem(token, String(pend.fileId)));
+        if (!x.provider.isUpdateDone(item, { uploadId, oldVersionTag: pend.oldVersionTag ? String(pend.oldVersionTag) : undefined, size: Number(pend.size || 0) })) return json(404, { error: 'The new version is not finished (no new bytes yet).', code: 'notFinished' });
+        if (pend.oldRevisionId) await withDrive(x, a.organizationGUID!, (token) => x.provider.keepVersion(token, String(pend.fileId), String(pend.oldRevisionId))).catch(() => undefined);
+        await deps.serviceRpc('files_upload_pending_verify', { p_upload: uploadId, p_file_id: item.id, p_size: item.size, p_folder_id: item.parentId || pend.folderId || '', p_path: pend.relativePath || '' });
         const r = await deps.callerRpc(authorization, 'files_replace', { p_upload_id: uploadId, p_post: String(pend.replaceOf) });
         if (r.error) return json(409, { error: r.error });
         return json(200, { file: r.data });
@@ -358,15 +410,16 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const to = await ask('add', scope, guid, projectGUID);
         if (to instanceof Response) return to;
         const org = from.organizationGUID!;
-        const moved = await withDrive(org, async (token) => {
-          const f = await filesFolderFor(org, scope, guid || '', to.projectGUID || projectGUID || '', token);
+        const x = px(parseProvider(rj.fileStorageProvider)); // a file never changes its storage: the target folder is made in the FILE's storage
+        const moved = await withDrive(x, org, async (token) => {
+          const f = await filesFolderFor(x, org, scope, guid || '', to.projectGUID || projectGUID || '', token);
           if ('error' in f) return f;
-          const fileId = String(rj.googleDriveFileId || '');
+          const fileId = itemIdOfRow(rj);
           if (fileId) {
-            const item = await drive.getItem(token, fileId);
-            if (item.properties?.kit8OrganizationGUID !== org) throw new DriveError(403, 'notOurs', 'That file does not belong to this organization.');
-            const oldParent = item.parents?.[0] || String(rj.googleDriveFolderId || '');
-            if (oldParent && oldParent !== f.folderId) await drive.moveItem(token, fileId, f.folderId, oldParent);
+            const item = await x.provider.getItem(token, fileId);
+            if (!x.provider.isOurs(item, org)) throw new StorageError(403, 'notOurs', 'That file does not belong to this organization.');
+            const oldParent = item.parentId || folderIdOfRow(rj);
+            if (oldParent && oldParent !== f.folderId) await x.provider.moveItem(token, fileId, f.folderId, oldParent);
           }
           return f;
         });
@@ -380,7 +433,8 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const a = await ask('connect', 'organization');
         if (a instanceof Response) return a;
         const org = a.organizationGUID!;
-        const rows = await deps.callerRpc(authorization, 'files_health_rows', {});
+        const x = px(parseProvider(body.provider));
+        const rows = await deps.callerRpc(authorization, 'files_health_rows', x.id === 'oneDrive' ? { p_provider: x.id } : {});
         if (rows.error || !rows.data) return json(409, { error: rows.error || 'No answer.' });
         const known = new Map<string, any>((rows.data.files as any[]).map((f) => [String(f.fileId), f]));
         const folderIds = new Set<string>();
@@ -389,16 +443,16 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const seen = new Set<string>();
         const orphans: { fileId: string; name: string; folderId: string }[] = [];
         const unreadable = new Set<string>();
-        await withDrive(org, async (token) => {
+        await withDrive(x, org, async (token) => {
           for (const folderId of folderIds) {
             try {
-              for (const item of await drive.list(token, `'${folderId.replace(/'/g, "\\'")}' in parents and trashed = false`)) {
-                if (item.mimeType === FOLDER_MIME) continue;
+              for (const item of await x.provider.listChildren(token, folderId)) {
+                if (item.isFolder) continue;
                 seen.add(item.id);
                 if (!known.has(item.id)) orphans.push({ fileId: item.id, name: String(item.name || ''), folderId });
               }
             } catch (e) {
-              if (e instanceof DriveError && (e.status === 404 || e.status === 403)) unreadable.add(folderId);
+              if (e instanceof StorageError && (e.status === 404 || e.status === 403)) unreadable.add(folderId);
               else throw e;
             }
           }
@@ -411,6 +465,7 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const a = await ask('connect', 'organization');
         if (a instanceof Response) return a;
         const org = a.organizationGUID!;
+        const x = px(parseProvider(body.provider));
         let rowsDeleted = 0;
         let orphansDeleted = 0;
         for (const post of (Array.isArray(body.missing) ? body.missing : []).slice(0, 500)) {
@@ -419,11 +474,11 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         }
         const ids = (Array.isArray(body.orphans) ? body.orphans : []).slice(0, 500).map(String);
         if (ids.length) {
-          await withDrive(org, async (token) => {
+          await withDrive(x, org, async (token) => {
             for (const id of ids) {
-              const item = await drive.getItem(token, id).catch(() => null);
-              if (item && item.properties?.kit8OrganizationGUID === org && item.mimeType !== FOLDER_MIME) {
-                await drive.deleteItem(token, id);
+              const item = await x.provider.getItem(token, id).catch(() => null);
+              if (item && x.provider.isOurs(item, org) && !item.isFolder) {
+                await x.provider.deleteItem(token, id);
                 orphansDeleted++;
               }
             }
@@ -451,8 +506,9 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
       case 'disconnect': {
         const a = await ask('connect', 'organization');
         if (a instanceof Response) return a;
-        await dropConnection(a.organizationGUID!);
-        await deps.patchOrganization(a.organizationGUID!, { organizationGoogleDriveState: 'notConnected' });
+        const x = px(parseProvider(body.provider));
+        await dropConnection(x, a.organizationGUID!);
+        await deps.patchOrganization(a.organizationGUID!, { [organizationKeys(x.id).state]: 'notConnected' });
         return json(200, { disconnected: true });
       }
 
@@ -461,23 +517,22 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
     }
   } catch (e) {
     if (e instanceof NeedsReconnectError) return json(409, { error: e.message, code: 'needsReconnect' });
-    if (e instanceof DriveError) return json(e.status >= 400 && e.status < 600 ? e.status : 502, { error: e.message, reason: e.reason });
+    if (e instanceof StorageError) return json(e.status >= 400 && e.status < 600 ? e.status : 502, { error: e.message, reason: e.reason });
     return json(500, { error: String((e as Error)?.message || e).slice(0, 300) });
   }
 
   // ---- revoke the token at Google, forget it ------------------------------------------------------------------------------------------------------
-  async function dropConnection(organization: string): Promise<void> {
-    const conn = await deps.loadConnection(organization);
+  async function dropConnection(x: Px, organization: string): Promise<void> {
+    const conn = await deps.loadConnection(organization, x.id);
     if (conn?.refreshTokenEncrypted) {
       try {
-        const refresh = await decryptToken(conn.refreshTokenEncrypted, cfg.tokenKey);
-        await deps.fetchFn(GOOGLE_REVOKE_URL, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams({ token: refresh }).toString() });
+        await x.provider.revoke(await decryptToken(conn.refreshTokenEncrypted, cfg.tokenKey));
       } catch {
         /* revoking is best effort: the stored token is deleted anyway */
       }
     }
-    await deps.deleteConnection(organization);
-    tokens.forget(organization);
+    await deps.deleteConnection(organization, x.id);
+    x.tokens.forget(organization);
   }
 
   // ---- the cleanup queue: delete what the database queued (bottom-up), mark done / failed; after an organization delete revoke and forget the token --------------------
@@ -486,25 +541,26 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
     let done = 0;
     let failed = 0;
     let skipped = 0;
-    const rootsDone = new Set<string>();
+    const rootsDone = new Map<string, Px>();
     for (const line of lines) {
       const org = String(line.organizationGUID);
+      const x = px(parseProvider(line.provider)); // a line knows the storage of its item (a missing value = Google Drive)
       try {
-        await withDrive(org, async (token) => {
+        await withDrive(x, org, async (token) => {
           let item;
           try {
-            item = await drive.getItem(token, line.driveItemId);
+            item = await x.provider.getItem(token, line.driveItemId);
           } catch (e) {
-            if (e instanceof DriveError && e.status === 404) return; // already gone = done
+            if (e instanceof StorageError && e.status === 404) return; // already gone = done
             throw e;
           }
-          if (item.properties?.kit8OrganizationGUID !== org) throw new DriveError(403, 'notOurs', 'That item does not belong to this organization.');
-          if (item.mimeType === FOLDER_MIME) await drive.deleteTreeBottomUp(token, line.driveItemId);
-          else await drive.deleteItem(token, line.driveItemId);
+          if (!x.provider.isOurs(item, org)) throw new StorageError(403, 'notOurs', 'That item does not belong to this organization.');
+          if (item.isFolder) await x.provider.deleteTree(token, line.driveItemId);
+          else await x.provider.deleteItem(token, line.driveItemId);
         });
         await deps.serviceRpc('files_cleanup_done', { p_id: line.id });
         done++;
-        if (line.allowRoot) rootsDone.add(org);
+        if (line.allowRoot) rootsDone.set(`${org}|${x.id}`, x);
       } catch (e) {
         const waits = e instanceof NeedsReconnectError;
         await deps.serviceRpc('files_cleanup_failed', { p_id: line.id, p_error: String((e as Error)?.message || e) });
@@ -512,52 +568,53 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         else failed++;
       }
     }
-    for (const org of rootsDone) await dropConnection(org); // the organization is gone: no token is kept
+    for (const [key, x] of rootsDone) await dropConnection(x, key.split('|')[0]); // the organization is gone: no token is kept
     return { done, failed, skipped };
   }
 
   // ---- the consent step comes back here: ?code=...&state=... ------------------------------------------------------------------------------------------
   async function connectCallback(u: URL): Promise<Response> {
+    // the state (signed, 10 minutes) names the storage: read it first, even when the provider answers with an error, so the page can say which storage failed
+    const state = await verifyPayload(cfg.urlSecret, u.searchParams.get('state') || '');
+    const providerId = parseProvider(state?.provider);
     const back = (status: string, reason = '') => {
       const target = new URL(cfg.appReturnUrl);
       target.searchParams.set('filesConnect', status);
-      if (reason) target.searchParams.set('reason', reason.slice(0, 120));
+      if (providerId !== 'googleDrive') target.searchParams.set('provider', providerId); // a Google return url stays exactly as it was
+      if (reason) target.searchParams.set('reason', reason.slice(0, 300));
       return new Response(null, { status: 302, headers: { Location: target.toString() } });
     };
-    if (u.searchParams.get('error')) return back('error', u.searchParams.get('error') || 'denied');
-    const state = await verifyPayload(cfg.urlSecret, u.searchParams.get('state') || '');
+    if (u.searchParams.get('error')) {
+      // OAuth error + Microsoft's / Google's own explanation (first line only: the trace and correlation ids are not for people)
+      const description = String(u.searchParams.get('error_description') || '').split(/\r?\n/)[0].trim();
+      return back('error', [u.searchParams.get('error') || 'denied', description].filter(Boolean).join(': '));
+    }
     if (!state || typeof state.exp !== 'number' || state.exp < now()) return back('error', 'state expired - try again');
     const organization = String(state.org || '');
     const code = u.searchParams.get('code') || '';
     if (!organization || !code) return back('error', 'no code');
+    const x = px(parseProvider(state.provider)); // the state says which storage the administrator was sent to
+    const keys = organizationKeys(x.id);
 
-    const res = await deps.fetchFn(GOOGLE_TOKEN_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ grant_type: 'authorization_code', code, client_id: cfg.clientId, client_secret: cfg.clientSecret, redirect_uri: cfg.functionUrl }).toString(),
-    });
-    const tok: any = await res.json().catch(() => ({}));
-    if (!res.ok || !tok.access_token) return back('error', String(tok.error_description || tok.error || `HTTP ${res.status}`));
-    if (!tok.refresh_token) return back('error', 'Google sent no refresh token - remove the app at myaccount.google.com/permissions and connect again');
-    if (!String(tok.scope || '').includes('drive.file')) return back('error', 'the drive.file permission was not granted');
+    const tok = await x.provider.exchangeCode({ code, ...credentials(x.id), redirectUri: cfg.functionUrl });
+    if (!tok.ok) return back('error', tok.error);
 
-    const accountEmail = (await drive.aboutUser(tok.access_token).catch(() => null)) || '';
+    const accountEmail = (await x.provider.accountEmail(tok.accessToken).catch(() => null)) || '';
     const iso = new Date(now()).toISOString();
     await deps.saveConnection(organization, {
-      role: 'current', state: 'ok', accountEmail, refreshTokenEncrypted: await encryptToken(tok.refresh_token, cfg.tokenKey), lastRefreshAt: iso, lastError: null, connectedBy: String(state.user || ''),
-    });
-    tokens.prime(organization, tok.access_token, Number(tok.expires_in) || 3600);
+      role: 'current', state: 'ok', accountEmail, refreshTokenEncrypted: await encryptToken(tok.refreshToken, cfg.tokenKey), lastRefreshAt: iso, lastError: null, connectedBy: String(state.user || ''),
+    }, x.id);
+    x.tokens.prime(organization, tok.accessToken, tok.expiresInSeconds);
 
-    // kit8root: found by its marks (a reconnect never makes a second one), else created
-    let root = await drive.findRootFolder(tok.access_token, organization);
-    if (!root) root = await drive.createFolder(tok.access_token, 'kit8root', null, 'kit8 root folder of the organization', { kit8Kind: 'root', kit8OrganizationGUID: organization });
+    // kit8root: found again (a reconnect never makes a second one), else created
+    const root = await x.provider.ensureRoot(tok.accessToken, organization);
     await deps.patchOrganization(organization, {
-      organizationGoogleDriveMode: 'adminProxy',
-      organizationGoogleDriveState: 'ok',
-      organizationGoogleDriveAccountEmail: accountEmail,
-      organizationGoogleDriveLastRefreshAt: iso,
-      organizationGoogleDriveRootFolderId: root.id,
-      organizationGoogleDriveRootFolderUrl: folderUrl(root.id),
+      [keys.mode]: 'adminProxy',
+      [keys.state]: 'ok',
+      [keys.email]: accountEmail,
+      [keys.refreshed]: iso,
+      [keys.rootId]: root.id,
+      [keys.rootUrl]: root.webUrl || x.provider.rootUrl(root.id),
     });
     return back('ok');
   }
@@ -568,15 +625,21 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
     const fileId = u.searchParams.get('file') || '';
     const exp = Number(u.searchParams.get('exp'));
     const sig = u.searchParams.get('sig') || '';
-    if (!organization || !fileId || !Number.isFinite(exp) || !(await verifyValue(cfg.urlSecret, `${organization}|${fileId}|${exp}`, sig))) return json(403, { error: 'The link is not valid.' });
+    const prov = u.searchParams.get('prov') || '';
+    const ct = u.searchParams.get('ct') || '';
+    const x = px(parseProvider(prov));
+    // a Google link is signed as it always was; a OneDrive link also signs its storage and the content type the browser should get
+    const signed = prov === 'oneDrive' ? `${organization}|${fileId}|${exp}|oneDrive|${ct}` : `${organization}|${fileId}|${exp}`;
+    if (!organization || !fileId || !Number.isFinite(exp) || !(await verifyValue(cfg.urlSecret, signed, sig))) return json(403, { error: 'The link is not valid.' });
     if (exp < now()) return json(403, { error: 'The link has expired.' });
     const range = request.headers.get('Range');
-    const upstream = await drive.openMedia(await tokens.getAccessToken(organization), fileId, range);
-    if (upstream.status === 401) return pass(await drive.openMedia(await tokens.getAccessToken(organization, true), fileId, range));
-    return pass(upstream);
+    const upstream = await x.provider.openMedia(await x.tokens.getAccessToken(organization), fileId, range);
+    if (upstream.status === 401) return pass(await x.provider.openMedia(await x.tokens.getAccessToken(organization, true), fileId, range), ct);
+    return pass(upstream, ct);
   }
 
-  function pass(upstream: Response): Response {
+  /** `ct`: the content type the row knows - used only when the storage answered a generic one (OneDrive: application/octet-stream) and only for a type a browser can show */
+  function pass(upstream: Response, ct = ''): Response {
     const headers = new Headers(CORS_HEADERS as any);
     for (const h of ['content-type', 'content-length', 'content-range', 'accept-ranges', 'content-disposition', 'etag', 'last-modified']) {
       const v = upstream.headers.get(h);
@@ -585,6 +648,7 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
     if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
     headers.set('content-disposition', 'inline'); // shown, never saved
     if (/^text\/(markdown|x-markdown)\b/i.test(headers.get('content-type') || '')) headers.set('content-type', 'text/plain; charset=utf-8');
+    if (ct && /^application\/octet-stream/i.test(headers.get('content-type') || '') && /^(image|audio|video)\/[a-z0-9.+-]+$|^application\/pdf$|^text\/plain$/i.test(ct)) headers.set('content-type', ct);
     return new Response(upstream.body, { status: upstream.status, headers });
   }
 }

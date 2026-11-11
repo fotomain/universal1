@@ -1,7 +1,7 @@
 /** @jest-environment node */
 // The pure model of the file attachments and the app side of the upload (kit8/files): kinds, sizes, chunks, the answer of the function, and the whole upload flow with a fake function and a fake Google.
 import { chunkRanges, driveStateText, FILE_KIND_ICON, filterFilesByName, fileKindOf, fileTitleOf, filesEnabledOfProject, filesErrorText, formatBytes, isLinkRow, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, type FileRow } from '../../kit8/files/fileModel';
-import { functionResultOf, moveFile, replacePickedFile, repairHealth, runHealthCheck, uploadPickedFile } from '../../kit8/files/filesDriveApi';
+import { disconnectDrive, fetchAllDriveStatus, fetchDriveStatus, functionResultOf, moveFile, replacePickedFile, repairHealth, runHealthCheck, startDriveConnect, uploadPickedFile } from '../../kit8/files/filesDriveApi';
 
 const mockInvoke = jest.fn();
 jest.mock('../../kit8/supabase/supabase', () => ({ supabase: { functions: { invoke: (...a: any[]) => mockInvoke(...a) } } }), { virtual: true });
@@ -67,12 +67,14 @@ describe('the model', () => {
     expect(formatBytes(150 * 1048576)).toBe('150 MB');
     expect(formatBytes(3 * 1073741824)).toBe('3.0 GB');
   });
-  it('a file is cut into chunks of 256 KB multiples with a Content-Range each, the last one shorter', () => {
-    expect(UPLOAD_CHUNK_BYTES % 262144).toBe(0);
-    const r = chunkRanges(10_000_000);
+  it('a file is cut into 5 MiB chunks (a multiple of BOTH storages\' rules) with a Content-Range each, the last one shorter', () => {
+    expect(UPLOAD_CHUNK_BYTES).toBe(5242880);
+    expect(UPLOAD_CHUNK_BYTES % 262144).toBe(0); // Google: multiples of 256 KiB
+    expect(UPLOAD_CHUNK_BYTES % 327680).toBe(0); // Microsoft: multiples of 320 KiB
+    const r = chunkRanges(12_000_000);
     expect(r).toHaveLength(3);
-    expect(r[0]).toEqual({ start: 0, end: 4194304, contentRange: 'bytes 0-4194303/10000000' });
-    expect(r[2]).toEqual({ start: 8388608, end: 10_000_000, contentRange: 'bytes 8388608-9999999/10000000' });
+    expect(r[0]).toEqual({ start: 0, end: 5242880, contentRange: 'bytes 0-5242879/12000000' });
+    expect(r[2]).toEqual({ start: 10485760, end: 12_000_000, contentRange: 'bytes 10485760-11999999/12000000' });
     expect(chunkRanges(1)).toEqual([{ start: 0, end: 1, contentRange: 'bytes 0-0/1' }]);
     expect(chunkRanges(0)).toEqual([]);
   });
@@ -114,13 +116,13 @@ describe('uploadPickedFile: session -> chunks to Google -> finish', () => {
       return { data: null, error: { message: 'unexpected' } };
     });
     const puts: { url: string; range: string; auth: any; size: number }[] = [];
-    const fetchFn = jest.fn(async (url: string, init: any) => { puts.push({ url, range: init.headers['Content-Range'], auth: init.headers.Authorization, size: init.body.size }); return new Response(null, { status: init.headers['Content-Range'].endsWith('/6000000') && init.headers['Content-Range'].startsWith('bytes 4194304') ? 200 : 308 }); });
+    const fetchFn = jest.fn(async (url: string, init: any) => { puts.push({ url, range: init.headers['Content-Range'], auth: init.headers.Authorization, size: init.body.size }); return new Response(null, { status: init.headers['Content-Range'].endsWith('/6000000') && init.headers['Content-Range'].startsWith('bytes 5242880') ? 200 : 308 }); });
     const progress: number[] = [];
     const r = await uploadPickedFile(target, pick(6_000_000), { onProgress: (f) => progress.push(f) }, fetchFn as any);
     expect(r).toMatchObject({ ok: true, file: { rowGUID: 'post1' } });
-    expect(puts.map((p) => p.range)).toEqual(['bytes 0-4194303/6000000', 'bytes 4194304-5999999/6000000']);
+    expect(puts.map((p) => p.range)).toEqual(['bytes 0-5242879/6000000', 'bytes 5242880-5999999/6000000']);
     expect(puts.every((p) => p.url === 'https://google.test/session/1' && p.auth === undefined)).toBe(true);
-    expect(puts.map((p) => p.size)).toEqual([4194304, 1805696]);
+    expect(puts.map((p) => p.size)).toEqual([5242880, 757120]);
     expect(progress[progress.length - 1]).toBe(1);
     const calls = mockInvoke.mock.calls.map((c) => c[1].body);
     expect(calls[0]).toMatchObject({ action: 'upload_session', scope: 'task', guid: 'T1', projectGUID: 'P1', name: 'plan.pdf', mime: 'application/pdf', size: 6_000_000 });
@@ -189,5 +191,50 @@ describe('replace (S4), move (S7) and the health check (S1)', () => {
       { action: 'health' },
       { action: 'health_repair', missing: ['m1'], orphans: ['o1'] },
     ]);
+  });
+});
+
+describe('OneDrive (OD5): the storage in the calls, the item id of the last answer, 202 as "send the next fragment"', () => {
+  const target = { scope: 'task' as const, guid: 'T1', projectGUID: 'P1' };
+  const pick = (n: number) => ({ name: 'plan.pdf', mime: 'application/pdf', size: n, blob: new Blob([new Uint8Array(n)]) });
+  beforeEach(() => mockInvoke.mockReset());
+
+  it('the calls name the storage only when it is not Google (the function\'s default); status "all" asks for both', async () => {
+    mockInvoke.mockResolvedValue({ data: { ok: 1 }, error: null });
+    await fetchDriveStatus();
+    await fetchDriveStatus('oneDrive');
+    await fetchAllDriveStatus();
+    await startDriveConnect('oneDrive');
+    await disconnectDrive('oneDrive');
+    await runHealthCheck('oneDrive');
+    await repairHealth(['m'], ['o'], 'oneDrive');
+    expect(mockInvoke.mock.calls.map((c) => c[1].body)).toEqual([
+      { action: 'status' }, { action: 'status', provider: 'oneDrive' }, { action: 'status', provider: 'all' },
+      { action: 'connect_start', provider: 'oneDrive' }, { action: 'disconnect', provider: 'oneDrive' },
+      { action: 'health', provider: 'oneDrive' }, { action: 'health_repair', missing: ['m'], orphans: ['o'], provider: 'oneDrive' },
+    ]);
+  });
+  it('the last answer of OneDrive (the driveItem) gives the item id to upload_finish; a 202 in between means "send the next fragment"', async () => {
+    mockInvoke.mockImplementation(async (_fn: string, { body }: any) => {
+      if (body.action === 'upload_session') return { data: { sessionUrl: 'https://upload.test/up/1', uploadId: 'up-1' }, error: null };
+      return { data: { file: { rowGUID: 'post1' } }, error: null };
+    });
+    const total = 6_000_000;
+    const fetchFn = jest.fn(async (_u: string, init: any) => (String(init.headers['Content-Range']).startsWith('bytes 5242880') ? new Response(JSON.stringify({ id: 'ITEM-9', size: total }), { status: 201 }) : new Response(JSON.stringify({ nextExpectedRanges: ['5242880-'] }), { status: 202 })));
+    const r = await uploadPickedFile(target, pick(total), {}, fetchFn as any);
+    expect(r).toMatchObject({ ok: true, file: { rowGUID: 'post1' } });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(mockInvoke.mock.calls.map((c) => c[1].body)[1]).toMatchObject({ action: 'upload_finish', uploadId: 'up-1', itemId: 'ITEM-9' });
+  });
+  it('no readable last answer = no item id (the function falls back to the size in the folder)', async () => {
+    mockInvoke.mockImplementation(async (_fn: string, { body }: any) => (body.action === 'upload_session' ? { data: { sessionUrl: 'https://upload.test/up/2', uploadId: 'up-2' }, error: null } : { data: { file: { rowGUID: 'p' } }, error: null }));
+    await uploadPickedFile(target, pick(100), {}, (async () => new Response(null, { status: 201 })) as any);
+    expect(mockInvoke.mock.calls.map((c) => c[1].body)[1]).toEqual({ action: 'upload_finish', uploadId: 'up-2', file: { title: 'plan.pdf', kind: 'pdf' } });
+  });
+  it('replace sends the item id of the last answer to replace_finish too', async () => {
+    mockInvoke.mockImplementation(async (_fn: string, { body }: any) => (body.action === 'replace_session' ? { data: { sessionUrl: 'https://upload.test/up/3', uploadId: 'up-3' }, error: null } : { data: { file: { rowGUID: 'post1' } }, error: null }));
+    const row = { rowGUID: 'post1', rowOwnerGUID: 'o', rowParentGUID: 'T1', orderInList: 1, rowJSON: { fileName: 'plan.pdf' } } as unknown as FileRow;
+    await replacePickedFile(row, pick(100), {}, (async () => new Response(JSON.stringify({ id: 'ITEM-1' }), { status: 200 })) as any);
+    expect(mockInvoke.mock.calls.map((c) => c[1].body)[1]).toEqual({ action: 'replace_finish', uploadId: 'up-3', itemId: 'ITEM-1' });
   });
 });
