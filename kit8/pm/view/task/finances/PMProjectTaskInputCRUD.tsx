@@ -37,7 +37,9 @@ import { financesPlaceOf, PMLastEditPlace } from '../../../model/lastEditPlace';
 import { tabVisible, taskInputScopeOf, timeKindsOffered } from '../../../model/taskInputScope';
 import { lineMenuKind } from './taskLineResource';
 import { pmT } from '../../../i18n/pmT';
+import { usePermissions } from '../../../../permissions/usePermissions';
 import { DISTRIBUTION } from '../../../../catalog/distribution/distributionModel';
+import { RACI_DEFAULT_GUID, raciWarning } from '../../../../catalog/management/raci_genus/raciGenusModel';
 import { emptyTaskLine, TASK_LINE_ENTITY, TASK_LINE_GENUS, taskLineGenusDef, taskLineGenusOf } from './taskLineModel';
 import type { TaskLineRow } from './taskLineModel';
 import { formatMoney, taskLineTotals } from './taskLineMoney';
@@ -89,6 +91,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const selectRowCheckBoxForm = usePMStore((s) => s.selectRowCheckBoxForm);
   const data = useTaskLineCatalogs(true);
   const dispatch = useDispatch();
+  const perm = usePermissions(projectGUID, taskGUID);   // PART 46 / 47: what the profiles of the user give for the lines of THIS task (the database refuses the rest)
   const openFactInput = useOpenFactInput();
   const relatedMenu = useTaskRelatedMenu();
   // picker mode (view/project/pick): "Select this line" in the row menu (and a click on a read only cell) answers with the line
@@ -174,6 +177,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
     () => taskLines.some((l) => l.rowParentGUID === def.genus && taskLineErrors(data, def, l.rowJSON || {}, fx).length > 0),
     [taskLines, def, data, fx],
   );
+  // PMBOK: one Accountable per task - a warning above the Time lines, never an error (documentation/PERMISSIONS_WBS.html, Q3)
+  const raciWarn = useMemo(() => (def.genus === 'timeGenus' ? raciWarning(taskLines.filter((l) => l.rowParentGUID === 'timeGenus')) : ''), [taskLines, def.genus]);
   const columns = useMemo(
     () => buildTaskLineColumns({ data, genus: def, projectCurrency, textColor: c.text, errorColor: c.error, fxProject: fxOn ? fxProject : null, fx, showErrors: hasErrors, timeKinds, workCenters: timeWorkCenters, productFields }),
     [data, def, projectCurrency, c.text, c.error, fxOn, fxProject, fx, hasErrors, timeKinds, timeWorkCenters, productFields],
@@ -184,7 +189,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const newTimeKind = def.resource !== 'product' && equipmentOffered ? (timeKinds.includes('person') ? 'person' : timeKinds[0]) : undefined;
   /** the project books work centers: a new Time line is a work center line, the menu starts on the first kind switched on (Person, else Equipment, else Partner) */
   const newOnWorkCenters = def.resource !== 'product' && scope.workCenters;
-  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(newOnWorkCenters ? { taskResourceKind: 'workCenter', taskWorkCenterKind: timeKinds[0] } : newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind, newOnWorkCenters, timeKinds]);
+  const newRowDefaults = useMemo(() => ({ rowOwnerGUID: taskGUID, rowParentGUID: def.genus, rowJSON: { taskManagementGenusLine: def.genus, distributionForBudgetTaskLine: DISTRIBUTION.uniform, budgetItemTaskLine: defaultBudgetItemOfGenus(data.budgetItem, def.genus), taskIsPosted: false, ...(def.resource !== 'product' ? { raciItem: RACI_DEFAULT_GUID } : {}), ...(newOnWorkCenters ? { taskResourceKind: 'workCenter', taskWorkCenterKind: timeKinds[0] } : newTimeKind ? { taskResourceKind: newTimeKind } : {}) } as Record<string, any> }), [taskGUID, def.genus, data.budgetItem, newTimeKind, newOnWorkCenters, timeKinds]);
   const computeRowJSON = useCallback((json: Record<string, any>) => computeTaskLineRowJSON(data, def, json, undefined, fx, projectJSON), [data, def, fx, projectJSON]);
 
   /** "Recalculate": the separate algorithm - the snapshot of the rate is ignored and the rates are taken again; true = the line changed */
@@ -288,6 +293,10 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
         ) : null}
       </ScrollableTabBar>
 
+      {!paymentsActive && raciWarn ? (
+        <Text testID={`${testID}-raci-warning`} style={{ color: c.error, fontSize: 12, paddingHorizontal: 12, paddingVertical: 4 }}>{pmT(raciWarn)}</Text>
+      ) : null}
+
       {paymentsActive ? (
         <PMTaskPaymentPlan projectGUID={projectGUID} taskGUID={taskGUID} data={data} taskLines={taskLines} payments={payments} testID={`${testID}-payments`} />
       ) : (
@@ -312,7 +321,10 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           dragAndDropColumns
           resizeColumnWidth
           focusRowGUID={focusLine}
-          postDataNeeded
+          readOnly={!perm.can('task_line_table', 'U')}
+          addEnabled={perm.can('task_line_table', 'C')}
+          deleteEnabled={perm.can('task_line_table', 'D')}
+          postDataNeeded={perm.can('task_line_table', 'U')}
           postState={postState}
           onPost={post}
           postButtonColor={postButtonColor}

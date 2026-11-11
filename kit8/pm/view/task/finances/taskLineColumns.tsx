@@ -20,6 +20,7 @@ import { CONTRACT_ENTITY } from '../../../../catalog/contract/contractModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
 import { BUDGET_ITEM_TABLE, isBudgetItemFolder } from '../../../../catalog/budget/item/budgetItemModel';
 import { distributionOptions } from '../../../../catalog/distribution/distributionModel';
+import { raciOptions } from '../../../../catalog/management/raci_genus/raciGenusModel';
 import { PRODUCT_TABLES } from '../../../../catalog/product/productModel';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../../catalog/resourcerole/resourceRoleModel';
 import { rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
@@ -226,6 +227,11 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
         titleExtractor: resourceTitleOfRow, placeholder: pmT('Select resource…'),
         filterItem: (r, row) => (r?.rowOwnerGUID === EQUIPMENT_CATALOG_OWNER ? eqActive(r, row) : true),
       }) as VisualColumn,
+      {
+        // the RACI item of the person on the task (PMBOK): a row of managementRACIGenusTable, never empty (a new Time line is Responsible)
+        key: 'raci', title: pmT('RACI'), type: 'select', field: 'raciItem', width: 150, allowEmpty: false, placeholder: pmT('Responsible'),
+        options: raciOptions(data.raciGenus, pmT),
+      } as VisualColumn,
       {
         // the VARIANT of the person / equipment the line books (Senior, English / Heavy, With operator): its own variants, separate from the variants of the role; empty = automatic
         key: generic ? 'resourceVariant' : equipmentOnly ? 'equipmentVariant' : 'personVariant', field: 'taskResourceAttributesKey', width: 200, type: 'select',

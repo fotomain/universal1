@@ -9,7 +9,11 @@ import {scopeRealtimeChange} from "./realtimeRows";
 export const dbErrorMessage = (e: any): string => {
     if (e?.code === "23505") return "it already exists (duplicate)";
     if (e?.code === "23514") return "a value is not allowed (check constraint)";
-    if (e?.code === "42501" || /row-level security/i.test(String(e?.message || ""))) return "not allowed - please sign in";
+    if (e?.code === "42501" || /row-level security/i.test(String(e?.message || ""))) {
+        // PART 46 / 47: a refusal of the permission matrix is worded for people ("You have no permission to create in partnerTable."); the translation layer is loaded only for a refusal
+        try { const w = require("../../permissions/permissionText").permissionRefusalText(e); if (w) return w; } catch { /* the generic text below */ }
+        return "you have no permission for this - ask the administrator of your organization";
+    }
     return String(e?.message || e || "unknown error");
 };
 

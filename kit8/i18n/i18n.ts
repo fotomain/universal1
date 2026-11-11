@@ -1,6 +1,7 @@
 import 'intl-pluralrules'; // Hermes has no Intl.PluralRules; i18next needs it for plural forms
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { orgTextsPostProcessor } from './organizationTexts';
 
 export interface LanguageItem {
   code: string;
@@ -1881,7 +1882,8 @@ const resources = {
   },
 };
 
-i18n.use(initReactI18next).init({
+i18n.use(initReactI18next).use(orgTextsPostProcessor).init({
+  postProcess: ['orgTexts'],
   resources,
   lng: 'en',
   fallbackLng: 'en',

@@ -655,3 +655,83 @@
 655|Kodėl
 656|Apskaičiavo duomenų bazė ir patikrinta šiame įrenginyje: pakoreguota užduočių: {{n}}.
 657|Apskaičiavo duomenų bazė ir patikrinta šiame įrenginyje.
+658|RACI
+659|Vykdytojas
+660|Atsakingasis
+661|Konsultuojamas
+662|Informuojamas
+663|Šiai užduočiai yra daugiau nei vienas atsakingasis
+664|Organizacijos nariai
+665|Pakviesti
+666|El. paštas kvietimui
+667|Sukurti asmenį pirmo prisijungimo metu
+668|El. paštas
+669|Būsena
+670|Administratorius
+671|Asmuo pirmo prisijungimo metu
+672|Pakviesta
+673|Pirmoji sesija
+674|Pakviestas
+675|Aktyvus
+676|Sukurti asmenį
+677|Siųsti kvietimą dar kartą
+678|Tik organizacijos administratorius gali pridėti ar keisti narius.
+679|Narių dar nėra.
+680|Įveskite el. paštą, pvz., vardas@imone.com
+681|Organizacija
+682|Asmuo
+683|Jūsų asmuo egzistuoja.
+684|Sukurti mano asmenį
+685|Neturite teisės: {{op}} — {{table}}.
+702|Gali kurti projektus
+705|Mano teisės
+710|Matrica
+711|Teisės
+714|kurti
+715|skaityti
+716|keisti
+717|trinti
+734|Programos tekstai
+686|Užrakinta: {{n}}
+687|Pasirinkite narį ir profilį.
+688|Pašalinta
+689|Narys
+690|Profilis
+691|Suteikti
+692|Čia dar niekas neturi profilio.
+693|automatinis
+694|Pašalinti
+695|Lentelė
+696|Ekranas
+697|Rūšis
+698|Raidės
+699|Projektas: {{n}}
+700|Projektas nepasirinktas: jūsų profiliai bet kur
+701|Profilio nėra: skaitote tai, ką skaito visi.
+703|taip
+704|ne
+706|Eilutė
+707|Savos eilutės
+708|Matricą keičia tik organizacijos administratorius.
+709|Pakeistas langelis yra JŪSŲ organizacijos eilutė; grąžinus pateiktas raides, ji pašalinama. Duomenų bazė yra įstatymas: matrica lemia RLS, RPC ir užrakto trigerius.
+712|Kas ką gali šiame projekte. Asmuo laiko eilutėje kaip Responsible pats gauna užduoties teises (RACI); projekto kūrėjas yra jo vadovas.
+713|Visai organizacijai suteiktas projekto vadovas arba kuratorius: šis narys gali kurti projektus. Administratorius gali visada.
+718|Organizacijos administratorius
+719|Projekto vadovas
+720|Projektas: tik skaitymas
+721|Projekto rėmėjas
+722|Projekto kuratorius
+723|Projekto investuotojas
+724|Projekto narys
+725|Užduoties atsakingasis
+726|Užduoties valdytojas
+727|Finansų vadovas (planas)
+728|Finansų vadovas (faktas)
+729|Pakeitimas matomas iš naujo įkėlus programą.
+730|Raktas
+731|Pateiktas tekstas
+732|Organizacijos tekstas
+733|Įveskite rūšį, raktą ir tekstą. Stulpelio raktas atrodo kaip table.column.
+735|Pakeiskite meniu pavadinimą, stulpelio antraštę ar pavadinimą visai organizacijai. Kalba: {{n}}.
+736|Tekstus keičia tik organizacijos administratorius.
+737|Tekstas

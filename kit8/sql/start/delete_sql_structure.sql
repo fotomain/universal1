@@ -5,6 +5,10 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000000000000000. delete_organization_texts.sql - PART 48: drops organizationTextTable (data included: the replaced texts of ALL organizations), its guard trigger and organization_texts (runs very first: it is the newest)
+--  1a-00000000000000. delete_permissions.sql - PARTs 46 + 47: drops the permission tables (data included: the profiles, the matrices and ALL assignments), the matrix policies "*_perm_*" next to the owner policies, the lock triggers and the perm_* functions; the catalogs get their old open policies back only by running start2 again (runs very first: it is the newest)
+--  1a-0000000000000. delete_organization_members.sql - PART 45: drops organizationMemberTable (data included: every member and invitation of ALL organizations) and its functions / triggers (runs very first: it is the newest)
+--  1a-000000000000. delete_raci_genus.sql - PART 44: drops managementRACIGenusTable and the trigger / function of the raciItem of the Time lines (the key raciItem stays on the lines as inert JSON; runs very first: it is the newest)
 --  1a-00000000000. delete_report_views.sql - PART 43: drops project_report_settings (data included: the saved views of ALL users) and the report_view_* functions (runs very first: it is the newest)
 --  1a-0000000000. delete_resource_leveling.sql - PART 42: drops project_resource_leveling_run / _task (data included: the history of the runs of ALL projects), the check trigger on project_task_table and the project_resource_leveling_* functions; the key taskLevelingDelayDays stays on the tasks as inert JSON (runs very first: it is the newest)
 --  1a-000000000. delete_route_visits.sql - PART 41: drops app_route_visits_turnover (data included: the visits of ALL users) and the route_visit* functions (runs very first: it is the newest)
@@ -36,6 +40,109 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-000000000000000: delete_organization_texts.sql  (PART 48 of the structure file: the application texts - runs before everything else, it is the newest)
+-- =====================================================================================
+DROP TABLE IF EXISTS public."organizationTextTable" CASCADE;
+DROP FUNCTION IF EXISTS public.organization_text_guard() CASCADE;
+DROP FUNCTION IF EXISTS public.organization_texts(text) CASCADE;
+
+
+
+-- =====================================================================================
+-- PART 1a-00000000000000: delete_permissions.sql  (PARTs 46 + 47 of the structure file: permission profiles, the matrices, enforcement - runs before everything else, it is the newest)
+-- Drops the five permission tables WITH their rows, the matrix policies next to the owner policies of the project tables, the field lock and RACI triggers, and every perm_* function.
+-- The policies of the catalogs and of project_table that PART 47 replaced disappear with their tables (PART 1 / the catalog parts drop them).
+-- =====================================================================================
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND (policyname LIKE '%\_perm\_%' ESCAPE '\' OR policyname = 'project_user_settings_perm_insert' OR policyname = 'project_user_settings_perm_update') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
+  END LOOP;
+END $$;
+DROP TRIGGER IF EXISTS zz_perm_task_lock ON public.project_task_table;
+DROP TRIGGER IF EXISTS trg_task_permission_progress ON public.project_task_table;
+DROP TRIGGER IF EXISTS trg_task_permission_delete ON public.project_task_table;
+DROP TRIGGER IF EXISTS zz_perm_line_lock ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_permission_ins ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_permission_upd ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_permission_del ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_project_permission_creator ON public.project_table;
+DROP TRIGGER IF EXISTS trg_project_permission_cleanup ON public.project_table;
+DROP TRIGGER IF EXISTS trg_person_permission ON public."personTable";
+DROP TRIGGER IF EXISTS trg_user_permission ON public."userTable";
+DROP TABLE IF EXISTS public.project_permission_profile_catalog CASCADE;
+DROP TABLE IF EXISTS public.project_permission_profile_crud_table CASCADE;
+DROP TABLE IF EXISTS public.project_permission_profile_uxui_table CASCADE;
+DROP TABLE IF EXISTS public.project_permission_profile_user_table CASCADE;
+DROP TABLE IF EXISTS public.task_user_permission_table CASCADE;
+DROP FUNCTION IF EXISTS public.perm_can(text, text, uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_can_in(text, text, uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_require(text, text, uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_profiles(uuid, uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_set_of(text, text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_default_set(text) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_has_profile(uuid, uuid, text[]) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_my_matrix(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.pm_can_access_project(uuid, text) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_changed_fields(jsonb, jsonb) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_field_check(text, uuid, uuid, text[]) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_task_lock_guard() CASCADE;
+DROP FUNCTION IF EXISTS public.perm_line_is_my_responsible(jsonb) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_line_lock_guard() CASCADE;
+DROP FUNCTION IF EXISTS public.perm_admin_orgs() CASCADE;
+DROP FUNCTION IF EXISTS public.perm_projects(text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.perm_tasks(text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.project_permission_creator() CASCADE;
+DROP FUNCTION IF EXISTS public.project_permission_cleanup() CASCADE;
+DROP FUNCTION IF EXISTS public.permission_assignment_manage(text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.permission_assignment_active_member(text, text) CASCADE;
+DROP FUNCTION IF EXISTS public.permission_assignment_guard() CASCADE;
+DROP FUNCTION IF EXISTS public.permission_backfill() CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_expected(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_rebuild(uuid, uuid) CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_verify() CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_after_lines() CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_after_task() CASCADE;
+DROP FUNCTION IF EXISTS public.task_user_permission_after_person() CASCADE;
+
+
+
+-- =====================================================================================
+-- PART 1a-0000000000000: delete_organization_members.sql  (PART 45 of the structure file: the members of the organizations - runs before everything else, it is the newest)
+-- Drops organizationMemberTable WITH its rows, the creator trigger of organizationTable and the functions of the part. organization_is_admin / _invite_user / _revoke_invitation /
+-- _ensure_user / _accept_invitation are dropped with PART 20 (they exist only as the replaced copies of PART 45 - dropped here as well).
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_organizationTable_creator_member ON public."organizationTable";
+-- the update / delete policies of organizationTable call organization_is_admin (PART 45): they go first, so the function can be dropped with PART 20 (the table is dropped there)
+DROP POLICY IF EXISTS "organizationTable_update" ON public."organizationTable";
+DROP POLICY IF EXISTS "organizationTable_delete" ON public."organizationTable";
+DROP TABLE IF EXISTS public."organizationMemberTable" CASCADE;
+DROP FUNCTION IF EXISTS public.organization_member_creator();
+DROP FUNCTION IF EXISTS public.organization_member_guard();
+DROP FUNCTION IF EXISTS public.organization_member_activate(text, text);
+DROP FUNCTION IF EXISTS public.organization_member_backfill();
+DROP FUNCTION IF EXISTS public.organization_member_user_guid(text);
+DROP FUNCTION IF EXISTS public.organization_member_owns_projects(text, text);
+DROP FUNCTION IF EXISTS public.organization_member_create_person(text);
+DROP FUNCTION IF EXISTS public.organization_my_memberships();
+DROP FUNCTION IF EXISTS public.organization_switch(text);
+DROP FUNCTION IF EXISTS public.person_create_own();
+
+
+
+-- =====================================================================================
+-- PART 1a-000000000000: delete_raci_genus.sql  (PART 44 of the structure file: the RACI items - runs before everything else, it is the newest)
+-- Drops the RACI catalog WITH its rows, the trigger of task_line_table and its function. The key raciItem already written on the Time lines stays there as inert JSON.
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_task_line_raci ON public.task_line_table;
+DROP FUNCTION IF EXISTS public.kit8_task_line_raci();
+DROP TABLE IF EXISTS public."managementRACIGenusTable" CASCADE;
 
 
 

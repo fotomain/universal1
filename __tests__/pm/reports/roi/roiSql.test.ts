@@ -118,7 +118,7 @@ describe('security', () => {
   it('roi_verify is a maintenance function (not for users); roi_rebuild checks the ownership', () => {
     expect(part33).toContain('REVOKE ALL ON FUNCTION public.roi_verify(uuid) FROM PUBLIC, anon, authenticated;');
     const rebuild = part33.slice(part33.indexOf('FUNCTION public.roi_rebuild'));
-    expect(rebuild.slice(0, rebuild.indexOf('$$;', 100))).toContain('public.pm_owns_project(p_project)');
+    expect(rebuild.slice(0, rebuild.indexOf('$$;', 100))).toContain("public.perm_can_in('project_table', 'U', p_project)");
   });
   it('month totals and history are in the Realtime publication', () => {
     expect(part33).toContain("ARRAY['project_status_month_totals', 'project_status_roi_history']");

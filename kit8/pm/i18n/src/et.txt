@@ -655,3 +655,83 @@
 655|Miks
 656|Arvutas andmebaas ja kontrollitud selles seadmes: kohandati {{n}} ülesannet.
 657|Arvutas andmebaas ja kontrollitud selles seadmes.
+658|RACI
+659|Täitja
+660|Vastutav isik
+661|Konsulteeritav
+662|Teavitatav
+663|Sellel ülesandel on rohkem kui üks vastutav isik
+664|Organisatsiooni liikmed
+665|Kutsu
+666|E-post kutsumiseks
+667|Loo isik esimesel sisselogimisel
+668|E-post
+669|Olek
+670|Administraator
+671|Isik esimesel sisselogimisel
+672|Kutsutud
+673|Esimene seanss
+674|Kutsutud
+675|Aktiivne
+676|Loo isik
+677|Saada kutse uuesti
+678|Ainult organisatsiooni administraator saab liikmeid lisada või muuta.
+679|Liikmeid pole veel.
+680|Sisestage e-post kujul nimi@firma.com
+681|Organisatsioon
+682|Isik
+683|Teie isik on olemas.
+684|Loo minu isik
+685|Teil puudub õigus: {{op}} — {{table}}.
+702|Võib luua projekte
+705|Minu õigused
+710|Maatriks
+711|Õigused
+714|luua
+715|lugeda
+716|muuta
+717|kustutada
+734|Rakenduse tekstid
+686|Lukus: {{n}}
+687|Valige liige ja profiil.
+688|Eemaldatud
+689|Liige
+690|Profiil
+691|Anna
+692|Siin pole veel kellelgi profiili.
+693|automaatne
+694|Eemalda
+695|Tabel
+696|Ekraan
+697|Liik
+698|Tähed
+699|Projekt: {{n}}
+700|Projekti pole valitud: teie profiilid kõikjal
+701|Profiili pole: loete seda, mida kõik loevad.
+703|jah
+704|ei
+706|Rida
+707|Oma read
+708|Maatriksit muudab ainult organisatsiooni administraator.
+709|Muudetud lahter on TEIE organisatsiooni rida; tarnitud tähtedele tagasi seadmine kustutab selle. Andmebaas on seadus: maatriks otsustab RLS-i, RPC-d ja lukustuspäästikud.
+712|Kes mida selles projektis tohib. Ajarea inimene rollis Responsible saab ülesande õigused ise (RACI); projekti looja on selle projektijuht.
+713|Kogu organisatsioonile antud projektijuht või kuraator: see liige tohib projekte luua. Administraator tohib alati.
+718|Organisatsiooni administraator
+719|Projektijuht
+720|Projekt: ainult lugemine
+721|Projekti sponsor
+722|Projekti kuraator
+723|Projekti investor
+724|Projekti liige
+725|Ülesande vastutaja
+726|Ülesande haldur
+727|Finantsjuht (plaan)
+728|Finantsjuht (fakt)
+729|Muudatus on näha pärast rakenduse uuesti laadimist.
+730|Võti
+731|Tarnitud tekst
+732|Organisatsiooni tekst
+733|Sisestage liik, võti ja tekst. Veeru võti näeb välja nagu table.column.
+735|Asendage menüü pealkiri, veeru päis või pealkiri kogu organisatsiooni jaoks. Keel: {{n}}.
+736|Tekste muudab ainult organisatsiooni administraator.
+737|Tekst

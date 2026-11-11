@@ -469,6 +469,13 @@ export interface ReusableTableProps {
    */
   addEnabled?: boolean;
   /**
+   * true: the table only SHOWS - the cells are read only and nothing is added, duplicated or deleted (a user whose profile has no U / C / D for the table, kit8/permissions). The database refuses the
+   * write anyway; this only keeps the interface honest.
+   */
+  readOnly?: boolean;
+  /** false: no delete (row menu, the delete selected button); update and add stay (a profile with C and U, no D) */
+  deleteEnabled?: boolean;
+  /**
    * the table does not make rows itself (the rows are made by a command of the screen, e.g. a fact document by an RPC): the add button calls this, the buttons "add first" / "duplicate"
    * and the row menu commands add above / below / duplicate are gone. Update, delete and selection stay.
    */

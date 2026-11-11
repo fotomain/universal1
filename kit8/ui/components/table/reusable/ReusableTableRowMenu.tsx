@@ -17,6 +17,8 @@ export interface ReusableTableRowMenuProps {
   reorderEnabled: boolean;
   /** false: no add above / below / duplicate (ReusableTable addEnabled) */
   addEnabled?: boolean;
+  /** false: no Delete command (ReusableTable deleteEnabled / readOnly) */
+  deleteEnabled?: boolean;
   /** rows are filtered by the search box: positions are not the real ones -> no move commands */
   filtered: boolean;
   onDelete: (guid: string) => void;
@@ -29,7 +31,7 @@ export interface ReusableTableRowMenuProps {
   testID: string;
 }
 
-export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, addEnabled = true, filtered, onDelete, onEdit, openLabel, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
+export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reorderEnabled, addEnabled = true, deleteEnabled = true, filtered, onDelete, onEdit, openLabel, onClose, extraMenuItems, testID }: ReusableTableRowMenuProps) {
   if (!menu) return null;
   const index = rows.findIndex((r) => r.rowGUID === menu.guid);
   const row = rows[index];
@@ -55,7 +57,7 @@ export default function ReusableTableRowMenu({ menu, rows, crud, itemLabel, reor
     { testID: id('copy-guid'), label: 'Copy GUID', icon: 'fingerprint', onPress: run(() => { Clipboard.setStringAsync(guid).catch(() => {}); }) },
     ...(crud.canArchive ? [{ testID: id('archive'), label: 'Archive', icon: 'archive', onPress: run(() => crud.archive(guid)) }] : []),
     ...(extraMenuItems ? extraMenuItems(row, onClose) : []),
-    { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => onDelete(guid)) },
+    ...(deleteEnabled ? [{ testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => onDelete(guid)) }] : []),
   ];
   return <PMContextMenu testID={`${testID}-menu`} x={menu.x} y={menu.y} caption={`${itemLabel} ${index + 1}`} items={items} onClose={onClose} />;
 }

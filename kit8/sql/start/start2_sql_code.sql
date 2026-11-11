@@ -48,6 +48,11 @@
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): the RPCs route_visit_register / route_visits_clear / route_visits_enabled, RLS (a user reads and deletes his own rows), realtime
 --   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): the RPCs project_resource_leveling_inputs / _apply / _clear / _undo, RLS (the owner of the project reads the runs), the check of the leveling delay on project_task_table
 --   43. create_report_views.sql - the saved VIEWS of a report (kit8/pm/reports/monitor01): the RPCs report_view_save / _list / _share / _delete, RLS (a user reads his own views and the views of his organization marked forOtherUsersEnabled), realtime
+--   44. create_raci_genus.sql - the RACI items (documentation/PERMISSIONS_WBS.html): setup + read only grants of managementRACIGenusTable, the trigger of task_line_table (a Time line always has a raciItem, default raciResponsibleGUID; the value must be a row of the table), the backfill of the old Time lines, realtime
+--   45. create_organization_members.sql - ORGANIZATION MEMBERS (documentation/PERMISSIONS_WBS.html section 4): the guard trigger (administrator rules), RLS, organization_switch / organization_my_memberships, person_create_own / organization_member_create_person; REPLACES organization_is_admin / _invite_user / _revoke_invitation / _ensure_user / _accept_invitation of PART 20; the backfill of the members
+--   46. create_permission_profiles.sql - PERMISSION PROFILES (documentation/PERMISSIONS_WBS.html section 5): perm_profiles / perm_can / perm_require / perm_my_matrix, the field lock triggers, the creator of a project = its project manager, the assignment rules, the RACI derivation of task_user_permission_table, the backfill
+--   47. create_permission_enforcement.sql - ENFORCEMENT (documentation/PERMISSIONS_WBS.html section 7): the matrix policies next to the owner policies (perm_projects / perm_tasks), create-project right, the catalogs (administrator writes, project manager inserts), the document RPC guards, the members read
+--   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): policies, the guard trigger, organization_texts(language)
 -- ===============================================================================================
 
 DO $$
@@ -359,6 +364,15 @@ END $$;
 CREATE OR REPLACE FUNCTION public.pm_owns_project(p_project uuid) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
+$$;
+
+-- the permission test of the RPCs (PART 46 / 47, documentation/PERMISSIONS_WBS.html): "do I hold a profile that gives the letter C / R / U / D for the table in THIS project?" - false for a NULL
+-- project, like pm_owns_project(NULL). It is plpgsql so that a LANGUAGE sql function of an earlier PART can call it before perm_can exists (PART 46).
+CREATE OR REPLACE FUNCTION public.perm_can_in(p_table text, p_op text, p_project uuid, p_task uuid DEFAULT NULL) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  RETURN p_project IS NOT NULL AND public.perm_can(p_table, p_op, p_project, p_task);
+END;
 $$;
 
 
@@ -731,6 +745,10 @@ GRANT EXECUTE ON FUNCTION public.pm_dependency_creates_cycle(uuid, uuid) TO auth
 
 GRANT EXECUTE ON FUNCTION public.pm_owns_project(uuid) TO authenticated;
 
+REVOKE ALL ON FUNCTION public.perm_can_in(text, text, uuid, uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.perm_can_in(text, text, uuid, uuid) TO authenticated;
+
 -- -------------------------------------------------------------------------------------
 -- Project / stage progress (stored procedure + trigger)
 --   progress(summary or project) = round1( SUM(w*p) / SUM(w) ) over its LEAF rows
@@ -744,7 +762,7 @@ DECLARE
   v_progress numeric;
 BEGIN
   -- callers with a JWT may only recalc their own projects (SQL editor / triggers: no JWT)
-  IF auth.uid() IS NOT NULL AND NOT public.pm_owns_project(p_project) THEN
+  IF auth.uid() IS NOT NULL AND NOT public.perm_can_in('project_task_table', 'R', p_project) THEN
     RAISE EXCEPTION 'pm_gantt: project % is not yours', p_project USING ERRCODE = 'insufficient_privilege';
   END IF;
 
@@ -847,13 +865,24 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
 DECLARE
   v_count integer;
 BEGIN
-  UPDATE public.project_task_table t
-     SET "rowJSON"     = jsonb_set(t."rowJSON", '{startAt}', to_jsonb(r."startAt")),
-         "rowDuration" = r."finishAt",
-         "rowProgress" = COALESCE(r."rowProgress", t."rowProgress")
-    FROM jsonb_to_recordset(COALESCE(p_rows, '[]'::jsonb))
-         AS r("rowGUID" uuid, "startAt" timestamptz, "finishAt" timestamptz, "rowProgress" numeric)
-   WHERE t."rowGUID" = r."rowGUID" AND t."projectGUID" = p_project_guid;
+  -- PART 46 / 47: who may change the dates (perm_field_check on the computed fields; the system roles always) writes the whole schedule, everybody else - a responsible who moved his
+  -- progress - writes the progress only: the dates are the plan of the project manager
+  IF auth.uid() IS NULL OR current_user IN ('postgres', 'service_role', 'supabase_admin') OR to_regprocedure('public.perm_field_check(text,uuid,uuid,text[])') IS NULL
+     OR public.perm_field_check('project_task_table', p_project_guid, NULL, ARRAY['startAt', 'rowDuration']) IS NULL THEN
+    UPDATE public.project_task_table t
+       SET "rowJSON"     = jsonb_set(t."rowJSON", '{startAt}', to_jsonb(r."startAt")),
+           "rowDuration" = r."finishAt",
+           "rowProgress" = COALESCE(r."rowProgress", t."rowProgress")
+      FROM jsonb_to_recordset(COALESCE(p_rows, '[]'::jsonb))
+           AS r("rowGUID" uuid, "startAt" timestamptz, "finishAt" timestamptz, "rowProgress" numeric)
+     WHERE t."rowGUID" = r."rowGUID" AND t."projectGUID" = p_project_guid;
+  ELSE
+    UPDATE public.project_task_table t
+       SET "rowProgress" = r."rowProgress"
+      FROM jsonb_to_recordset(COALESCE(p_rows, '[]'::jsonb))
+           AS r("rowGUID" uuid, "startAt" timestamptz, "finishAt" timestamptz, "rowProgress" numeric)
+     WHERE t."rowGUID" = r."rowGUID" AND t."projectGUID" = p_project_guid AND r."rowProgress" IS NOT NULL AND t."rowProgress" IS DISTINCT FROM r."rowProgress";
+  END IF;
   GET DIAGNOSTICS v_count = ROW_COUNT;
 
   IF p_project_finish IS NOT NULL OR p_project_progress IS NOT NULL THEN
@@ -1121,7 +1150,7 @@ CREATE OR REPLACE FUNCTION public.pm_kanban_ensure_project_stages(p_project uuid
 RETURNS SETOF public.project_kanban_stage_table
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 BEGIN
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_kanban_stage_table', 'C', p_project) THEN
     RAISE EXCEPTION 'pm_gantt: project not found';
   END IF;
   PERFORM pg_advisory_xact_lock(hashtext('pm_kanban_stages:' || p_project::text));
@@ -1614,7 +1643,7 @@ DECLARE
   v_title   text := NULLIF(btrim(COALESCE(p_title, '')), '');
   v_count   int;
 BEGIN
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('version_project_table', 'C', p_project) THEN
     RAISE EXCEPTION 'pm_gantt: project not found';
   END IF;
   PERFORM pg_advisory_xact_lock(hashtext('pm_version:' || p_project::text));
@@ -1674,7 +1703,7 @@ BEGIN
     RAISE EXCEPTION 'pm_gantt: version not found';
   END IF;
   v_project := v."rowGUID";
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('project_table', 'U', v_project) THEN
     RAISE EXCEPTION 'pm_gantt: project not found';
   END IF;
 
@@ -1734,6 +1763,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_title text := NULLIF(btrim(COALESCE(p_title, '')), '');
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('version_project_table', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   IF v_title IS NULL THEN
     RAISE EXCEPTION 'pm_gantt: the version title is empty';
   END IF;
@@ -3310,7 +3340,7 @@ BEGIN
 
   -- lock the task (two Post presses cannot interleave) and check the owner
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = v_task FOR UPDATE;
-  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+  IF v_project IS NULL OR NOT public.perm_can_in('task_line_table', 'U', v_project) THEN
     RAISE EXCEPTION 'create_task_line_plan: task % does not exist or is not yours', v_task USING ERRCODE = '42501';
   END IF;
   PERFORM public.subproject_assert_no_cycle(v_project);      -- PART 29: a project in a cycle of subprojects cannot be posted
@@ -4094,6 +4124,8 @@ NOTIFY pgrst, 'reload schema';
 -- ===============================================================================================
 -- PART 20: create_organization_scope.sql
 -- the organization of a user (userTable.rowJSON.userOrganization, obligatory) + project_table.rowParentGUID (= the organization of the owner, never changed) + invitations
+-- NOTE (2026-11-02): organization_is_admin, organization_invite_user, organization_revoke_invitation, organization_ensure_user and organization_accept_invitation below are REPLACED in PART 45
+-- (organizationMemberTable): the last definition in this file is the real one - change that copy.
 -- ===============================================================================================
 
 
@@ -5222,7 +5254,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
               WHEN COALESCE(h."rowJSON"->'documentHeader'->>'strongInput', 'false') = 'true' THEN 'draft-strong'
               ELSE 'draft-free' END
     FROM public.task_fact_header h
-   WHERE h."rowGUID" = p_header AND public.pm_owns_project(h."rowProjectGUID");
+   WHERE h."rowGUID" = p_header AND public.perm_can_in('task_fact_header', 'R', h."rowProjectGUID", h."rowOwnerGUID");
 $$;
 
 REVOKE ALL ON FUNCTION public.task_fact_header_state(uuid) FROM PUBLIC, anon;
@@ -5382,7 +5414,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('task_fact_header', 'C', v_project, p_task) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   SELECT COALESCE(p."rowJSON"->'factStrongInputByTaskLine' = 'true'::jsonb, false) INTO v_strong FROM public.project_table p WHERE p."rowGUID" = v_project;
@@ -5438,11 +5470,11 @@ DECLARE
   v_strong boolean;
   v_lines integer;
 BEGIN
-  SELECT x."rowGUID", x."rowProjectGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  SELECT x."rowGUID", x."rowProjectGUID", x."rowOwnerGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'fact document % does not exist', p_header USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(h."rowProjectGUID") THEN
+  IF NOT public.perm_can_in('task_fact_header', 'U', h."rowProjectGUID", h."rowOwnerGUID") THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
@@ -5485,11 +5517,11 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
-  SELECT x."rowProjectGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
+  SELECT x."rowProjectGUID", x."rowOwnerGUID", x."rowJSON" INTO h FROM public.task_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND THEN
     RAISE EXCEPTION 'fact document % does not exist', p_header USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(h."rowProjectGUID") THEN
+  IF NOT public.perm_can_in('task_fact_header', 'U', h."rowProjectGUID", h."rowOwnerGUID") THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
@@ -6466,7 +6498,7 @@ BEGIN
       UNION SELECT f."rowOwnerGUID", f."rowProjectGUID" FROM public.task_fact_usage_timeline f
       UNION SELECT v."rowOwnerGUID", v."rowProjectGUID" FROM public.monitor01_view v
       UNION SELECT k."rowOwnerGUID", k."rowProjectGUID" FROM public.project_subproject_link k) x
-     WHERE public.pm_owns_project(x.pr) AND (p_project IS NULL OR x.pr = p_project)
+     WHERE public.perm_can_in('monitor01_view', 'R', x.pr) AND (p_project IS NULL OR x.pr = p_project)
      LIMIT GREATEST(p_max, 1)) s;
   IF v_tasks IS NULL THEN
     RETURN jsonb_build_object('tasks', 0, 'upserted', 0, 'deleted', 0);
@@ -6490,7 +6522,7 @@ BEGIN
    WHERE v."rowOwnerUserGUID" = public.app_user_guid() AND (p_project IS NULL OR v."rowProjectGUID" = p_project);
   SELECT count(*), COALESCE(extract(epoch FROM clock_timestamp() - min(d."queuedAt")), 0) INTO v_queued, v_age
     FROM public.monitor01_dirty d JOIN public.project_task_table t ON t."rowGUID" = d."rowOwnerGUID"
-   WHERE d."attempts" < 5 AND public.pm_owns_project(t."projectGUID") AND (p_project IS NULL OR t."projectGUID" = p_project);
+   WHERE d."attempts" < 5 AND public.perm_can_in('monitor01_view', 'R', t."projectGUID") AND (p_project IS NULL OR t."projectGUID" = p_project);
   RETURN jsonb_build_object('count', v_count, 'maxUpdatedAt', v_max, 'queued', v_queued, 'queuedAgeSeconds', round(v_age, 1));
 END;
 $$;
@@ -6968,7 +7000,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('vendor_invoice_header', 'R', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   WITH ln AS (
@@ -7036,7 +7068,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('vendor_invoice_header', 'C', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
@@ -7109,6 +7141,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_json jsonb;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('vendor_invoice_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
@@ -7202,7 +7235,7 @@ BEGIN
     RAISE EXCEPTION 'the task of this vendor invoice is not known' USING ERRCODE = '23503';
   END IF;
   v_project := COALESCE(NULLIF(h."rowJSON"->>'vendorInvoiceProject', '')::uuid, v_project);
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('vendor_invoice_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF NOT public.vendor_project_setting(v_project, 'independentInvoiceInputAvailable') THEN
@@ -7252,7 +7285,7 @@ BEGIN
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
     FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyInvoiced" = 0;
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
-    FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+    FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('vendor_invoice_header', 'U', l."rowProjectGUID");
   IF jsonb_array_length(v_problems) > 0 THEN
     RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
   END IF;
@@ -7281,7 +7314,7 @@ BEGIN
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
   END IF;
-  IF EXISTS (SELECT 1 FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.vendor_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('vendor_invoice_header', 'U', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   UPDATE public.vendor_invoice_header
@@ -7302,6 +7335,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('vendor_invoice_header', 'D'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.vendor_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'vendor invoice % does not exist', p_header USING ERRCODE = '23503';
@@ -7468,7 +7502,7 @@ BEGIN
   IF v_task IS NULL OR v_project IS NULL THEN
     RAISE EXCEPTION 'the task of this vendor invoice is not known' USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('vendor_invoice_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   PERFORM set_config('app.vendor_invoice_line_move', 'on', true);
@@ -7797,7 +7831,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_tasks uuid[]; v_res jsonb;
 BEGIN
-  IF auth.uid() IS NOT NULL AND NOT public.pm_owns_project(p_project) THEN
+  IF auth.uid() IS NOT NULL AND NOT public.perm_can_in('project_table', 'U', p_project) THEN
     RAISE EXCEPTION 'update_project_cost_total: project % is not yours', p_project USING ERRCODE = 'insufficient_privilege';
   END IF;
   WITH x AS (DELETE FROM public.monitor01_dirty d USING public.project_task_table t WHERE t."rowGUID" = d."rowOwnerGUID" AND t."projectGUID" = p_project RETURNING d."rowOwnerGUID")
@@ -8081,7 +8115,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('purchase_order_header', 'C', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
@@ -8154,6 +8188,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_json jsonb;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('purchase_order_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
@@ -8240,7 +8275,7 @@ BEGIN
     RAISE EXCEPTION 'the task of this purchase order is not known' USING ERRCODE = '23503';
   END IF;
   v_project := COALESCE(NULLIF(h."rowJSON"->>'purchaseOrderProject', '')::uuid, v_project);
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('purchase_order_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF NOT public.vendor_project_setting(v_project, 'independentInvoiceInputAvailable') THEN
@@ -8290,7 +8325,7 @@ BEGIN
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
     FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyOrdered" = 0;
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
-    FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+    FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('purchase_order_header', 'U', l."rowProjectGUID");
   IF jsonb_array_length(v_problems) > 0 THEN
     RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
   END IF;
@@ -8319,7 +8354,7 @@ BEGIN
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
   END IF;
-  IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('purchase_order_header', 'U', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   UPDATE public.purchase_order_header
@@ -8340,6 +8375,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('purchase_order_header', 'D'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.purchase_order_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'purchase order % does not exist', p_header USING ERRCODE = '23503';
@@ -8474,7 +8510,7 @@ BEGIN
   IF v_task IS NULL OR v_project IS NULL THEN
     RAISE EXCEPTION 'the task of this purchase order is not known' USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('purchase_order_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   PERFORM set_config('app.purchase_order_line_move', 'on', true);
@@ -9290,6 +9326,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_json jsonb;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('product_receipt_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.product_receipt_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'product receipt % does not exist', p_header USING ERRCODE = '23503';
@@ -9362,7 +9399,7 @@ BEGIN
     RAISE EXCEPTION 'the task of this product receipt is not known' USING ERRCODE = '23503';
   END IF;
   v_project := COALESCE(NULLIF(h."rowJSON"->>'productReceiptProject', '')::uuid, v_project);
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('product_receipt_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF NOT public.vendor_project_setting(v_project, 'independentInvoiceInputAvailable') THEN
@@ -9412,7 +9449,7 @@ BEGIN
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
     FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyReceived" = 0;
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
-    FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+    FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('product_receipt_header', 'U', l."rowProjectGUID");
   IF jsonb_array_length(v_problems) > 0 THEN
     RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
   END IF;
@@ -9441,7 +9478,7 @@ BEGIN
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
   END IF;
-  IF EXISTS (SELECT 1 FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('product_receipt_header', 'U', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   UPDATE public.product_receipt_header
@@ -9462,6 +9499,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('product_receipt_header', 'D'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.product_receipt_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'product receipt % does not exist', p_header USING ERRCODE = '23503';
@@ -9591,7 +9629,7 @@ BEGIN
   IF COALESCE(o."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RAISE EXCEPTION 'post the purchase order first: a product receipt is made from a posted purchase order' USING ERRCODE = '23514';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_order AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.purchase_order_lines l WHERE l."rowHeaderGUID" = p_order AND NOT public.perm_can_in('product_receipt_header', 'C', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   INSERT INTO public.product_receipt_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON")
@@ -9636,7 +9674,7 @@ BEGIN
   IF COALESCE(r."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RAISE EXCEPTION 'post the product receipt first: a vendor invoice is made from a posted product receipt' USING ERRCODE = '23514';
   END IF;
-  IF EXISTS (SELECT 1 FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_receipt AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.product_receipt_lines l WHERE l."rowHeaderGUID" = p_receipt AND NOT public.perm_can_in('vendor_invoice_header', 'C', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   INSERT INTO public.vendor_invoice_header ("rowGUID", "rowOwnerGUID", "rowOrganizationGUID", "rowJSON")
@@ -9920,7 +9958,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('customer_invoice_header', 'R', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   WITH ln AS (
@@ -9976,7 +10014,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('customer_invoice_header', 'C', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF jsonb_typeof(p_selection) <> 'array' OR jsonb_array_length(p_selection) = 0 THEN
@@ -10048,6 +10086,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_json jsonb;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('customer_invoice_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowGUID", x."rowOwnerGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
@@ -10120,7 +10159,7 @@ BEGIN
     RAISE EXCEPTION 'the task of this customer invoice is not known' USING ERRCODE = '23503';
   END IF;
   v_project := COALESCE(NULLIF(h."rowJSON"->>'customerInvoiceProject', '')::uuid, v_project);
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('customer_invoice_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   IF NOT public.vendor_project_setting(v_project, 'customerInvoiceFunctionalityEnabled') THEN
@@ -10170,7 +10209,7 @@ BEGIN
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'quantityIsZero')), '[]'::jsonb) INTO v_problems
     FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND l."qtyInvoiced" = 0;
   SELECT v_problems || COALESCE(jsonb_agg(jsonb_build_object('lineGUID', l."rowGUID", 'problem', 'notYourProject')), '[]'::jsonb) INTO v_problems
-    FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID");
+    FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('customer_invoice_header', 'U', l."rowProjectGUID");
   IF jsonb_array_length(v_problems) > 0 THEN
     RETURN jsonb_build_object('status', 'refused', 'lines', v_lines, 'problems', v_problems);
   END IF;
@@ -10199,7 +10238,7 @@ BEGIN
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
   END IF;
-  IF EXISTS (SELECT 1 FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.customer_invoice_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('customer_invoice_header', 'U', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   UPDATE public.customer_invoice_header
@@ -10220,6 +10259,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('customer_invoice_header', 'D'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.customer_invoice_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'customer invoice % does not exist', p_header USING ERRCODE = '23503';
@@ -10849,7 +10889,7 @@ GRANT EXECUTE ON FUNCTION public.roi_task_lines(uuid, date, date) TO authenticat
 -- the projects Monitor02 shows: mine, with roiForTasksFunctionalityEnabled ON
 CREATE OR REPLACE FUNCTION public.roi_report_projects() RETURNS SETOF uuid
 LANGUAGE sql STABLE SET search_path = public, extensions AS $$
-  SELECT p."rowGUID" FROM public.project_table p WHERE public.pm_owns_project(p."rowGUID") AND public.vendor_project_setting_on(p."rowGUID", 'roiForTasksFunctionalityEnabled')
+  SELECT p."rowGUID" FROM public.project_table p WHERE public.perm_can_in('project_table', 'R', p."rowGUID") AND public.vendor_project_setting_on(p."rowGUID", 'roiForTasksFunctionalityEnabled')
 $$;
 
 REVOKE ALL ON FUNCTION public.roi_report_projects() FROM PUBLIC, anon;
@@ -10864,7 +10904,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   v_tasks uuid[]; v_n integer;
 BEGIN
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_table', 'U', p_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   SELECT array_agg(t."rowGUID") INTO v_tasks FROM public.project_task_table t WHERE t."projectGUID" = p_project;
@@ -12056,6 +12096,7 @@ CREATE OR REPLACE FUNCTION public.timesheet_set_header(p_header uuid, p_patch js
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE h public.project_timesheet_header;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_timesheet_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   h := public.timesheet_guard(p_header, true);
   UPDATE public.project_timesheet_header x
      SET "timesheetWorkCenter" = CASE WHEN p_patch ? 'timesheetWorkCenter' THEN NULLIF(p_patch->>'timesheetWorkCenter', '') ELSE x."timesheetWorkCenter" END,
@@ -12094,6 +12135,7 @@ DECLARE
   n public.project_timesheet_lines;
   v_id uuid;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_timesheet_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   h := public.timesheet_guard(p_header, true);
   n."rowHeaderGUID" := p_header;
   n := public.timesheet_line_patch(n, COALESCE(p_patch, '{}'::jsonb));
@@ -12247,6 +12289,7 @@ DECLARE
   v_doc uuid; v_patch jsonb; l record;
   v_roles text[]; v_items text[]; v_units text[];
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_timesheet_header', 'C'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   IF public.app_user_guid() IS NULL THEN RAISE EXCEPTION 'not signed in' USING ERRCODE = '42501'; END IF;
   SELECT x."projectGUID", COALESCE(x."rowJSON"->>'rowKind', 'task') AS kind INTO t FROM public.project_task_table x
     JOIN public.project_table p ON p."rowGUID" = x."projectGUID" AND p."rowParentGUID" = v_org WHERE x."rowGUID" = p_task;
@@ -12368,6 +12411,7 @@ DECLARE
   v_problems jsonb := '[]'::jsonb;
   v_rows integer; v_lines integer; r record; c record; v_prob text; v_detail text;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_timesheet_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   h := public.timesheet_guard(p_header, false);
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') = 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'lines', 0, 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsPosted')));
@@ -12447,6 +12491,7 @@ CREATE OR REPLACE FUNCTION public.unpost_timesheet(p_header uuid) RETURNS jsonb
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE h public.project_timesheet_header;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_timesheet_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   h := public.timesheet_guard(p_header, false);
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
@@ -12600,7 +12645,7 @@ DECLARE
   v_problems jsonb;
 BEGIN
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task FOR UPDATE;
-  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+  IF v_project IS NULL OR NOT public.perm_can_in('task_payment_plan_lines', 'U', v_project) THEN
     RAISE EXCEPTION 'post_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
   END IF;
   SELECT count(*) INTO v_count FROM public.task_payment_plan_lines l WHERE l."rowOwnerGUID" = p_task;
@@ -12664,7 +12709,7 @@ DECLARE
   v_count   integer;
 BEGIN
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task FOR UPDATE;
-  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+  IF v_project IS NULL OR NOT public.perm_can_in('task_payment_plan_lines', 'U', v_project) THEN
     RAISE EXCEPTION 'unpost_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
   END IF;
   PERFORM set_config('app.payment_plan_post', 'on', true);
@@ -13139,7 +13184,7 @@ BEGIN
           LEFT JOIN public."partnerTable" pt ON pt."rowGUID" = m."partner"
           LEFT JOIN public."personTable" pe ON pe."rowGUID" = m."person"
           LEFT JOIN public."contractTable" ck ON ck."rowGUID" = m."contract"
-         WHERE public.pm_owns_project(m."rowProjectGUID")
+         WHERE public.perm_can_in('project_payment_fact_header', 'R', m."rowProjectGUID")
            AND (v_dir IS NULL OR m."paymentDirection" = v_dir)
            AND (v_partner IS NULL OR m."partner" = v_partner)
            AND (v_person IS NULL OR m."person" = v_person)
@@ -13182,7 +13227,7 @@ BEGIN
     IF r.movement IS NULL THEN
       v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'planPaymentNotPosted'); CONTINUE;
     END IF;
-    IF NOT public.pm_owns_project(r.project) THEN
+    IF NOT public.perm_can_in('project_payment_fact_header', 'U', r.project) THEN
       v_skipped := v_skipped || jsonb_build_object('planLineGUID', r.plan, 'reason', 'notYourProject'); CONTINUE;
     END IF;
     -- an empty document takes the payee (and a missing direction) of the first payment it gets
@@ -13233,7 +13278,7 @@ BEGIN
     IF v_project IS NULL THEN
       RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
     END IF;
-    IF NOT public.pm_owns_project(v_project) THEN
+    IF NOT public.perm_can_in('project_payment_fact_header', 'C', v_project) THEN
       RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
     END IF;
   END IF;
@@ -13261,6 +13306,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record; v_json jsonb; v_day text;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_payment_fact_header', 'U'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowGUID", x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
@@ -13354,7 +13400,7 @@ BEGIN
   IF v_task IS NULL THEN
     RAISE EXCEPTION 'the task of this payment fact is not known: choose a task' USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('project_payment_fact_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   INSERT INTO public.project_payment_fact_lines ("rowGUID", "rowHeaderGUID", "rowProjectGUID", "rowOwnerGUID", "paymentPlanLineGUID", "orderInList", "rowJSON")
@@ -13384,7 +13430,7 @@ BEGIN
   IF v_project IS NULL THEN
     RAISE EXCEPTION 'task % does not exist', p_task USING ERRCODE = '23503';
   END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('project_payment_fact_header', 'U', v_project) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   PERFORM set_config('app.payment_fact_line_move', 'on', true);
@@ -13506,7 +13552,7 @@ BEGIN
           ('contractMissing', COALESCE(l."rowJSON"->>'paymentFactContract', '') = ''),
           ('currencyMissing', COALESCE(l."rowJSON"->>'paymentFactCurrency', '') = ''),
           ('sumMissing', jsonb_typeof(l."rowJSON"->'sumForContract') IS DISTINCT FROM 'number' OR COALESCE((l."rowJSON"->>'sumForContract')::numeric, 0) <= 0),
-          ('notYourProject', NOT public.pm_owns_project(l."rowProjectGUID")),
+          ('notYourProject', NOT public.perm_can_in('project_payment_fact_header', 'U', l."rowProjectGUID")),
           ('sumForAccountingMissing', COALESCE(p."rowJSON"->>'currencyForAccounting', '') <> '' AND jsonb_typeof(l."rowJSON"->'sumForAccounting') IS DISTINCT FROM 'number'),
           ('sumForBudgetMissing', COALESCE(p."rowJSON"->>'currencyForBudget', '') <> '' AND jsonb_typeof(l."rowJSON"->'sumForBudget') IS DISTINCT FROM 'number'),
           ('sumForMoneyAccountMissing', jsonb_typeof(l."rowJSON"->'sumForMoneyAccount') IS DISTINCT FROM 'number')
@@ -13560,7 +13606,7 @@ BEGIN
   IF COALESCE(h."rowJSON"->'documentHeader'->>'documentStatus', 'draft') <> 'posted' THEN
     RETURN jsonb_build_object('status', 'refused', 'problems', jsonb_build_array(jsonb_build_object('lineGUID', NULL, 'problem', 'documentIsNotPosted')));
   END IF;
-  IF EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.pm_owns_project(l."rowProjectGUID")) THEN
+  IF EXISTS (SELECT 1 FROM public.project_payment_fact_lines l WHERE l."rowHeaderGUID" = p_header AND NOT public.perm_can_in('project_payment_fact_header', 'U', l."rowProjectGUID")) THEN
     RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
   END IF;
   v_acct := h."rowJSON"->>'moneyAccountFact';
@@ -13586,6 +13632,7 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   h record;
 BEGIN
+  IF auth.uid() IS NOT NULL THEN PERFORM public.perm_require('project_payment_fact_header', 'D'); END IF;   -- PART 47: the matrix (no project here: the letters of the profiles held anywhere)
   SELECT x."rowJSON", x."rowOrganizationGUID" INTO h FROM public.project_payment_fact_header x WHERE x."rowGUID" = p_header FOR UPDATE;
   IF NOT FOUND OR h."rowOrganizationGUID" IS DISTINCT FROM public.organization_of_current_user() THEN
     RAISE EXCEPTION 'payment fact % does not exist', p_header USING ERRCODE = '23503';
@@ -13679,7 +13726,7 @@ DECLARE
   v_project uuid;
 BEGIN
   SELECT t."projectGUID" INTO v_project FROM public.project_task_table t WHERE t."rowGUID" = p_task;
-  IF v_project IS NULL OR NOT public.pm_owns_project(v_project) THEN
+  IF v_project IS NULL OR NOT public.perm_can_in('task_payment_plan_lines', 'R', v_project) THEN
     RAISE EXCEPTION 'task_payment_paid: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
   END IF;
   RETURN COALESCE((
@@ -13939,7 +13986,7 @@ BEGIN
       FROM public.customer_invoice_lines l WHERE NOT v_vendor AND l."rowHeaderGUID" = p_invoice
      ORDER BY 4, 1
   LOOP
-    IF NOT public.pm_owns_project(ln.project) THEN
+    IF NOT public.perm_can_in('project_payment_fact_header', 'C', ln.project) THEN
       RAISE EXCEPTION 'not your project' USING ERRCODE = '42501';
     END IF;
     v_open := public.payment_fact_invoice_open(p_kind, ln.id);
@@ -14543,7 +14590,7 @@ DECLARE
   v_max      constant int := 5000;
 BEGIN
   SELECT * INTO v_src FROM public.project_task_table WHERE "rowGUID" = p_task;
-  IF NOT FOUND OR NOT public.pm_owns_project(v_src."projectGUID") THEN
+  IF NOT FOUND OR NOT public.perm_can_in('project_task_table', 'R', v_src."projectGUID") THEN
     RAISE EXCEPTION 'task_template: task not found' USING ERRCODE = '42501';
   END IF;
   IF v_org IS NULL THEN
@@ -14644,7 +14691,7 @@ DECLARE
   v_new      uuid[];
 BEGIN
   SELECT * INTO v_target FROM public.project_task_table WHERE "rowGUID" = p_task;
-  IF NOT FOUND OR NOT public.pm_owns_project(v_target."projectGUID") THEN
+  IF NOT FOUND OR NOT public.perm_can_in('project_task_table', 'U', v_target."projectGUID") THEN
     RAISE EXCEPTION 'task_template: task not found' USING ERRCODE = '42501';
   END IF;
   IF NOT public.task_template_visible(p_template) THEN
@@ -15004,7 +15051,7 @@ DECLARE
   v_cap jsonb;
   v_for jsonb;
 BEGIN
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'R', p_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_inputs: the project is not yours' USING ERRCODE = '42501';
   END IF;
   IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
@@ -15056,7 +15103,7 @@ DECLARE
   v_stale integer;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_apply: sign in first' USING ERRCODE = '28000'; END IF;
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'C', p_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_apply: the project is not yours' USING ERRCODE = '42501';
   END IF;
   IF COALESCE(NULLIF(p_run->>'kind', ''), 'level') <> 'level' THEN
@@ -15117,7 +15164,7 @@ DECLARE
   v_n    integer;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_clear: sign in first' USING ERRCODE = '28000'; END IF;
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'U', p_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_clear: the project is not yours' USING ERRCODE = '42501';
   END IF;
   PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = p_project FOR UPDATE;
@@ -15166,7 +15213,7 @@ BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: sign in first' USING ERRCODE = '28000'; END IF;
   SELECT r."rowProjectGUID", r."runKind", r."undoneByGUID" INTO v_project, v_kind, v_done FROM public.project_resource_leveling_run r WHERE r."rowGUID" = p_run;
   IF v_project IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: the run does not exist'; END IF;
-  IF NOT public.pm_owns_project(v_project) THEN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'U', v_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_undo: the project is not yours' USING ERRCODE = '42501';
   END IF;
   IF v_kind = 'undo' THEN RAISE EXCEPTION 'project_resource_leveling_undo: an undo cannot be undone: level again'; END IF;
@@ -15437,7 +15484,7 @@ DECLARE
   v_old_s date; v_old_f date;
   v_moves jsonb; v_unres jsonb; v_delays jsonb; v_deadline timestamptz := clock_timestamp() + interval '5 seconds';
 BEGIN
-  IF NOT public.pm_owns_project(p_project) THEN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'R', p_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_server_plan: the project is not yours' USING ERRCODE = '42501';
   END IF;
   IF p_problem IS NULL OR jsonb_typeof(p_problem) <> 'object' OR p_problem->>'v' IS DISTINCT FROM '1' THEN
@@ -15786,6 +15833,1500 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 44: create_raci_genus.sql
+-- RACI (documentation/PERMISSIONS_WBS.html, sections 3.1 / 3.2). managementRACIGenusTable (start1) is a READ ONLY catalog of four rows (start4 / start5); a signed-in user cannot add, change or delete one.
+-- task_line_table.rowJSON.raciItem (a Time line, rowParentGUID = 'timeGenus'):
+--   * missing / empty               -> raciResponsibleGUID (a new Time line is Responsible; imports, templates and old code paths cannot leave it empty)
+--   * not a rowGUID of the catalog  -> the statement is refused (a CHECK cannot read another table)
+--   * a line of another genus       -> not touched
+-- App: kit8/catalog/management/raci_genus, the column "RACI" of the Time tab (kit8/pm/view/task/finances).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."managementRACIGenusTable"') IS NULL OR to_regclass('public.task_line_table') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 44 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('managementRACIGenusTable');
+
+REVOKE ALL ON public."managementRACIGenusTable" FROM anon, authenticated;
+
+GRANT SELECT ON public."managementRACIGenusTable" TO authenticated;
+
+DROP POLICY IF EXISTS "managementRACIGenusTable_select" ON public."managementRACIGenusTable";
+
+CREATE POLICY "managementRACIGenusTable_select" ON public."managementRACIGenusTable" FOR SELECT TO authenticated USING (true);
+
+CREATE OR REPLACE FUNCTION public.kit8_task_line_raci() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF NEW."rowParentGUID" = 'timeGenus' THEN
+    IF COALESCE(btrim(NEW."rowJSON"->>'raciItem'), '') = '' THEN
+      NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('raciItem', 'raciResponsibleGUID');
+    ELSIF NOT EXISTS (SELECT 1 FROM public."managementRACIGenusTable" r WHERE r."rowGUID" = NEW."rowJSON"->>'raciItem') THEN
+      RAISE EXCEPTION 'task_line_table.rowJSON.raciItem: "%" is not a row of managementRACIGenusTable', NEW."rowJSON"->>'raciItem' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_task_line_raci ON public.task_line_table;
+
+CREATE TRIGGER trg_task_line_raci BEFORE INSERT OR UPDATE OF "rowJSON", "rowParentGUID" ON public.task_line_table
+  FOR EACH ROW EXECUTE FUNCTION public.kit8_task_line_raci();
+
+-- upgrade 2026-11-02: every Time line made before RACI is Responsible. Idempotent (a line that has a raciItem is not touched). The user triggers are off during the update, so updated_at stays
+-- (the "posted and changed" mark is not set) and no queue is filled - the RACI item does not change the plan.
+DO $$
+BEGIN
+  ALTER TABLE public.task_line_table DISABLE TRIGGER USER;
+  UPDATE public.task_line_table
+     SET "rowJSON" = "rowJSON" || jsonb_build_object('raciItem', 'raciResponsibleGUID')
+   WHERE "rowParentGUID" = 'timeGenus' AND COALESCE(btrim("rowJSON"->>'raciItem'), '') = '';
+  ALTER TABLE public.task_line_table ENABLE TRIGGER USER;
+END $$;
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'managementRACIGenusTable') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public."managementRACIGenusTable";
+    END IF;
+  END IF;
+END $$;
+
+-- (the four seed rows of this part are in start4_sql_insert_missing.sql, PART 44)
+-- Check:
+--   SELECT "rowGUID", "rowJSON"->>'title' FROM public."managementRACIGenusTable" ORDER BY "orderInList";          -- 4 rows
+--   SELECT count(*) FROM public.task_line_table WHERE "rowParentGUID" = 'timeGenus' AND COALESCE("rowJSON"->>'raciItem', '') = '';   -- 0
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 45: create_organization_members.sql
+-- ORGANIZATION MEMBERS (documentation/PERMISSIONS_WBS.html, section 4). organizationMemberTable (start1) lists who is a member of which organization.
+--   * the ACTIVE organization of a user stays userTable.rowJSON.userOrganization; organization_switch(org) changes it to an organization the user is an active member of
+--   * a member row is made by the administrator (insert into the table or organization_invite_user): an e-mail of a registered user is an ACTIVE member at once, any other is INVITED until
+--     his first login (organization_ensure_user links the row: rowParentGUID = the user, status active, registeredAt)
+--   * the administrator rules (trigger organization_member_guard): an administrator cannot delete himself - another administrator does it; the organization always keeps an ACTIVE
+--     administrator; a member who owns projects of the organization cannot be removed; only organizationAdministrator and autoCreatePerson of a row are edited
+--   * organization_is_admin(org) = an active administrator member row with the e-mail of the caller (an organization without any member row: its creator)
+--   * a person is made at the FIRST login of a new user when autoCreatePerson is true (default); later the user (person_create_own) or the administrator (organization_member_create_person) makes it
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."organizationMemberTable"') IS NULL OR to_regclass('public."organizationTable"') IS NULL OR to_regclass('public."userTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 45 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('organizationMemberTable');
+
+-- the user row of an e-mail (userTable is readable by its owner only; the guard and the functions need it for any e-mail)
+CREATE OR REPLACE FUNCTION public.organization_member_user_guid(p_email text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT u."rowGUID" FROM public."userTable" u WHERE u."rowOwnerGUID" = lower(btrim(COALESCE(p_email, ''))) LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_user_guid(text) FROM PUBLIC, anon, authenticated;
+
+-- does the user own projects of the organization? (project_table is readable by its owner only, so the guard asks through a SECURITY DEFINER function)
+CREATE OR REPLACE FUNCTION public.organization_member_owns_projects(p_organization text, p_user text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowParentGUID" = p_organization AND p."rowOwnerGUID"::text = p_user)
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_owns_projects(text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_member_owns_projects(text, text) TO authenticated;
+
+-- the administrator of an organization: an ACTIVE administrator member row with the e-mail of the caller; an organization that has no member row at all: its creator
+CREATE OR REPLACE FUNCTION public.organization_is_admin(p_organization text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE
+    WHEN EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = p_organization) THEN
+      EXISTS (SELECT 1 FROM public."organizationMemberTable" m
+               WHERE m."rowOwnerGUID" = p_organization AND m."rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', ''))
+                 AND m."rowJSON"->>'memberStatus' = 'active' AND COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false))
+    ELSE
+      EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = p_organization AND lower(o."rowJSON"->>'createdByUser') = lower(COALESCE(auth.jwt()->>'email', '')))
+  END
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_is_admin(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_is_admin(text) TO authenticated;
+
+-- the guard. SECURITY INVOKER on purpose: current_user is the role of the caller ('authenticated' = a user, 'postgres' / 'service_role' = an administrator or a SECURITY DEFINER function)
+CREATE OR REPLACE FUNCTION public.organization_member_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_system boolean := current_user IN ('postgres', 'service_role', 'supabase_admin');
+  v_me     text := lower(COALESCE(auth.jwt()->>'email', ''));
+  v_email  text;
+  v_raw    text;
+  v_user   text;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF NOT v_system AND v_me <> '' AND OLD."rowJSON"->>'userEmailForInvitation' = v_me THEN
+      RAISE EXCEPTION 'organizationMemberTable: you cannot delete yourself from the organization - another administrator can' USING ERRCODE = '42501';
+    END IF;
+    IF EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = OLD."rowOwnerGUID") THEN
+      IF COALESCE((OLD."rowJSON"->>'organizationAdministrator')::boolean, false) AND OLD."rowJSON"->>'memberStatus' = 'active'
+         AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m
+                          WHERE m."rowOwnerGUID" = OLD."rowOwnerGUID" AND m."rowGUID" <> OLD."rowGUID" AND m."rowJSON"->>'memberStatus' = 'active'
+                            AND COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false)) THEN
+        RAISE EXCEPTION 'organizationMemberTable: the organization must keep an administrator' USING ERRCODE = '23514';
+      END IF;
+      IF OLD."rowParentGUID" <> 'empty' AND public.organization_member_owns_projects(OLD."rowOwnerGUID", OLD."rowParentGUID") THEN
+        RAISE EXCEPTION 'organizationMemberTable: the member owns projects of this organization - they must be moved or deleted first' USING ERRCODE = '23503';
+      END IF;
+    END IF;
+    RETURN OLD;
+  END IF;
+
+  v_raw   := COALESCE(NEW."rowJSON"->>'userEmailForInvitation', '');
+  v_email := lower(btrim(v_raw));
+  IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+$' THEN
+    RAISE EXCEPTION 'organizationMemberTable: "%" is not an e-mail', v_raw;
+  END IF;
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('userEmailForInvitation', v_email);
+
+  IF TG_OP = 'INSERT' THEN
+    IF NOT v_system THEN
+      NEW."rowJSON" := NEW."rowJSON" - 'registeredAt' - 'inviteSentAt' - 'inviteError' - 'memberStatus';
+      NEW."rowParentGUID" := 'empty';
+      IF NOT (NEW."rowJSON" ? 'invitedAt') THEN NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('invitedAt', now()); END IF;
+      IF v_me <> '' THEN NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('invitedBy', v_me); END IF;
+    END IF;
+    IF NEW."rowParentGUID" = 'empty' THEN
+      v_user := public.organization_member_user_guid(v_email);
+      IF v_user IS NOT NULL THEN NEW."rowParentGUID" := v_user; END IF;
+    END IF;
+    NEW."rowJSON" := jsonb_build_object('organizationAdministrator', false, 'autoCreatePerson', true) || NEW."rowJSON"
+                     || CASE WHEN NOT (NEW."rowJSON" ? 'memberStatus') THEN jsonb_build_object('memberStatus', CASE WHEN NEW."rowParentGUID" = 'empty' THEN 'invited' ELSE 'active' END) ELSE '{}'::jsonb END;
+    IF EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = NEW."rowOwnerGUID" AND m."rowJSON"->>'userEmailForInvitation' = v_email) THEN
+      RAISE EXCEPTION 'organizationMemberTable: % is already a member or invited in this organization', v_email USING ERRCODE = '23505';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  -- UPDATE
+  IF NOT v_system THEN
+    IF NEW."rowOwnerGUID" <> OLD."rowOwnerGUID" OR NEW."rowParentGUID" <> OLD."rowParentGUID"
+       OR (NEW."rowJSON" - 'organizationAdministrator' - 'autoCreatePerson') IS DISTINCT FROM (OLD."rowJSON" - 'organizationAdministrator' - 'autoCreatePerson') THEN
+      RAISE EXCEPTION 'organizationMemberTable: only the administrator flag and autoCreatePerson of a member row can be changed' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  IF COALESCE((OLD."rowJSON"->>'organizationAdministrator')::boolean, false) AND NOT COALESCE((NEW."rowJSON"->>'organizationAdministrator')::boolean, false)
+     AND OLD."rowJSON"->>'memberStatus' = 'active'
+     AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m
+                      WHERE m."rowOwnerGUID" = OLD."rowOwnerGUID" AND m."rowGUID" <> OLD."rowGUID" AND m."rowJSON"->>'memberStatus' = 'active'
+                        AND COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false)) THEN
+    RAISE EXCEPTION 'organizationMemberTable: the organization must keep an administrator' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_organizationMemberTable_guard ON public."organizationMemberTable";
+
+CREATE TRIGGER trg_organizationMemberTable_guard BEFORE INSERT OR UPDATE OR DELETE ON public."organizationMemberTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_member_guard();
+
+-- security: the administrator of the organization writes the rows (the guard keeps the rules); a member reads his own row
+REVOKE ALL ON public."organizationMemberTable" FROM anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."organizationMemberTable" TO authenticated;
+
+DO $$
+DECLARE
+  t text := 'organizationMemberTable';
+BEGIN
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format($q$CREATE POLICY %I ON public.%I FOR SELECT TO authenticated
+                    USING (public.organization_is_admin("rowOwnerGUID") OR "rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', '')) OR "rowParentGUID" = (SELECT public.app_user_guid()::text))$q$, t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.organization_is_admin("rowOwnerGUID"))', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.organization_is_admin("rowOwnerGUID")) WITH CHECK (public.organization_is_admin("rowOwnerGUID"))', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.organization_is_admin("rowOwnerGUID"))', t || '_delete', t);
+END $$;
+
+-- the organization itself: the creator OR an administrator member edits / deletes it
+DROP POLICY IF EXISTS "organizationTable_update" ON public."organizationTable";
+
+DROP POLICY IF EXISTS "organizationTable_delete" ON public."organizationTable";
+
+CREATE POLICY "organizationTable_update" ON public."organizationTable" FOR UPDATE TO authenticated
+  USING (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL OR public.organization_is_admin("rowGUID"))
+  WITH CHECK (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL OR public.organization_is_admin("rowGUID"));
+
+CREATE POLICY "organizationTable_delete" ON public."organizationTable" FOR DELETE TO authenticated
+  USING (lower("rowJSON"->>'createdByUser') = lower(auth.jwt()->>'email') OR (auth.jwt()->>'email') IS NULL OR public.organization_is_admin("rowGUID"));
+
+-- a new organization: its creator is its first administrator (the first logged-in user of an organization is its administrator - automatically)
+CREATE OR REPLACE FUNCTION public.organization_member_creator() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(btrim(COALESCE(NEW."rowJSON"->>'createdByUser', '')));
+BEGIN
+  IF v_email <> '' AND v_email ~ '^[^@\s]+@[^@\s]+$' THEN
+    INSERT INTO public."organizationMemberTable" ("rowOwnerGUID", "rowJSON", "orderInList")
+    VALUES (NEW."rowGUID", jsonb_build_object('userEmailForInvitation', v_email, 'organizationAdministrator', true, 'autoCreatePerson', true, 'invitedAt', now()),
+            (extract(epoch FROM clock_timestamp()) * 1000)::bigint)
+    ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_organizationTable_creator_member ON public."organizationTable";
+
+CREATE TRIGGER trg_organizationTable_creator_member AFTER INSERT ON public."organizationTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_member_creator();
+
+-- ---- the functions (replace PART 20) -----------------------------------------------------------------------------------------
+-- internal: the member row becomes active for a user (rowParentGUID = the user, registeredAt once). No grant.
+CREATE OR REPLACE FUNCTION public.organization_member_activate(p_member text, p_user text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  UPDATE public."organizationMemberTable" m
+     SET "rowParentGUID" = p_user,
+         "rowJSON" = m."rowJSON" || jsonb_build_object('memberStatus', 'active') || CASE WHEN m."rowJSON" ? 'registeredAt' THEN '{}'::jsonb ELSE jsonb_build_object('registeredAt', now()) END
+   WHERE m."rowGUID" = p_member;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_activate(text, text) FROM PUBLIC, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_invite_user(p_email text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org   text := public.organization_of_current_user();
+  v_email text := lower(btrim(COALESCE(p_email, '')));
+  v_guid  text;
+  v_status text;
+BEGIN
+  IF v_org IS NULL OR NOT public.organization_is_admin(v_org) THEN
+    RAISE EXCEPTION 'organization_invite_user: only the administrator of the organization can invite' USING ERRCODE = '42501';
+  END IF;
+  IF v_email = '' OR v_email !~ '^[^@\s]+@[^@\s]+$' THEN RAISE EXCEPTION 'organization_invite_user: "%" is not an e-mail', p_email; END IF;
+  SELECT m."rowGUID", m."rowJSON"->>'memberStatus' INTO v_guid, v_status FROM public."organizationMemberTable" m
+   WHERE m."rowOwnerGUID" = v_org AND m."rowJSON"->>'userEmailForInvitation' = v_email;
+  IF v_guid IS NOT NULL THEN
+    IF v_status = 'invited' THEN RETURN v_guid; END IF;
+    RAISE EXCEPTION 'organization_invite_user: % is already in this organization', v_email;
+  END IF;
+  v_guid := gen_random_uuid()::text;
+  INSERT INTO public."organizationMemberTable" ("rowGUID", "rowOwnerGUID", "orderInList", "rowJSON")
+  VALUES (v_guid, v_org, (extract(epoch FROM clock_timestamp()) * 1000)::bigint,
+          jsonb_build_object('userEmailForInvitation', v_email, 'invitedAt', now(), 'invitedBy', lower(auth.jwt()->>'email')));
+  RETURN v_guid;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_invite_user(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_invite_user(text) TO authenticated;
+
+-- withdraw an invitation that has not been used (the member did not log in yet)
+CREATE OR REPLACE FUNCTION public.organization_revoke_invitation(p_invitation text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text;
+BEGIN
+  SELECT m."rowOwnerGUID" INTO v_org FROM public."organizationMemberTable" m WHERE m."rowGUID" = p_invitation AND m."rowJSON"->>'memberStatus' = 'invited';
+  IF v_org IS NULL OR NOT public.organization_is_admin(v_org) THEN
+    RAISE EXCEPTION 'organization_revoke_invitation: no such pending invitation of your organization' USING ERRCODE = '42501';
+  END IF;
+  DELETE FROM public."organizationMemberTable" WHERE "rowGUID" = p_invitation;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_revoke_invitation(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_revoke_invitation(text) TO authenticated;
+
+-- THE way to create a user (PART 20), now with the member rows
+--   new user -> the oldest invitation of his e-mail (he joins that organization), else a new organization of his own (he is its first administrator)
+--   every member row of his e-mail is linked to him (rowParentGUID, active, registeredAt once)
+--   a person is made at his FIRST login only, when autoCreatePerson of his first row is true (default)
+CREATE OR REPLACE FUNCTION public.organization_ensure_user(p_email text, p_auth_uid text DEFAULT NULL, p_first_name text DEFAULT NULL, p_last_name text DEFAULT NULL)
+RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(btrim(COALESCE(p_email, '')));
+  v_user  public."userTable"%ROWTYPE;
+  v_guid  text;
+  v_org   text;
+  v_new   boolean := false;
+  v_auto  boolean := true;
+BEGIN
+  IF v_email = '' THEN RAISE EXCEPTION 'organization_ensure_user: the e-mail is required'; END IF;
+  IF auth.uid() IS NOT NULL AND v_email <> lower(COALESCE(auth.jwt()->>'email', '')) THEN
+    RAISE EXCEPTION 'organization_ensure_user: you can only ensure your own user' USING ERRCODE = '42501';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtext('organization_ensure_user:' || v_email));
+
+  SELECT * INTO v_user FROM public."userTable" WHERE "rowOwnerGUID" = v_email;
+  IF FOUND THEN
+    v_guid := v_user."rowGUID";
+    v_org  := NULLIF(v_user."rowJSON"->>'userOrganization', '');
+    IF v_org IS NULL THEN
+      v_org := public.organization_for_email(v_email, COALESCE(p_first_name, v_user."rowJSON"->>'firstName'));
+      PERFORM set_config('kit8.user_organization_change', 'on', true);
+      UPDATE public."userTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('userOrganization', v_org) WHERE "rowGUID" = v_guid;
+      PERFORM set_config('kit8.user_organization_change', 'off', true);
+    END IF;
+  ELSE
+    v_new := true;
+    SELECT m."rowOwnerGUID", COALESCE((m."rowJSON"->>'autoCreatePerson')::boolean, true) INTO v_org, v_auto
+      FROM public."organizationMemberTable" m
+     WHERE m."rowJSON"->>'userEmailForInvitation' = v_email AND m."rowParentGUID" = 'empty' AND m."rowJSON"->>'memberStatus' = 'invited'
+       AND NOT COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false)
+     ORDER BY m."created_at", m."rowGUID" LIMIT 1;
+    IF v_org IS NULL THEN v_org := public.organization_for_email(v_email, p_first_name); v_auto := true; END IF;
+    -- the GUID of a new user = his auth uid when it is free, else a new one (as loginUserTable always did)
+    IF p_auth_uid ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' AND NOT EXISTS (SELECT 1 FROM public."userTable" WHERE "rowGUID" = lower(p_auth_uid)) THEN
+      v_guid := lower(p_auth_uid);
+    ELSE
+      v_guid := gen_random_uuid()::text;
+    END IF;
+    INSERT INTO public."userTable" ("rowGUID", "rowOwnerGUID", "rowJSON")
+    VALUES (v_guid, v_email, jsonb_build_object('userEmail', v_email, 'userGUID', v_guid, 'firstName', COALESCE(p_first_name, ''), 'secondName', COALESCE(p_last_name, ''),
+                                                'userOrganization', v_org));
+  END IF;
+
+  -- the member rows of his e-mail belong to him now (an invitation of another organization is an active membership; the active organization stays v_org)
+  PERFORM public.organization_member_activate(m."rowGUID", v_guid) FROM public."organizationMemberTable" m
+   WHERE m."rowJSON"->>'userEmailForInvitation' = v_email AND (m."rowParentGUID" <> v_guid OR m."rowJSON"->>'memberStatus' <> 'active')
+     AND (m."rowParentGUID" = 'empty' OR m."rowParentGUID" = v_guid);
+  -- the active organization always has a member row (an old user of an organization that was made before the member table)
+  INSERT INTO public."organizationMemberTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+  SELECT v_org, v_guid, jsonb_build_object('userEmailForInvitation', v_email, 'organizationAdministrator', false, 'autoCreatePerson', true, 'memberStatus', 'active',
+                                           'invitedAt', now(), 'registeredAt', now()), (extract(epoch FROM clock_timestamp()) * 1000)::bigint
+   WHERE NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = v_org AND m."rowJSON"->>'userEmailForInvitation' = v_email);
+  -- (time sheet, PART 36) a NEW user is a Person too (linked by e-mail) unless he was registered with autoCreatePerson false; the function exists only once PART 36 is installed
+  IF v_new AND v_auto AND to_regprocedure('public.person_ensure_user(text,text,text)') IS NOT NULL THEN
+    PERFORM public.person_ensure_user(v_email, NULLIF(p_first_name, ''), NULLIF(p_last_name, ''));
+  END IF;
+  RETURN jsonb_build_object('userGUID', v_guid, 'organizationGUID', v_org,
+                            'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = v_org));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_ensure_user(text, text, text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_ensure_user(text, text, text, text) TO authenticated;
+
+-- the active organization = an organization the user is an ACTIVE member of
+CREATE OR REPLACE FUNCTION public.organization_switch(p_organization text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(COALESCE(auth.jwt()->>'email', ''));
+  v_member text;
+BEGIN
+  SELECT m."rowGUID" INTO v_member FROM public."organizationMemberTable" m
+   WHERE m."rowOwnerGUID" = p_organization AND m."rowJSON"->>'userEmailForInvitation' = v_email AND m."rowJSON"->>'memberStatus' = 'active';
+  IF v_member IS NULL THEN RAISE EXCEPTION 'organization_switch: you are not a member of this organization' USING ERRCODE = '42501'; END IF;
+  PERFORM set_config('kit8.user_organization_change', 'on', true);
+  UPDATE public."userTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('userOrganization', p_organization) WHERE "rowOwnerGUID" = v_email;
+  PERFORM set_config('kit8.user_organization_change', 'off', true);
+  UPDATE public."organizationMemberTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('registeredAt', now()) WHERE "rowGUID" = v_member AND NOT ("rowJSON" ? 'registeredAt');
+  RETURN jsonb_build_object('organizationGUID', p_organization, 'organizationTitle', (SELECT "rowJSON"->>'organizationTitle' FROM public."organizationTable" WHERE "rowGUID" = p_organization));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_switch(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_switch(text) TO authenticated;
+
+-- an existing user takes an invitation of his e-mail: he becomes an active member and the organization becomes his active one (his old projects keep their organization)
+CREATE OR REPLACE FUNCTION public.organization_accept_invitation(p_invitation text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(COALESCE(auth.jwt()->>'email', ''));
+  v_org   text;
+  v_user  text := public.organization_member_user_guid(v_email);
+BEGIN
+  SELECT m."rowOwnerGUID" INTO v_org FROM public."organizationMemberTable" m WHERE m."rowGUID" = p_invitation AND m."rowJSON"->>'userEmailForInvitation' = v_email;
+  IF v_org IS NULL OR v_user IS NULL THEN RAISE EXCEPTION 'organization_accept_invitation: no pending invitation for you' USING ERRCODE = '42501'; END IF;
+  PERFORM public.organization_member_activate(p_invitation, v_user);
+  RETURN public.organization_switch(v_org);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_accept_invitation(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_accept_invitation(text) TO authenticated;
+
+-- the organizations of the caller (the filter of the Project dashboard, the switch): [{ organizationGUID, organizationTitle, isAdministrator, isActive }], the active one first
+CREATE OR REPLACE FUNCTION public.organization_my_memberships() RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'organizationGUID', m."rowOwnerGUID",
+           'organizationTitle', COALESCE(o."rowJSON"->>'organizationTitle', m."rowOwnerGUID"),
+           'isAdministrator', COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false),
+           'isActive', m."rowOwnerGUID" IS NOT DISTINCT FROM public.organization_of_current_user())
+         ORDER BY (m."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user()), lower(COALESCE(o."rowJSON"->>'organizationTitle', ''))), '[]'::jsonb)
+    FROM public."organizationMemberTable" m JOIN public."organizationTable" o ON o."rowGUID" = m."rowOwnerGUID"
+   WHERE m."rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', '')) AND m."rowJSON"->>'memberStatus' = 'active'
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_my_memberships() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_my_memberships() TO authenticated;
+
+-- a user and his person are independent: the user makes his person from his profile ...
+CREATE OR REPLACE FUNCTION public.person_create_own() RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := lower(COALESCE(auth.jwt()->>'email', ''));
+  v_user  public."userTable"%ROWTYPE;
+BEGIN
+  SELECT * INTO v_user FROM public."userTable" WHERE "rowOwnerGUID" = v_email;
+  IF NOT FOUND THEN RAISE EXCEPTION 'person_create_own: sign in first' USING ERRCODE = '28000'; END IF;
+  RETURN public.person_ensure_user(v_email, NULLIF(v_user."rowJSON"->>'firstName', ''), NULLIF(v_user."rowJSON"->>'secondName', ''));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.person_create_own() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.person_create_own() TO authenticated;
+
+-- ... and the administrator from the card of a member in the users list (the person is found by the e-mail: an existing one is returned, never duplicated)
+CREATE OR REPLACE FUNCTION public.organization_member_create_person(p_member text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org   text;
+  v_email text;
+  v_user  public."userTable"%ROWTYPE;
+BEGIN
+  SELECT m."rowOwnerGUID", m."rowJSON"->>'userEmailForInvitation' INTO v_org, v_email FROM public."organizationMemberTable" m WHERE m."rowGUID" = p_member;
+  IF v_org IS NULL OR NOT public.organization_is_admin(v_org) THEN
+    RAISE EXCEPTION 'organization_member_create_person: only the administrator of the organization can create the person of a member' USING ERRCODE = '42501';
+  END IF;
+  SELECT * INTO v_user FROM public."userTable" WHERE "rowOwnerGUID" = v_email;
+  RETURN public.person_ensure_user(v_email, NULLIF(v_user."rowJSON"->>'firstName', ''), NULLIF(v_user."rowJSON"->>'secondName', ''));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_create_person(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_member_create_person(text) TO authenticated;
+
+-- ---- the backfill (idempotent: only what is missing) -----------------------------------------------------------------------------
+-- 1. the creator of every organization is its administrator; 2. every user is an active member of his organization; 3. the pending invitations of the old table become member rows
+CREATE OR REPLACE FUNCTION public.organization_member_backfill() RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  INSERT INTO public."organizationMemberTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+  SELECT o."rowGUID", COALESCE(u."rowGUID", 'empty'),
+         jsonb_strip_nulls(jsonb_build_object('userEmailForInvitation', lower(btrim(o."rowJSON"->>'createdByUser')), 'organizationAdministrator', true, 'autoCreatePerson', true,
+                           'memberStatus', CASE WHEN u."rowGUID" IS NULL THEN 'invited' ELSE 'active' END, 'invitedAt', o."created_at",
+                           'registeredAt', CASE WHEN u."rowGUID" IS NULL THEN NULL ELSE u."created_at" END)),
+         (extract(epoch FROM clock_timestamp()) * 1000)::bigint
+    FROM public."organizationTable" o
+    LEFT JOIN public."userTable" u ON u."rowOwnerGUID" = lower(btrim(o."rowJSON"->>'createdByUser'))
+   WHERE lower(btrim(COALESCE(o."rowJSON"->>'createdByUser', ''))) ~ '^[^@\s]+@[^@\s]+$'
+     AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = o."rowGUID" AND m."rowJSON"->>'userEmailForInvitation' = lower(btrim(o."rowJSON"->>'createdByUser')))
+     AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = o."rowGUID" AND u."rowGUID" IS NOT NULL AND m."rowParentGUID" = u."rowGUID");
+
+  INSERT INTO public."organizationMemberTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+  SELECT u."rowJSON"->>'userOrganization', u."rowGUID",
+         jsonb_build_object('userEmailForInvitation', lower(btrim(u."rowOwnerGUID")), 'organizationAdministrator', false, 'autoCreatePerson', true, 'memberStatus', 'active',
+                            'invitedAt', u."created_at", 'registeredAt', u."created_at"),
+         (extract(epoch FROM clock_timestamp()) * 1000)::bigint
+    FROM public."userTable" u
+   WHERE COALESCE(u."rowJSON"->>'userOrganization', '') <> '' AND lower(btrim(u."rowOwnerGUID")) ~ '^[^@\s]+@[^@\s]+$'
+     AND EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = u."rowJSON"->>'userOrganization')
+     AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = u."rowJSON"->>'userOrganization'
+                      AND (m."rowJSON"->>'userEmailForInvitation' = lower(btrim(u."rowOwnerGUID")) OR m."rowParentGUID" = u."rowGUID"));
+
+  IF to_regclass('public."organizationInvitationTable"') IS NOT NULL THEN
+    INSERT INTO public."organizationMemberTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON", "orderInList")
+    SELECT i."rowOwnerGUID", COALESCE(u."rowGUID", 'empty'),
+           jsonb_build_object('userEmailForInvitation', i."rowJSON"->>'inviteEmail', 'organizationAdministrator', false, 'autoCreatePerson', true,
+                              'memberStatus', CASE WHEN u."rowGUID" IS NULL THEN 'invited' ELSE 'active' END, 'invitedAt', i."created_at", 'invitedBy', i."rowJSON"->>'invitedBy'),
+           (extract(epoch FROM clock_timestamp()) * 1000)::bigint
+      FROM public."organizationInvitationTable" i
+      LEFT JOIN public."userTable" u ON u."rowOwnerGUID" = i."rowJSON"->>'inviteEmail'
+     WHERE i."rowJSON"->>'status' = 'pending' AND (i."rowJSON"->>'inviteEmail') ~ '^[^@\s]+@[^@\s]+$'
+       AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = i."rowOwnerGUID" AND m."rowJSON"->>'userEmailForInvitation' = i."rowJSON"->>'inviteEmail')
+    ON CONFLICT DO NOTHING;
+    -- handled: the old table is not used any more (organizationInvitationTable stays as it is, no new rows)
+    UPDATE public."organizationInvitationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('status', 'accepted', 'migratedToMember', true, 'decidedAt', now())
+     WHERE "rowJSON"->>'status' = 'pending';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_backfill() FROM PUBLIC, anon, authenticated;
+
+SELECT public.organization_member_backfill();
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all AND NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'organizationMemberTable') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public."organizationMemberTable";
+  END IF;
+END $$;
+
+-- Check:
+--   SELECT o."rowJSON"->>'organizationTitle', m."rowJSON"->>'userEmailForInvitation', m."rowJSON"->>'organizationAdministrator', m."rowJSON"->>'memberStatus'
+--     FROM public."organizationMemberTable" m JOIN public."organizationTable" o ON o."rowGUID" = m."rowOwnerGUID" ORDER BY 1, 2;
+--   SELECT count(*) FROM public."organizationTable" o WHERE NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = o."rowGUID" AND m."rowJSON"->>'organizationAdministrator' = 'true');   -- 0
+
+-- ===============================================================================================
+-- PART 46: create_permission_profiles.sql
+-- PERMISSION PROFILES AND THE ONE FUNCTION perm_can (documentation/PERMISSIONS_WBS.html, section 5). NOTHING is enforced by this PART alone: PART 47 switches the policies.
+--   * tables (start1) + seeds (start4 / start5: 11 profiles, the CRUD matrix of the owner's sheet, the interface matrix)
+--   * perm_profiles(project, task)   the profiles the caller holds: administrator of the organization · owner of the project (= permissionProjectManager) · his rows of
+--                                    project_permission_profile_user_table for the project · the rows derived from RACI (task_user_permission_table)
+--   * perm_can(table, op, project, task)   true when one of those profiles has the letter C / R / U / D for the table (the organization's own row of the matrix wins over the delivered one);
+--                                    a table that is in no row: administrator CRUD, project manager RC, everybody else R (Q16, Q21). No project = the profiles the caller holds ANYWHERE in his
+--                                    active organization (catalogs); the right to create a project (table project_table, op C) comes only from the administrator and the ORGANIZATION level rows.
+--   * perm_require(...)              the same, refusing with SQLSTATE 42501 and the text "No permission: <table>, <op>" (the app translates it)
+--   * perm_my_matrix(project, task)  what the interface needs, ONE call: profiles + the letters per table / interface object
+--   * perm_field_check / the lock guards   the profiles ADD UP: a column / rowJSON key may change when one profile that gives U allows it (permissionWritableFields / permissionLockedFields of the
+--                                    matrix row); the Responsible line of a task cannot be deleted or re-assigned by a task profile
+--   * the creator of a project becomes its permissionProjectManager (trigger on project_table, Q26)
+--   * task_user_permission_table = derived from the Time lines (RACI): Responsible -> permissionTaskResponsible, Accountable / Consulted / Informed -> permissionProjectMember (read), for the tasks
+--     that are open (progress below 100); rebuilt by triggers (honour app.task_bulk) and by task_user_permission_rebuild
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.project_permission_profile_catalog') IS NULL OR to_regclass('public.project_permission_profile_user_table') IS NULL OR to_regclass('public.task_user_permission_table') IS NULL
+     OR to_regclass('public."organizationMemberTable"') IS NULL OR to_regclass('public.task_line_table') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 46 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('project_permission_profile_catalog');
+SELECT public.kit8_setup_def_table('project_permission_profile_crud_table');
+SELECT public.kit8_setup_def_table('project_permission_profile_uxui_table');
+SELECT public.kit8_setup_def_table('project_permission_profile_user_table');
+SELECT public.kit8_setup_def_table('task_user_permission_table');
+
+-- ---- the profiles of the caller ---------------------------------------------------------------
+-- p_project NULL = the profiles he holds anywhere in his active organization (for the catalogs and for "may create projects": then p_table = 'project_table' counts the administrator and the
+-- organization level rows only)
+CREATE OR REPLACE FUNCTION public.perm_profiles(p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL, p_table text DEFAULT NULL) RETURNS text[]
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me    text := public.app_user_guid()::text;
+  v_org   text;
+  v_owner text;
+  v_out   text[];
+BEGIN
+  IF v_me IS NULL THEN RETURN '{}'; END IF;
+  IF p_project IS NOT NULL THEN
+    SELECT p."rowParentGUID", p."rowOwnerGUID"::text INTO v_org, v_owner FROM public.project_table p WHERE p."rowGUID" = p_project;
+    IF NOT FOUND THEN RETURN '{}'; END IF;
+    SELECT COALESCE(array_agg(DISTINCT c), '{}') INTO v_out FROM (
+      SELECT 'permissionProjectManager' AS c WHERE v_owner = v_me
+      UNION ALL SELECT 'permissionOrganizationAdmin' WHERE public.organization_is_admin(v_org)
+      UNION ALL SELECT x."rowJSON"->>'permissionProfileGUID' FROM public.project_permission_profile_user_table x
+                 WHERE x."rowOwnerGUID" = p_project::text AND x."rowParentGUID" = v_me
+      UNION ALL SELECT 'permissionProjectMember' WHERE EXISTS (SELECT 1 FROM public.task_user_permission_table t WHERE t."rowParentGUID" = v_me AND t."rowJSON"->>'projectGUID' = p_project::text)
+      UNION ALL SELECT t."rowJSON"->>'profile' FROM public.task_user_permission_table t
+                 WHERE p_task IS NOT NULL AND t."rowOwnerGUID" = p_task::text AND t."rowParentGUID" = v_me
+    ) s WHERE c IS NOT NULL;
+    RETURN v_out;
+  END IF;
+  v_org := public.organization_of_current_user();
+  SELECT COALESCE(array_agg(DISTINCT c), '{}') INTO v_out FROM (
+    SELECT 'permissionProjectReadOnly' AS c   -- everybody who is signed in reads what the matrix gives to the read only profile (catalogs, registers ...)
+    UNION ALL SELECT 'permissionOrganizationAdmin' WHERE v_org IS NOT NULL AND public.organization_is_admin(v_org)
+    UNION ALL SELECT x."rowJSON"->>'permissionProfileGUID' FROM public.project_permission_profile_user_table x
+               WHERE v_org IS NOT NULL AND x."rowOwnerGUID" = v_org AND x."rowParentGUID" = v_me
+    UNION ALL SELECT x."rowJSON"->>'permissionProfileGUID' FROM public.project_permission_profile_user_table x
+               WHERE p_table IS DISTINCT FROM 'project_table' AND x."rowParentGUID" = v_me
+                 AND x."rowOwnerGUID" IN (SELECT p."rowGUID"::text FROM public.project_table p WHERE p."rowParentGUID" = v_org)
+    UNION ALL SELECT 'permissionProjectManager' WHERE p_table IS DISTINCT FROM 'project_table'
+               AND EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowOwnerGUID"::text = v_me AND p."rowParentGUID" = v_org)
+    UNION ALL SELECT DISTINCT t."rowJSON"->>'profile' FROM public.task_user_permission_table t   -- the derived profiles (responsible / member): the interface asks for "anywhere"
+               WHERE p_table IS DISTINCT FROM 'project_table' AND t."rowParentGUID" = v_me
+  ) s WHERE c IS NOT NULL;
+  RETURN v_out;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_profiles(uuid, uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_profiles(uuid, uuid, text) TO authenticated;
+
+-- the letters of a profile for a table: the organization's own row, else the delivered one; NULL = the table is in no row of the matrix
+CREATE OR REPLACE FUNCTION public.perm_set_of(p_profile text, p_table text, p_org text DEFAULT NULL) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT s."rowJSON"->>'permissionSet' FROM public.project_permission_profile_crud_table s
+   WHERE s."rowParentGUID" = p_profile AND s."rowJSON"->>'permissionTable' = p_table AND s."rowOwnerGUID" IN ('permissionCatalog', COALESCE(p_org, 'permissionCatalog'))
+   ORDER BY (s."rowOwnerGUID" = 'permissionCatalog') LIMIT 1
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_set_of(text, text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_set_of(text, text, text) TO authenticated;
+
+-- the answer for a table that is in NO row of the matrix (a forgotten new table is safe): administrator CRUD, project manager RC, everybody else R
+-- SAFETY NET: while the matrix is EMPTY (start4 / start5 PART 46 not run, or stopped before it) the administrator and the project manager have all letters, so an owner can still post, change and
+-- delete in his own projects and nothing is locked by a missing seed; everybody else reads.
+CREATE OR REPLACE FUNCTION public.perm_default_set(p_profile text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE WHEN p_profile = 'permissionOrganizationAdmin' THEN 'CRUD'
+              WHEN p_profile = 'permissionProjectManager' THEN CASE WHEN EXISTS (SELECT 1 FROM public.project_permission_profile_crud_table) THEN 'RC' ELSE 'CRUD' END
+              ELSE 'R' END
+$$;
+
+CREATE OR REPLACE FUNCTION public.perm_can(p_table text, p_op text, p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org  text;
+  v_prof text;
+  v_set  text;
+  v_op   text := upper(COALESCE(p_op, ''));
+BEGIN
+  IF public.app_user_guid() IS NULL OR v_op NOT IN ('C', 'R', 'U', 'D') THEN RETURN false; END IF;
+  IF p_project IS NOT NULL THEN
+    SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project;
+  ELSE
+    v_org := public.organization_of_current_user();
+  END IF;
+  FOREACH v_prof IN ARRAY public.perm_profiles(p_project, p_task, p_table) LOOP
+    v_set := COALESCE(public.perm_set_of(v_prof, p_table, v_org), public.perm_default_set(v_prof));
+    IF position(v_op IN v_set) > 0 THEN RETURN true; END IF;
+  END LOOP;
+  RETURN false;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_can(text, text, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_can(text, text, uuid, uuid) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.perm_require(p_table text, p_op text, p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_op text := upper(COALESCE(p_op, ''));
+BEGIN
+  IF NOT public.perm_can(p_table, p_op, p_project, p_task) THEN
+    RAISE EXCEPTION 'No permission: %, %', p_table, v_op USING ERRCODE = '42501';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_require(text, text, uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_require(text, text, uuid, uuid) TO authenticated;
+
+-- does the caller hold ONE of the profiles for the project (and the task)?
+CREATE OR REPLACE FUNCTION public.perm_has_profile(p_project uuid, p_task uuid, p_codes text[]) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.perm_profiles(p_project, p_task) && p_codes
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_has_profile(uuid, uuid, text[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_has_profile(uuid, uuid, text[]) TO authenticated;
+
+-- the answer for the interface in ONE call: { profiles, isAdmin, canCreateProject, crud: { table: "CRU" }, uxui: { object: "R" } } - the letters of all profiles of the caller added up
+CREATE OR REPLACE FUNCTION public.perm_my_matrix(p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_profiles text[];
+  v_org      text;
+  v_crud     jsonb;
+  v_uxui     jsonb;
+BEGIN
+  IF public.app_user_guid() IS NULL THEN RETURN jsonb_build_object('profiles', '[]'::jsonb, 'crud', '{}'::jsonb, 'uxui', '{}'::jsonb, 'isAdmin', false, 'canCreateProject', false); END IF;
+  v_profiles := public.perm_profiles(p_project, p_task);
+  IF p_project IS NOT NULL THEN SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project; ELSE v_org := public.organization_of_current_user(); END IF;
+  SELECT COALESCE(jsonb_object_agg(tbl, letters), '{}'::jsonb) INTO v_crud FROM (
+    SELECT s.tbl, string_agg(DISTINCT ch, '' ORDER BY ch) AS letters
+      FROM (SELECT DISTINCT ON (r."rowParentGUID", r."rowJSON"->>'permissionTable') r."rowJSON"->>'permissionTable' AS tbl, r."rowJSON"->>'permissionSet' AS st
+              FROM public.project_permission_profile_crud_table r
+             WHERE r."rowParentGUID" = ANY (v_profiles) AND r."rowOwnerGUID" IN ('permissionCatalog', COALESCE(v_org, 'permissionCatalog'))
+             ORDER BY r."rowParentGUID", r."rowJSON"->>'permissionTable', (r."rowOwnerGUID" = 'permissionCatalog')) s
+      CROSS JOIN LATERAL regexp_split_to_table(s.st, '') AS ch
+     WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.tbl) q;
+  SELECT COALESCE(jsonb_object_agg(obj, letters), '{}'::jsonb) INTO v_uxui FROM (
+    SELECT s.obj, string_agg(DISTINCT ch, '' ORDER BY ch) AS letters
+      FROM (SELECT DISTINCT ON (r."rowParentGUID", r."rowJSON"->>'permissionObject') r."rowJSON"->>'permissionObject' AS obj, r."rowJSON"->>'permissionSet' AS st
+              FROM public.project_permission_profile_uxui_table r
+             WHERE r."rowParentGUID" = ANY (v_profiles) AND r."rowOwnerGUID" IN ('permissionCatalog', COALESCE(v_org, 'permissionCatalog'))
+             ORDER BY r."rowParentGUID", r."rowJSON"->>'permissionObject', (r."rowOwnerGUID" = 'permissionCatalog')) s
+      CROSS JOIN LATERAL regexp_split_to_table(s.st, '') AS ch
+     WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.obj) q;
+  RETURN jsonb_build_object('profiles', to_jsonb(v_profiles), 'crud', v_crud, 'uxui', v_uxui,
+                            'isAdmin', 'permissionOrganizationAdmin' = ANY (v_profiles),
+                            'canCreateProject', public.perm_can('project_table', 'C'));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_my_matrix(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_my_matrix(uuid, uuid) TO authenticated;
+
+-- pm_can_access_project(project, op): the project level test of the policies and RPCs (op R / C / U / D on the project row itself)
+CREATE OR REPLACE FUNCTION public.pm_can_access_project(p_project uuid, p_op text DEFAULT 'R') RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.perm_can('project_table', p_op, p_project)
+$$;
+
+REVOKE ALL ON FUNCTION public.pm_can_access_project(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.pm_can_access_project(uuid, text) TO authenticated;
+
+-- ---- the fields a profile may change ---------------------------------------------------------
+-- the names of the columns / rowJSON keys that differ between two rows (to_jsonb of OLD and NEW)
+CREATE OR REPLACE FUNCTION public.perm_changed_fields(p_old jsonb, p_new jsonb) RETURNS text[]
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT COALESCE(array_agg(DISTINCT k), '{}') FROM (
+    SELECT n.key AS k FROM jsonb_each(COALESCE(p_new, '{}'::jsonb) - 'rowJSON' - 'updated_at' - 'created_at') n WHERE (COALESCE(p_old, '{}'::jsonb) -> n.key) IS DISTINCT FROM n.value
+    UNION ALL SELECT n.key FROM jsonb_each(COALESCE(p_new -> 'rowJSON', '{}'::jsonb)) n WHERE (COALESCE(p_old -> 'rowJSON', '{}'::jsonb) -> n.key) IS DISTINCT FROM n.value
+    UNION ALL SELECT o.key FROM jsonb_each(COALESCE(p_old -> 'rowJSON', '{}'::jsonb)) o WHERE NOT (COALESCE(p_new -> 'rowJSON', '{}'::jsonb) ? o.key)
+  ) s
+$$;
+
+-- NULL = every field in p_fields may change for the caller, else the first one he may not (the profiles ADD UP: a field is allowed when ONE profile that gives U allows it)
+CREATE OR REPLACE FUNCTION public.perm_field_check(p_table text, p_project uuid, p_task uuid, p_fields text[]) RETURNS text
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org   text;
+  v_prof  text;
+  v_row   public.project_permission_profile_crud_table%ROWTYPE;
+  v_set   text;
+  f       text;
+  v_ok    boolean;
+BEGIN
+  SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project;
+  FOREACH f IN ARRAY p_fields LOOP
+    v_ok := false;
+    FOREACH v_prof IN ARRAY public.perm_profiles(p_project, p_task, p_table) LOOP
+      SELECT s.* INTO v_row FROM public.project_permission_profile_crud_table s
+       WHERE s."rowParentGUID" = v_prof AND s."rowJSON"->>'permissionTable' = p_table AND s."rowOwnerGUID" IN ('permissionCatalog', COALESCE(v_org, 'permissionCatalog'))
+       ORDER BY (s."rowOwnerGUID" = 'permissionCatalog') LIMIT 1;
+      IF FOUND THEN v_set := v_row."rowJSON"->>'permissionSet'; ELSE v_set := public.perm_default_set(v_prof); v_row := NULL; END IF;
+      IF position('U' IN v_set) = 0 THEN CONTINUE; END IF;
+      IF v_row."rowGUID" IS NOT NULL AND v_row."rowJSON" ? 'permissionWritableFields' THEN
+        v_ok := (v_row."rowJSON"->'permissionWritableFields') ? f;
+      ELSIF v_row."rowGUID" IS NOT NULL AND v_row."rowJSON" ? 'permissionLockedFields' THEN
+        v_ok := NOT ((v_row."rowJSON"->'permissionLockedFields') ? f);
+      ELSE
+        v_ok := true;
+      END IF;
+      EXIT WHEN v_ok;
+    END LOOP;
+    IF NOT v_ok THEN RETURN f; END IF;
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_field_check(text, uuid, uuid, text[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_field_check(text, uuid, uuid, text[]) TO authenticated;
+
+-- the trigger on project_task_table: named zz_ so it runs LAST of the BEFORE triggers and sees the final row. A system role (SQL editor, service key, SECURITY DEFINER functions) and
+-- the transaction-local switch kit8.permission_bypass (set only by functions that are checked themselves) pass.
+CREATE OR REPLACE FUNCTION public.perm_task_lock_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_bad text;
+BEGIN
+  IF current_user IN ('postgres', 'service_role', 'supabase_admin') OR current_setting('kit8.permission_bypass', true) = 'on' THEN RETURN NEW; END IF;
+  v_bad := public.perm_field_check('project_task_table', NEW."projectGUID", NEW."rowGUID", public.perm_changed_fields(to_jsonb(OLD), to_jsonb(NEW)));
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'No permission: project_task_table, U (%)', v_bad USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS zz_perm_task_lock ON public.project_task_table;
+
+CREATE TRIGGER zz_perm_task_lock BEFORE UPDATE ON public.project_task_table
+  FOR EACH ROW EXECUTE FUNCTION public.perm_task_lock_guard();
+
+-- the Time line that makes the caller the Responsible of the task: he (a task profile) can neither delete it nor change its person / RACI item; the money plan profile cannot change them either
+CREATE OR REPLACE FUNCTION public.perm_line_is_my_responsible(p_json jsonb) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(p_json->>'raciItem', 'raciResponsibleGUID') = 'raciResponsibleGUID'
+     AND EXISTS (SELECT 1 FROM public."personTable" pe JOIN public."userTable" u ON u."rowOwnerGUID" = lower(btrim(COALESCE(pe."rowJSON"->>'personEmail', '')))
+                  WHERE u."rowGUID" = public.app_user_guid()::text
+                    AND pe."rowGUID" = CASE WHEN COALESCE(p_json->>'taskResourceKind', 'person') = 'person' THEN p_json->>'taskResourceItem'
+                                            WHEN p_json->>'taskResourceKind' = 'workCenter' THEN (SELECT wc."rowJSON"->>'workCenterBase' FROM public."workCenterTable" wc
+                                                                                                     WHERE wc."rowGUID" = p_json->>'taskResourceItem' AND wc."rowJSON"->>'workCenterKind' = 'person') END)
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_line_is_my_responsible(jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_line_is_my_responsible(jsonb) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.perm_line_lock_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_row   public.task_line_table;
+  v_bad   text;
+  v_full  boolean;
+BEGIN
+  IF TG_OP = 'DELETE' THEN v_row := OLD; ELSE v_row := NEW; END IF;
+  IF current_user IN ('postgres', 'service_role', 'supabase_admin') OR current_setting('kit8.permission_bypass', true) = 'on' OR v_row."rowParentGUID" <> 'timeGenus' THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  v_full := public.perm_has_profile(v_row."rowProjectGUID", v_row."rowOwnerGUID", ARRAY['permissionProjectManager', 'permissionOrganizationAdmin']);
+  IF TG_OP = 'DELETE' THEN
+    IF NOT v_full AND public.perm_line_is_my_responsible(OLD."rowJSON") THEN
+      RAISE EXCEPTION 'No permission: task_line_table, D (you cannot delete yourself from RACI Responsible)' USING ERRCODE = '42501';
+    END IF;
+    RETURN OLD;
+  END IF;
+  IF TG_OP = 'UPDATE' THEN
+    IF NOT v_full AND public.perm_line_is_my_responsible(OLD."rowJSON")
+       AND (COALESCE(OLD."rowJSON"->>'raciItem', '') IS DISTINCT FROM COALESCE(NEW."rowJSON"->>'raciItem', '')
+            OR COALESCE(OLD."rowJSON"->>'taskResourceItem', '') IS DISTINCT FROM COALESCE(NEW."rowJSON"->>'taskResourceItem', '')
+            OR COALESCE(OLD."rowJSON"->>'taskResourceKind', '') IS DISTINCT FROM COALESCE(NEW."rowJSON"->>'taskResourceKind', '')) THEN
+      RAISE EXCEPTION 'No permission: task_line_table, U (you cannot change your own Responsible line)' USING ERRCODE = '42501';
+    END IF;
+    v_bad := public.perm_field_check('task_line_table', NEW."rowProjectGUID", NEW."rowOwnerGUID", public.perm_changed_fields(to_jsonb(OLD), to_jsonb(NEW)));
+  ELSE
+    v_bad := public.perm_field_check('task_line_table', NEW."rowProjectGUID", NEW."rowOwnerGUID", public.perm_changed_fields('{}'::jsonb, to_jsonb(NEW)));
+  END IF;
+  IF v_bad IS NOT NULL THEN
+    RAISE EXCEPTION 'No permission: task_line_table, % (%)', CASE TG_OP WHEN 'INSERT' THEN 'C' ELSE 'U' END, v_bad USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS zz_perm_line_lock ON public.task_line_table;
+
+CREATE TRIGGER zz_perm_line_lock BEFORE INSERT OR UPDATE OR DELETE ON public.task_line_table
+  FOR EACH ROW EXECUTE FUNCTION public.perm_line_lock_guard();
+
+-- ---- the creator of a project is its project manager (Q26, Q28) --------------------------------
+CREATE OR REPLACE FUNCTION public.project_permission_creator() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF NEW."rowOwnerGUID" IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.project_permission_profile_user_table x WHERE x."rowOwnerGUID" = NEW."rowGUID"::text AND x."rowParentGUID" = NEW."rowOwnerGUID"::text) THEN
+    INSERT INTO public.project_permission_profile_user_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+    VALUES (NEW."rowGUID"::text, NEW."rowOwnerGUID"::text, jsonb_build_object('permissionProfileGUID', 'permissionProjectManager', 'permissionAutomatic', true))
+    ON CONFLICT DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_permission_creator ON public.project_table;
+
+CREATE TRIGGER trg_project_permission_creator AFTER INSERT ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.project_permission_creator();
+
+-- a deleted project takes its assignments with it (the generic tables have no foreign key to the project)
+CREATE OR REPLACE FUNCTION public.project_permission_cleanup() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  DELETE FROM public.project_permission_profile_user_table x WHERE x."rowOwnerGUID" = OLD."rowGUID"::text;
+  DELETE FROM public.task_user_permission_table t WHERE t."rowJSON"->>'projectGUID' = OLD."rowGUID"::text;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_permission_cleanup ON public.project_table;
+
+CREATE TRIGGER trg_project_permission_cleanup AFTER DELETE ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.project_permission_cleanup();
+
+-- ---- assignments: who may write a row of project_permission_profile_user_table -----------------
+-- rowOwnerGUID = a project: the administrator of its organization and the project managers; rowOwnerGUID = an organization: the administrator (only permissionProjectManager / Curator = "may create projects")
+CREATE OR REPLACE FUNCTION public.permission_assignment_manage(p_owner text, p_op text) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = p_owner) THEN RETURN public.organization_is_admin(p_owner); END IF;
+  BEGIN v_project := p_owner::uuid; EXCEPTION WHEN invalid_text_representation THEN RETURN false; END;
+  RETURN public.perm_can('project_permission_profile_user_table', p_op, v_project);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_assignment_manage(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.permission_assignment_manage(text, text) TO authenticated;
+
+-- the rules of an assignment row (SECURITY INVOKER: current_user tells a user from the system); the helper functions look at the other tables
+CREATE OR REPLACE FUNCTION public.permission_assignment_active_member(p_owner text, p_user text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public."organizationMemberTable" m
+                  WHERE m."rowParentGUID" = p_user AND m."rowJSON"->>'memberStatus' = 'active'
+                    AND m."rowOwnerGUID" = COALESCE((SELECT o."rowGUID" FROM public."organizationTable" o WHERE o."rowGUID" = p_owner),
+                                                    (SELECT p."rowParentGUID" FROM public.project_table p WHERE p."rowGUID"::text = p_owner)))
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_assignment_active_member(text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.permission_assignment_active_member(text, text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.permission_assignment_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_profile text := COALESCE(NEW."rowJSON"->>'permissionProfileGUID', '');
+  v_org     boolean;
+BEGIN
+  IF current_user IN ('postgres', 'service_role', 'supabase_admin') THEN RETURN NEW; END IF;
+  IF TG_OP = 'UPDATE' AND (NEW."rowOwnerGUID" <> OLD."rowOwnerGUID" OR NEW."rowParentGUID" <> OLD."rowParentGUID") THEN
+    RAISE EXCEPTION 'project_permission_profile_user_table: the project and the user of a row cannot be changed - delete the row and make a new one' USING ERRCODE = '42501';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.project_permission_profile_catalog c WHERE c."rowGUID" = v_profile) THEN
+    RAISE EXCEPTION 'project_permission_profile_user_table: "%" is not a permission profile', v_profile USING ERRCODE = '23514';
+  END IF;
+  IF v_profile IN ('permissionOrganizationAdmin', 'permissionTaskResponsible', 'permissionProjectMember') THEN
+    RAISE EXCEPTION 'project_permission_profile_user_table: % is not assigned by hand (administrator: members screen; responsible / member: derived from RACI)', v_profile USING ERRCODE = '42501';
+  END IF;
+  v_org := EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = NEW."rowOwnerGUID");
+  IF v_org AND v_profile NOT IN ('permissionProjectManager', 'permissionProjectCurator') THEN
+    RAISE EXCEPTION 'project_permission_profile_user_table: an assignment for the whole organization (= may create projects) is permissionProjectManager or permissionProjectCurator' USING ERRCODE = '23514';
+  END IF;
+  IF NOT public.permission_assignment_active_member(NEW."rowOwnerGUID", NEW."rowParentGUID") THEN
+    RAISE EXCEPTION 'project_permission_profile_user_table: the user is not an active member of the organization' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_permission_assignment_guard ON public.project_permission_profile_user_table;
+
+CREATE TRIGGER trg_permission_assignment_guard BEFORE INSERT OR UPDATE ON public.project_permission_profile_user_table
+  FOR EACH ROW EXECUTE FUNCTION public.permission_assignment_guard();
+
+-- security of the five tables
+REVOKE ALL ON public.project_permission_profile_catalog, public.project_permission_profile_crud_table, public.project_permission_profile_uxui_table,
+              public.project_permission_profile_user_table, public.task_user_permission_table FROM anon, authenticated;
+
+GRANT SELECT ON public.project_permission_profile_catalog, public.task_user_permission_table TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_permission_profile_crud_table, public.project_permission_profile_uxui_table, public.project_permission_profile_user_table TO authenticated;
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['project_permission_profile_catalog', 'project_permission_profile_crud_table', 'project_permission_profile_uxui_table', 'project_permission_profile_user_table', 'task_user_permission_table'] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  END LOOP;
+  -- the profiles and the matrices are readable by everybody; a client writes only the OWN rows of an organization (rowOwnerGUID = the organization) as its administrator: the delivered rows are the seed
+  CREATE POLICY project_permission_profile_catalog_select ON public.project_permission_profile_catalog FOR SELECT TO authenticated USING (true);
+  FOREACH t IN ARRAY ARRAY['project_permission_profile_crud_table', 'project_permission_profile_uxui_table'] LOOP
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ("rowOwnerGUID" <> ''permissionCatalog'' AND public.organization_is_admin("rowOwnerGUID"))', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ("rowOwnerGUID" <> ''permissionCatalog'' AND public.organization_is_admin("rowOwnerGUID")) WITH CHECK ("rowOwnerGUID" <> ''permissionCatalog'' AND public.organization_is_admin("rowOwnerGUID"))', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ("rowOwnerGUID" <> ''permissionCatalog'' AND public.organization_is_admin("rowOwnerGUID"))', t || '_delete', t);
+  END LOOP;
+  CREATE POLICY project_permission_profile_user_table_select ON public.project_permission_profile_user_table FOR SELECT TO authenticated
+    USING ("rowParentGUID" = (SELECT public.app_user_guid()::text) OR public.permission_assignment_manage("rowOwnerGUID", 'R'));
+  CREATE POLICY project_permission_profile_user_table_insert ON public.project_permission_profile_user_table FOR INSERT TO authenticated
+    WITH CHECK (public.permission_assignment_manage("rowOwnerGUID", 'C'));
+  CREATE POLICY project_permission_profile_user_table_update ON public.project_permission_profile_user_table FOR UPDATE TO authenticated
+    USING (public.permission_assignment_manage("rowOwnerGUID", 'U')) WITH CHECK (public.permission_assignment_manage("rowOwnerGUID", 'U'));
+  CREATE POLICY project_permission_profile_user_table_delete ON public.project_permission_profile_user_table FOR DELETE TO authenticated
+    USING (public.permission_assignment_manage("rowOwnerGUID", 'D'));
+  CREATE POLICY task_user_permission_table_select ON public.task_user_permission_table FOR SELECT TO authenticated
+    USING ("rowParentGUID" = (SELECT public.app_user_guid()::text) OR public.perm_can('task_user_permission_table', 'R', NULLIF("rowJSON"->>'projectGUID', '')::uuid));
+END $$;
+
+-- ---- RACI -> task_user_permission_table -------------------------------------------------------
+-- what the table must hold: for every OPEN task (progress below 100) and every Time line whose worker is a person with a user (the e-mail of the person = the user): Responsible ->
+-- permissionTaskResponsible; Accountable / Consulted / Informed -> permissionProjectMember. A work center of the kind Person stands for its base person.
+CREATE OR REPLACE FUNCTION public.task_user_permission_expected(p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL)
+RETURNS TABLE (task_guid uuid, user_guid text, profile text, project_guid uuid, line_guid uuid)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT DISTINCT ON (t."rowGUID", u."rowGUID", pf.prof) t."rowGUID", u."rowGUID", pf.prof, t."projectGUID", l."rowGUID"
+    FROM public.task_line_table l
+    JOIN public.project_task_table t ON t."rowGUID" = l."rowOwnerGUID"
+    LEFT JOIN public."workCenterTable" wc ON l."rowJSON"->>'taskResourceKind' = 'workCenter' AND wc."rowGUID" = l."rowJSON"->>'taskResourceItem' AND wc."rowJSON"->>'workCenterKind' = 'person'
+    JOIN public."personTable" pe ON pe."rowGUID" = CASE WHEN COALESCE(l."rowJSON"->>'taskResourceKind', 'person') = 'person' THEN l."rowJSON"->>'taskResourceItem' ELSE wc."rowJSON"->>'workCenterBase' END
+    JOIN public."userTable" u ON u."rowOwnerGUID" = lower(btrim(COALESCE(pe."rowJSON"->>'personEmail', '')))
+    CROSS JOIN LATERAL (SELECT CASE COALESCE(l."rowJSON"->>'raciItem', 'raciResponsibleGUID') WHEN 'raciResponsibleGUID' THEN 'permissionTaskResponsible' ELSE 'permissionProjectMember' END AS prof) pf
+   WHERE l."rowParentGUID" = 'timeGenus' AND COALESCE(t."rowProgress", 0) < 100
+     AND (p_project IS NULL OR t."projectGUID" = p_project) AND (p_task IS NULL OR t."rowGUID" = p_task)
+   ORDER BY t."rowGUID", u."rowGUID", pf.prof, l."created_at", l."rowGUID"
+$$;
+
+REVOKE ALL ON FUNCTION public.task_user_permission_expected(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- brings the table in line with the expected rows of a task / a project / everything; returns the number of rows written or removed
+CREATE OR REPLACE FUNCTION public.task_user_permission_rebuild(p_project uuid DEFAULT NULL, p_task uuid DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  WITH e AS MATERIALIZED (SELECT * FROM public.task_user_permission_expected(p_project, p_task)),
+  d AS (
+    DELETE FROM public.task_user_permission_table t
+     WHERE (p_task IS NOT NULL AND t."rowOwnerGUID" = p_task::text
+            OR p_task IS NULL AND p_project IS NOT NULL AND t."rowJSON"->>'projectGUID' = p_project::text
+            OR p_task IS NULL AND p_project IS NULL)
+       AND NOT EXISTS (SELECT 1 FROM e WHERE e.task_guid::text = t."rowOwnerGUID" AND e.user_guid = t."rowParentGUID" AND e.profile = t."rowJSON"->>'profile')
+    RETURNING 1),
+  i AS (
+    INSERT INTO public.task_user_permission_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+    SELECT e.task_guid::text, e.user_guid, jsonb_build_object('profile', e.profile, 'projectGUID', e.project_guid, 'sourceLineGUID', e.line_guid)
+      FROM e
+     WHERE NOT EXISTS (SELECT 1 FROM public.task_user_permission_table t WHERE t."rowOwnerGUID" = e.task_guid::text AND t."rowParentGUID" = e.user_guid AND t."rowJSON"->>'profile' = e.profile)
+    ON CONFLICT DO NOTHING
+    RETURNING 1)
+  SELECT (SELECT count(*) FROM d) + (SELECT count(*) FROM i) INTO v_n;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_user_permission_rebuild(uuid, uuid) FROM PUBLIC, anon, authenticated;
+
+-- 0 = the table is what it must be (a maintenance function like the other verify functions)
+CREATE OR REPLACE FUNCTION public.task_user_permission_verify() RETURNS bigint
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT (SELECT count(*) FROM public.task_user_permission_expected() e
+           WHERE NOT EXISTS (SELECT 1 FROM public.task_user_permission_table t WHERE t."rowOwnerGUID" = e.task_guid::text AND t."rowParentGUID" = e.user_guid AND t."rowJSON"->>'profile' = e.profile))
+       + (SELECT count(*) FROM public.task_user_permission_table t
+           WHERE NOT EXISTS (SELECT 1 FROM public.task_user_permission_expected() e WHERE e.task_guid::text = t."rowOwnerGUID" AND e.user_guid = t."rowParentGUID" AND e.profile = t."rowJSON"->>'profile'))
+$$;
+
+REVOKE ALL ON FUNCTION public.task_user_permission_verify() FROM PUBLIC, anon, authenticated;
+
+-- the triggers: after a statement on the Time lines (the tasks of the touched lines), after the progress of a task crossed 100, when a task is deleted, when the e-mail of a person changes,
+-- when a user is made (the first login: the person already existed). app.task_bulk = on (task template fill): the fill rebuilds the project once at the end.
+CREATE OR REPLACE FUNCTION public.task_user_permission_after_lines() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  IF current_setting('app.task_bulk', true) = 'on' THEN RETURN NULL; END IF;
+  IF TG_OP = 'INSERT' THEN
+    FOR r IN SELECT DISTINCT n."rowOwnerGUID" AS task FROM new_rows n WHERE n."rowParentGUID" = 'timeGenus' LOOP PERFORM public.task_user_permission_rebuild(NULL, r.task); END LOOP;
+  ELSIF TG_OP = 'DELETE' THEN
+    FOR r IN SELECT DISTINCT o."rowOwnerGUID" AS task FROM old_rows o WHERE o."rowParentGUID" = 'timeGenus' LOOP PERFORM public.task_user_permission_rebuild(NULL, r.task); END LOOP;
+  ELSE
+    FOR r IN SELECT DISTINCT x.task FROM (SELECT n."rowOwnerGUID" AS task FROM new_rows n WHERE n."rowParentGUID" = 'timeGenus' UNION SELECT o."rowOwnerGUID" FROM old_rows o WHERE o."rowParentGUID" = 'timeGenus') x LOOP
+      PERFORM public.task_user_permission_rebuild(NULL, r.task);
+    END LOOP;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_task_line_permission_ins ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_permission_upd ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_permission_del ON public.task_line_table;
+
+CREATE TRIGGER trg_task_line_permission_ins AFTER INSERT ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.task_user_permission_after_lines();
+
+CREATE TRIGGER trg_task_line_permission_upd AFTER UPDATE ON public.task_line_table REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.task_user_permission_after_lines();
+
+CREATE TRIGGER trg_task_line_permission_del AFTER DELETE ON public.task_line_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.task_user_permission_after_lines();
+
+CREATE OR REPLACE FUNCTION public.task_user_permission_after_task() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    DELETE FROM public.task_user_permission_table t WHERE t."rowOwnerGUID" = OLD."rowGUID"::text;
+    RETURN OLD;
+  END IF;
+  IF current_setting('app.task_bulk', true) = 'on' THEN RETURN NEW; END IF;
+  IF (COALESCE(OLD."rowProgress", 0) < 100) IS DISTINCT FROM (COALESCE(NEW."rowProgress", 0) < 100) THEN
+    PERFORM public.task_user_permission_rebuild(NULL, NEW."rowGUID");
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_task_permission_progress ON public.project_task_table;
+DROP TRIGGER IF EXISTS trg_task_permission_delete ON public.project_task_table;
+
+CREATE TRIGGER trg_task_permission_progress AFTER UPDATE OF "rowProgress" ON public.project_task_table FOR EACH ROW EXECUTE FUNCTION public.task_user_permission_after_task();
+
+CREATE TRIGGER trg_task_permission_delete AFTER DELETE ON public.project_task_table FOR EACH ROW EXECUTE FUNCTION public.task_user_permission_after_task();
+
+CREATE OR REPLACE FUNCTION public.task_user_permission_after_person() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  IF current_setting('app.task_bulk', true) = 'on' THEN RETURN NEW; END IF;
+  IF TG_TABLE_NAME = 'personTable' THEN
+    IF NEW."rowJSON"->>'personEmail' IS NOT DISTINCT FROM OLD."rowJSON"->>'personEmail' THEN RETURN NEW; END IF;
+    FOR r IN SELECT DISTINCT l."rowOwnerGUID" AS task FROM public.task_line_table l
+              WHERE l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'taskResourceItem' = NEW."rowGUID" LOOP
+      PERFORM public.task_user_permission_rebuild(NULL, r.task);
+    END LOOP;
+  ELSE
+    FOR r IN SELECT DISTINCT l."rowOwnerGUID" AS task FROM public."personTable" pe
+               JOIN public.task_line_table l ON l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'taskResourceItem' = pe."rowGUID"
+              WHERE lower(btrim(COALESCE(pe."rowJSON"->>'personEmail', ''))) = NEW."rowOwnerGUID" LOOP
+      PERFORM public.task_user_permission_rebuild(NULL, r.task);
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_person_permission ON public."personTable";
+DROP TRIGGER IF EXISTS trg_user_permission ON public."userTable";
+
+CREATE TRIGGER trg_person_permission AFTER UPDATE OF "rowJSON" ON public."personTable" FOR EACH ROW EXECUTE FUNCTION public.task_user_permission_after_person();
+
+CREATE TRIGGER trg_user_permission AFTER INSERT ON public."userTable" FOR EACH ROW EXECUTE FUNCTION public.task_user_permission_after_person();
+
+-- ---- the data that already exists ---------------------------------------------------------------
+-- every owner of a project gets the project level row (the explicit mark of what ownership means) and - at the ORGANIZATION level - permissionProjectManager (may create projects: the administrator has it
+-- through his own profile), so nothing that worked before stops working. Idempotent.
+CREATE OR REPLACE FUNCTION public.permission_backfill() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_a integer;
+  v_b integer;
+BEGIN
+  INSERT INTO public.project_permission_profile_user_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  SELECT p."rowGUID"::text, p."rowOwnerGUID"::text, jsonb_build_object('permissionProfileGUID', 'permissionProjectManager', 'permissionAutomatic', true)
+    FROM public.project_table p WHERE p."rowOwnerGUID" IS NOT NULL
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS v_a = ROW_COUNT;
+  INSERT INTO public.project_permission_profile_user_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  SELECT DISTINCT p."rowParentGUID", p."rowOwnerGUID"::text, jsonb_build_object('permissionProfileGUID', 'permissionProjectManager', 'permissionAutomatic', true)
+    FROM public.project_table p
+   WHERE p."rowOwnerGUID" IS NOT NULL AND EXISTS (SELECT 1 FROM public."organizationTable" o WHERE o."rowGUID" = p."rowParentGUID")
+  ON CONFLICT DO NOTHING;
+  GET DIAGNOSTICS v_b = ROW_COUNT;
+  PERFORM set_config('app.task_bulk', 'off', true);
+  PERFORM public.task_user_permission_rebuild();
+  RETURN v_a + v_b;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_backfill() FROM PUBLIC, anon, authenticated;
+
+SELECT public.permission_backfill();
+
+-- realtime: the interface learns of a changed assignment
+DO $$
+DECLARE
+  v_all boolean;
+  t     text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['project_permission_profile_user_table', 'task_user_permission_table'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+-- Check:
+--   SELECT public.perm_my_matrix();                                                    -- the profiles and letters of the signed-in user
+--   SELECT public.task_user_permission_verify();                                      -- 0
+--   SELECT count(*) FROM public.project_table p WHERE NOT EXISTS (SELECT 1 FROM public.project_permission_profile_user_table x WHERE x."rowOwnerGUID" = p."rowGUID"::text);   -- 0
+
+-- ===============================================================================================
+-- PART 47: create_permission_enforcement.sql
+-- ENFORCEMENT of the permission matrix (documentation/PERMISSIONS_WBS.html, section 7). PART 46 made the profiles and perm_can; this PART switches the database to them.
+--   * The OWNER rule of the project tables stays as the FLOOR (the old policies are not rewritten, so the owner of a project can never lose it); next to each of them the matrix policies
+--     "<table>_perm_select / _insert / _update / _delete" let in everybody whose profiles give the letter. Policies are PERMISSIVE: the owner OR the matrix. The matrix reads
+--     perm_projects(table, letter) = the projects the caller has the letter in, evaluated ONCE per statement (an initPlan), not once per row.
+--   * Inside the RPCs the owner test became perm_can_in(table, letter, project) (rewrite_owner_checks.py: the list of the 53 functions and their table / letter is in that file).
+--   * Generic tables and catalogs (~57): everybody reads, the administrator writes, the project manager only inserts (Q16, Q21): the write policies call perm_can(table, letter).
+--   * project_table: a project is created only by who has C on project_table (the administrator, the organization level project manager / curator); the creator becomes its project manager.
+--   * The deletes of draft documents (headers) need D on the document table; the field locks of PART 46 apply to every write of a user.
+--   * pm_apply_schedule (the client write-back of the schedule, edited in place in PART 1) writes the dates only for who may change them; everybody else writes the progress only.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regprocedure('public.perm_can(text,text,uuid,uuid)') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 47 needs PART 46 (perm_can)';
+  END IF;
+END $$;
+
+-- the organizations the caller administers (the same rule as organization_is_admin)
+CREATE OR REPLACE FUNCTION public.perm_admin_orgs() RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT m."rowOwnerGUID" FROM public."organizationMemberTable" m
+   WHERE m."rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', '')) AND m."rowJSON"->>'memberStatus' = 'active'
+     AND COALESCE((m."rowJSON"->>'organizationAdministrator')::boolean, false)
+  UNION
+  SELECT o."rowGUID" FROM public."organizationTable" o
+   WHERE lower(o."rowJSON"->>'createdByUser') = lower(COALESCE(auth.jwt()->>'email', ''))
+     AND NOT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = o."rowGUID")
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_admin_orgs() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_admin_orgs() TO authenticated;
+
+-- the projects in which the caller holds the letter for the table: owner (= project manager) · administrator of the organization · his assignments · derived "project member" (read)
+CREATE OR REPLACE FUNCTION public.perm_projects(p_table text, p_op text) RETURNS SETOF uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH me AS (SELECT public.app_user_guid()::text AS u),
+  cand AS (
+    SELECT p."rowGUID" AS pr, p."rowParentGUID" AS org, 'permissionProjectManager'::text AS prof FROM public.project_table p, me WHERE p."rowOwnerGUID"::text = me.u
+    UNION ALL
+    SELECT p."rowGUID", p."rowParentGUID", 'permissionOrganizationAdmin' FROM public.project_table p WHERE p."rowParentGUID" IN (SELECT public.perm_admin_orgs())
+    UNION ALL
+    SELECT p."rowGUID", p."rowParentGUID", x."rowJSON"->>'permissionProfileGUID'
+      FROM public.project_permission_profile_user_table x, me JOIN public.project_table p ON true
+     WHERE x."rowParentGUID" = me.u AND x."rowOwnerGUID" = p."rowGUID"::text
+    UNION ALL
+    SELECT DISTINCT p."rowGUID", p."rowParentGUID", 'permissionProjectMember'
+      FROM public.task_user_permission_table t, me JOIN public.project_table p ON true
+     WHERE t."rowParentGUID" = me.u AND t."rowJSON"->>'projectGUID' = p."rowGUID"::text
+  )
+  SELECT DISTINCT c.pr FROM cand c
+   WHERE c.prof IS NOT NULL AND position(upper(p_op) IN COALESCE(public.perm_set_of(c.prof, p_table, c.org), public.perm_default_set(c.prof))) > 0
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_projects(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_projects(text, text) TO authenticated;
+
+-- the tasks in which a TASK profile (derived from RACI) gives the letter for the table
+CREATE OR REPLACE FUNCTION public.perm_tasks(p_table text, p_op text) RETURNS SETOF uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT t."rowOwnerGUID"::uuid FROM public.task_user_permission_table t
+    LEFT JOIN public.project_table p ON p."rowGUID"::text = t."rowJSON"->>'projectGUID'
+   WHERE t."rowParentGUID" = public.app_user_guid()::text
+     AND position(upper(p_op) IN COALESCE(public.perm_set_of(t."rowJSON"->>'profile', p_table, p."rowParentGUID"), public.perm_default_set(t."rowJSON"->>'profile'))) > 0
+$$;
+
+REVOKE ALL ON FUNCTION public.perm_tasks(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.perm_tasks(text, text) TO authenticated;
+
+-- ---- the matrix policies next to the owner floor -------------------------------------------------------------------------------------------------------------
+-- columns: table · column of the project · column of the task (NULL = none) · letters · condition of the draft for U / D (NULL = none) · condition of the draft for C (NULL = the same)
+DO $$
+DECLARE
+  r      record;
+  v_proj text;
+  v_cond text;
+  v_task text;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('project_task_table',                  '"projectGUID"',   '"rowGUID"',      'RCUD', NULL, NULL),
+    ('task_line_table',                     '"rowProjectGUID"', '"rowOwnerGUID"', 'RCUD', NULL, NULL),
+    ('task_payment_plan_lines',             '"rowProjectGUID"', '"rowOwnerGUID"', 'RCUD', NULL, NULL),
+    ('project_task_dependencies_table',     '"projectGUID"',   NULL,             'RCUD', NULL, NULL),
+    ('project_task_dependency_closure_table', '"projectGUID"', NULL,             'R',    NULL, NULL),
+    ('project_task_kanban_state_table',     '"rowOwnerGUID"',  '"rowParentGUID"', 'RCUD', NULL, NULL),
+    ('project_kanban_stage_table',          '"rowOwnerGUID"',  NULL,             'RCUD', NULL, NULL),
+    ('task_line_plan_movements',            '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('task_line_plan_timeline',             '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('task_payment_plan_movements',         '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_status_month_totals',         '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_status_month_turnover',       '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_status_movements',            '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_status_roi_history',          '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_status_roi_task_month',       '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_task_cost_total',             '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('monitor01_view',                      '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_resource_leveling_run',       '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('project_resource_leveling_task',      '"rowProjectGUID"', NULL,            'R',    NULL, NULL),
+    ('task_fact_header',                    '"rowProjectGUID"', '"rowOwnerGUID"', 'RD',  'public.task_fact_header_state("rowGUID") IN (''draft-free'', ''draft-strong'')', NULL),
+    ('task_fact_usage_timeline',            '"rowProjectGUID"', '"rowOwnerGUID"', 'RCUD', 'public.task_fact_header_state("rowHeaderGUID") IN (''draft-free'', ''draft-strong'')', 'public.task_fact_header_state("rowHeaderGUID") = ''draft-free'''),
+    ('vendor_invoice_lines',                '"rowProjectGUID"', NULL,            'UD',   'public.vendor_invoice_state("rowHeaderGUID") = ''draft''', NULL),
+    ('purchase_order_lines',                '"rowProjectGUID"', NULL,            'UD',   'public.purchase_order_state("rowHeaderGUID") = ''draft''', NULL),
+    ('product_receipt_lines',               '"rowProjectGUID"', NULL,            'UD',   'public.product_receipt_state("rowHeaderGUID") = ''draft''', NULL),
+    ('customer_invoice_lines',              '"rowProjectGUID"', NULL,            'UD',   'public.customer_invoice_state("rowHeaderGUID") = ''draft''', NULL),
+    ('project_payment_fact_lines',          '"rowProjectGUID"', NULL,            'UD',   'public.payment_fact_state("rowHeaderGUID") = ''draft''', NULL)
+  ) AS v(tbl, pcol, tcol, ops, draft, draft_c)
+  LOOP
+    IF to_regclass('public.' || quote_ident(r.tbl)) IS NULL THEN CONTINUE; END IF;
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.tbl || '_perm_select', r.tbl);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.tbl || '_perm_insert', r.tbl);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.tbl || '_perm_update', r.tbl);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.tbl || '_perm_delete', r.tbl);
+    -- one condition per letter: the project (and the task, for a task profile) the letter is held in
+    IF position('R' IN r.ops) > 0 THEN
+      v_proj := format('%s IN (SELECT public.perm_projects(%L, %L))', r.pcol, r.tbl, 'R');
+      EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (%s)', r.tbl || '_perm_select', r.tbl, v_proj);
+    END IF;
+    IF position('C' IN r.ops) > 0 THEN
+      v_proj := format('%s IN (SELECT public.perm_projects(%L, %L))', r.pcol, r.tbl, 'C');
+      v_cond := concat_ws(' AND ', r.draft_c, '(' || v_proj || ')');
+      EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (%s)', r.tbl || '_perm_insert', r.tbl, v_cond);
+    END IF;
+    IF position('U' IN r.ops) > 0 THEN
+      v_proj := format('%s IN (SELECT public.perm_projects(%L, %L))', r.pcol, r.tbl, 'U');
+      v_task := CASE WHEN r.tcol IS NULL THEN '' ELSE format(' OR %s IN (SELECT public.perm_tasks(%L, %L))', r.tcol, r.tbl, 'U') END;
+      v_cond := concat_ws(' AND ', r.draft, '(' || v_proj || v_task || ')');
+      EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (%s) WITH CHECK (%s)', r.tbl || '_perm_update', r.tbl, v_cond, v_cond);
+    END IF;
+    IF position('D' IN r.ops) > 0 THEN
+      v_proj := format('%s IN (SELECT public.perm_projects(%L, %L))', r.pcol, r.tbl, 'D');
+      v_task := CASE WHEN r.tcol IS NULL THEN '' ELSE format(' OR %s IN (SELECT public.perm_tasks(%L, %L))', r.tcol, r.tbl, 'D') END;
+      v_cond := concat_ws(' AND ', r.draft, '(' || v_proj || v_task || ')');
+      EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (%s)', r.tbl || '_perm_delete', r.tbl, v_cond);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---- project_table ---------------------------------------------------------------------------------------------------------------------------------
+-- read: the owner (floor) or any profile of the project; change: the owner or U; delete: the owner or D; create: only who has C on project_table (administrator, organization level manager / curator)
+DROP POLICY IF EXISTS project_table_perm_select ON public.project_table;
+DROP POLICY IF EXISTS project_table_perm_update ON public.project_table;
+DROP POLICY IF EXISTS project_table_perm_delete ON public.project_table;
+
+CREATE POLICY project_table_perm_select ON public.project_table FOR SELECT TO authenticated USING ("rowGUID" IN (SELECT public.perm_projects('project_table', 'R')));
+
+CREATE POLICY project_table_perm_update ON public.project_table FOR UPDATE TO authenticated
+  USING ("rowGUID" IN (SELECT public.perm_projects('project_table', 'U'))) WITH CHECK ("rowGUID" IN (SELECT public.perm_projects('project_table', 'U')));
+
+CREATE POLICY project_table_perm_delete ON public.project_table FOR DELETE TO authenticated USING ("rowGUID" IN (SELECT public.perm_projects('project_table', 'D')));
+
+DROP POLICY IF EXISTS project_table_insert ON public.project_table;
+
+CREATE POLICY project_table_insert ON public.project_table FOR INSERT TO authenticated
+  WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND (SELECT public.perm_can('project_table', 'C')));
+
+-- the personal settings of a user in a project he may read (the floor asks for ownership)
+DROP POLICY IF EXISTS project_user_settings_perm_insert ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_user_settings_perm_update ON public.project_user_settings_table;
+
+CREATE POLICY project_user_settings_perm_insert ON public.project_user_settings_table FOR INSERT TO authenticated
+  WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND "rowOwnerGUID" IN (SELECT public.perm_projects('project_table', 'R')));
+
+CREATE POLICY project_user_settings_perm_update ON public.project_user_settings_table FOR UPDATE TO authenticated
+  USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND "rowOwnerGUID" IN (SELECT public.perm_projects('project_table', 'R')));
+
+-- ---- documents: the delete of a draft header needs D on the document (the select stays organization wide, like before) ---------------------------------------------
+-- RESTRICTIVE: AND-ed with the existing delete policy
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['customer_invoice_header', 'product_receipt_header', 'purchase_order_header', 'vendor_invoice_header', 'project_payment_fact_header', 'project_timesheet_header'] LOOP
+    IF to_regclass('public.' || quote_ident(t)) IS NULL THEN CONTINUE; END IF;
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_perm_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I AS RESTRICTIVE FOR DELETE TO authenticated USING ((SELECT public.perm_can(%L, %L)))', t || '_perm_delete', t, t, 'D');
+  END LOOP;
+END $$;
+
+-- ---- generic tables and catalogs: everybody reads, the administrator writes, the project manager inserts (Q16, Q21) ----------------------------------------------
+-- the list is the group "catalog" of kit8/sql/permissions/permission_matrix.py. A table whose old policies had no insert policy (a read only catalog) is left alone.
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['budgetItemTable', 'budgetScenarioTable', 'businessUnitTable', 'cfrTypeTable', 'contractTable', 'countryTable', 'currencyExchangeRateTable', 'currencyTable', 'descriptorDestinationTable', 'descriptorGenusTable', 'descriptorModeTable', 'descriptorPlanTable', 'descriptorValueTable', 'distributionGenericTable', 'dtcCatalogExecutiveTable', 'dtcFreeExecutiveTable', 'dtcTaskFinishedTable', 'dtcTaskProgressTable', 'dtcTaskRegisteredTable', 'dtcTaskWaitingTable', 'equipmentTable', 'equipmentTypeTable', 'kanban_stage_table', 'legalEntityTable', 'managementCalendarDaysTable', 'managementCalendarTable', 'measureUnitTable', 'moneyAccountTable', 'partnerTable', 'personTable', 'personTypeTable', 'priceTypeTable', 'productBarcodeTable', 'productFolderTable', 'productPackageTable', 'productPriceTable', 'productSeriesTable', 'productTable', 'productTypeTable', 'propertyValueTable', 'raciMemberTable', 'resourceRoleFolderTable', 'resourceRoleTable', 'resourceRoleTypeTable', 'rolePriceTable', 'roleTable', 'templateResourceContractTable', 'userRoleTable', 'valueAddedTaxTable', 'variantTable', 'variantValueTable', 'workCenterTable', 'budgetItemGenericKeyTable', 'managementActivityGenusTable', 'managementGenusTable'] LOOP
+    IF to_regclass('public.' || quote_ident(t)) IS NULL THEN CONTINUE; END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE schemaname = 'public' AND tablename = t AND policyname = t || '_insert') THEN CONTINUE; END IF;
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ((SELECT public.perm_can(%L, %L)))', t || '_insert', t, t, 'C');
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ((SELECT public.perm_can(%L, %L))) WITH CHECK ((SELECT public.perm_can(%L, %L)))', t || '_update', t, t, 'U', t, 'U');
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ((SELECT public.perm_can(%L, %L)))', t || '_delete', t, t, 'D');
+  END LOOP;
+END $$;
+
+-- ---- the project manager reads the members of his organization (to give them profiles; the sheet: organizationMemberTable PM = R) -----------------------------------------------
+DROP POLICY IF EXISTS "organizationMemberTable_select" ON public."organizationMemberTable";
+
+CREATE POLICY "organizationMemberTable_select" ON public."organizationMemberTable" FOR SELECT TO authenticated
+  USING (public.organization_is_admin("rowOwnerGUID")
+         OR "rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', ''))
+         OR "rowParentGUID" = (SELECT public.app_user_guid()::text)
+         OR ("rowOwnerGUID" = (SELECT public.organization_of_current_user()) AND (SELECT public.perm_can('organizationMemberTable', 'R'))));
+
+-- ===============================================================================================
+-- PART 48: create_organization_texts.sql
+-- APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): organizationTextTable (start1). The administrator of the organization writes the rows (RLS), every
+-- member of the organization reads them; organization_texts(language) gives the app the whole list of the active organization in ONE call (the override layer of pmT, i18next and the column titles).
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."organizationTextTable"') IS NULL OR to_regclass('public."organizationTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 48 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('organizationTextTable');
+
+REVOKE ALL ON public."organizationTextTable" FROM anon, authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."organizationTextTable" TO authenticated;
+
+DO $$
+DECLARE
+  t text := 'organizationTextTable';
+BEGIN
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ("rowOwnerGUID" = (SELECT public.organization_of_current_user()) OR public.organization_is_admin("rowOwnerGUID"))', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.organization_is_admin("rowOwnerGUID"))', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.organization_is_admin("rowOwnerGUID")) WITH CHECK (public.organization_is_admin("rowOwnerGUID"))', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.organization_is_admin("rowOwnerGUID"))', t || '_delete', t);
+END $$;
+
+-- the language code is lower case; the key and the text are trimmed; the organization, language, kind and key of a row are not moved (delete it and make a new one)
+CREATE OR REPLACE FUNCTION public.organization_text_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  NEW."rowParentGUID" := lower(btrim(NEW."rowParentGUID"));
+  IF NEW."rowParentGUID" !~ '^[a-z]{2,3}([-_][A-Za-z0-9]{2,8})?$' THEN
+    RAISE EXCEPTION 'organizationTextTable: "%" is not a language code (en, lv, ru ...)', NEW."rowParentGUID" USING ERRCODE = '23514';
+  END IF;
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('textKey', btrim(COALESCE(NEW."rowJSON"->>'textKey', '')), 'text', btrim(COALESCE(NEW."rowJSON"->>'text', '')));
+  IF TG_OP = 'UPDATE' AND (NEW."rowOwnerGUID" <> OLD."rowOwnerGUID" OR NEW."rowParentGUID" <> OLD."rowParentGUID"
+                           OR NEW."rowJSON"->>'textKind' IS DISTINCT FROM OLD."rowJSON"->>'textKind' OR NEW."rowJSON"->>'textKey' IS DISTINCT FROM OLD."rowJSON"->>'textKey') THEN
+    RAISE EXCEPTION 'organizationTextTable: the organization, language, kind and key of a text are not changed - delete it and make a new one' USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_organizationTextTable_guard ON public."organizationTextTable";
+
+CREATE TRIGGER trg_organizationTextTable_guard BEFORE INSERT OR UPDATE ON public."organizationTextTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_text_guard();
+
+-- the texts of the ACTIVE organization for a language: [{ kind, key, text }]; no organization or no row = []
+CREATE OR REPLACE FUNCTION public.organization_texts(p_language text DEFAULT 'en') RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('kind', x."rowJSON"->>'textKind', 'key', x."rowJSON"->>'textKey', 'text', x."rowJSON"->>'text')
+                            ORDER BY x."rowJSON"->>'textKind', x."rowJSON"->>'textKey'), '[]'::jsonb)
+    FROM public."organizationTextTable" x
+   WHERE x."rowOwnerGUID" = public.organization_of_current_user() AND x."rowParentGUID" = lower(btrim(COALESCE(p_language, 'en')))
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_texts(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_texts(text) TO authenticated;
+
+-- ---- audit E6 (documentation/PERMISSIONS_WBS.html): the app gives every user his three legacy roles at EVERY login (app/_layout.tsx checkAndCreateUserRoles = INSERT into userRoleTable with
+-- rowOwnerGUID = his e-mail). Without this exception a plain member would be refused at each login. roleAppAdmin is never self-assigned (the app knows its administrator by e-mail).
+DROP POLICY IF EXISTS "userRoleTable_insert_self" ON public."userRoleTable";
+
+CREATE POLICY "userRoleTable_insert_self" ON public."userRoleTable" FOR INSERT TO authenticated
+  WITH CHECK ("rowOwnerGUID" = lower(COALESCE(auth.jwt()->>'email', '')) AND "rowJSON"->>'roleName' IN ('roleUser', 'roleOrganizationAdmin', 'roleProjectManager'));
 
 NOTIFY pgrst, 'reload schema';
 

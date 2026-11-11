@@ -49,6 +49,11 @@
 --   41. create_route_visits.sql - the ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover = one row per user and route with the number of visits (the app writes it through route_visit_register only while the Organization switch numberOfVisitsFunctionalityEnabled is on)
 --   42. create_resource_leveling.sql - RESOURCE OPTIMIZATION (documentation/RESOURCE_LEVELING_WBS.html): project_resource_leveling_run / _task = the history of the leveling runs of a project (the delay itself is project_task_table.rowJSON.taskLevelingDelayDays)
 --   43. create_report_views.sql - the saved VIEWS of a report (kit8/pm/reports/monitor01): project_report_settings = one row per user, report GUID ('Monitor01') and view title: the field list, the date filters ... (rowJSON.settings), shared with the organization when rowJSON.forOtherUsersEnabled
+--   44. create_raci_genus.sql - the RACI items (documentation/PERMISSIONS_WBS.html): managementRACIGenusTable = the four PMBOK items (Responsible, Accountable, Consulted, Informed), read only, seeded; task_line_table.rowJSON.raciItem of a Time line holds one of its rowGUIDs
+--   45. create_organization_members.sql - ORGANIZATION MEMBERS (documentation/PERMISSIONS_WBS.html section 4): organizationMemberTable = who is a member of which organization (administrator flag, invitation state); replaces organizationInvitationTable (kept, empty of new data)
+--   46. create_permission_profiles.sql - PERMISSION PROFILES (documentation/PERMISSIONS_WBS.html section 5): project_permission_profile_catalog / _crud_table / _uxui_table / _user_table and task_user_permission_table (the profiles, the two matrices, who holds which profile, the rows derived from RACI)
+--   47. create_permission_enforcement.sql - ENFORCEMENT of the matrix (start2 only: the policies, the RPC guards, the catalogs - no table)
+--   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): organizationTextTable = the texts an administrator replaces for the whole organization, per language
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3599,6 +3604,168 @@ CREATE TABLE IF NOT EXISTS public.project_report_settings (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_project_report_settings_title ON public.project_report_settings ("rowOwnerGUID", "rowParentGUID", lower("rowJSON"->>'viewTitle'));
+
+-- ===============================================================================================
+-- PART 44: create_raci_genus.sql
+-- The RACI items of PMBOK (documentation/PERMISSIONS_WBS.html, section 3): managementRACIGenusTable, ONE level (a linear catalog, no folders), READ ONLY and seeded (start4 / start5).
+--   rowGUID = raciResponsibleGUID | raciAccountableGUID | raciConsultedGUID | raciInformedGUID - rowOwnerGUID 'managementRACIGenusCatalog' - rowParentGUID 'empty' - rowJSON { title, description }
+-- A Time line keeps one of the four rowGUIDs in task_line_table.rowJSON.raciItem (start2: the trigger fills a missing one with raciResponsibleGUID and refuses a value that is no row of this table).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public."managementRACIGenusTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'managementRACIGenusCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_managementRACIGenusTable_owner_order" ON public."managementRACIGenusTable" ("rowOwnerGUID", "orderInList");
+
+-- ===============================================================================================
+-- PART 45: create_organization_members.sql
+-- Members of an organization (documentation/PERMISSIONS_WBS.html, section 4). A user may work in many organizations; userTable.rowJSON.userOrganization stays the ACTIVE one.
+--   organizationMemberTable   rowOwnerGUID = the organization · rowParentGUID = the user (userTable.rowGUID), 'empty' while an invited user has not logged in yet · rowGUID = own id
+--                             · rowJSON { userEmailForInvitation (lower case), organizationAdministrator (boolean), memberStatus 'invited' | 'active', autoCreatePerson (default true),
+--                                         invitedAt, invitedBy, registeredAt (first session of the user in this organization), inviteSentAt, inviteError }
+-- Unique: one row per organization + e-mail, one per organization + user. Written by the administrator of the organization (RLS) and by the functions of start2 (guard trigger: the rules
+-- of the administrators, the key fields are not edited by hand).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public."organizationMemberTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."organizationTable"("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "organizationMember_email_chk" CHECK (COALESCE("rowJSON"->>'userEmailForInvitation', '') <> '' AND "rowJSON"->>'userEmailForInvitation' = lower("rowJSON"->>'userEmailForInvitation')),
+  CONSTRAINT "organizationMember_status_chk" CHECK ("rowJSON"->>'memberStatus' IN ('invited', 'active')),
+  CONSTRAINT "organizationMember_admin_chk" CHECK (jsonb_typeof("rowJSON"->'organizationAdministrator') = 'boolean')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationMember_email" ON public."organizationMemberTable" ("rowOwnerGUID", ("rowJSON"->>'userEmailForInvitation'));
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationMember_user" ON public."organizationMemberTable" ("rowOwnerGUID", "rowParentGUID") WHERE "rowParentGUID" <> 'empty';
+
+CREATE INDEX IF NOT EXISTS "idx_organizationMember_email" ON public."organizationMemberTable" (("rowJSON"->>'userEmailForInvitation'));
+
+CREATE INDEX IF NOT EXISTS "idx_organizationMember_user" ON public."organizationMemberTable" ("rowParentGUID");
+
+-- ===============================================================================================
+-- PART 46: create_permission_profiles.sql
+-- Permission profiles and matrices (documentation/PERMISSIONS_WBS.html, section 5). Seeds: start4 / start5 PART 46 (generated from kit8/sql/permissions/permission_matrix.py).
+--   project_permission_profile_catalog     the 11 profiles: rowGUID = the code name (permissionProjectManager ...) - rowOwnerGUID 'permissionCatalog' - rowJSON { title, level, description }
+--   project_permission_profile_crud_table  CRUD per application table: rowOwnerGUID = 'permissionCatalog' (delivered) or an organization GUID (its own override) - rowParentGUID = the profile -
+--                                          rowJSON { permissionTable, permissionSet (CRUD R RC RU RD RUD N own), permissionWritableFields?, permissionLockedFields?, permissionLockedActions? }
+--   project_permission_profile_uxui_table  the same for screens / tabs / documents: rowJSON { permissionObject, permissionSet }
+--   project_permission_profile_user_table  who holds which profile: rowOwnerGUID = the project GUID (or the organization GUID = "may create projects") - rowParentGUID = the user GUID -
+--                                          rowJSON { permissionProfileGUID }; several profiles per user = the union
+--   task_user_permission_table             derived by a trigger from RACI (never written by a client): rowOwnerGUID = the task - rowParentGUID = the user - rowJSON { profile, projectGUID, sourceLineGUID }
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.project_permission_profile_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'permissionCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.project_permission_profile_crud_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'permissionCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT permission_crud_set_chk CHECK ("rowJSON"->>'permissionSet' IN ('CRUD', 'R', 'RC', 'RU', 'RD', 'RUD', 'C', 'CU', 'CD', 'CUD', 'CR', 'N', 'own')),
+  CONSTRAINT permission_crud_table_chk CHECK (COALESCE("rowJSON"->>'permissionTable', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_permission_crud ON public.project_permission_profile_crud_table ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'permissionTable'));
+
+CREATE INDEX IF NOT EXISTS idx_permission_crud_lookup ON public.project_permission_profile_crud_table (("rowJSON"->>'permissionTable'), "rowParentGUID");
+
+CREATE TABLE IF NOT EXISTS public.project_permission_profile_uxui_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'permissionCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT permission_uxui_set_chk CHECK ("rowJSON"->>'permissionSet' IN ('CRUD', 'R', 'RC', 'RU', 'RD', 'RUD', 'C', 'CU', 'CD', 'CUD', 'CR', 'N', 'own')),
+  CONSTRAINT permission_uxui_object_chk CHECK (COALESCE("rowJSON"->>'permissionObject', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_permission_uxui ON public.project_permission_profile_uxui_table ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'permissionObject'));
+
+CREATE TABLE IF NOT EXISTS public.project_permission_profile_user_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT permission_user_profile_chk CHECK (COALESCE("rowJSON"->>'permissionProfileGUID', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_permission_user ON public.project_permission_profile_user_table ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'permissionProfileGUID'));
+
+CREATE INDEX IF NOT EXISTS idx_permission_user_user ON public.project_permission_profile_user_table ("rowParentGUID");
+
+CREATE TABLE IF NOT EXISTS public.task_user_permission_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_user_permission_profile_chk CHECK (COALESCE("rowJSON"->>'profile', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_task_user_permission ON public.task_user_permission_table ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'profile'));
+
+CREATE INDEX IF NOT EXISTS idx_task_user_permission_user ON public.task_user_permission_table ("rowParentGUID", ("rowJSON"->>'projectGUID'));
+
+-- ===============================================================================================
+-- PART 48: create_organization_texts.sql
+-- Application texts of an organization (documentation/PERMISSIONS_WBS.html section 10): an administrator replaces, for the whole organization and per language, a menu title, a column header or a title.
+--   organizationTextTable   rowOwnerGUID = the organization · rowParentGUID = the language code (en, lv, ru ...) · rowGUID = own id
+--                           rowJSON { textKind: 'menu' | 'column' | 'title', textKey (the key the code uses: the i18n key "menu.home", the English text of pmT, or "<table>.<column>"), text }
+-- Unique: one row per organization + language + kind + key. A missing row = the delivered text. Written by the administrator of the organization (RLS), read by its members.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public."organizationTextTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL REFERENCES public."organizationTable"("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'en',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "organizationText_kind_chk" CHECK ("rowJSON"->>'textKind' IN ('menu', 'column', 'title')),
+  CONSTRAINT "organizationText_key_chk" CHECK (COALESCE("rowJSON"->>'textKey', '') <> '' AND COALESCE("rowJSON"->>'text', '') <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_organizationText" ON public."organizationTextTable" ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'textKind'), ("rowJSON"->>'textKey'));
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

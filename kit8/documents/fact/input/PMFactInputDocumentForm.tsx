@@ -23,6 +23,7 @@ import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusab
 import type { ReusableTableRow } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
 import { pmT } from '../../../pm/i18n/pmT';
+import { useDocumentRights } from '../../../permissions/usePermissions';
 import { buildFactColumns } from './factColumns';
 import {
   FACT_NEW_ROW_KEYS, FACT_TABS, FACT_USAGE_TIMELINE_ENTITY, FactPostProblem, canAddLines, canDeleteDocument, canEditLines, canPost, canUnpost, dayOfPeriod, factGenusOf, factPostState, factProblemText,
@@ -88,6 +89,7 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
     [doc.documents],
   );
 
+  const rights = useDocumentRights('task_fact_header');   // PART 46 / 47: the buttons the database would refuse are disabled
   const doPost = async () => {
     const answer = await doc.post();
     setProblems(answer && answer.status !== 'posted' ? answer.problems : []);
@@ -118,10 +120,10 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
         )}
         <ButtonApp testID={`${testID}-new`} title={pmT('New document')} icon="note_add" variant="outlined" size="small" disabled={doc.busy} onPress={() => { void doc.newDocument(); }} />
         {header && canDeleteDocument(header) && (
-          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy} onPress={() => { void doc.removeDocument(); }} />
+          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy || !rights.canDelete} onPress={() => { void doc.removeDocument(); }} />
         )}
         {header && canUnpost(header) && (
-          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy} onPress={doUnpost} />
+          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
@@ -129,7 +131,7 @@ export default function PMFactInputDocumentForm({ taskGUID, taskLineGUID, genus,
           <ButtonApp testID={`${testID}-posted`} title={pmT('Posted')} icon="check" size="large" onPress={() => {}} accessibilityLabel={pmT('Posted')} />
         )}
         {header && canPost(header, docRows.length) && (
-          <ButtonApp testID={`${testID}-post`} title={postTitle} icon="send" size="large" disabled={doc.busy} onPress={doPost} />
+          <ButtonApp testID={`${testID}-post`} title={postTitle} icon="send" size="large" disabled={doc.busy || !rights.canChange} onPress={doPost} />
         )}
       </View>
 

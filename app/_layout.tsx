@@ -40,6 +40,7 @@ import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
 import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
 import ReminderHost from '../kit8/ui/reminder/ReminderHost';
 import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
+import OrganizationTextsHost from '../kit8/catalog/organization/texts/OrganizationTextsHost';
 import WithIntent from '../kit8/providers/WithIntent';
 import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
 
@@ -472,6 +473,9 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/budget/scenario/list/index" options={{ title: 'Budget scenarios', drawerLabel: 'Budget scenarios' }} />
               <Drawer.Screen name="catalog/legal/entity/index" options={{ title: 'Legal entities', drawerLabel: 'Legal entities' }} />
               <Drawer.Screen name="user/visits/index" options={{ title: 'Routes visits', drawerLabel: 'Routes visits' }} />
+              <Drawer.Screen name="user/permissions/index" options={{ title: 'Permissions', drawerLabel: 'Permissions' }} />
+              <Drawer.Screen name="catalog/organization/texts/index" options={{ title: 'Application texts', drawerLabel: 'Application texts' }} />
+              <Drawer.Screen name="catalog/organization/members/index" options={{ title: 'Organization members', drawerLabel: 'Organization members' }} />
               <Drawer.Screen name="catalog/money/account/index" options={{ title: 'Money accounts', drawerLabel: 'Money accounts' }} />
               <Drawer.Screen name="catalog/work/center/index" options={{ title: 'Work centers', drawerLabel: 'Work centers' }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: 'Resource contract templates', drawerLabel: 'Resource contract templates' }} />
@@ -525,6 +529,8 @@ function RootLayoutContent() {
             <ReminderHost />
             {/* counts the screens the user opens (app_route_visits_turnover) while the Organization switch numberOfVisitsFunctionalityEnabled is on */}
             <RouteVisitTracker />
+            {/* the texts the administrator replaced for the organization (organizationTextTable): read once after the sign in, used by pmT / t() / the column headers */}
+            <OrganizationTextsHost />
             {/* share intent (uxui.intentInfo): RadioSetApp asks what to add */}
             <IntentAddModalWindow />
             <SnackbarApp />

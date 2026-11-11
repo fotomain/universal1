@@ -16,6 +16,7 @@ import { PARTNER_ENTITY } from '../../../../catalog/partner/partnerModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY } from '../../../../catalog/management/templateresourcecontract/templateResourceContractModel';
 import { BUSINESS_UNIT_TABLE } from '../../../../catalog/business_unit/businessUnitModel';
 import { CFR_TYPE_TABLE } from '../../../../catalog/business_unit/cfrTypeModel';
+import { MANAGEMENT_RACI_GENUS_TABLE } from '../../../../catalog/management/raci_genus/raciGenusModel';
 import { emptyTaskLineCatalogs, TaskLineCatalogData } from './taskLineCatalogs';
 
 /** catalog list -> its redux entity */
@@ -47,6 +48,7 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
   contract: CONTRACT_ENTITY,
   businessUnit: BUSINESS_UNIT_TABLE.entity,
   cfrType: CFR_TYPE_TABLE.entity,
+  raciGenus: MANAGEMENT_RACI_GENUS_TABLE.entity,
 };
 const KEYS = Object.keys(ENTITIES) as (keyof TaskLineCatalogData)[];
 

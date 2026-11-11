@@ -8,6 +8,7 @@ import SignInWithEmailOtp from '../../../kit8/ui/components/auth/SignInWithEmail
 import { useSelector, useDispatch } from 'react-redux';
 import { useAppSignOut } from '../../../kit8/hooks/useAppSignOut';
 import { ActiveUserState, clearActiveUser, selectIsLoggedIn } from '../../../kit8/redux/activeUserSlice';
+import MyPersonSection from '../../../kit8/catalog/person/MyPersonSection';
 
 export default function UserProfileScreen() {
   const router = useRouter();
@@ -69,6 +70,9 @@ export default function UserProfileScreen() {
           <Text variant="labelLarge" style={{ color: theme.colors.onSurfaceVariant, marginTop: 8 }}>Last Name:</Text>
           <Text variant="bodyLarge" style={{ color: theme.colors.onSurface, marginBottom: 8, marginTop: 4 }}>{userState.activeUserLastName || "N/A"}</Text>
         </Surface>
+
+        {/* a user and his person are independent: the person is made here (never forced) */}
+        <MyPersonSection email={userState.activeUserEmail} textColor={theme.colors.onSurface} />
 
         <View style={styles.buttonWrapper}>
           <ButtonPrimaryApp 

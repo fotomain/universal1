@@ -655,3 +655,83 @@
 655|Por qué
 656|Calculado por la base de datos y comprobado en este dispositivo: se ajustaron {{n}} tarea(s).
 657|Calculado por la base de datos y comprobado en este dispositivo.
+658|RACI
+659|Responsable
+660|Aprobador
+661|Consultado
+662|Informado
+663|Más de un aprobador en esta tarea
+664|Miembros de la organización
+665|Invitar
+666|Correo a invitar
+667|Crear una persona en el primer inicio de sesión
+668|Correo electrónico
+669|Estado
+670|Administrador
+671|Persona en el primer inicio de sesión
+672|Invitado el
+673|Primera sesión
+674|Invitado
+675|Activo
+676|Crear persona
+677|Enviar la invitación de nuevo
+678|Solo el administrador de la organización puede añadir o cambiar miembros.
+679|Aún no hay miembros.
+680|Introduzca un correo como nombre@empresa.com
+681|Organización
+682|Persona
+683|Su persona existe.
+684|Crear mi persona
+685|No tiene permiso para {{op}} en {{table}}.
+686|Bloqueado: {{n}}
+687|Elija un miembro y un perfil.
+688|Eliminado
+689|Miembro
+690|Perfil
+691|Asignar
+692|Aquí nadie tiene aún un perfil.
+693|automático
+694|Quitar
+695|Tabla
+696|Pantalla
+697|Tipo
+698|Letras
+699|Proyecto: {{n}}
+700|Ningún proyecto: sus perfiles en cualquier parte
+701|Sin perfil: lee lo que lee todo el mundo.
+702|Puede crear proyectos
+703|sí
+704|no
+705|Mis permisos
+706|Fila
+707|Filas propias
+708|Solo el administrador de la organización edita la matriz.
+709|Una celda cambiada es una fila de SU organización; volver a las letras entregadas la elimina. La base de datos es la ley: la matriz decide RLS, las RPC y los disparadores de bloqueo.
+710|Matriz
+711|Permisos
+712|Quién puede hacer qué en este proyecto. Una persona en una línea de Tiempo como Responsible recibe sola los derechos de la tarea (RACI); el creador del proyecto es su director.
+713|Director de proyecto o curador para toda la organización: este miembro puede crear proyectos. El administrador siempre puede.
+714|crear
+715|leer
+716|cambiar
+717|eliminar
+718|Administrador de la organización
+719|Director de proyecto
+720|Proyecto: solo lectura
+721|Patrocinador del proyecto
+722|Curador del proyecto
+723|Inversor del proyecto
+724|Miembro del proyecto
+725|Responsable de la tarea
+726|Gestor de la tarea
+727|Gestor financiero (plan)
+728|Gestor financiero (real)
+729|El cambio se ve al recargar la aplicación.
+730|Clave
+731|Texto entregado
+732|Texto de la organización
+733|Introduzca el tipo, la clave y el texto. Una clave de columna es como table.column.
+734|Textos de la aplicación
+735|Sustituya un título de menú, un encabezado de columna o un título para toda su organización. Idioma: {{n}}.
+736|Solo el administrador de la organización edita los textos.
+737|Texto

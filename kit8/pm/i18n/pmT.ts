@@ -13,6 +13,7 @@
 import { useEffect, useState } from 'react';
 import i18n from '../../i18n/i18n';
 import { PM_LOCALES } from './locales';
+import { organizationTextOfKey } from '../../i18n/organizationTexts';
 
 export const PM_I18N_NS = 'pm';
 
@@ -33,6 +34,9 @@ const fill = (text: string, values?: Record<string, string | number>) =>
 /** The text in the app language (English when there is no translation). */
 export function pmT(text: string, values?: Record<string, string | number>): string {
   ensureRegistered();
+  // the text an administrator replaced for the whole organization (PART 48): wins over every language
+  const replaced = organizationTextOfKey(text);
+  if (replaced) return fill(replaced, values);
   try {
     const lang = (i18n.language || 'en').split('-')[0];
     if (lang !== 'en') {

@@ -13,6 +13,7 @@ SELECT public.organization_ensure_user('eva@other.test', '33333333-3333-3333-333
 INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris', '{"personFirstName":"Boris","personLastName":"M"}'), ('p-clara', '{"personFirstName":"Clara","personLastName":"S","resourceCalendar":"partTime4hCalendar"}');
 INSERT INTO public."equipmentTable" ("rowGUID","rowJSON") VALUES ('e-crane', '{"equipmentTitle":"Tower crane"}');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111'); SELECT public.pm_seed_demo();
+SELECT tt.as_admin(); SELECT tt.may_create_projects('marko@acme.test');
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222'); SELECT public.pm_seed_demo();
 SELECT tt.as_user('eva@other.test', '33333333-3333-3333-3333-333333333333'); SELECT public.pm_seed_demo();
 SELECT tt.as_admin();

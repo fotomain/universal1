@@ -57,12 +57,14 @@ export interface TaskLineCatalogData {
   /** businessUnitTable (a tree of any depth) and cfrTypeTable (the enumeration of the Centers of Financial Responsibility): the business unit of a line */
   businessUnit: DefRow<any>[];
   cfrType: DefRow<any>[];
+  /** managementRACIGenusTable (kit8/catalog/management/raci_genus): the four RACI items of the select "RACI" of the Time tab */
+  raciGenus: DefRow<any>[];
 }
 
 export const emptyTaskLineCatalogs = (): TaskLineCatalogData => ({
   managementGenus: [], budgetItem: [], distribution: [], resourceRoleType: [], resourceRole: [], rolePrice: [], variant: [], descriptorGenus: [], descriptorValue: [], descriptorPlan: [],
   descriptorDestination: [], propertyValue: [], person: [], equipment: [], workCenter: [], partner: [], resourceContractTemplate: [], valueAddedTax: [], measureUnit: [],
-  priceType: [], productType: [], productFolder: [], product: [], productPrice: [], contract: [], businessUnit: [], cfrType: [],
+  priceType: [], productType: [], productFolder: [], product: [], productPrice: [], contract: [], businessUnit: [], cfrType: [], raciGenus: [],
 });
 
 /** the role catalog as the rules of catalog/resourcerole/crud expect it */

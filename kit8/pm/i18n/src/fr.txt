@@ -655,3 +655,83 @@
 655|Pourquoi
 656|Calculé par la base de données et vérifié sur cet appareil : {{n}} tâche(s) ajustée(s).
 657|Calculé par la base de données et vérifié sur cet appareil.
+658|RACI
+659|Responsable
+660|Approbateur
+661|Consulté
+662|Informé
+663|Plus d'un approbateur sur cette tâche
+664|Membres de l'organisation
+665|Inviter
+666|E-mail à inviter
+667|Créer une personne à la première connexion
+668|E-mail
+669|Statut
+670|Administrateur
+671|Personne à la première connexion
+672|Invité le
+673|Première session
+674|Invité
+675|Actif
+676|Créer la personne
+677|Renvoyer l'invitation
+678|Seul l'administrateur de l'organisation peut ajouter ou modifier des membres.
+679|Aucun membre pour l'instant.
+680|Saisissez une adresse comme nom@societe.com
+681|Organisation
+682|Personne
+683|Votre personne existe.
+684|Créer ma personne
+685|Vous n'avez pas le droit de {{op}} dans {{table}}.
+686|Verrouillé : {{n}}
+687|Choisissez un membre et un profil.
+688|Supprimé
+689|Membre
+690|Profil
+691|Attribuer
+692|Personne n'a encore de profil ici.
+693|automatique
+694|Retirer
+695|Table
+696|Écran
+697|Type
+698|Lettres
+699|Projet : {{n}}
+700|Aucun projet : vos profils où que ce soit
+701|Aucun profil : vous lisez ce que tout le monde lit.
+702|Peut créer des projets
+703|oui
+704|non
+705|Mes autorisations
+706|Ligne
+707|Lignes propres
+708|Seul l'administrateur de l'organisation modifie la matrice.
+709|Une cellule modifiée est une ligne de VOTRE organisation ; la remettre aux lettres livrées la supprime. La base de données fait loi : la matrice décide RLS, RPC et déclencheurs de verrouillage.
+710|Matrice
+711|Autorisations
+712|Qui peut faire quoi dans ce projet. Une personne sur une ligne de Temps comme Responsible reçoit seule les droits de la tâche (RACI) ; le créateur du projet en est le chef.
+713|Chef de projet ou curateur pour toute l’organisation : ce membre peut créer des projets. L’administrateur le peut toujours.
+714|créer
+715|lire
+716|modifier
+717|supprimer
+718|Administrateur de l'organisation
+719|Chef de projet
+720|Projet : lecture seule
+721|Sponsor du projet
+722|Curateur du projet
+723|Investisseur du projet
+724|Membre du projet
+725|Responsable de la tâche
+726|Gestionnaire de la tâche
+727|Gestionnaire financier (plan)
+728|Gestionnaire financier (réel)
+729|Le changement est visible après le rechargement de l'application.
+730|Clé
+731|Texte livré
+732|Texte de l'organisation
+733|Saisissez le type, la clé et le texte. Une clé de colonne ressemble à table.column.
+734|Textes de l'application
+735|Remplacez un titre de menu, un en-tête de colonne ou un titre pour toute votre organisation. Langue : {{n}}.
+736|Seul l'administrateur de l'organisation modifie les textes.
+737|Texte

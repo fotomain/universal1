@@ -9,6 +9,211 @@
 -- =============================================================================
 
 
+-- ==============================================================================================
+-- Permission profiles and matrices (PART 46 of start1_sql_tables.sql + start2_sql_code.sql): upsert - FIRST in this file on purpose (see start4)
+-- ==============================================================================================
+
+-- BEGIN GENERATED PERMISSION SEED (kit8/sql/permissions/build_permission_seed.py; the CRUD matrix is the owner's Google Sheet, read 2026-11-02)
+INSERT INTO public."project_permission_profile_catalog" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('permissionOrganizationAdmin', 'permissionCatalog', 'empty', 1000, '{"title": "Organization administrator", "level": "organization", "description": "R on the project tables of the organization; CRUD on generic tables, catalogs, users, members and permissions"}'::jsonb),
+  ('permissionProjectManager', 'permissionCatalog', 'empty', 2000, '{"title": "Project manager", "level": "project", "description": "full CRUD on the data of the project; RC on the catalogs; given at the organization level: may create projects"}'::jsonb),
+  ('permissionProjectReadOnly', 'permissionCatalog', 'empty', 3000, '{"title": "Project read only", "level": "project", "description": "R on all"}'::jsonb),
+  ('permissionProjectSponsor', 'permissionCatalog', 'empty', 4000, '{"title": "Project sponsor", "level": "project", "description": "R on all"}'::jsonb),
+  ('permissionProjectCurator', 'permissionCatalog', 'empty', 5000, '{"title": "Project curator", "level": "project", "description": "R on all; given at the organization level: may create projects"}'::jsonb),
+  ('permissionProjectInvestor', 'permissionCatalog', 'empty', 6000, '{"title": "Project investor", "level": "project", "description": "R on all"}'::jsonb),
+  ('permissionProjectMember', 'permissionCatalog', 'empty', 7000, '{"title": "Project member", "level": "project", "description": "derived: a person on a Time line as Accountable, Consulted or Informed reads the project"}'::jsonb),
+  ('permissionTaskResponsible', 'permissionCatalog', 'empty', 8000, '{"title": "Task responsible", "level": "task", "description": "derived from RACI: the progress, the time sheet and the fact input of the task"}'::jsonb),
+  ('permissionTaskManager', 'permissionCatalog', 'empty', 9000, '{"title": "Task manager", "level": "task", "description": "all task data except six disabled actions; how a person gets it is not decided yet"}'::jsonb),
+  ('permissionFinancialManagerPlan', 'permissionCatalog', 'empty', 10000, '{"title": "Financial manager (plan)", "level": "project", "description": "CRUD on the money plans: task lines and the payment plan"}'::jsonb),
+  ('permissionFinancialManagerFact', 'permissionCatalog', 'empty', 11000, '{"title": "Financial manager (fact)", "level": "project", "description": "CRUD on the money fact documents"}'::jsonb)
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON";
+
+INSERT INTO public."project_permission_profile_crud_table" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
+       jsonb_build_object('permissionTable', v.name, 'permissionSet', v.sets[p.n]) || COALESCE(x.extra, '{}'::jsonb)
+  FROM (VALUES
+    ('aiSessionTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('app_route_visits_turnover', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('budgetItemGenericKeyTable', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('budgetItemTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('budgetScenarioTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('businessUnitTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('cash_account_ledger_dirty', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('cash_account_ledger_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('cash_account_ledger_rests', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('cfrTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('contractTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('countryTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('currencyExchangeRateTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('currencyTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('customer_invoice_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('customer_invoice_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('descriptorDestinationTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('descriptorGenusTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('descriptorModeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('descriptorPlanTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('descriptorValueTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('distributionGenericTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcCatalogExecutiveTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcFreeExecutiveTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcTaskFinishedTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcTaskProgressTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcTaskRegisteredTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('dtcTaskWaitingTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('equipmentTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('equipmentTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('googleDriveCommandTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('kanban_stage_table', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('legalEntityTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('managementActivityGenusTable', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('managementCalendarDaysTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('managementCalendarTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('managementGenusTable', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('managementRACIGenusTable', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('measureUnitTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('mediaPostTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('mediaPostTableArchive', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('moneyAccountTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('monitor01_refresh_log', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('monitor01_view', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('organizationInvitationTable', ARRAY['CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('organizationMemberTable', ARRAY['CRUD', 'R', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('organizationTable', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('organizationTextTable', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('partnerTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('partner_balance_ledger', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('partner_balance_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('personTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('personTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('priceTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productBarcodeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productFolderTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productPackageTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productPriceTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productSeriesTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('productTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('product_receipt_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('product_receipt_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('project_kanban_stage_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_payment_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('project_payment_fact_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('project_permission_profile_catalog', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_permission_profile_crud_table', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_permission_profile_user_table', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('project_permission_profile_uxui_table', ARRAY['CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_report_settings', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('project_resource_leveling_run', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_resource_leveling_task', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_status_month_totals', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_status_month_turnover', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_status_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_status_roi_history', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_status_roi_task_month', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_subproject_link', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_table', ARRAY['RC', 'CRUD', 'R', 'R', 'RC', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_task_cost_total', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_task_dependencies_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_task_dependency_closure_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('project_task_kanban_state_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'RU', 'RU', 'R', 'R']),
+    ('project_task_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'RU', 'RU', 'R', 'R']),
+    ('project_timesheet_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('project_timesheet_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('project_timesheet_lines_data_entered', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('project_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('propertyValueTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('purchase_order_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('purchase_order_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('raciMemberTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('resourceRoleFolderTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('resourceRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('resourceRoleTypeTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('rolePriceTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('roleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('task_fact_usage_timeline', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('task_line_plan_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_line_plan_timeline', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_line_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('task_payment_plan_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('task_payment_plan_movements', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_template_dependency', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_template_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_template_line', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_template_task', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('task_user_permission_table', ARRAY['R', 'R', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('templateResourceContractTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_kanban_stage_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_task_dependencies_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_task_dependency_closure_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_task_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('templates_project_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('themeStoreTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('userAuthTable', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('userRoleTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('userTable', ARRAY['CRUD', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('user_calendar_event_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('user_calendar_invitation_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('user_calendar_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
+    ('valueAddedTaxTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('variantTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('variantValueTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('vendor_invoice_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('vendor_invoice_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('version_project_kanban_stage_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('version_project_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('version_project_task_dependencies_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('version_project_task_kanban_state_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('version_project_task_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('workCenterTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R'])
+  ) AS v(name, sets)
+  CROSS JOIN LATERAL unnest(ARRAY['permissionOrganizationAdmin', 'permissionProjectManager', 'permissionProjectReadOnly', 'permissionProjectSponsor', 'permissionProjectCurator', 'permissionProjectInvestor', 'permissionProjectMember', 'permissionTaskResponsible', 'permissionTaskManager', 'permissionFinancialManagerPlan', 'permissionFinancialManagerFact']) WITH ORDINALITY AS p(code, n)
+  LEFT JOIN (VALUES
+    ('permissionFinancialManagerPlan', 'task_line_table', '{"permissionLockedFields": ["raciItem", "taskResourceItem", "taskResourceKind", "taskWorkCenterKind"]}'::jsonb),
+    ('permissionTaskManager', 'project_task_table', '{"permissionLockedFields": ["taskDescription", "rowKind", "isMilestone", "taskMarkAsMilestone", "durationDays", "manualStartAt", "taskManualStartAt", "taskConstraintType", "taskConstraintDate", "taskDeadline", "startAt", "rowDuration", "treePath", "orderInList", "taskScheduleMode", "taskSplits", "durationElapsed", "durationEstimated"], "permissionLockedActions": ["deleteSelfFromResponsible", "changeTaskName", "changeDependencies", "taskToMilestone", "changeDates", "changePositionInTree"]}'::jsonb),
+    ('permissionTaskManager', 'task_line_table', '{"permissionLockedActions": ["deleteSelfFromResponsible"]}'::jsonb),
+    ('permissionTaskResponsible', 'project_task_kanban_state_table', '{"permissionWritableFields": ["rowJSON"]}'::jsonb),
+    ('permissionTaskResponsible', 'project_task_table', '{"permissionWritableFields": ["rowProgress"]}'::jsonb)
+  ) AS x(code, name, extra) ON x.code = p.code AND x.name = v.name
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON";
+
+INSERT INTO public."project_permission_profile_uxui_table" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+SELECT 'permUxui.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
+       jsonb_build_object('permissionObject', v.name, 'permissionSet', v.sets[p.n]) || COALESCE(x.extra, '{}'::jsonb)
+  FROM (VALUES
+    ('permissionCustomerInvoice', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionCustomerOrder', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionEditTexts', ARRAY['CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('permissionFactInput', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('permissionMatrixEditor', ARRAY['CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('permissionOrganizationMembers', ARRAY['CRUD', 'R', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('permissionPackingSlip', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionPaymentFact', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionProductReceipt', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionProgressPercent', ARRAY['R', 'RU', 'R', 'R', 'R', 'R', 'R', 'RU', 'RU', 'R', 'R']),
+    ('permissionProjectMembers', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('permissionPurchaseOrder', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
+    ('permissionReportMonitor01', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('permissionReportMonitor02', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('permissionReportMonitor03', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('permissionReportMonitor07', ARRAY['R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
+    ('permissionTaskDeliverableTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskExpenceTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskInboundPaymentTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskMaterialTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskOutboundPaymentTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskPaymentPlan', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTaskTimeTab', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R']),
+    ('permissionTimesheet', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
+    ('permissionVendorInvoice', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD'])
+  ) AS v(name, sets)
+  CROSS JOIN LATERAL unnest(ARRAY['permissionOrganizationAdmin', 'permissionProjectManager', 'permissionProjectReadOnly', 'permissionProjectSponsor', 'permissionProjectCurator', 'permissionProjectInvestor', 'permissionProjectMember', 'permissionTaskResponsible', 'permissionTaskManager', 'permissionFinancialManagerPlan', 'permissionFinancialManagerFact']) WITH ORDINALITY AS p(code, n)
+  LEFT JOIN (SELECT NULL::text AS code, NULL::text AS name, NULL::jsonb AS extra WHERE false) AS x ON x.code = p.code AND x.name = v.name
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON";
+
+-- END GENERATED PERMISSION SEED
+
 INSERT INTO public."countryTable" ("orderInList", "rowJSON")
 SELECT v.ord, jsonb_build_object('countryName', v.name, 'countryCode', v.code2, 'countryCodeAlpha3', v.code3,
                                  'countryNumericCode', v.num, 'phonePrefix', v.prefix, 'currencyCode', v.curr,
@@ -6994,3 +7199,16 @@ INSERT INTO public."budgetItemTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID"
   ('interestPaidBudgetItem', 'budgetItemCatalog', 'paymentsBudgetFolder', 13100, '{"title": "Interest paid", "description": "Cash flow item (financing): Interest paid", "managementGenusItem": "outboundPaymentGenus", "budgetItemGenericKey": "financingActivity.outboundPaymentGenus", "direction": "outbound", "isPolicyItem": true, "webIfrsName": "7.31, 7.33 policy: operating or financing (IFRS 18 removes the option)", "d365foName": "Interest expense; vendor / bank payment", "sapName": "Interest expense; outgoing payment"}'::jsonb),
   ('dividendsPaidBudgetItem', 'budgetItemCatalog', 'paymentsBudgetFolder', 13200, '{"title": "Dividends paid", "description": "Cash flow item (financing): Dividends paid", "managementGenusItem": "outboundPaymentGenus", "budgetItemGenericKey": "financingActivity.outboundPaymentGenus", "direction": "outbound", "isPolicyItem": true, "webIfrsName": "7.34 policy: financing or operating", "d365foName": "Bank payment from retained earnings", "sapName": "Dividend payable; outgoing payment"}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+
+-- ==============================================================================================
+-- RACI genus (PART 44 of start1_sql_tables.sql + start2_sql_code.sql): upsert
+-- ==============================================================================================
+
+-- the four RACI items of PMBOK: linear, read only catalog (kit8/catalog/management/raci_genus)
+INSERT INTO public."managementRACIGenusTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('raciResponsibleGUID', 'managementRACIGenusCatalog', 'empty', 1000, '{"title": "Responsible", "description": "does the work"}'::jsonb),
+  ('raciAccountableGUID', 'managementRACIGenusCatalog', 'empty', 2000, '{"title": "Accountable", "description": "owns the result, signs it off"}'::jsonb),
+  ('raciConsultedGUID', 'managementRACIGenusCatalog', 'empty', 3000, '{"title": "Consulted", "description": "asked before, two-way"}'::jsonb),
+  ('raciInformedGUID', 'managementRACIGenusCatalog', 'empty', 4000, '{"title": "Informed", "description": "told after, one-way"}'::jsonb)
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "orderInList" = EXCLUDED."orderInList", "rowJSON" = EXCLUDED."rowJSON", "updated_at" = now();
+

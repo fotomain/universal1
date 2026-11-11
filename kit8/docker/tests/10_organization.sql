@@ -52,7 +52,8 @@ SELECT tt.fails($q$SELECT public.organization_invite_user('not an email')$q$, 'n
 SELECT tt.as_admin();
 SELECT public.organization_ensure_user('boris@acme.test', '22222222-2222-2222-2222-222222222222', 'Boris', 'M') AS boris \gset
 SELECT tt.eq(:'boris'::jsonb->>'organizationGUID', :'anna'::jsonb->>'organizationGUID', 'a new user with an invitation joins the organization of the inviter');
-SELECT tt.eq((SELECT "rowJSON"->>'status' FROM public."organizationInvitationTable" WHERE "rowGUID" = :'inv'), 'accepted', 'the invitation is accepted');
+SELECT tt.eq((SELECT "rowJSON"->>'memberStatus' FROM public."organizationMemberTable" WHERE "rowGUID" = :'inv'), 'active', 'the invitation is accepted: the member row is active');
+SELECT tt.eq((SELECT "rowParentGUID" FROM public."organizationMemberTable" WHERE "rowGUID" = :'inv'), '22222222-2222-2222-2222-222222222222', 'and belongs to boris');
 SELECT tt.eq((SELECT count(*) FROM public."organizationTable" WHERE "rowOwnerGUID" = 'boris@acme.test'), 0::bigint, 'boris got NO organization of his own');
 -- boris is not the admin
 SELECT tt.as_user('boris@acme.test', '22222222-2222-2222-2222-222222222222');
@@ -73,6 +74,9 @@ SELECT tt.as_user('boris@acme.test', '22222222-2222-2222-2222-222222222222');
 SELECT tt.fails(format($q$SELECT public.organization_accept_invitation(%L)$q$, :'inv2'), 'no pending invitation for you', 'only the invited person accepts');
 SELECT tt.as_user('clara@acme.test', '33333333-3333-3333-3333-333333333333');
 SELECT public.organization_accept_invitation(:'inv2');
+SELECT tt.as_admin();
+SELECT tt.may_create_projects('clara@acme.test');
+SELECT tt.as_user('clara@acme.test', '33333333-3333-3333-3333-333333333333');
 SELECT tt.eq(public.organization_of_current_user(), :'anna'::jsonb->>'organizationGUID', 'clara is now in the organization of anna');
 SELECT tt.eq((SELECT "rowParentGUID" FROM public.project_table WHERE "rowGUID" = 'cccccccc-0000-0000-0000-000000000001'), :'clara'::jsonb->>'organizationGUID', 'her old project keeps its old organization');
 INSERT INTO public.project_table ("rowGUID","treePath","rowOwnerGUID","rowJSON")

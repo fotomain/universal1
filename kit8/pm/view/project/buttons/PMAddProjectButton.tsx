@@ -6,7 +6,7 @@ import { usePMTip } from '../../../inner/tooltip/PMTooltip';
 import ButtonApp from '../../../../ui/components/common/ButtonApp';
 import { pmT } from '../../../i18n/pmT';
 
-export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?: any) => void; compact?: boolean }) {
+export default function PMAddProjectButton({ onPress, compact, disabled }: { onPress: (e?: any) => void; compact?: boolean; disabled?: boolean }) {
   const tip = usePMTip('New project');
   return (
     <ButtonApp
@@ -19,6 +19,7 @@ export default function PMAddProjectButton({ onPress, compact }: { onPress: (e?:
       accessibilityLabel={pmT('New project')}
       width={compact ? undefined : PM_WIDE_ACTION_WIDTH}
       onPress={onPress}
+      disabled={disabled}
       onHoverIn={tip.onHoverIn}
       onHoverOut={tip.onHoverOut}
       onPressIn={tip.onPressIn}

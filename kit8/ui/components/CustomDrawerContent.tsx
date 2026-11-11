@@ -6,6 +6,7 @@ import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './common/IconApp';
+import { usePermissions } from '../../permissions/usePermissions';
 import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
 import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
 
@@ -34,6 +35,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const pathname = usePathname();
   const { t } = useTranslation();
   const { activeSystem, themeColors, isDark } = useDesignSystem();
+  const permissions = usePermissions();   // PART 46 / 47: a screen the profiles of the user do not give (the members of the organization ...) is not listed
 
   const navigateAndClose = (route: string) => {
     const fullRoute = route.startsWith('/') ? route : `/${route}`;
@@ -111,6 +113,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
         { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
         { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
+        // who is a member of the active organization: invitations, administrators (organizationMemberTable)
+        { id: 'organizationmembers', label: 'Organization members', icon: 'group', route: 'catalog/organization/members' },
         { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
         { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
         // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
@@ -183,7 +187,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       label: 'System settings',
       icon: 'settings_applications',
       route: '',
-      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }],
+      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: 'Permissions', icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: 'Application texts', icon: 'translate', route: 'catalog/organization/texts' }],
     },
   ];
 
@@ -248,7 +252,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     item.children ? (
       <View key={item.id} testID={`drawer-group-${item.id}`}>
         {renderDrawerItem(item)}
-        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.map(renderSubItem)}</View>}
+        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.filter((ch) => (ch.id !== 'organizationmembers' || permissions.canUi('permissionOrganizationMembers', 'R')) && (ch.id !== 'system-texts' || permissions.canUi('permissionEditTexts', 'R'))).map(renderSubItem)}</View>}
       </View>
     ) : (
       renderDrawerItem(item)

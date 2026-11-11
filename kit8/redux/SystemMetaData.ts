@@ -20,6 +20,8 @@ import {distributionSystemMetaData} from "../catalog/distribution/distributionMe
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
 import {budgetItemKeySystemMetaData} from "../catalog/budget/item/budgetItemKeyMetaData";
 import {managementActivityGenusSystemMetaData} from "../catalog/management/activity_genus/managementActivityGenusMetaData";
+import {managementRACIGenusSystemMetaData} from "../catalog/management/raci_genus/raciGenusMetaData";
+import {organizationMemberSystemMetaData} from "../catalog/organization/members/organizationMemberMetaData";
 import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetScenarioMetaData";
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {moneyAccountSystemMetaData} from "../catalog/money_account/moneyAccountMetaData";
@@ -118,6 +120,10 @@ const SystemMetaData:any = {
     // keys activity x management genus (read only); budgetItemTable.rowJSON.budgetItemGenericKey / direction point at them. Screen /catalog/management/activity_genus/list, SQL PART 32
     ...managementActivityGenusSystemMetaData(),
     ...budgetItemKeySystemMetaData(),
+    // RACI genus (kit8/catalog/management/raci_genus): managementRACIGenusTable, the 4 PMBOK items (read only, no screen); task_line_table.rowJSON.raciItem of a Time line points at it. SQL PART 44
+    ...managementRACIGenusSystemMetaData(),
+    // Organization members (kit8/catalog/organization/members): organizationMemberTable, who is a member of which organization (administrator flag, invitation state). SQL PART 45
+    ...organizationMemberSystemMetaData(),
     // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.
     // Screen /budget/scenario/list, SQL kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql (PART 19)
     ...budgetScenarioSystemMetaData(),

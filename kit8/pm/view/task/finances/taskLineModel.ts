@@ -55,6 +55,8 @@ export interface TaskLineRowJSON {
   resourceRoleAttributeSetKey: string | null;
   /** Time: 'person' | 'equipment' | 'workCenter' = which catalog taskResourceItem belongs to; empty = person (every Time line made before equipment). Not used by the other genus. */
   taskResourceKind: 'person' | 'equipment' | 'workCenter' | null;
+  /** Time: the RACI item of the person on the task = a rowGUID of managementRACIGenusTable (raciResponsibleGUID | raciAccountableGUID | raciConsultedGUID | raciInformedGUID). Never empty on a Time line (the database and a new row default to Responsible); not used by the other genus. kit8/catalog/management/raci_genus */
+  raciItem?: string | null;
   /**
    * Time, a line that books WORK CENTERS: the menu "Resource: Person | Equipment | Partner" = the kind of the work centers the resource column offers (the kind of the work center chosen, once there is one).
    * Setting it makes the line a work center line (taskResourceKind = 'workCenter'); empty on a line that holds a person / equipment directly (every line made before work centers).

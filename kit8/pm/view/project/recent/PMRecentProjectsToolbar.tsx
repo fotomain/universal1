@@ -45,12 +45,18 @@ import { PMToolbarDivider } from "../../../inner/toolbars/PMToolbarPrimitives";
 import { PM_DIALOG_BUTTON_WIDTH, PM_EXPORT_BUTTON_WIDTH, PM_SETTINGS_BUTTON_WIDTH, PM_SETTINGS_ICON_SIZE } from "../../../model/constants";
 import { exportProjectDashboardToPdf } from "../../../crud/exchange/pdf/exportDashboardToPdf";
 import { pmT } from "../../../i18n/pmT";
+import { usePermissions } from "../../../../permissions/usePermissions";
+import AssignmentsEditor from "../../../../permissions/AssignmentsEditor";
+import { ASSIGNABLE_PROFILES } from "../../../../permissions/permissionModel";
+import { useSelector } from "react-redux";
+import { selectUserOrganizationGUID } from "../../../../redux/activeUserSlice";
 import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import PMProjectActionsButton from "../buttons/PMProjectActionsButton";
 import { projectCostBudgetOn } from "../../../model/taskInputScope";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
+import OrganizationFilter from "../../../../catalog/organization/switch/OrganizationFilter";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
 import SwitchApp from "../../../../ui/components/common/SwitchApp";
 import TextInputApp from "../../../../ui/components/common/TextInputApp";
@@ -91,7 +97,7 @@ import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabMembers';
 
 interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
   rowGUID: string | null; // null = new project
@@ -142,6 +148,11 @@ export default function PMRecentProjectsToolbar({
   const units = useBusinessUnitData(true);
   // the organization of the user: its defaultProjectSettings start every NEW project; the three dots menu of the settings window saves into them
   const organization = useMyOrganization();
+  // PART 46 / 47: the buttons the database would refuse are disabled - create a project (the right of the administrator and of the organization level manager / curator), the actions of the project
+  const projectPermissions = usePermissions(selectedProjectGUID);
+  const permissionsOfDraft = usePermissions(selectedProjectGUID);
+  const myOrganizationGUID: string = useSelector(selectUserOrganizationGUID) || "";
+  const rightsOnProject = usePermissions();
   const buildRow = useBuildProjectRow(ownerGUID);
   const createProject = useCreateProjectMutation(ownerGUID);
   const updateProject = useUpdateProjectMutation(ownerGUID);
@@ -538,6 +549,8 @@ export default function PMRecentProjectsToolbar({
           style={{ marginRight: 8 }}
         />
       )}
+      {/* a user of two or more organizations picks the ONE whose projects can be selected (organization_switch); not shown for one organization */}
+      <OrganizationFilter />
       <SelectProjectFromList
         ownerGUID={ownerGUID}
         width={compact ? 150 : 220}
@@ -662,7 +675,7 @@ export default function PMRecentProjectsToolbar({
         projectGUID={selectedProjectGUID}
         costBudgetOn={projectCostBudgetOn(selected?.rowJSON)}
         color={themeColors.text}
-        disabled={!selected}
+        disabled={!selected || !projectPermissions.can('task_line_table', 'U')}
         width={PM_SETTINGS_BUTTON_WIDTH}
         size={PM_SETTINGS_ICON_SIZE}
       />
@@ -677,7 +690,7 @@ export default function PMRecentProjectsToolbar({
         onPress={openEdit}
       />
       <View ref={addBtnRef} collapsable={false}>
-        <PMAddProjectButton compact={compact} onPress={handleOpenAddMenu} />
+        <PMAddProjectButton compact={compact} onPress={handleOpenAddMenu} disabled={!rightsOnProject.canCreateProject} />
       </View>
       </View>
       </ScrollView>
@@ -795,6 +808,8 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
+                  // PART 46 / 47: who holds which permission profile in this project (a saved project only)
+                  ...(draft?.rowGUID ? [{ id: 'TabMembers' as const, label: 'Members', icon: 'group' }] : []),
                 ].map((tab) => {
                   const active = activeTab === tab.id;
                   return (
@@ -1191,6 +1206,19 @@ export default function PMRecentProjectsToolbar({
                     <PMProjectKanbanStateList
                       projectGUID={draft?.rowGUID}
                       onOpenKanbanStages={() => setKanbanStagesOpen(true)}
+                    />
+                  </View>
+                )}
+
+                {activeTab === 'TabMembers' && !!draft?.rowGUID && (
+                  <View testID="pm-project-tab-members-content">
+                    <AssignmentsEditor
+                      testID="pm-project-members"
+                      ownerGUID={draft.rowGUID}
+                      organizationGUID={myOrganizationGUID}
+                      profiles={ASSIGNABLE_PROFILES}
+                      canEdit={permissionsOfDraft.canUi('permissionProjectMembers', 'U')}
+                      hint={pmT('Who may do what in this project. A person on a Time line as Responsible gets the task rights by himself (RACI); the creator of the project is its project manager.')}
                     />
                   </View>
                 )}

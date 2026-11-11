@@ -39,6 +39,7 @@ import ReusableTableRowMenu, { RowMenuState } from './ReusableTableRowMenu';
 import { useReusableTableCrud } from './useReusableTableCrud';
 import type { CatalogColumn, EditRowModalCardProps, ReusableTableProps, ReusableTableRow, VisualColumn } from './reusableTableTypes';
 import ReusableTableHeaderCell from './ReusableTableHeaderCell';
+import { columnTitleOf } from '../../../../i18n/organizationTexts';
 import ReusableTableColumnMenu from './ReusableTableColumnMenu';
 import ReusableTableFillColumnModal from './ReusableTableFillColumnModal';
 import { PMIconButton } from '../../../../pm/inner/buttons/PMIconButton';
@@ -286,7 +287,7 @@ export default function ReusableTable(props: ReusableTableProps) {
 
   // ---- sql_for_delete (asks first when uxuiState.askBeforeDeletePost) ----
   const doDelete = (ids: string[]) => { crud.remove(ids); setSelected((p) => p.filter((x) => !ids.includes(x))); };
-  const askDelete = (ids: string[]) => { if (ids.length === 0) return; if (askBeforeDelete) setPendingDelete(ids); else doDelete(ids); };
+  const askDelete = (ids: string[]) => { if (ids.length === 0 || props.deleteEnabled === false || props.readOnly) return; if (askBeforeDelete) setPendingDelete(ids); else doDelete(ids); };
 
   /** the ONE selected row: target of the panel's duplicate button */
   const one = selectedHere.length === 1 ? selectedHere[0] : null;
@@ -399,7 +400,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         {visualColumns.map((col) => {
           const cellStyle = [styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }];
           const cell = (
-            <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost || !inlineEdit} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
+            <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost || !inlineEdit || !!props.readOnly} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
               onChange={(key, value) => crud.setCell(row.rowGUID, key, value)} onPatch={(patch) => crud.patchRow(row.rowGUID, patch)} />
           );
           // inlineEdit = false: the cells only show, a click opens the EditRowModalCard
@@ -489,7 +490,7 @@ export default function ReusableTable(props: ReusableTableProps) {
           <View style={styles.panel} testID={`${testID}-crud-panel`}>
             {postEl}
             {crudPanelEnabled && (<>
-            {addEnabled && (<>
+            {addEnabled && !props.readOnly && (<>
             <PMIconButton tipScope="app" testID={`${testID}-add`} icon="add" title={`Add ${itemLabel.toLowerCase()} last`} color={c.primary} onPress={() => (onAdd ? onAdd() : crud.createLast())} />
             {!onAdd && <PMIconButton tipScope="app" testID={`${testID}-add-first`} icon="add_row_above" title={`Add ${itemLabel.toLowerCase()} first`} color={c.text} onPress={() => crud.createFirst()} />}
             {!onAdd && <PMIconButton tipScope="app" testID={`${testID}-duplicate-selected`} icon="control_point_duplicate" title="Duplicate the selected row" color={c.text} disabled={!one} onPress={() => one && crud.duplicate(one)} />}
@@ -501,7 +502,7 @@ export default function ReusableTable(props: ReusableTableProps) {
               </>
             )}
             {filtered && <PMIconButton tipScope="app" testID={`${testID}-clear-filters`} icon="filter_alt_off" title="Clear search, filters and sort" color={c.primary} onPress={clearSortAndFilters} />}
-            <PMIconButton tipScope="app" testID={`${testID}-delete-selected`} icon="delete" title="Delete the selected rows" color={c.error} disabled={selectedHere.length === 0} badge={selectedHere.length || undefined} onPress={() => askDelete(selectedHere)} />
+            <PMIconButton tipScope="app" testID={`${testID}-delete-selected`} icon="delete" title="Delete the selected rows" color={c.error} disabled={selectedHere.length === 0 || props.deleteEnabled === false || !!props.readOnly} badge={selectedHere.length || undefined} onPress={() => askDelete(selectedHere)} />
             </>)}
           </View>
         );
@@ -541,7 +542,7 @@ export default function ReusableTable(props: ReusableTableProps) {
               </ServiceHeaderCell>
             ))}
             {visualColumns.map((col) => (
-              <ReusableTableHeaderCell key={col.key} testID={testID} columnKey={col.key} title={col.title} width={widthOf(col)}
+              <ReusableTableHeaderCell key={col.key} testID={testID} columnKey={col.key} title={columnTitleOf(entityName, col.key, col.title)} width={widthOf(col)}
                 justify={col.type === 'rowNumber' ? 'center' : justify(col)} colors={c}
                 draggable={dragAndDropColumns} resizable={resizeColumnWidth} delimiter={headerDelimiters}
                 onDragEnd={onColumnDragEnd} onResize={onColumnResize} onResizeEnd={onColumnResizeEnd}
@@ -600,7 +601,7 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </ScrollView>
 
-      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled && !onAdd} openLabel={openLabel} filtered={viewFiltered}
+      <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled && !onAdd && !props.readOnly} deleteEnabled={props.deleteEnabled !== false && !props.readOnly} openLabel={openLabel} filtered={viewFiltered}
         onDelete={(guid) => askDelete([guid])} onEdit={openEdit} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
       {EditRowModalCard && editGUID && (() => {
         const editRow = rows.find((x) => x.rowGUID === editGUID);

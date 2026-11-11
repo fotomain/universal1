@@ -9,18 +9,22 @@ import { todayUTC } from '../../view/project/scheduling';
 import { PMProjectRow } from '../../model/types';
 import { errorMessage, newGUID } from '../api/apiUtils';
 import { pmKeys, usePMApi, useProjectsListMutation } from '../shared/queryShared';
+import { projectsOfOrganization } from '../../../catalog/organization/switch/organizationSwitchModel';
+import { useActiveOrganizationGUID } from '../../../catalog/organization/switch/useActiveOrganizationGUID';
 
 export function useReadProjectsQuery(ownerGUID: string | null | undefined) {
   const api = usePMApi();
   const setProjects = usePMStore((s) => s.setProjects);
+  // the projects of the ACTIVE organization only (a user of several organizations picks it in the project bar: kit8/catalog/organization/switch); the query itself keeps all his projects
+  const organizationGUID = useActiveOrganizationGUID();
   const query = useQuery({
     queryKey: pmKeys.projects(ownerGUID),
     queryFn: () => api.readProjects(ownerGUID as string),
     enabled: !!ownerGUID,
   });
   useEffect(() => {
-    if (query.data) setProjects(query.data);
-  }, [query.data, setProjects]);
+    if (query.data) setProjects(projectsOfOrganization(query.data, organizationGUID));
+  }, [query.data, organizationGUID, setProjects]);
   return query;
 }
 
@@ -37,9 +41,10 @@ export function useReadProjectQuery(projectGUID: string | null | undefined) {
 /** Substring search by project name in the database (SelectProjectFromList). */
 export function useProjectSearchQuery(ownerGUID: string | null | undefined, text: string, enabled: boolean) {
   const api = usePMApi();
+  const organizationGUID = useActiveOrganizationGUID();
   return useQuery({
-    queryKey: pmKeys.projectSearch(ownerGUID, text.trim().toLowerCase()),
-    queryFn: () => api.searchProjects(ownerGUID as string, text),
+    queryKey: [...pmKeys.projectSearch(ownerGUID, text.trim().toLowerCase()), organizationGUID],
+    queryFn: async () => projectsOfOrganization(await api.searchProjects(ownerGUID as string, text), organizationGUID),
     enabled: !!ownerGUID && enabled,
     placeholderData: keepPreviousData,
     staleTime: 10_000,

@@ -655,3 +655,83 @@
 655|Kāpēc
 656|Aprēķinājusi datubāze un pārbaudīts šajā ierīcē: pielāgoti {{n}} uzdevumi.
 657|Aprēķinājusi datubāze un pārbaudīts šajā ierīcē.
+658|RACI
+659|Izpildītājs
+660|Atbildīgais
+661|Konsultē
+662|Informēts
+663|Šim uzdevumam ir vairāk nekā viens atbildīgais
+664|Organizācijas dalībnieki
+665|Uzaicināt
+666|E-pasts uzaicināšanai
+667|Izveidot personu pirmajā pieslēgšanās reizē
+668|E-pasts
+669|Statuss
+670|Administrators
+671|Persona pirmajā pieslēgšanās reizē
+672|Uzaicināts
+673|Pirmā sesija
+674|Uzaicināts
+675|Aktīvs
+676|Izveidot personu
+677|Nosūtīt uzaicinājumu vēlreiz
+678|Tikai organizācijas administrators var pievienot vai mainīt dalībniekus.
+679|Dalībnieku vēl nav.
+680|Ievadiet e-pastu, piemēram, vards@uznemums.com
+681|Organizācija
+682|Persona
+683|Jūsu persona pastāv.
+684|Izveidot manu personu
+685|Jums nav tiesību: {{op}} — {{table}}.
+686|Slēgts: {{n}}
+687|Izvēlieties dalībnieku un profilu.
+688|Noņemts
+689|Dalībnieks
+690|Profils
+691|Piešķirt
+692|Šeit vēl nevienam nav profila.
+693|automātiski
+694|Noņemt
+695|Tabula
+696|Ekrāns
+697|Veids
+698|Burti
+699|Projekts: {{n}}
+700|Projekts nav izvēlēts: jūsu profili jebkurā vietā
+701|Nav profila: jūs lasāt to, ko lasa visi.
+702|Var izveidot projektus
+703|jā
+704|nē
+705|Manas tiesības
+706|Rinda
+707|Savas rindas
+708|Matricu maina tikai organizācijas administrators.
+709|Mainīta šūna ir JŪSU organizācijas rinda; atgriežot piegādātos burtus, tā tiek dzēsta. Likums ir datubāze: matrica vada RLS, RPC un bloķēšanas trigerus.
+710|Matrica
+711|Tiesības
+712|Kas ko drīkst šajā projektā. Persona laika rindā kā Responsible pati saņem uzdevuma tiesības (RACI); projekta izveidotājs ir tā vadītājs.
+713|Projekta vadītājs vai kurators visai organizācijai: šis dalībnieks drīkst izveidot projektus. Administrators drīkst vienmēr.
+714|izveidot
+715|lasīt
+716|mainīt
+717|dzēst
+718|Organizācijas administrators
+719|Projekta vadītājs
+720|Projekts: tikai lasīšana
+721|Projekta sponsors
+722|Projekta kurators
+723|Projekta investors
+724|Projekta dalībnieks
+725|Uzdevuma atbildīgais
+726|Uzdevuma pārvaldnieks
+727|Finanšu vadītājs (plāns)
+728|Finanšu vadītājs (fakts)
+729|Izmaiņa būs redzama pēc lietotnes pārlādes.
+730|Atslēga
+731|Piegādātais teksts
+732|Organizācijas teksts
+733|Ievadiet veidu, atslēgu un tekstu. Kolonnas atslēga izskatās kā table.column.
+734|Lietotnes teksti
+735|Aizstājiet izvēlnes nosaukumu, kolonnas virsrakstu vai virsrakstu visai organizācijai. Valoda: {{n}}.
+736|Tekstus maina tikai organizācijas administrators.
+737|Teksts

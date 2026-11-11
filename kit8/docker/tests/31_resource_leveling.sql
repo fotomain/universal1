@@ -56,7 +56,8 @@ SELECT tt.eq(jsonb_array_length(:'inp'::jsonb->'capacity') > 0, true, 'the stand
 SELECT tt.eq((SELECT (e->>'h')::numeric FROM jsonb_array_elements(:'inp'::jsonb->'capacity') e WHERE e->>'d' = '2026-10-05'), 8::numeric, 'a Monday has 8 hours (the standard work week)');
 SELECT tt.eq((SELECT (e->>'h')::numeric FROM jsonb_array_elements(:'inp'::jsonb->'capacity') e WHERE e->>'d' = '2026-10-10'), 0::numeric, 'a Saturday has 0 hours (a known day off, not unknown)');
 SELECT tt.eq(jsonb_array_length(:'inp'::jsonb->'foreign'), 0, 'no other project holds the person');
-SELECT tt.fails(format($q$SELECT public.project_resource_leveling_inputs(%L, '2026-10-05', '2026-10-11', '[]')$q$, :'p2'), 'not yours', 'the inputs of another user''s project are refused');
+SELECT tt.fails(format($q$SELECT public.project_resource_leveling_inputs(%L, '2026-10-05', '2026-10-11', '[]')$q$, :'pout'), 'not yours', 'the inputs of a project of another organization are refused');
+SELECT tt.eq((SELECT jsonb_typeof(public.project_resource_leveling_inputs(:'p2', '2026-10-05', '2026-10-11', '[]')->'capacity')), 'array', 'the administrator of the organization READS the inputs of a colleague''s project (R, PART 47)');
 SELECT tt.fails(format($q$SELECT public.project_resource_leveling_inputs(%L, '2026-10-11', '2026-10-05', '[]')$q$, :'p1'), 'give the first and the last day', 'a backwards range is refused');
 SELECT tt.fails(format($q$SELECT public.project_resource_leveling_inputs(%L, '2026-01-01', '2031-01-01', '[]')$q$, :'p1'), 'longer than 1500', 'a range over 1500 days is refused');
 

@@ -655,3 +655,83 @@
 655|Por quê
 656|Calculado pelo banco de dados e verificado neste dispositivo: {{n}} tarefa(s) ajustada(s).
 657|Calculado pelo banco de dados e verificado neste dispositivo.
+658|RACI
+659|Responsável
+660|Aprovador
+661|Consultado
+662|Informado
+663|Mais de um aprovador nesta tarefa
+664|Membros da organização
+665|Convidar
+666|E-mail a convidar
+667|Criar uma pessoa no primeiro login
+668|E-mail
+669|Estado
+670|Administrador
+671|Pessoa no primeiro login
+672|Convidado em
+673|Primeira sessão
+674|Convidado
+675|Ativo
+676|Criar pessoa
+677|Enviar o convite novamente
+678|Só o administrador da organização pode adicionar ou alterar membros.
+679|Ainda não há membros.
+680|Introduza um e-mail como nome@empresa.com
+681|Organização
+682|Pessoa
+683|A sua pessoa existe.
+684|Criar a minha pessoa
+685|Você não tem permissão para {{op}} em {{table}}.
+702|Pode criar projetos
+705|Minhas permissões
+710|Matriz
+711|Permissões
+714|criar
+715|ler
+716|alterar
+717|excluir
+734|Textos da aplicação
+686|Bloqueado: {{n}}
+687|Escolha um membro e um perfil.
+688|Removido
+689|Membro
+690|Perfil
+691|Atribuir
+692|Ainda ninguém tem um perfil aqui.
+693|automático
+694|Remover
+695|Tabela
+696|Ecrã
+697|Tipo
+698|Letras
+699|Projeto: {{n}}
+700|Nenhum projeto selecionado: os seus perfis em qualquer lugar
+701|Sem perfil: lê o que todos leem.
+703|sim
+704|não
+706|Linha
+707|Linhas próprias
+708|Só o administrador da organização edita a matriz.
+709|Uma célula alterada é uma linha da SUA organização; repô-la nas letras fornecidas elimina-a. A base de dados é a lei: a matriz decide o RLS, as RPC e os gatilhos de bloqueio.
+712|Quem pode fazer o quê neste projeto. Uma pessoa numa linha de Tempo como Responsible recebe sozinha os direitos da tarefa (RACI); o criador do projeto é o seu gestor.
+713|Gestor de projeto ou curador para toda a organização: este membro pode criar projetos. O administrador pode sempre.
+718|Administrador da organização
+719|Gestor de projeto
+720|Projeto: só leitura
+721|Patrocinador do projeto
+722|Curador do projeto
+723|Investidor do projeto
+724|Membro do projeto
+725|Responsável pela tarefa
+726|Gestor da tarefa
+727|Gestor financeiro (plano)
+728|Gestor financeiro (real)
+729|A alteração vê-se depois de recarregar a aplicação.
+730|Chave
+731|Texto fornecido
+732|Texto da organização
+733|Introduza o tipo, a chave e o texto. Uma chave de coluna é do tipo table.column.
+735|Substitua um título de menu, um cabeçalho de coluna ou um título para toda a organização. Idioma: {{n}}.
+736|Só o administrador da organização edita os textos.
+737|Texto

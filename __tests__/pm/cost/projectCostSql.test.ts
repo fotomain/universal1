@@ -101,7 +101,7 @@ describe('the code of PART 27', () => {
     for (const fn of ['project_cost_rebuild(uuid)', 'project_cost_apply(uuid[])', 'project_cost_process_dirty()', 'project_cost_verify(uuid)']) expect(p).toContain(`REVOKE ALL ON FUNCTION public.${fn} FROM PUBLIC, anon, authenticated`);
   });
   it('the command refuses a project that is not yours', () => {
-    expect(p).toContain("pm_owns_project(p_project)");
+    expect(p).toContain("perm_can_in('project_table', 'U', p_project)");   // PART 47: the matrix, not the owner
     expect(p).toContain('is not yours');
   });
 });

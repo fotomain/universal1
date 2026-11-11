@@ -67,3 +67,10 @@ DECLARE n bigint;
 BEGIN
   EXECUTE p_sql; GET DIAGNOSTICS n = ROW_COUNT; RETURN n;
 END $$;
+
+-- the organization level "may create projects" (PART 46 / 47): a member who is no administrator needs it before he inserts into project_table. Call it as the administrator of the SQL editor (tt.as_admin()).
+CREATE OR REPLACE FUNCTION tt.may_create_projects(p_email text) RETURNS void LANGUAGE sql AS $$
+  INSERT INTO public.project_permission_profile_user_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  SELECT u."rowJSON"->>'userOrganization', u."rowGUID", '{"permissionProfileGUID": "permissionProjectManager"}'::jsonb FROM public."userTable" u WHERE u."rowOwnerGUID" = lower(p_email)
+  ON CONFLICT DO NOTHING
+$$;

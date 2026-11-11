@@ -655,3 +655,83 @@
 655|Waarom
 656|Berekend door de database en gecontroleerd op dit apparaat: {{n}} taak/taken aangepast.
 657|Berekend door de database en gecontroleerd op dit apparaat.
+658|RACI
+659|Verantwoordelijk
+660|Eindverantwoordelijk
+661|Geraadpleegd
+662|Geïnformeerd
+663|Meer dan één eindverantwoordelijke voor deze taak
+664|Leden van de organisatie
+665|Uitnodigen
+666|E-mail om uit te nodigen
+667|Persoon aanmaken bij de eerste aanmelding
+668|E-mail
+669|Status
+670|Beheerder
+671|Persoon bij de eerste aanmelding
+672|Uitgenodigd op
+673|Eerste sessie
+674|Uitgenodigd
+675|Actief
+676|Persoon aanmaken
+677|Uitnodiging opnieuw sturen
+678|Alleen de beheerder van de organisatie kan leden toevoegen of wijzigen.
+679|Nog geen leden.
+680|Voer een e-mail in zoals naam@bedrijf.com
+681|Organisatie
+682|Persoon
+683|Uw persoon bestaat.
+684|Mijn persoon aanmaken
+685|U heeft geen toestemming om {{op}} in {{table}}.
+702|Mag projecten aanmaken
+705|Mijn machtigingen
+710|Matrix
+711|Machtigingen
+714|aanmaken
+715|lezen
+716|wijzigen
+717|verwijderen
+734|Applicatieteksten
+686|Vergrendeld: {{n}}
+687|Kies een lid en een profiel.
+688|Verwijderd
+689|Lid
+690|Profiel
+691|Toekennen
+692|Hier heeft nog niemand een profiel.
+693|automatisch
+694|Verwijderen
+695|Tabel
+696|Scherm
+697|Soort
+698|Letters
+699|Project: {{n}}
+700|Geen project gekozen: uw profielen overal
+701|Geen profiel: u leest wat iedereen leest.
+703|ja
+704|nee
+706|Rij
+707|Eigen rijen
+708|Alleen de beheerder van de organisatie wijzigt de matrix.
+709|Een gewijzigde cel is een rij van UW organisatie; terugzetten op de geleverde letters verwijdert haar. De database is de wet: de matrix bepaalt RLS, de RPC's en de vergrendelingstriggers.
+712|Wie wat mag in dit project. Een persoon op een tijdregel als Responsible krijgt zelf de taakrechten (RACI); de maker van het project is de projectmanager.
+713|Projectmanager of curator voor de hele organisatie: dit lid mag projecten aanmaken. De beheerder mag altijd.
+718|Organisatiebeheerder
+719|Projectmanager
+720|Project: alleen lezen
+721|Projectsponsor
+722|Projectcurator
+723|Projectinvesteerder
+724|Projectlid
+725|Verantwoordelijke voor de taak
+726|Taakmanager
+727|Financieel manager (plan)
+728|Financieel manager (feit)
+729|De wijziging is zichtbaar na het opnieuw laden van de app.
+730|Sleutel
+731|Geleverde tekst
+732|Tekst van de organisatie
+733|Voer soort, sleutel en tekst in. Een kolomsleutel ziet eruit als table.column.
+735|Vervang een menutitel, kolomkop of titel voor uw hele organisatie. Taal: {{n}}.
+736|Alleen de beheerder van de organisatie wijzigt de teksten.
+737|Tekst

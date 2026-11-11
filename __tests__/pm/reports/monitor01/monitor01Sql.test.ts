@@ -162,7 +162,7 @@ describe('the structure file, the code file and the delete file carry the same p
   it('monitor01_refresh_now exists in both files, is for the authenticated user (SECURITY DEFINER, own projects only) and is dropped by the delete file', () => {
     for (const src of [structure]) {
       expect(src).toContain('CREATE OR REPLACE FUNCTION public.monitor01_refresh_now(p_project uuid DEFAULT NULL, p_max integer DEFAULT 2000) RETURNS jsonb');
-      expect(src).toContain('public.pm_owns_project(x.pr)');
+      expect(src).toContain("public.perm_can_in('monitor01_view', 'R', x.pr)");
       expect(src).toContain('GRANT EXECUTE ON FUNCTION public.monitor01_refresh_now(uuid, integer) TO authenticated;');
     }
     expect(del).toContain('DROP FUNCTION IF EXISTS public.monitor01_refresh_now(uuid, integer);');

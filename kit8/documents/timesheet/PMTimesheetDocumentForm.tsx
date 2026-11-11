@@ -16,6 +16,7 @@ import { ModalAskComponent } from '../../ui/components/common/ModalAskComponent'
 import ModalWindowListToSelect from '../../ui/components/common/ModalWindowListToSelect';
 import { parseDayInput } from '../fact/input/factInputModel';
 import { pmT } from '../../pm/i18n/pmT';
+import { useDocumentRights } from '../../permissions/usePermissions';
 import PMTimesheetDocumentHeader from './PMTimesheetDocumentHeader';
 import PMTimesheetDocumentLines from './PMTimesheetDocumentLines';
 import {
@@ -99,6 +100,7 @@ export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID 
     if (a && (a.status === 'created' || a.status === 'exists') && a.workCenter) void doc.setHeader({ timesheetWorkCenter: a.workCenter });
   };
 
+  const rights = useDocumentRights('project_timesheet_header');   // PART 46 / 47: the buttons the database would refuse are disabled
   const doPost = async () => {
     const a = await doc.post();
     setProblems(a && a.status !== 'posted' ? a.problems : []);
@@ -130,10 +132,10 @@ export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID 
         </View>
         <View style={{ flex: 1 }} />
         {header && canDeleteTimesheet(header) && (
-          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy} onPress={() => { void doDelete(); }} />
+          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy || !rights.canDelete} onPress={() => { void doDelete(); }} />
         )}
         {header && canUnpostTimesheet(header) && (
-          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy} onPress={doUnpost} />
+          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
@@ -141,7 +143,7 @@ export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID 
           <ButtonApp testID={`${testID}-posted`} title={pmT('Posted')} icon="check" size="large" onPress={() => {}} accessibilityLabel={pmT('Posted')} />
         )}
         {header && canPostTimesheet(header, doc.entered.length) && (
-          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy} onPress={doPost} />
+          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy || !rights.canChange} onPress={doPost} />
         )}
       </View>
 

@@ -250,16 +250,16 @@ describe('an equipment matches what the role asks for - on the descriptor, as a 
 describe('the columns of the Time table follow the kinds the project offers', () => {
   const d = data();
   const keys = (timeKinds?: ('person' | 'equipment')[]) => buildTaskLineColumns({ data: d, genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds }).map((c) => c.key);
-  it('person only (and the default) = the columns as before equipment', () => {
-    expect(keys()).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'person', 'personVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
+  it('person only (and the default) = the columns as before equipment, plus the RACI column after the person', () => {
+    expect(keys()).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'person', 'raci', 'personVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
     expect(keys(['person'])).toEqual(keys());
   });
   it('equipment only: Equipment and its variant, no Contract', () => {
-    expect(keys(['equipment'])).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'equipment', 'equipmentVariant', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
+    expect(keys(['equipment'])).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'equipment', 'raci', 'equipmentVariant', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
   });
   it('both: the menu Resource comes BEFORE the role and the resource; ONE resource column and ONE variant column', () => {
     const k = keys(['person', 'equipment']);
-    expect(k).toEqual(['budgetItem', 'n', 'resourceKind', 'role', 'roleAttributes', 'resource', 'resourceVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
+    expect(k).toEqual(['budgetItem', 'n', 'resourceKind', 'role', 'roleAttributes', 'resource', 'raci', 'resourceVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
     expect(k.indexOf('resourceKind')).toBeLessThan(k.indexOf('role'));
     expect(k.indexOf('resourceKind')).toBeLessThan(k.indexOf('resource'));
   });

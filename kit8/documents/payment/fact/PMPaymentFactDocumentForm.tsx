@@ -19,6 +19,7 @@ import { parseDayInput } from '../../fact/input/factInputModel';
 import { extractGUID, PlaceField } from '../../vendor/lineplace/linePlaceModel';
 import type { PMPickedPlace } from '../../../pm/view/project/pick/pmPickerContext';
 import { pmT } from '../../../pm/i18n/pmT';
+import { useDocumentRights } from '../../../permissions/usePermissions';
 import { buildPaymentFactColumns, paymentFactErrors } from './paymentFactColumns';
 import {
   PAYMENT_FACT_LINES_ENTITY, PaymentFactPostProblem, canDeletePaymentFact, canEditPaymentFact, canGetFromPlan, canPostPaymentFact, canUnpostPaymentFact, paymentFactDocumentPath, paymentFactLinesOf, paymentFactMissing,
@@ -116,6 +117,7 @@ export default function PMPaymentFactDocumentForm({ documents, onClose, testID =
   };
   const dayError = !!day.trim() && parseDayInput(day) === null;
 
+  const rights = useDocumentRights('project_payment_fact_header');   // PART 46 / 47: the buttons the database would refuse are disabled
   const doPost = async () => {
     if (!header) return;
     const answer = await doc.post(header.guid);
@@ -163,10 +165,10 @@ export default function PMPaymentFactDocumentForm({ documents, onClose, testID =
           <ButtonApp testID={`${testID}-get-from-plan`} title={pmT('Get from plan')} icon="playlist_add_check" variant="outlined" size="small" disabled={doc.busy} onPress={() => setPlanOpen(true)} />
         )}
         {header && canDeletePaymentFact(header) && (
-          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy} onPress={() => { void doDelete(); }} />
+          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy || !rights.canDelete} onPress={() => { void doDelete(); }} />
         )}
         {header && canUnpostPaymentFact(header) && (
-          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy} onPress={doUnpost} />
+          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
@@ -174,7 +176,7 @@ export default function PMPaymentFactDocumentForm({ documents, onClose, testID =
           <ButtonApp testID={`${testID}-posted`} title={pmT('Posted')} icon="check" size="large" onPress={() => {}} accessibilityLabel={pmT('Posted')} />
         )}
         {header && canPostPaymentFact(header, docRows.length) && (
-          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy} onPress={doPost} />
+          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy || !rights.canChange} onPress={doPost} />
         )}
       </View>
 

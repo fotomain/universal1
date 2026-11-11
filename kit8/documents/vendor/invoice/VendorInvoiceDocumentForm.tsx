@@ -37,6 +37,7 @@ import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
 import PaymentFactBasedOn from '../../payment/fact/PaymentFactBasedOn';
 import type { PlaceField } from '../lineplace/linePlaceModel';
 import { pmT } from '../../../pm/i18n/pmT';
+import { useDocumentRights } from '../../../permissions/usePermissions';
 import { buildVendorInvoiceColumns } from './vendorInvoiceColumns';
 import {
   VENDOR_INVOICE_ALL_TAB, VENDOR_INVOICE_LINES_ENTITY, VENDOR_INVOICE_PROJECT_MODES, VENDOR_INVOICE_TABS, VendorInvoicePostProblem, canChooseProjectMode, canDeleteVendorInvoice, canEditVendorInvoice, canPostVendorInvoice, canUnpostVendorInvoice,
@@ -128,6 +129,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
   };
   const dayError = !!day.trim() && parseDayInput(day) === null;
 
+  const rights = useDocumentRights('vendor_invoice_header');   // PART 46 / 47: the buttons the database would refuse are disabled
   const doPost = async () => {
     if (!header) return;
     const answer = await doc.post(header.guid);
@@ -166,10 +168,10 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
         </View>
         <View style={{ flex: 1 }} />
         {header && canDeleteVendorInvoice(header) && (
-          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy} onPress={() => { void doDelete(); }} />
+          <ButtonApp testID={`${testID}-delete`} title={pmT('Delete document')} icon="delete" variant="text" danger size="small" disabled={doc.busy || !rights.canDelete} onPress={() => { void doDelete(); }} />
         )}
         {header && canUnpostVendorInvoice(header) && (
-          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy} onPress={doUnpost} />
+          <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {header && <PaymentFactBasedOn kind="vendor" invoiceGUID={header.guid} status={header.status} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
@@ -178,7 +180,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
           <ButtonApp testID={`${testID}-posted`} title={pmT('Posted')} icon="check" size="large" onPress={() => {}} accessibilityLabel={pmT('Posted')} />
         )}
         {header && canPostVendorInvoice(header, docRows.length) && (
-          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy} onPress={doPost} />
+          <ButtonApp testID={`${testID}-post`} title={pmT('Post')} icon="send" size="large" disabled={doc.busy || !rights.canChange} onPress={doPost} />
         )}
       </View>
 

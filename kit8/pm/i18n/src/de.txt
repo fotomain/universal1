@@ -655,3 +655,83 @@
 655|Warum
 656|Von der Datenbank berechnet und auf diesem Gerät geprüft: {{n}} Aufgabe(n) wurden angepasst.
 657|Von der Datenbank berechnet und auf diesem Gerät geprüft.
+658|RACI
+659|Verantwortlich
+660|Rechenschaftspflichtig
+661|Konsultiert
+662|Informiert
+663|Mehr als ein Rechenschaftspflichtiger für diese Aufgabe
+664|Organisationsmitglieder
+665|Einladen
+666|E-Mail zum Einladen
+667|Person beim ersten Login anlegen
+668|E-Mail
+669|Status
+670|Administrator
+671|Person beim ersten Login
+672|Eingeladen am
+673|Erste Sitzung
+674|Eingeladen
+675|Aktiv
+676|Person anlegen
+677|Einladung erneut senden
+678|Nur der Administrator der Organisation kann Mitglieder hinzufügen oder ändern.
+679|Noch keine Mitglieder.
+680|Geben Sie eine E-Mail wie name@firma.com ein
+681|Organisation
+682|Person
+683|Ihre Person existiert.
+684|Meine Person anlegen
+685|Sie haben keine Berechtigung zum Vorgang „{{op}}“ in {{table}}.
+686|Gesperrt: {{n}}
+687|Wählen Sie ein Mitglied und ein Profil.
+688|Entfernt
+689|Mitglied
+690|Profil
+691|Zuweisen
+692|Hier hat noch niemand ein Profil.
+693|automatisch
+694|Entfernen
+695|Tabelle
+696|Bildschirm
+697|Art
+698|Buchstaben
+699|Projekt: {{n}}
+700|Kein Projekt gewählt: Ihre Profile überall
+701|Kein Profil: Sie lesen, was alle lesen.
+702|Darf Projekte anlegen
+703|ja
+704|nein
+705|Meine Berechtigungen
+706|Zeile
+707|Eigene Zeilen
+708|Nur der Administrator der Organisation ändert die Matrix.
+709|Eine geänderte Zelle ist eine Zeile IHRER Organisation; setzen Sie sie auf die gelieferten Buchstaben zurück, wird sie entfernt. Die Datenbank ist das Gesetz: Die Matrix steuert RLS, RPCs und Sperr-Trigger.
+710|Matrix
+711|Berechtigungen
+712|Wer was in diesem Projekt darf. Wer in einer Zeitzeile als Responsible steht, erhält die Aufgabenrechte selbst (RACI); der Ersteller des Projekts ist sein Projektmanager.
+713|Projektmanager oder Kurator für die ganze Organisation: dieses Mitglied darf Projekte anlegen. Der Administrator darf immer.
+714|anlegen
+715|lesen
+716|ändern
+717|löschen
+718|Organisations-Administrator
+719|Projektmanager
+720|Projekt: nur lesen
+721|Projektsponsor
+722|Projektkurator
+723|Projektinvestor
+724|Projektmitglied
+725|Aufgabenverantwortlicher
+726|Aufgabenmanager
+727|Finanzmanager (Plan)
+728|Finanzmanager (Ist)
+729|Die Änderung ist nach dem Neuladen der App sichtbar.
+730|Schlüssel
+731|Gelieferter Text
+732|Text der Organisation
+733|Geben Sie Art, Schlüssel und Text ein. Ein Spaltenschlüssel sieht aus wie table.column.
+734|Anwendungstexte
+735|Ersetzen Sie einen Menütitel, eine Spaltenüberschrift oder einen Titel für Ihre ganze Organisation. Sprache: {{n}}.
+736|Nur der Administrator der Organisation ändert die Texte.
+737|Text

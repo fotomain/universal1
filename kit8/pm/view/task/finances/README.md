@@ -130,3 +130,10 @@ Facts input · Vendor Invoice · Purchase Order (the last two ask first: this li
 The same table is the "select a line" window of the Multi Project documents: `PMProjectDashboard picker={…}` (`kit8/pm/view/project/pick`) provides `PMPickerContext`; with `mode: 'line'` the row menu starts with **Select this line** (and a click on a read only cell does the same), and the Finances toolbar has **Select this task**. Outside a picker nothing changes.
 
 **Item number / Search name** (Material, Expense, Revenue tabs): the read-only columns `productItemNumber` / `productSearchName` stand BEFORE `product` while the project shows the field (`productFieldsOfProject(...).shown`: Enabled AND Visible in projects, project settings → Product). They are also INPUTS for a fast choice (`ProductFieldInputCell.tsx`): type (a part of) the number / name, Enter or leave the cell → the line gets that product (`findProductByField`: whole text, then starts with, then contains; exactly one product must match; none / several = red border + tip, the line is unchanged). Tests: `taskLineResource.test.ts`, `productFieldInputCell.test.tsx`.
+
+## RACI column of the Time tab (2026-11-02, SQL PART 44)
+
+A **Time** line has a column **RACI** right after the person / equipment / work center: a select of the four rows of `managementRACIGenusTable` (Responsible · Accountable · Consulted · Informed;
+`kit8/catalog/management/raci_genus`), stored as the rowGUID in `rowJSON.raciItem`. It cannot be emptied: a new row starts as **Responsible** (`newRowDefaults` of `PMProjectTaskInputCRUD`),
+and the database trigger `trg_task_line_raci` fills a missing item and refuses a value that is no row of the catalog. The other genus have no RACI column. More than one Accountable on the Time
+lines of a task shows a red warning above the table (PMBOK; never blocks). The RACI item does not change the plan. Tests: `__tests__/pm/view/task/finances/taskLineRaciColumn.test.tsx`.

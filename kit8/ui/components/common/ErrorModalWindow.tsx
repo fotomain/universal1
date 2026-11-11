@@ -71,6 +71,10 @@ export const useErrorModalStore = create<ErrorModalState>((set) => ({
     } else {
       payload = { message: String(err) };
     }
+    // "No permission: table, C" (SQLSTATE 42501) is worded for people; the translation layer is loaded only for such an error
+    if (/No permission: /.test(String(payload.message ?? ''))) {
+      try { payload = require('../../../permissions/permissionText').withPermissionText(payload); } catch { /* the original text stays */ }
+    }
     set({ isOpen: true, error: payload, title });
   },
   hideError: () => set({ isOpen: false, error: null, title: undefined }),
