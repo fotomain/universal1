@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // The web file picker keeps its <input type=file> IN the document until it answers (Firefox loses a detached one: "Add file" did nothing).
 import { Platform } from 'react-native';
-import { pickFiles } from '../../kit8/files/pickFiles';
+import { pickFiles } from '../../kit8/files/common/pickFiles';
 
 describe('pickFiles (web)', () => {
   beforeAll(() => { (Platform as any).OS = 'web'; });

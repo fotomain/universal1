@@ -4,12 +4,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useRouter } from 'expo-router';
-import { useDesignSystem } from '../providers/WithDesignSystem';
-import IconApp from '../ui/components/common/IconApp';
-import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
-import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
-import { pmT } from '../pm/i18n/pmT';
-import TextInputApp from '../ui/components/common/TextInputApp';
+import { useDesignSystem } from '../../providers/WithDesignSystem';
+import IconApp from '../../ui/components/common/IconApp';
+import { ModalAskComponent } from '../../ui/components/common/ModalAskComponent';
+import { showErrorModal } from '../../ui/components/common/ErrorModalWindow';
+import { pmT } from '../../pm/i18n/pmT';
+import TextInputApp from '../../ui/components/common/TextInputApp';
 import { driveStateText, filterFilesByName, fileProviderOfRow, fileTitleOf, formatBytes, isLinkRow, providerTitleOf, type FileRow, type FileStorageProvider } from './fileModel';
 import FilesTable from './FilesTable';
 import { useCanChangeFiles, useDocumentTypes, useDriveStatus, useFileVersions, useFilesActions, useFilesList } from './useFiles';

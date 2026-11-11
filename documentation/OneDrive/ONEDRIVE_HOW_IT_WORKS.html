@@ -106,6 +106,7 @@
 <tr><td>Project setting <code>projectFilesStorageProvider</code> = oneDrive</td><td>Project 1: <code>oneDrive</code>, <code>filesFunctionalityEnabled</code> true</td><td><span class="pill yes">PASS</span></td></tr>
 <tr><td>Upload a small image (browser → OneDrive direct, finish by item id)</td><td>1 file row: <code>fileStorageProvider</code> oneDrive, <code>oneDriveItemId</code> + <code>oneDriveWebUrl</code> set, size 44 354 bytes, mime image/jpeg, path <code>project/…/task/…/files</code>; folder row key <code>oneDrive:task:&lt;task&gt;</code>; no pending upload left</td><td><span class="pill yes">PASS</span></td></tr>
 <tr><td>Upload a file larger than 5 MiB (two fragments)</td><td>no second OneDrive row, no pending row</td><td><span class="pill ask">not done / no trace</span></td></tr>
-<tr><td>View, Replace (version 2), Move, Delete (cleanup queue)</td><td>no version row, no queue line, one OneDrive row only</td><td><span class="pill ask">not done / no trace</span></td></tr>
+<tr><td>Delete (cleanup queue)</td><td>the first photo\'s row is gone; one cleanup line: provider <code>oneDrive</code>, kind file, state <code>done</code>, why "file deleted", no error; a second photo was uploaded afterwards (44 894 bytes, same task folder)</td><td><span class="pill yes">PASS</span></td></tr>
+<tr><td>Replace (version 2), Move, View</td><td>no version row; the remaining OneDrive row still sits in the task folder (a view leaves no trace)</td><td><span class="pill ask">not done / no trace</span></td></tr>
 </table></div></section>
 </main></body></html>

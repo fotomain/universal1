@@ -1,7 +1,7 @@
 /** @jest-environment node */
 // The pure model of the file attachments and the app side of the upload (kit8/files): kinds, sizes, chunks, the answer of the function, and the whole upload flow with a fake function and a fake Google.
-import { chunkRanges, driveStateText, FILE_KIND_ICON, filterFilesByName, fileKindOf, fileTitleOf, filesEnabledOfProject, filesErrorText, formatBytes, isLinkRow, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, type FileRow } from '../../kit8/files/fileModel';
-import { disconnectDrive, fetchAllDriveStatus, fetchDriveStatus, functionResultOf, moveFile, replacePickedFile, repairHealth, runHealthCheck, startDriveConnect, uploadPickedFile } from '../../kit8/files/filesDriveApi';
+import { chunkRanges, driveStateText, FILE_KIND_ICON, filterFilesByName, fileKindOf, fileTitleOf, filesEnabledOfProject, filesErrorText, formatBytes, isLinkRow, MAX_UPLOAD_BYTES, UPLOAD_CHUNK_BYTES, type FileRow } from '../../kit8/files/common/fileModel';
+import { disconnectDrive, fetchAllDriveStatus, fetchDriveStatus, functionResultOf, moveFile, replacePickedFile, repairHealth, runHealthCheck, startDriveConnect, uploadPickedFile } from '../../kit8/files/common/filesDriveApi';
 
 const mockInvoke = jest.fn();
 jest.mock('../../kit8/supabase/supabase', () => ({ supabase: { functions: { invoke: (...a: any[]) => mockInvoke(...a) } } }), { virtual: true });

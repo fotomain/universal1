@@ -8,12 +8,12 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import SwitchApp from '../../../../ui/components/common/SwitchApp';
 import { ModalAskComponent } from '../../../../ui/components/common/ModalAskComponent';
-import FilesDriveBlock from '../../../../files/FilesDriveBlock';
-import FilesStorageProviderRadio from '../../../../files/FilesStorageProviderRadio';
-import PMTaskFilesPanel from '../../../../files/PMTaskFilesPanel';
-import { countFilesForDelete } from '../../../../files/filesDriveApi';
-import { driveStateText, filesEnabledOfProject, filesProviderOfProject, providerTitleOf, type FileStorageProvider } from '../../../../files/fileModel';
-import { useAllDriveStatus } from '../../../../files/useFiles';
+import FilesDriveBlock from '../../../../files/common/FilesDriveBlock';
+import FilesStorageProviderRadio from '../../../../files/common/FilesStorageProviderRadio';
+import PMTaskFilesPanel from '../../../../files/common/PMTaskFilesPanel';
+import { countFilesForDelete } from '../../../../files/common/filesDriveApi';
+import { driveStateText, filesEnabledOfProject, filesProviderOfProject, providerTitleOf, type FileStorageProvider } from '../../../../files/common/fileModel';
+import { useAllDriveStatus } from '../../../../files/common/useFiles';
 import { pmT } from '../../../i18n/pmT';
 
 export interface PMProjectFilesValues {

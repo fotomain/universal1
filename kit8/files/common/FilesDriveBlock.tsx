@@ -4,12 +4,12 @@
 // The administrator signs in to the storage ONCE; everybody else never sees a Google / Microsoft screen. The token lives only in the Edge Function.
 import React, { useEffect, useState } from 'react';
 import { Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
-import { useDesignSystem } from '../providers/WithDesignSystem';
-import { pmT } from '../pm/i18n/pmT';
-import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
-import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
+import { useDesignSystem } from '../../providers/WithDesignSystem';
+import { pmT } from '../../pm/i18n/pmT';
+import { showErrorModal } from '../../ui/components/common/ErrorModalWindow';
+import { ModalAskComponent } from '../../ui/components/common/ModalAskComponent';
 import { authorizeFiles } from './filesDriveApi';
-import { driveStateText, formatBytes, providerTitleOf, type FileStorageProvider } from './fileModel';
+import { driveStateText, formatBytes, storageUiOf, type FileStorageProvider } from './fileModel';
 import { useDriveStatus, useFilesActions, useStorageUsed } from './useFiles';
 import type { HealthReport } from './filesDriveApi';
 
@@ -18,16 +18,10 @@ const open = async (url: string) => {
   else await Linking.openURL(url);
 };
 
-/** days from today (UTC) to a YYYY-MM-DD date; NaN for a text that is no date */
-export const daysUntil = (iso: string | null | undefined, today = new Date()): number => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso || ''));
-  if (!m) return NaN;
-  return Math.round((Date.UTC(+m[1], +m[2] - 1, +m[3]) - Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate())) / 86_400_000);
-};
-
 export default function FilesDriveBlock({ provider = 'googleDrive', testID = 'files-drive-block' }: { provider?: FileStorageProvider; testID?: string }) {
   const { themeColors: c } = useDesignSystem();
-  const title = providerTitleOf(provider);
+  const storage = storageUiOf(provider); // the words and the warnings of THIS storage (google/, microsoft/)
+  const title = storage.title;
   const { status, loading, error } = useDriveStatus(true, provider);
   const actions = useFilesActions({ scope: 'organization' });
   const [canConnect, setCanConnect] = useState(false);
@@ -52,18 +46,16 @@ export default function FilesDriveBlock({ provider = 'googleDrive', testID = 'fi
 
   const state = status?.state ?? 'notConnected';
   const color = state === 'ok' ? c.primary : c.error;
-  const notConfigured = provider === 'oneDrive' && status?.providerConfigured === false;
-  const expiresIn = provider === 'oneDrive' ? daysUntil(status?.secretExpires) : NaN;
+  const notConfigured = status?.providerConfigured === false; // the server has no client id for this storage
+  const warnings = canConnect ? storage.warnings(status) : []; // e.g. the Microsoft client secret near its expiry: only the person who can fix it sees it
   return (
     <View testID={testID} style={[styles.box, { borderColor: c.border }]}>
       <Text style={[styles.title, { color: c.text }]}>{pmT(title)}</Text>
       <Text testID={`${testID}-state`} style={{ color, fontSize: 13 }}>{loading && !status ? pmT('Checking ...') : pmT(driveStateText(state, status?.accountEmail, provider))}</Text>
       {notConfigured ? <Text testID={`${testID}-not-configured`} style={{ color: c.error, fontSize: 12 }}>{pmT('{{provider}} is not configured on this server.', { provider: title })}</Text> : null}
-      {canConnect && Number.isFinite(expiresIn) && expiresIn <= 30 ? (
-        <Text testID={`${testID}-secret-expiry`} style={{ color: c.error, fontSize: 12 }}>
-          {expiresIn < 0 ? pmT('The Microsoft client secret expired on {{date}}: create a new one and set it again.', { date: status!.secretExpires! }) : pmT('The Microsoft client secret expires in {{n}} days ({{date}}): create a new one before that.', { n: expiresIn, date: status!.secretExpires! })}
-        </Text>
-      ) : null}
+      {warnings.map((w) => (
+        <Text key={w.id} testID={`${testID}-${w.id === 'secretExpiry' ? 'secret-expiry' : w.id}`} style={{ color: c.error, fontSize: 12 }}>{pmT(w.text, w.params)}</Text>
+      ))}
       {error ? <Text style={{ color: c.error, fontSize: 12 }}>{error}</Text> : null}
       {status?.rootFolderUrl ? (
         <Pressable testID={`${testID}-root`} onPress={() => open(status.rootFolderUrl!)}>
@@ -112,11 +104,7 @@ export default function FilesDriveBlock({ provider = 'googleDrive', testID = 'fi
           ) : null}
         </View>
       ) : null}
-      {provider === 'oneDrive' ? (
-        <Text testID={`${testID}-permission-note`} style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('One Microsoft account stores the files of the whole organization; the other people never sign in to Microsoft. The application may read and write the files of that account (Microsoft has no narrower permission) but uses only the folder kit8root. Use a dedicated account that keeps its OneDrive licence.')}</Text>
-      ) : (
-        <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('One Google account stores the files of the whole organization; the other people never sign in to Google. Files belong to that account.')}</Text>
-      )}
+      <Text testID={`${testID}-permission-note`} style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT(storage.ownerNote)}</Text>
       <ModalAskComponent
         testID={`${testID}-disconnect-ask`}
         visible={askDisconnect}

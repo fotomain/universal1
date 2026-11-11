@@ -66,8 +66,8 @@ const mockFilesApi: Record<string, jest.Mock> = { listFiles: jest.fn(), authoriz
 mockFilesApi.listFiles.mockResolvedValue({ ok: true, data: [] });
 mockFilesApi.authorizeFiles.mockResolvedValue({ ok: true, data: { allowed: false } });
 mockFilesApi.fetchDriveStatus.mockResolvedValue({ ok: true, data: { state: 'notConnected', accountEmail: null, lastRefreshAt: null, rootFolderUrl: null, cleanup: { waiting: 0, failed: 0 } } });
-jest.mock('../../../../../kit8/files/filesDriveApi', () => ({
-  ...jest.requireActual('../../../../../kit8/files/filesDriveApi'),
+jest.mock('../../../../../kit8/files/common/filesDriveApi', () => ({
+  ...jest.requireActual('../../../../../kit8/files/common/filesDriveApi'),
   listFiles: (...a: any[]) => mockFilesApi.listFiles(...a),
   authorizeFiles: (...a: any[]) => mockFilesApi.authorizeFiles(...a),
   fetchDriveStatus: (...a: any[]) => mockFilesApi.fetchDriveStatus(...a),

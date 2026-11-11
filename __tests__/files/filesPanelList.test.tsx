@@ -2,7 +2,7 @@
 // The list of the Files panel (kit8/files): a ReusableTable in local rows mode with the action buttons in each row, and the search by file name above it.
 import { act } from 'react';
 import { mockFilesApi, mockPick, mockPush, mockShowError, PDF, PHOTO, LINK, fileRow, q, qa, press, settle, typeInto, tableGuids, resetFilesApi, mountPanel, unmountPanel } from './filesPanelTestKit';
-import PMTaskFilesPanel from '../../kit8/files/PMTaskFilesPanel';
+import PMTaskFilesPanel from '../../kit8/files/common/PMTaskFilesPanel';
 
 const T = 'tf';
 const mount = (props: Record<string, any> = {}) => mountPanel(props, PMTaskFilesPanel);

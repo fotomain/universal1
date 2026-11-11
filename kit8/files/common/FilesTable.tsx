@@ -4,12 +4,12 @@
 // The search field and the empty texts belong to the panel (it filters the rows by name before they come here).
 import React, { useMemo, useRef } from 'react';
 import { Text, View } from 'react-native';
-import { useDesignSystem } from '../providers/WithDesignSystem';
-import IconApp from '../ui/components/common/IconApp';
-import ReusableTable from '../ui/components/table/reusable/ReusableTable';
-import type { ReusableTableRow, VisualColumn } from '../ui/components/table/reusable/reusableTableTypes';
-import { pmT } from '../pm/i18n/pmT';
-import { PMIconButton } from '../pm/inner/buttons/PMIconButton';
+import { useDesignSystem } from '../../providers/WithDesignSystem';
+import IconApp from '../../ui/components/common/IconApp';
+import ReusableTable from '../../ui/components/table/reusable/ReusableTable';
+import type { ReusableTableRow, VisualColumn } from '../../ui/components/table/reusable/reusableTableTypes';
+import { pmT } from '../../pm/i18n/pmT';
+import { PMIconButton } from '../../pm/inner/buttons/PMIconButton';
 import { FILE_KIND_ICON, fileKindOf, fileProviderOfRow, fileTitleOf, formatBytes, isLinkRow, providerTitleOf, type FileRow } from './fileModel';
 
 export interface FilesTableActions {

@@ -1,4 +1,7 @@
 // File attachments - the pure model (documentation/FILE_ATTACHMENT_WBS.html, sections 6, 7, 9): no React, no network, so a Jest test and the Edge Function tests share its rules.
+import { providerOfValue, type FileStorageProvider } from './storageTypes';
+import { fileItemIdOf, providerTitleOf, STORAGES } from './storageProviders';
+
 export const FILES_TAB_ID = 'TabFiles';
 export const FILES_FUNCTION = 'files-drive';
 
@@ -6,16 +9,12 @@ export type FileScope = 'organization' | 'project' | 'stage' | 'task' | 'documen
 export type FileKind = 'text' | 'markdown' | 'audio' | 'video' | 'pdf' | 'image' | 'other';
 export type DriveState = 'notConnected' | 'ok' | 'needsReconnect';
 
-/** the storage of the files (documentation/FILE_WITH_OneDrive_WBS.html): the project setting projectFilesStorageProvider */
-export type FileStorageProvider = 'googleDrive' | 'oneDrive';
-export const FILE_STORAGE_PROVIDERS: { id: FileStorageProvider; title: string }[] = [
-  { id: 'googleDrive', title: 'Google Drive' },
-  { id: 'oneDrive', title: 'Microsoft OneDrive' },
-];
-export const providerTitleOf = (p: FileStorageProvider | string | null | undefined): string => (p === 'oneDrive' ? 'Microsoft OneDrive' : 'Google Drive');
+/** the storage of the files (documentation/FILE_WITH_OneDrive_WBS.html): the types and the words live in storageTypes.ts / storageProviders.ts and in google/, microsoft/ - re-exported here so the model stays the one place the rest of the app imports from */
+export { FILE_STORAGE_PROVIDERS, fileItemIdOf, providerTitleOf, storageUiOf } from './storageProviders';
+export { providerOfValue } from './storageTypes';
+export type { FileStorageProvider } from './storageTypes';
 /** anything but 'oneDrive' is Google Drive: a project made before OneDrive has no value */
-export const filesProviderOfProject = (j: { projectFilesStorageProvider?: unknown } | null | undefined): FileStorageProvider => (j?.projectFilesStorageProvider === 'oneDrive' ? 'oneDrive' : 'googleDrive');
-export const providerOfValue = (v: unknown): FileStorageProvider => (v === 'oneDrive' ? 'oneDrive' : 'googleDrive');
+export const filesProviderOfProject = (j: { projectFilesStorageProvider?: unknown } | null | undefined): FileStorageProvider => providerOfValue(j?.projectFilesStorageProvider);
 
 export interface FileRowJSON {
   fileSourceKind?: FileScope;
@@ -26,7 +25,7 @@ export interface FileRowJSON {
   mediaPostDescription?: string;
   paperDocumentPlace?: string;
   fileDocumentTypeGUID?: string;
-  mediaPostOriginType?: 'googleDrive' | 'url' | 'file';
+  mediaPostOriginType?: 'googleDrive' | 'oneDrive' | 'url' | 'file';
   mediaPostOrigin?: string;
   googleDriveFileId?: string;
   fileName?: string;
@@ -89,7 +88,8 @@ export function filterFilesByName(rows: readonly FileRow[], query: string | null
 }
 
 /** a link row (an address, no Drive file) */
-export const isLinkRow = (row: FileRow): boolean => row.rowJSON.mediaPostOriginType === 'url' || !row.rowJSON.googleDriveFileId;
+/** a link has no file in any storage (the check asks every storage for ITS id: a OneDrive file is not a link just because it has no Google id) */
+export const isLinkRow = (row: FileRow): boolean => row.rowJSON.mediaPostOriginType === 'url' || !fileItemIdOf(row.rowJSON);
 
 /** the biggest file phase 1 sends (the file is read into memory by a phone): 100 MB, Q6 of the plan */
 export const MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
@@ -124,7 +124,7 @@ export const fileProviderOfRow = (row: { rowJSON?: { fileStorageProvider?: unkno
 /** the sentence of a refusal of the database / the function, for people */
 export function filesErrorText(reason: string | null | undefined, fallback = 'The action was refused.'): string {
   // the function names its storage in its own words ("Microsoft OneDrive is not connected."): keep them
-  if (/^Microsoft OneDrive/.test(fallback)) return fallback;
+  if (STORAGES.some((st) => st.ownsMessage(fallback))) return fallback;
   switch (reason) {
     case 'noPermission': return 'You have no permission to change files here.';
     case 'switchOff': return 'The files function is switched off in the settings of this project.';

@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTheme, Surface, Text, Button } from 'react-native-paper';
-import { bumpFiles } from '../../../kit8/files/useFiles';
-import { providerTitleOf } from '../../../kit8/files/fileModel';
+import { bumpFiles } from '../../../kit8/files/common/useFiles';
+import { providerTitleOf } from '../../../kit8/files/common/fileModel';
 
 // The page Google Drive consent comes back to (FILES_APP_RETURN_URL = <app>/user/files, documentation/FILE_ATTACHMENT_WBS.html section 4):
 // the Edge Function redirects here with ?filesConnect=ok | error (&reason=...). It says what happened and goes back to the project dashboard.

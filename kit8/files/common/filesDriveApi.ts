@@ -3,7 +3,7 @@
 import { chunkRanges, filesErrorText, fileKindOf, MAX_UPLOAD_BYTES, FILES_FUNCTION, type FileRow, type FileScope, type FileStorageProvider } from './fileModel';
 
 // require, not import(): Jest cannot run a dynamic import, and the client is still created only when a call is made
-const client = async () => require('../supabase/supabase').supabase;
+const client = async () => require('../../supabase/supabase').supabase;
 
 export type ApiResult<T> = ({ ok: true } & T) | { ok: false; error: string; code?: string };
 

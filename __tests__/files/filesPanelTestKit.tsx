@@ -48,9 +48,9 @@ jest.mock('../../kit8/ui/components/common/ModalAskComponent', () => {
   const { Pressable, Text, View } = require('react-native');
   return { ModalAskComponent: ({ visible, onConfirm, onCancel, testID }: any) => (visible ? R.createElement(View, { testID }, R.createElement(Pressable, { testID: `${testID}-yes`, onPress: onConfirm }, R.createElement(Text, null, 'Delete')), R.createElement(Pressable, { testID: `${testID}-no`, onPress: onCancel }, R.createElement(Text, null, 'Cancel'))) : null) };
 });
-jest.mock('../../kit8/files/pickFiles', () => ({ pickFiles: (...a: any[]) => mockPick(...a), fromWebFile: (f: any) => f }));
-jest.mock('../../kit8/files/filesDriveApi', () => ({
-  ...jest.requireActual('../../kit8/files/filesDriveApi'),
+jest.mock('../../kit8/files/common/pickFiles', () => ({ pickFiles: (...a: any[]) => mockPick(...a), fromWebFile: (f: any) => f }));
+jest.mock('../../kit8/files/common/filesDriveApi', () => ({
+  ...jest.requireActual('../../kit8/files/common/filesDriveApi'),
   listFiles: (...a: any[]) => mockFilesApi.listFiles(...a),
   authorizeFiles: (...a: any[]) => mockFilesApi.authorizeFiles(...a),
   fetchDriveStatus: (...a: any[]) => mockFilesApi.fetchDriveStatus(...a),

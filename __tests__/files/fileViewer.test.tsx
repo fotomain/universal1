@@ -7,9 +7,9 @@ let mockParams: Record<string, string> = { post: 'p1' };
 const mockFetchUrl = jest.fn();
 jest.mock('expo-router', () => ({ useLocalSearchParams: () => mockParams }));
 jest.mock('../../kit8/providers/WithDesignSystem', () => ({ useDesignSystem: () => ({ themeColors: { text: '#000', primary: '#00f', error: '#f00', border: '#ccc' } }) }));
-jest.mock('../../kit8/files/filesDriveApi', () => ({ ...jest.requireActual('../../kit8/files/filesDriveApi'), fetchDownloadUrl: (...a: any[]) => mockFetchUrl(...a) }));
+jest.mock('../../kit8/files/common/filesDriveApi', () => ({ ...jest.requireActual('../../kit8/files/common/filesDriveApi'), fetchDownloadUrl: (...a: any[]) => mockFetchUrl(...a) }));
 
-import FileViewer from '../../kit8/files/FileViewer';
+import FileViewer from '../../kit8/files/common/FileViewer';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');

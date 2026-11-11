@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { Image, Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
-import { useDesignSystem } from '../providers/WithDesignSystem';
+import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { fetchDownloadUrl } from './filesDriveApi';
 import { fileKindOf, formatBytes, type FileKind } from './fileModel';
 

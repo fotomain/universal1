@@ -8,11 +8,15 @@ jest.mock('../../kit8/ui/components/common/SwitchApp', () => {
   const { Pressable, Text } = require('react-native');
   return { __esModule: true, default: ({ testID, value, onValueChange, label }: any) => R.createElement(Pressable, { testID, onPress: () => onValueChange(!value) }, R.createElement(Text, null, `${label}: ${value ? 'on' : 'off'}`)) };
 });
-import PMTaskFilesPanel from '../../kit8/files/PMTaskFilesPanel';
-import FilesStorageProviderRadio from '../../kit8/files/FilesStorageProviderRadio';
-import FilesDriveBlock, { daysUntil } from '../../kit8/files/FilesDriveBlock';
+import PMTaskFilesPanel from '../../kit8/files/common/PMTaskFilesPanel';
+import FilesStorageProviderRadio from '../../kit8/files/common/FilesStorageProviderRadio';
+import FilesDriveBlock from '../../kit8/files/common/FilesDriveBlock';
+import { daysUntil, secretWarnings } from '../../kit8/files/microsoft/microsoftStorage';
+import { GOOGLE_STORAGE } from '../../kit8/files/google/googleStorage';
+import { MICROSOFT_STORAGE } from '../../kit8/files/microsoft/microsoftStorage';
+import { STORAGES, fileItemIdOf, storageUiOf } from '../../kit8/files/common/storageProviders';
 import PMProjectFilesTab, { filesValuesOf } from '../../kit8/pm/view/project/settings/PMProjectFilesTab';
-import { driveStateText, fileProviderOfRow, filesErrorText, filesProviderOfProject, providerTitleOf } from '../../kit8/files/fileModel';
+import { driveStateText, fileProviderOfRow, filesErrorText, filesProviderOfProject, isLinkRow, providerTitleOf } from '../../kit8/files/common/fileModel';
 
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -45,12 +49,58 @@ describe('the model', () => {
     expect(filesErrorText('notConnected', 'Microsoft OneDrive is not connected.')).toBe('Microsoft OneDrive is not connected.');
     expect(filesErrorText('notConnected', 'x')).toBe('Google Drive is not connected - ask the administrator.');
   });
+  it('the registry holds the two storages in the order of the radio set; each owns its words and warnings (google/, microsoft/)', () => {
+    expect(STORAGES.map((s) => s.id)).toEqual(['googleDrive', 'oneDrive']);
+    expect(storageUiOf('oneDrive')).toBe(MICROSOFT_STORAGE);
+    expect(storageUiOf('googleDrive')).toBe(GOOGLE_STORAGE);
+    expect(storageUiOf(undefined)).toBe(GOOGLE_STORAGE);
+    expect(GOOGLE_STORAGE.warnings({ secretExpires: '2000-01-01' })).toEqual([]); // Google has no client secret warning
+    expect(GOOGLE_STORAGE.ownsMessage('Google Drive is not connected.')).toBe(false);
+    expect(MICROSOFT_STORAGE.ownsMessage('Microsoft OneDrive is not connected.')).toBe(true);
+    expect(MICROSOFT_STORAGE.ownerNote).toContain('kit8root');
+    expect(GOOGLE_STORAGE.ownerNote).toContain('Google account');
+  });
+  it('the Microsoft secret warning: none far away or unknown, "expires in N days" within 30, "expired" after the date', () => {
+    const today = new Date(Date.UTC(2028, 9, 11));
+    expect(secretWarnings({ secretExpires: '2030-01-01' }, today)).toEqual([]);
+    expect(secretWarnings({ secretExpires: '' }, today)).toEqual([]);
+    expect(secretWarnings(null, today)).toEqual([]);
+    expect(secretWarnings({ secretExpires: '2028-11-10' }, today)).toEqual([{ id: 'secretExpiry', text: expect.stringContaining('expires in {{n}} days'), params: { n: 30, date: '2028-11-10' } }]);
+    expect(secretWarnings({ secretExpires: '2028-10-01' }, today)[0].text).toContain('expired on {{date}}');
+  });
   it('days until the expiry of the Microsoft client secret', () => {
     const today = new Date(Date.UTC(2028, 9, 11));
     expect(daysUntil('2028-11-10', today)).toBe(30);
     expect(daysUntil('2028-10-10', today)).toBe(-1);
     expect(daysUntil('', today)).toBeNaN();
     expect(daysUntil('10/11/2028', today)).toBeNaN();
+  });
+});
+
+describe('a OneDrive file is a file, not a link', () => {
+  const od = fileRow('f9', { mediaPostTitle: 'new.pdf', fileName: 'new.pdf', fileSizeBytes: 10, fileKind: 'pdf', fileStorageProvider: 'oneDrive', mediaPostOriginType: 'oneDrive', mediaPostOrigin: 'https://onedrive.live.com/?id=I1', oneDriveItemId: 'I1' }, 9);
+  it('isLinkRow asks every storage for ITS item id: Google file, OneDrive file, link', () => {
+    expect(isLinkRow(PDF as any)).toBe(false);
+    expect(isLinkRow(od as any)).toBe(false);
+    expect(isLinkRow(fileRow('f3', { mediaPostOriginType: 'url', mediaPostOrigin: 'https://youtu.be/x' }) as any)).toBe(true);
+    expect(isLinkRow(fileRow('f4', { fileName: 'x' }) as any)).toBe(true); // no id in any storage
+    expect(fileItemIdOf(od.rowJSON)).toBe('I1');
+    expect(fileItemIdOf(PDF.rowJSON)).toBe('D1');
+    expect(GOOGLE_STORAGE.itemIdOf(od.rowJSON)).toBeUndefined();
+    expect(MICROSOFT_STORAGE.itemIdOf(od.rowJSON)).toBe('I1');
+  });
+  it('in the panel a OneDrive file has Replace, and View opens the VIEWER of the post (not the OneDrive web page)', async () => {
+    resetFilesApi([od]);
+    mockFilesApi.fetchDriveStatus.mockResolvedValue(status('oneDrive', { state: 'ok', accountEmail: 'o@outlook.test' }));
+    const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
+    mountPanel({ provider: 'oneDrive' }, PMTaskFilesPanel);
+    await settle(); await settle();
+    expect(q('tf-replace-f9')).not.toBeNull();
+    expect(q('tf-kind-f9')!.textContent).toBe('picture_as_pdf');
+    press('tf-view-f9');
+    await settle();
+    expect(openSpy).toHaveBeenCalledWith('/files/view?post=f9', '_blank');
+    openSpy.mockRestore();
   });
 });
 
@@ -219,14 +269,14 @@ describe('the Files panel of a OneDrive project', () => {
     expect(mockFilesApi.fetchDriveStatus).toHaveBeenCalledWith(undefined);
     expect(q(`${T}-state`)!.textContent).toBe('Google Drive: connected as drive@gmail.test');
   });
-  it('a file of the OTHER storage is tagged in its Details while the list is mixed; a list of one storage has no tag', async () => {
+  it('while the list holds files of both storages every file says where it is in its Details; a list of one storage has no tag', async () => {
     const od = fileRow('f9', { mediaPostTitle: 'new.pdf', fileName: 'new.pdf', fileSizeBytes: 10, fileKind: 'pdf', fileStorageProvider: 'oneDrive', oneDriveItemId: 'I1' }, 9);
     resetFilesApi([PDF, od]);
     mockFilesApi.fetchDriveStatus.mockResolvedValue(status('oneDrive', { state: 'ok', accountEmail: 'owner@outlook.test' }));
     mountPanel({ provider: 'oneDrive' }, PMTaskFilesPanel);
     await settle(); await settle();
     expect(q(`${T}-details-f1`)!.textContent).toContain('Google Drive');
-    expect(q(`${T}-details-f9`)!.textContent).not.toContain('Microsoft OneDrive');
+    expect(q(`${T}-details-f9`)!.textContent).toContain('Microsoft OneDrive');
     unmountPanel();
     resetFilesApi([od]);
     mockFilesApi.fetchDriveStatus.mockResolvedValue(status('oneDrive', { state: 'ok' }));

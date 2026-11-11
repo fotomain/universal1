@@ -3,9 +3,9 @@
 // with its hint (the status of the function says providerConfigured).
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useDesignSystem } from '../providers/WithDesignSystem';
-import IconApp from '../ui/components/common/IconApp';
-import { pmT } from '../pm/i18n/pmT';
+import { useDesignSystem } from '../../providers/WithDesignSystem';
+import IconApp from '../../ui/components/common/IconApp';
+import { pmT } from '../../pm/i18n/pmT';
 import { FILE_STORAGE_PROVIDERS, type FileStorageProvider } from './fileModel';
 
 export interface FilesStorageProviderRadioProps {

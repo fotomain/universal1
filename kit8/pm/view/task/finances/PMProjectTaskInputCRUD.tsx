@@ -66,9 +66,9 @@ import { purchaseOrderLinesOfScope } from '../../../../documents/vendor/purchase
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
 import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
-import PMTaskFilesPanel from '../../../../files/PMTaskFilesPanel';
-import { FILES_TAB_ID, filesEnabledOfProject, filesProviderOfProject } from '../../../../files/fileModel';
-import { useFilesList } from '../../../../files/useFiles';
+import PMTaskFilesPanel from '../../../../files/common/PMTaskFilesPanel';
+import { FILES_TAB_ID, filesEnabledOfProject, filesProviderOfProject } from '../../../../files/common/fileModel';
+import { useFilesList } from '../../../../files/common/useFiles';
 import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
 
