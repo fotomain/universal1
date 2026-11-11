@@ -412,6 +412,7 @@ describe('signed download with Range', () => {
     const full = await t.get(url.searchParams.toString());
     expect(full.status).toBe(200);
     expect(await full.text()).toBe('0123456789abcdefghij');
+    expect(full.headers.get('Content-Disposition')).toBe('inline'); // shown by the browser, never saved
     const part = await t.get(url.searchParams.toString(), { Range: 'bytes=5-9' });
     expect(part.status).toBe(206);
     expect(part.headers.get('Content-Range')).toBe('bytes 5-9/20');

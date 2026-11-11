@@ -454,18 +454,17 @@ describe('the sixth tab "Files" (kit8/files)', () => {
     expect(document.body.textContent).toContain('ask the administrator');
   });
 
-  it('View asks the function for a signed link of the post (a link row opens its own address)', async () => {
+  it('View opens the viewer route of the post in a new tab (the file is shown, never downloaded); a link row opens its own address', async () => {
     const openSpy = jest.spyOn(window, 'open').mockImplementation(() => null);
     mount();
     press(`${T}-tab-TabFiles`);
     await settle();
     press(`${T}-files-view-f1`);
     await settle();
-    expect(mockFilesApi.fetchDownloadUrl).toHaveBeenCalledWith('f1');
-    expect(openSpy).toHaveBeenCalledWith('https://fn.test/download?sig=1', '_blank', 'noopener');
+    expect(openSpy).toHaveBeenCalledWith('/files/view?post=f1', '_blank');
+    expect(mockFilesApi.fetchDownloadUrl).not.toHaveBeenCalled();
     press(`${T}-files-view-f2`);
     await settle();
-    expect(mockFilesApi.fetchDownloadUrl).toHaveBeenCalledTimes(1);
     expect(openSpy).toHaveBeenLastCalledWith('https://youtu.be/x', '_blank', 'noopener');
     openSpy.mockRestore();
   });

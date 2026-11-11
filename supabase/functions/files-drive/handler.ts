@@ -583,6 +583,8 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
       if (v) headers.set(h, v);
     }
     if (!headers.has('accept-ranges')) headers.set('accept-ranges', 'bytes');
+    headers.set('content-disposition', 'inline'); // shown, never saved
+    if (/^text\/(markdown|x-markdown)\b/i.test(headers.get('content-type') || '')) headers.set('content-type', 'text/plain; charset=utf-8');
     return new Response(upstream.body, { status: upstream.status, headers });
   }
 }

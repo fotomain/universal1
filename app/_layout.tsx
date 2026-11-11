@@ -359,6 +359,8 @@ function RootLayoutContent() {
             >
               <Drawer.Screen name="index" options={{ drawerItemStyle: { display: 'none' } }} />
               <Drawer.Screen name="+not-found" options={{ drawerItemStyle: { display: 'none' }, title: '404' }} />
+              <Drawer.Screen name="files/view/index" options={{ drawerItemStyle: { display: 'none' }, title: 'File' }} />
+              <Drawer.Screen name="user/files/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Google Drive' }} />
               <Drawer.Screen name="stopscreen/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.accessStopped') }} />
               <Drawer.Screen
                 name="home/index"

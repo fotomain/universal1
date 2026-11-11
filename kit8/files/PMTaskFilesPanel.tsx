@@ -3,6 +3,7 @@
 // who may read: View (the function signs a short-lived link and streams the file), paper place, size. Delete is permanent and says so.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../providers/WithDesignSystem';
 import IconApp from '../ui/components/common/IconApp';
 import { ModalAskComponent } from '../ui/components/common/ModalAskComponent';
@@ -50,6 +51,7 @@ const openAddress = async (url: string) => {
 
 export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task', testID = 'task-files' }: PMTaskFilesPanelProps) {
   const { themeColors: c } = useDesignSystem();
+  const router = useRouter();
   const target = useMemo(() => (scope === 'task' ? { scope: 'task' as const, guid: taskGUID, projectGUID } : scope === 'project' ? { scope: 'project' as const, guid: projectGUID, projectGUID } : { scope: 'organization' as const }), [scope, taskGUID, projectGUID]);
   const subject = scope === 'task' ? !!taskGUID : scope === 'project' ? !!projectGUID : true;
   const { rows, loading, error } = useFilesList(target, subject);
@@ -121,9 +123,9 @@ export default function PMTaskFilesPanel({ projectGUID, taskGUID, scope = 'task'
 
   const onView = async (row: FileRow) => {
     if (isLinkRow(row)) { if (row.rowJSON.mediaPostOrigin) await openAddress(row.rowJSON.mediaPostOrigin); return; }
-    const r = await actions.openUrl(row.rowGUID);
-    if (r.ok) await openAddress(r.data.url);
-    else showErrorModal(r.error, pmT('Cannot open the file'));
+    // the file is SHOWN by the viewer route (never downloaded): a browser tab of its own on the web, this app on a phone
+    if (Platform.OS === 'web' && typeof window !== 'undefined') { window.open(`/files/view?post=${encodeURIComponent(row.rowGUID)}`, '_blank'); return; }
+    router.push({ pathname: '/files/view', params: { post: row.rowGUID } } as any);
   };
 
   const onConnect = async () => {
