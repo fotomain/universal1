@@ -4,6 +4,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
+import OrganizationChatSection from '../../chat/OrganizationChatSection';
 import { ButtonPrimaryApp, ButtonTextApp, SwitchApp, TextInputApp } from '../../ui/components/common';
 import IconApp from '../../ui/components/common/IconApp';
 import { SystemMetaData } from '../../redux/SystemMetaData';
@@ -32,12 +33,13 @@ import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } f
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
 
-type OrgTab = 'main' | 'projects' | 'timesheet' | 'system';
+type OrgTab = 'main' | 'projects' | 'timesheet' | 'chat' | 'system';
 type ProjectsTab = 'settings';
 const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
   { id: 'main', label: 'Main', icon: 'info' },
   { id: 'projects', label: 'Projects', icon: 'view_timeline' },
   { id: 'timesheet', label: 'Time sheet', icon: 'schedule' },
+  { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'system', label: 'System', icon: 'settings_applications' },
 ];
 const PROJECTS_TABS: { id: ProjectsTab; label: string }[] = [{ id: 'settings', label: 'Settings' }];
@@ -66,6 +68,8 @@ type Form = {
   numberOfVisitsFunctionalityEnabled: boolean;
   /** the base currency of the exchange rates the database converts with (the cost of a time sheet hour); '' = EUR */
   baseCurrency: string;
+  /** the chat attachment limit in MB (kit8/chat): saved by the RPC of the Chat tab; kept here so the form save does not drop it */
+  maximumChatAttachmentFileSize?: number;
 };
 
 const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form => {
@@ -91,6 +95,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     timesheet: storedTimesheetSettings(v as Record<string, any>),
     numberOfVisitsFunctionalityEnabled: v.numberOfVisitsFunctionalityEnabled !== false,
     baseCurrency: v.baseCurrency || '',
+    maximumChatAttachmentFileSize: v.maximumChatAttachmentFileSize,
   };
 };
 
@@ -110,6 +115,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     ...f.timesheet,
     numberOfVisitsFunctionalityEnabled: f.numberOfVisitsFunctionalityEnabled,
     baseCurrency: f.baseCurrency,
+    maximumChatAttachmentFileSize: f.maximumChatAttachmentFileSize,
     legalData: {
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
@@ -319,6 +325,13 @@ export default function OrganizationEdit() {
             helperText={pmT('The currency the exchange rates are quoted against (EUR unless you changed EXPO_PUBLIC_CURRENCY_RATES_BASE). Empty = EUR.')}
             onChangeText={(t: string) => update('baseCurrency', t.toUpperCase())}
           />
+        </View>
+      )}
+
+      {/* Chat: the biggest attachment (kit8/chat) */}
+      {topTab === 'chat' && (
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-chat-tab-content">
+          <OrganizationChatSection organizationJSON={{ maximumChatAttachmentFileSize: form.maximumChatAttachmentFileSize }} onSaved={(mb) => update('maximumChatAttachmentFileSize', mb)} />
         </View>
       )}
 

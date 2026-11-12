@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000000000000000. delete_chat.sql - PART 50: drops chatObjectTable + chatThemeTable + chatMembersTable + chatMessagesTable (data included: ALL chats, members and messages of ALL organizations), the chat_ functions and triggers (the Time line trigger of the RACI members, the task / organization delete triggers); the file rows of the chats stay in mediaPostTable until PART 49 is deleted (runs very first: it is the newest)
 --  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table + files_onedrive_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
 --  1a-000000000000000. delete_organization_texts.sql - PART 48: drops organizationTextTable (data included: the replaced texts of ALL organizations), its guard trigger and organization_texts (runs very first: it is the newest)
 --  1a-00000000000000. delete_permissions.sql - PARTs 46 + 47: drops the permission tables (data included: the profiles, the matrices and ALL assignments), the matrix policies "*_perm_*" next to the owner policies, the lock triggers and the perm_* functions; the catalogs get their old open policies back only by running start2 again (runs very first: it is the newest)
@@ -41,6 +42,31 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-00000000000000000: delete_chat.sql  (PART 50 of the structure file: the CHAT - runs before everything else, it is the newest)
+-- The files of the chats in Google Drive / OneDrive are NOT touched (this file only knows the database).
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_task_line_chat_ins ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_chat_upd ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_chat_del ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_chat_task_delete ON public.project_task_table;
+DROP TRIGGER IF EXISTS trg_chat_organization_delete ON public."organizationTable";
+DROP TABLE IF EXISTS public."chatMessagesTable" CASCADE;
+DROP TABLE IF EXISTS public."chatMembersTable" CASCADE;
+DROP TABLE IF EXISTS public."chatThemeTable" CASCADE;
+DROP TABLE IF EXISTS public."chatObjectTable" CASCADE;
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname LIKE 'chat\_%' LOOP
+    EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', r.sig);
+  END LOOP;
+END $$;
+NOTIFY pgrst, 'reload schema';
 
 
 
@@ -167,6 +193,7 @@ DROP FUNCTION IF EXISTS public.organization_member_creator();
 DROP FUNCTION IF EXISTS public.organization_member_guard();
 DROP FUNCTION IF EXISTS public.organization_member_activate(text, text);
 DROP FUNCTION IF EXISTS public.organization_member_backfill();
+DROP FUNCTION IF EXISTS public.organization_member_lookup_user(text, text);
 DROP FUNCTION IF EXISTS public.organization_member_user_guid(text);
 DROP FUNCTION IF EXISTS public.organization_member_owns_projects(text, text);
 DROP FUNCTION IF EXISTS public.organization_member_create_person(text);

@@ -24,6 +24,8 @@ import { createSubprojectBlock, subprojectGUIDOfTask } from '../../subproject/cr
 import { useCreateSubproject } from '../../subproject/useCreateSubproject';
 import { BUDGETS_TIMELINE_TAB, openDashboardLink, openProjectBoard } from '../project/dashboardDeepLink';
 import { subprojectsEnabledOf } from '../../subproject/subprojectModel';
+import { chatEnabledOfProject } from '../../../chat/chatModel';
+import { useOpenTaskChat } from '../../../chat/useOpenTaskChat';
 
 export interface TaskRelatedMenuCtx {
   taskGUID: string;
@@ -58,6 +60,7 @@ export function useTaskRelatedMenu() {
   const { start: startPaymentFact } = useStartPaymentFact();
   const { create: createSubproject } = useCreateSubproject();
   const { create: createTimesheet } = useCreateTimesheetFromTask();
+  const openTaskChat = useOpenTaskChat();
   const tasksById = usePMStore((s) => s.tasksById);
   const projectsById = usePMStore((s) => s.projectsById);
   const schedule = usePMStore((s) => s.schedule);
@@ -85,6 +88,8 @@ export function useTaskRelatedMenu() {
       ...(customerOn ? [{ testID: `${idPrefix}-create-customer-invoice`, label: 'Customer Invoice', icon: 'payments', onPress: run(() => (ctx.onCustomerInvoice ? ctx.onCustomerInvoice() : void startCustomerInvoice({ taskGUID, projectGUID, ...(taskLineGUID ? { lineGUIDs: [taskLineGUID] } : {}) }))) }] : []),
       // Time sheet: a NEW draft of the user's work center for the current month with a line for this task (a normal task only; the line menu of a Time line brings its role / budget item / business unit)
       ...((task.rowJSON as any)?.rowKind !== 'milestone' && (!taskLineGUID || genus === MANAGEMENT_GENUS.time) ? [{ testID: `${idPrefix}-create-timesheet`, label: 'Time sheet', icon: 'schedule', onPress: run(() => { void createTimesheet(taskGUID, taskLineGUID ?? null); }) }] : []),
+      // the chat of the task (kit8/chat, Scenario 2): made on the first call, opened afterwards; only while the project switch chatFunctionalityEnabled is not false
+      ...(chatEnabledOfProject(project?.rowJSON) ? [{ testID: `${idPrefix}-create-chat`, label: 'Chat', icon: 'chat', onPress: run(() => { void openTaskChat(taskGUID); }) }] : []),
       ...(canCreateSub ? [{
         testID: `${idPrefix}-create-subproject`, label: 'Subproject', icon: 'account_tree',
         disabled: createSubprojectBlock(project?.rowJSON, task.rowJSON) === 'alreadySubproject',
@@ -107,5 +112,5 @@ export function useTaskRelatedMenu() {
       { testID: `${idPrefix}-create`, label: 'Create based on this', icon: 'add_circle', onPress: () => {}, submenu: create },
       { testID: `${idPrefix}-goto`, label: 'Go to', icon: 'arrow_forward', onPress: () => {}, submenu: goTo },
     ];
-  }, [router, openFactInput, startVendorInvoice, startPurchaseOrder, startCustomerInvoice, startPaymentFact, createSubproject, createTimesheet, tasksById, projectsById, schedule]);
+  }, [router, openFactInput, startVendorInvoice, startPurchaseOrder, startCustomerInvoice, startPaymentFact, createSubproject, createTimesheet, openTaskChat, tasksById, projectsById, schedule]);
 }

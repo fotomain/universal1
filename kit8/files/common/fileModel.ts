@@ -5,7 +5,7 @@ import { fileItemIdOf, providerTitleOf, STORAGES } from './storageProviders';
 export const FILES_TAB_ID = 'TabFiles';
 export const FILES_FUNCTION = 'files-drive';
 
-export type FileScope = 'organization' | 'project' | 'stage' | 'task' | 'document';
+export type FileScope = 'organization' | 'project' | 'stage' | 'task' | 'document' | 'chat';
 export type FileKind = 'text' | 'markdown' | 'audio' | 'video' | 'pdf' | 'image' | 'other';
 export type DriveState = 'notConnected' | 'ok' | 'needsReconnect';
 

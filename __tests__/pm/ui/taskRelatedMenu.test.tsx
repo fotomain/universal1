@@ -12,6 +12,7 @@ const mockCustomer = jest.fn();
 const mockCreateSub = jest.fn(async () => 'sub-1');
 const mockTimesheet = jest.fn(async () => ({ status: 'created', documentGUID: 'ts-1', skipped: [] }));
 const mockOpenBoard = jest.fn();
+const mockOpenTaskChat = jest.fn(async () => true);
 const mockOpenDashboard = jest.fn();
 // pmUiTestKit mocks expo-router itself: override with doMock + require AFTER the kit
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush }) }));
@@ -21,6 +22,8 @@ jest.mock('../../../kit8/documents/customer/invoice/useCustomerInvoice', () => (
 // "Payment fact" of the Task menu (useTaskRelatedMenu): its hook needs the Supabase / react-query providers (own tests: documents/payment/fact/usePaymentFact.test.tsx)
 const mockStartPaymentFact = jest.fn();
 jest.mock('../../../kit8/documents/payment/fact/usePaymentFact', () => ({ useStartPaymentFact: () => ({ start: mockStartPaymentFact, busy: false, error: null }) }));
+// the chat of the task (kit8/chat): its hook needs the Supabase provider (own tests: chat/chatApi.test.ts, the RPC chat_task_ensure in Docker 59)
+jest.mock('../../../kit8/chat/useOpenTaskChat', () => ({ useOpenTaskChat: () => mockOpenTaskChat }));
 jest.mock('../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ useStartPurchaseOrder: () => ({ start: mockOrder, busy: false }) }));
 jest.mock('../../../kit8/documents/timesheet/useTimesheet', () => ({ useCreateTimesheetFromTask: () => ({ create: (...a: any[]) => (mockTimesheet as any)(...a), busy: false, error: null }) }));
 jest.mock('../../../kit8/pm/subproject/useCreateSubproject', () => ({ useCreateSubproject: () => ({ create: (...a: any[]) => (mockCreateSub as any)(...a), busy: false }) }));
@@ -331,5 +334,27 @@ describe('Task menu: Options opens PMTaskEditOptions (UX/UI only)', () => {
     expect(crud.editOptions).toHaveBeenCalledWith(t.rowGUID);
     expect(crud.edit).not.toHaveBeenCalled(); // the full form is not the context menu's
     expect(usePMStore.getState().rowMenu).toBeNull();
+  });
+});
+
+describe('Chat (the chat of the task, project switch chatFunctionalityEnabled, true by default)', () => {
+  it('Create based on this -> Chat opens (makes, the first time) the chat of the TASK', () => {
+    const t = open('Task 111');
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-chat')).not.toBeNull();
+    expect(textOf('pm-row-menu-create-chat')).toContain('Chat');
+    press('pm-row-menu-create-chat');
+    expect(mockOpenTaskChat).toHaveBeenCalledWith(t.rowGUID);
+    expect(usePMStore.getState().rowMenu).toBeNull();
+  });
+  it('the switch OFF: no Chat item', () => {
+    open('Task 111', { project: { chatFunctionalityEnabled: false } });
+    press('pm-row-menu-create');
+    expect(q('pm-row-menu-create-chat')).toBeNull();
+    expect(q('pm-row-menu-create-payment-fact')).not.toBeNull();
+  });
+  it('a stage has no submenu, so no Chat item', () => {
+    open('Stage 1');
+    expect(q('pm-row-menu-create')).toBeNull();
   });
 });

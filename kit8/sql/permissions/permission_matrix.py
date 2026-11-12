@@ -79,6 +79,12 @@ SPECIAL = {
     'files_version_history': row(*['N'] * 11),
     # the document types of a file: everybody reads, the administrator writes the organization's own (policies of PART 49)
     'files_document_type_catalog': row('CRUD', 'R', *['R'] * 9),
+    # PART 50 chat (documentation/CHAT_WBS.html): no profile letters. A chat is read by its MEMBERS (policies on chat_my_themes), every write is a chat_ RPC that checks the membership,
+    # the project manager / administrator rule (chat_can_manage) or the organization limit itself.
+    'chatObjectTable': row(*['N'] * 11),
+    'chatThemeTable': row(*['N'] * 11),
+    'chatMembersTable': row(*['N'] * 11),
+    'chatMessagesTable': row(*['N'] * 11),
 }
 # keys of a CRUD row next to permissionSet: permissionWritableFields = ONLY these columns / rowJSON keys may change; permissionLockedFields = these may NOT change;
 # permissionLockedActions = named actions refused by a trigger. A user's profiles ADD UP: a field is writable if any profile that gives U allows it.

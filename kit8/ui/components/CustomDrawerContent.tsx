@@ -92,6 +92,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'play-video', label: 'Video', icon: 'movie', route: 'media/play/video' },
       ],
     },
+    // the chat (kit8/chat): the themes of the user and the chats of the tasks he works on; the red number of the new messages is in the application bar
+    { id: 'chat', label: 'Chat', icon: 'chat', route: 'chat' },
     {
       id: 'catalogs',
       label: 'Catalogs',

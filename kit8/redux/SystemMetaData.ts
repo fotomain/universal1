@@ -23,6 +23,7 @@ import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetSce
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {moneyAccountSystemMetaData} from "../catalog/money_account/moneyAccountMetaData";
 import {routeVisitSystemMetaData} from "../catalog/user/visit/routeVisitMetaData";
+import {chatSystemMetaData} from "../chat/chatMetaData";
 import {paymentFactSystemMetaData} from "../documents/payment/fact/paymentFactMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
 import {customerInvoiceSystemMetaData} from "../documents/customer/invoice/customerInvoiceMetaData";
@@ -130,6 +131,7 @@ const SystemMetaData:any = {
     ...paymentFactSystemMetaData(),
     // Route visits (kit8/catalog/user/visit): app_route_visits_turnover, one row per user and route (rowParentGUID) with rowJSON.number_of_route_visits. SQL PART 41
     ...routeVisitSystemMetaData(),
+    ...chatSystemMetaData(),
     ...vendorInvoiceSystemMetaData(),
     ...customerInvoiceSystemMetaData(),
     ...purchaseOrderSystemMetaData(),

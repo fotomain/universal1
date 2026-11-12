@@ -57,6 +57,8 @@ import { copyLineGUID } from './copyLineGuid';
 import { pickedLine, usePMPicker } from '../../project/pick/pmPickerContext';
 import { useOpenFactInput } from '../../../../documents/fact/input/useOpenFactInput';
 import { useTaskRelatedMenu } from '../useTaskRelatedMenu';
+import { chatEnabledOfProject } from '../../../../chat/chatModel';
+import { useOpenTaskChat } from '../../../../chat/useOpenTaskChat';
 import { useStartVendorInvoice } from '../../../../documents/vendor/invoice/useVendorInvoice';
 import VendorInvoiceScopeModal from '../../../../documents/vendor/invoice/VendorInvoiceScopeModal';
 import { vendorInvoiceLinesOfScope } from '../../../../documents/vendor/invoice/vendorInvoiceModel';
@@ -97,6 +99,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const perm = usePermissions(projectGUID, taskGUID);   // PART 46 / 47: what the profiles of the user give for the lines of THIS task (the database refuses the rest)
   const openFactInput = useOpenFactInput();
   const relatedMenu = useTaskRelatedMenu();
+  const openTaskChat = useOpenTaskChat();   // the icon "Go to Chat" of the toolbar (kit8/chat): the chat of THIS task, made on the first press
   // picker mode (view/project/pick): "Select this line" in the row menu (and a click on a read only cell) answers with the line
   const picker = usePMPicker();
   // line mode: the table's check boxes choose the line for the button "Select this line" (the row menu item does the same for one row)
@@ -401,6 +404,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
               <View ref={gotoAnchor} collapsable={false}>
                 <PMIconButton tipScope="app" testID={`${testID}-goto`} icon="arrow_forward" title={checkedLines.length === 1 ? pmT('Go to (documents of the checked line)') : pmT('Go to (documents of this task)')} color={c.text} onPress={() => openToolbarMenu('goto')} />
               </View>
+              {/* Go to Chat: the chat of this task (made at the first press); hidden while the project switch chatFunctionalityEnabled is off */}
+              {chatEnabledOfProject(projectJSON) ? <PMIconButton tipScope="app" testID={`${testID}-goto-chat`} icon="chat" title={pmT('Go to Chat')} color={c.text} onPress={() => { void openTaskChat(taskGUID); }} /> : null}
               {/* Templates: Save to template… · Fill from template… · Templates saved - of the TASK (kit8/pm/tasktemplate) */}
               <View ref={templatesAnchor} collapsable={false}>
                 <PMIconButton tipScope="app" testID={`${testID}-templates`} icon="library_books" title={pmT('Templates of this task: save, fill, saved')} color={c.text} onPress={() => openToolbarMenu('templates')} />

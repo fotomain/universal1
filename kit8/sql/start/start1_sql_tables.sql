@@ -55,6 +55,7 @@
 --   47. create_permission_enforcement.sql - ENFORCEMENT of the matrix (start2 only: the policies, the RPC guards, the catalogs - no table)
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): organizationTextTable = the texts an administrator replaces for the whole organization, per language
 --   49. create_files.sql - FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C; first slice): files_google_connection_table = the Google Drive connection of an organization (the encrypted refresh token; NO client can read it)
+--   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): chatObjectTable, chatThemeTable, chatMembersTable, chatMessagesTable
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3857,6 +3858,83 @@ CREATE TABLE IF NOT EXISTS public.files_version_history (
 );
 
 CREATE INDEX IF NOT EXISTS idx_files_version_post ON public.files_version_history ("rowParentGUID", "orderInList");
+
+-- ===============================================================================================
+-- PART 50: create_chat.sql
+-- CHAT (documentation/CHAT_WBS.html). A chat OBJECT (a user = "Main", or ONE task) holds THEMES, a theme holds MESSAGES and MEMBERS. All four tables use the universal schema (rowGUID /
+-- rowOwnerGUID / rowParentGUID / orderInList / rowJSON). They are written ONLY by the chat_ RPCs of start2 (SECURITY DEFINER); a client has SELECT through the membership policies.
+--   chatObjectTable    rowOwnerGUID = the creating user · rowParentGUID = the organization · rowJSON { chatKind 'user' | 'task', title ('Main' for kind user), taskGUID, projectGUID (kind task) }
+--                      one object per user (kind user) and one per task (kind task)
+--   chatThemeTable     rowOwnerGUID = the creating user · rowParentGUID = the chat object · rowJSON { themeKind 'user' | 'task', title, description (kind user only: a task theme takes both from the task),
+--                      taskGUID, projectGUID (kind task), lastMessageAt }
+--   chatMembersTable   rowOwnerGUID = the member (a user) · rowParentGUID = the theme · rowJSON { role 'owner' | 'member', manual (added by hand), raci (comes from the Time lines of the task),
+--                      addedBy, lastReadAt }. One row per theme + user.
+--   chatMessagesTable  rowOwnerGUID = the author · rowParentGUID = the theme · rowJSON { text, urls [{url, title}], files [{fileGUID, url, name, size, mime}], editedAt, deleted, deletedAt }
+-- The files of a chat are rows of mediaPostTable (PART 49) with fileSourceKind = chat and rowParentGUID = the theme.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public."chatObjectTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "chatObject_kind_chk" CHECK ("rowJSON"->>'chatKind' IN ('user', 'task'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_chatObject_user" ON public."chatObjectTable" ("rowOwnerGUID") WHERE "rowJSON"->>'chatKind' = 'user';
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_chatObject_task" ON public."chatObjectTable" (("rowJSON"->>'taskGUID')) WHERE "rowJSON"->>'chatKind' = 'task';
+
+CREATE INDEX IF NOT EXISTS "idx_chatObject_parent" ON public."chatObjectTable" ("rowParentGUID");
+
+CREATE TABLE IF NOT EXISTS public."chatThemeTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "chatTheme_kind_chk" CHECK ("rowJSON"->>'themeKind' IN ('user', 'task'))
+);
+
+CREATE INDEX IF NOT EXISTS "idx_chatTheme_parent" ON public."chatThemeTable" ("rowParentGUID");
+
+CREATE INDEX IF NOT EXISTS "idx_chatTheme_task" ON public."chatThemeTable" (("rowJSON"->>'taskGUID')) WHERE "rowJSON"->>'themeKind' = 'task';
+
+CREATE TABLE IF NOT EXISTS public."chatMembersTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "chatMembers_role_chk" CHECK ("rowJSON"->>'role' IN ('owner', 'member'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_chatMembers_theme_user" ON public."chatMembersTable" ("rowParentGUID", "rowOwnerGUID");
+
+CREATE INDEX IF NOT EXISTS "idx_chatMembers_user" ON public."chatMembersTable" ("rowOwnerGUID");
+
+CREATE TABLE IF NOT EXISTS public."chatMessagesTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS "idx_chatMessages_theme_time" ON public."chatMessagesTable" ("rowParentGUID", "created_at" DESC);
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

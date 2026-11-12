@@ -6,6 +6,7 @@ import { safeReturnToRoute } from '../../../lib/returnToRoute';
 import { DrawerHeaderProps } from 'expo-router/drawer';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import ChatBadge from '../../../chat/ChatBadge';
 import IconApp from './IconApp';
 import ArrowToLeftApp from './ArrowToLeftApp';
 import { useAppSignOut } from '../../../auth/session/useAppSignOut';
@@ -132,6 +133,8 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
     if (!isUserCalendar) router.push(USER_CALENDAR_PATH as any);
   };
   const calendarButton = <AppBarCalendarButton color={themeColors.text} activeColor={themeColors.primary} active={isUserCalendar} onPress={handleCalendar} />;
+  // the chat icon with the red number of the unread messages: right before the three dots menu, gone when everything is read (kit8/chat)
+  const chatButton = <ChatBadge />;
 
   /** Three dots menu: "Share screenshot" / "Share screenshot + JSON" (uxui.currentJSON). */
   const handleShareScreenshot = (withJSON: boolean) => {
@@ -295,7 +298,7 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
           {isProjectDashboard && <AppBarProjectViewSwitch />}
           {isProjectDashboard && !hideTitle && <View style={{ flex: 1 }} />}
           {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
-          {calendarButton}
+          {calendarButton}{chatButton}
           <TouchableOpacity onPress={visible ? closeMenu : openMenu} style={styles.actionBtn}>
             <IconApp testID="bf350689-8mk6-3no5-7xc9-012345678d40" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
           </TouchableOpacity>
@@ -361,7 +364,7 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
 
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             {isProjectDashboard && <AppBarProjectButtons color={themeColors.text} activeColor={themeColors.primary} />}
-            {calendarButton}
+            {calendarButton}{chatButton}
             <TouchableOpacity onPress={openMenu} style={styles.actionBtn}>
               <IconApp testID="dh5728a1-0om8-5pq7-9ze1-234567890f42" name={visible ? 'close' : 'more_vert'} size={22} color={themeColors.text} />
             </TouchableOpacity>

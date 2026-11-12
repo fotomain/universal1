@@ -47,6 +47,16 @@ export interface AuthResult {
   guid?: string | null;
   /** the storage of this scope (files_authorize: the project setting, the organization default for organization / document files); missing = googleDrive */
   provider?: string;
+  /** scope chat only (PART 50): 'user' | 'task', the user guid (Main) or the task guid, and the limit of an attachment in bytes (organization setting) */
+  chatKind?: string | null;
+  chatRefGUID?: string | null;
+  maxBytes?: number | null;
+}
+
+/** what the folders of a chat file need besides the theme guid: the kind of the chat object and its user / task guid */
+export interface ChatRef {
+  kind: string;
+  ref: string;
 }
 
 export interface FilesDriveDeps {
@@ -94,7 +104,7 @@ export interface FolderStep {
 }
 
 /** the folders under kit8root for a scope (section 5 of the plan); every folder carries the marks of S2 */
-export function chainFor(organization: string, scope: string, guid: string, projectGUID: string): FolderStep[] | null {
+export function chainFor(organization: string, scope: string, guid: string, projectGUID: string, chat?: ChatRef | null): FolderStep[] | null {
   const mark = (kind: string, extra: Record<string, string> = {}) => ({ kit8Kind: kind, kit8OrganizationGUID: organization, ...extra });
   const files = (): FolderStep => ({ name: 'files', description: 'kit8 files', properties: mark('files') });
   if (scope === 'organization') {
@@ -110,6 +120,14 @@ export function chainFor(organization: string, scope: string, guid: string, proj
       { name: 'task', description: 'kit8 · tasks', properties: mark('tasks', { kit8ProjectGUID: projectGUID }) },
       { name: guid, description: `kit8 · task ${guid}`, properties: mark('task', { kit8ProjectGUID: projectGUID, kit8TaskGUID: guid }) }, files()];
   }
+  // CHAT (PART 50): chat/user/<userGUID>/theme/<themeGUID>/files · chat/task/<taskGUID>/theme/<themeGUID>/files
+  if (scope === 'chat' && GUID_RE.test(guid) && chat && (chat.kind === 'user' || chat.kind === 'task') && GUID_RE.test(chat.ref)) {
+    return [{ name: 'chat', description: 'kit8 · chats', properties: mark('chats') },
+      { name: chat.kind, description: `kit8 · ${chat.kind} chats`, properties: mark(`chat-${chat.kind}`) },
+      { name: chat.ref, description: `kit8 · chat of ${chat.kind} ${chat.ref}`, properties: mark('chat', { kit8ChatKind: chat.kind, kit8ChatRefGUID: chat.ref }) },
+      { name: 'theme', description: 'kit8 · themes', properties: mark('themes', { kit8ChatRefGUID: chat.ref }) },
+      { name: guid, description: `kit8 · theme ${guid}`, properties: mark('theme', { kit8ThemeGUID: guid }) }, files()];
+  }
   if (scope === 'document' && guid) {
     const safe = guid.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 80);
     return [{ name: 'document', description: 'kit8 · documents', properties: mark('documents') },
@@ -120,7 +138,7 @@ export function chainFor(organization: string, scope: string, guid: string, proj
 
 /** the key of files_folder_table for a scope; the OneDrive folders of a scope are kept apart by a prefix (a Google key stays as it was) */
 export function scopeKeyFor(scope: string, guid: string, provider: ProviderId = 'googleDrive'): string {
-  const base = scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : `task:${guid}`;
+  const base = scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : scope === 'chat' ? `chat:${guid}` : `task:${guid}`;
   return provider === 'oneDrive' ? `oneDrive:${base}` : base;
 }
 
@@ -199,9 +217,9 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
   };
 
   /** the `files` folder of a scope: cached in files_folder_table, else made (the whole chain, with marks) and recorded - the first writer wins */
-  const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string): Promise<{ folderId: string; path: string } | { error: Response }> => {
-    const chain = chainFor(org, scope, guid, project);
-    if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage or document with valid GUIDs.' }) };
+  const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string, chat?: ChatRef | null): Promise<{ folderId: string; path: string } | { error: Response }> => {
+    const chain = chainFor(org, scope, guid, project, chat);
+    if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage, document or chat with valid GUIDs.' }) };
     const facts = await orgFacts(org, x.id);
     const rootId = String(facts?.rootFolderId || '');
     if (!rootId) return { error: json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' }) };
@@ -295,7 +313,12 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         if (a instanceof Response) return a;
         const org = a.organizationGUID!;
         const x = px(parseProvider(a.provider)); // the storage of this scope: the project setting (files_authorize), Google Drive when none
-        if (!chainFor(org, scope, guid || '', projectGUID || '')) return json(400, { error: 'scope must be organization, project, task, stage or document with valid GUIDs.' });
+        const chat: ChatRef | null = scope === 'chat' ? { kind: String(a.chatKind || ''), ref: String(a.chatRefGUID || '') } : null;
+        if (!chainFor(org, scope, guid || '', projectGUID || '', chat)) return json(400, { error: 'scope must be organization, project, task, stage, document or chat with valid GUIDs.' });
+        // CHAT: the limit of an attachment is the setting of the organization (the database asks again in files_add)
+        if (scope === 'chat' && Number.isFinite(Number(a.maxBytes)) && Number(a.maxBytes) > 0 && size > Number(a.maxBytes)) {
+          return json(413, { error: `A chat attachment is at most ${Math.floor(Number(a.maxBytes) / 1048576)} MB (the setting of the organization).`, code: 'chatFileTooBig', maxBytes: Number(a.maxBytes) });
+        }
         const facts0 = await orgFacts(org, x.id);
         if (!facts0?.rootFolderId) return json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' });
         // the storage limit of the organization is asked BEFORE a session is opened (files_add asks again)
@@ -306,7 +329,7 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         }
         const uploadId = crypto.randomUUID();
         const out = await withDrive(x, org, async (token) => {
-          const f = await filesFolderFor(x, org, scope, guid || '', a.projectGUID || projectGUID || '', token);
+          const f = await filesFolderFor(x, org, scope, guid || '', a.projectGUID || projectGUID || '', token, chat);
           if ('error' in f) return f;
           const sessionUrl = await x.provider.openUploadSession(token, { name: safeFileName(body.name), folderId: f.folderId, mime: String(body.mime || 'application/octet-stream'), size, uploadId, organization: org, origin: req.headers.get('Origin') });
           return { sessionUrl, folderId: f.folderId, path: f.path };

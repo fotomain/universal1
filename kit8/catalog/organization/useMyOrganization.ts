@@ -72,5 +72,8 @@ export function useMyOrganization() {
 
   const numberOfVisitsEnabled = numberOfVisitsEnabledOf(query.data?.rowJSON);
 
-  return { organizationGUID, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, saveDefaultProjectSettings };
+  /** the stored rowJSON of the row (null until it is read): the chat limit maximumChatAttachmentFileSize ... */
+  const organizationJSON: Record<string, any> | null = (query.data?.rowJSON as Record<string, any> | undefined) ?? null;
+
+  return { organizationGUID, organizationJSON, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, saveDefaultProjectSettings };
 }

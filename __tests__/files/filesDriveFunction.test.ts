@@ -12,6 +12,8 @@ const ORG = '11111111-1111-4111-8111-111111111111';
 const OTHER_ORG = '99999999-9999-4999-8999-999999999999';
 const PROJECT = '22222222-2222-4222-8222-222222222222';
 const TASK = '33333333-3333-4333-8333-333333333333';
+const THEME = '55555555-5555-4555-8555-555555555555';
+const CHAT_USER = '66666666-6666-4666-8666-666666666666';
 const FN_URL = 'https://proj.supabase.co/functions/v1/files-drive';
 const USERS: Record<string, { user: string; org: string; manager: boolean }> = {
   'Bearer anna': { user: 'u-anna', org: ORG, manager: true },
@@ -30,6 +32,8 @@ function setup(over: Partial<FilesDriveDeps> = {}, clock = { t: 1_800_000_000_00
     files: new Map<string, { rowGUID: string; rowOwnerGUID: string; rowParentGUID: string; rowJSON: Record<string, any> }>(),
     rpcCalls: [] as string[],
     switchOff: false,
+    chatMaxBytes: 10 * 1048576,
+    chatKind: 'user' as 'user' | 'task',
     storage: { totalBytes: 0 } as Record<string, any>,
     versions: [] as any[],
   };
@@ -42,10 +46,12 @@ function setup(over: Partial<FilesDriveDeps> = {}, clock = { t: 1_800_000_000_00
     authorize: jest.fn(async (a: string, action: string, scope: string, guid?: string | null, project?: string | null): Promise<AuthResult> => {
       const u = who(a);
       if (!u) return { allowed: false, reason: 'signIn' };
-      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document'].includes(scope)) return { allowed: false, reason: 'scope' };
+      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document', 'chat'].includes(scope)) return { allowed: false, reason: 'scope' };
       if (db.switchOff && ['project', 'task', 'stage'].includes(scope) && action !== 'connect') return { allowed: false, reason: 'switchOff' };
       const write = action !== 'read';
       if (write && !u.manager) return { allowed: false, reason: 'noPermission' };
+      // the scope chat (PART 50): a member adds; the answer names the kind of the chat, the user / task guid of the folder and the organization limit
+      if (scope === 'chat') return { allowed: true, organizationGUID: u.org, userGUID: u.user, projectGUID: db.chatKind === 'task' ? PROJECT : null, scope, guid: guid || null, chatKind: db.chatKind, chatRefGUID: db.chatKind === 'task' ? TASK : CHAT_USER, maxBytes: db.chatMaxBytes };
       return { allowed: true, organizationGUID: u.org, userGUID: u.user, projectGUID: scope === 'project' ? guid : project || null, scope, guid: guid || null };
     }),
     callerRpc: jest.fn(async (a: string, fn: string, args: Record<string, any>) => {
@@ -303,6 +309,15 @@ describe('folders, names and keys', () => {
     expect(chainFor(ORG, 'task', TASK, PROJECT)!.map((s) => s.name)).toEqual(['project', PROJECT, 'task', TASK, 'files']);
     expect(chainFor(ORG, 'stage', TASK, PROJECT)!.map((s) => s.name)).toEqual(['project', PROJECT, 'task', TASK, 'files']);
     expect(chainFor(ORG, 'document', 'inv-1/../x', '')!.map((s) => s.name)).toEqual(['document', 'inv-1_.._x', 'files']);
+    // CHAT (PART 50): chat/user/<userGUID>/theme/<theme>/files and chat/task/<taskGUID>/theme/<theme>/files; a bad guid or a kind that is not user / task gives none
+    expect(chainFor(ORG, 'chat', THEME, '', { kind: 'user', ref: CHAT_USER })!.map((s) => s.name)).toEqual(['chat', 'user', CHAT_USER, 'theme', THEME, 'files']);
+    expect(chainFor(ORG, 'chat', THEME, PROJECT, { kind: 'task', ref: TASK })!.map((s) => s.name)).toEqual(['chat', 'task', TASK, 'theme', THEME, 'files']);
+    expect(chainFor(ORG, 'chat', THEME, '', { kind: 'document', ref: CHAT_USER })).toBeNull();
+    expect(chainFor(ORG, 'chat', THEME, '', { kind: 'user', ref: '../x' })).toBeNull();
+    expect(chainFor(ORG, 'chat', 'not-a-guid', '', { kind: 'user', ref: CHAT_USER })).toBeNull();
+    expect(chainFor(ORG, 'chat', THEME, '')).toBeNull();
+    expect(scopeKeyFor('chat', THEME)).toBe(`chat:${THEME}`);
+    expect(scopeKeyFor('chat', THEME, 'oneDrive')).toBe(`oneDrive:chat:${THEME}`);
     expect(chainFor(ORG, 'project', 'not-a-guid', '')).toBeNull();
     expect(chainFor(ORG, 'task', TASK, '')).toBeNull();
     expect(chainFor(ORG, 'galaxy', TASK, PROJECT)).toBeNull();
@@ -331,6 +346,38 @@ describe('upload: session, bytes, finish', () => {
     expect((await t.call(body, 'Bearer boris')).status).toBe(403);
     t.db.switchOff = true;
     expect(await (await t.call(body)).json()).toMatchObject({ reason: 'switchOff' });
+  });
+  it('CHAT: the folders are chat/user/<userGUID>/theme/<theme>/files (Main) and chat/task/<taskGUID>/theme/<theme>/files (a task chat), cached under chat:<theme>', async () => {
+    const t = setup();
+    await t.connect();
+    const s = await (await t.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'chat_file1.txt', mime: 'text/plain', size: 12 })).json();
+    expect(s.path).toBe(`chat/user/${CHAT_USER}/theme/${THEME}/files`);
+    const named = (n: string) => [...t.g.items.values()].filter((i) => i.name === n);
+    expect(named(THEME)[0].properties).toMatchObject({ kit8Kind: 'theme', kit8ThemeGUID: THEME, kit8OrganizationGUID: ORG });
+    expect(named(CHAT_USER)[0].properties).toMatchObject({ kit8Kind: 'chat', kit8ChatKind: 'user', kit8ChatRefGUID: CHAT_USER });
+    expect(t.db.folders.has(`${ORG}|chat:${THEME}`)).toBe(true);
+    // a second file of the theme reuses the folders
+    await t.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'two.txt', size: 3 });
+    expect(named('files')).toHaveLength(1);
+    // the chat of a task
+    const t2 = setup();
+    await t2.connect();
+    t2.db.chatKind = 'task';
+    const s2 = await (await t2.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'a.txt', size: 3 })).json();
+    expect(s2.path).toBe(`chat/task/${TASK}/theme/${THEME}/files`);
+  });
+  it('CHAT: an attachment above the limit of the organization is refused BEFORE a session is opened; a non member is refused', async () => {
+    const t = setup();
+    await t.connect();
+    t.db.chatMaxBytes = 5 * 1048576;
+    const big = await t.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'big.bin', size: 5 * 1048576 + 1 });
+    expect(big.status).toBe(413);
+    expect(await big.json()).toMatchObject({ code: 'chatFileTooBig', maxBytes: 5 * 1048576 });
+    expect(t.db.pending.size).toBe(0);
+    const ok = await t.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'ok.bin', size: 5 * 1048576 });
+    expect(ok.status).toBe(200);
+    expect(t.db.pending.size).toBe(1);
+    expect((await t.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'a.bin', size: 5 }, 'Bearer boris')).status).toBe(403);
   });
   it('makes the chain once, caches the folders in files_folder_table, passes the Origin and records a pending upload', async () => {
     const t = setup();

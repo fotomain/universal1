@@ -291,3 +291,12 @@ it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, setting
   act(() => mockTopProps[mockTopProps.length - 1].onSelectRoute('/catalog/money/account'));
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });
+
+it('Chat (after Play, before Catalogs) navigates to /chat', () => {
+  mount('/home');
+  const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(ids.indexOf('drawer-item-chat')).toBe(ids.indexOf('drawer-item-play') + 1);
+  expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-chat') + 1);
+  press('drawer-item-chat');
+  expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/chat$/));
+});

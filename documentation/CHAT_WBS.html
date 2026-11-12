@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.plan { background: var(--amber-soft); color: var(--amber); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Chat</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#wbs">WBS</a></li><li><a href="#model">Model</a></li><li><a href="#scenarios">Scenarios</a></li>
+    <li><a href="#task">Task chat</a></li><li><a href="#files">Files</a></li><li><a href="#links">URLs</a></li><li><a href="#realtime">Realtime &amp; badge</a></li>
+    <li><a href="#access">Access</a></li><li><a href="#settings">Settings</a></li><li><a href="#sql">SQL</a></li><li><a href="#ui">UI</a></li>
+    <li><a href="#code">Code map</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li><li><a href="#install">Install</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>Chat</h1>
+  <p class="lead">Users talk in themes. A theme lives in a chat object: the personal object of a user (Main) or the object of ONE task of a project. Files and URLs can be attached to a message, files go through the existing file attachments (Google Drive / OneDrive). New messages show as a red number next to the three dots menu of the app bar.</p>
+  <p class="sub">BUILT 2026-11-11 (the owner answered Q2, Q9, Q13, Q15 - section 15). Route <code>app/chat</code> · code <code>kit8/chat</code> · SQL PART 50 · Docker test <code>tests/59_chat.sql</code> · Jest <code>__tests__/chat</code> · README <code>kit8/chat/README.md</code>. Source: the Google Doc "W1 CHAT".</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">The request (from the Google Doc, in order)</h3>
+    <ol class="steps">
+      <li>Route <code>app/chat</code>, code in <code>kit8/chat</code>, this document <code>documentation/CHAT_WBS.html</code>.</li>
+      <li>Project settings -> <b>Chat</b> -> <code>chatFunctionalityEnabled</code>, <b>true by default</b>. Project settings, main tab: <code>projectInnerPrefix</code>, 4 letters.</li>
+      <li><code>chatObject</code> -> <code>chatTheme</code> -> Messages.</li>
+      <li><b>Scenario 1</b>: <code>chatObject</code> = a user (<code>userGUID</code>) with the title "Main". The user opens the hamburger menu item <b>Chat</b>, sees the chats possible for them, creates a new theme (Title, Description, Message, chatMembers - may be empty or other users). A user sees the themes they created and those where they are a member.</li>
+      <li><b>Scenario 2</b>: the Task context menu "Create based on" -> Chat creates the chat of the task automatically: 1 task = 1 chatObject around the project; Title = <code>projectInnerPrefix</code> + task name; Description = the task description, changes visible in real time; the cursor goes to the message input.</li>
+      <li>The task CRUD toolbar gets a <b>Go to Chat</b> icon button.</li>
+      <li>Files can be attached to messages. Organization settings -> <code>rowJSON.maximumChatAttachmentFileSize</code> in MB, changed only by a project manager or an administrator. The chat files are built on the file attachments: root folder <code>/chat/1111/theme/2222/files/chat_file1.txt</code>, 1111 = chatGUID, 2222 = chatThemeGUID. One file may be attached at many places of a chat: the app works by the URL of the file.</li>
+      <li>URLs can be sent inside a message or separately; a URL opens in a separate browser window (web) or a route (mobile).</li>
+      <li>Concepts <code>rowGUID</code> / <code>rowJSON</code>; tables <code>chatObjectTable</code>, <code>chatMembersTable</code>, <code>chatMessagesTable</code> etc.; a real time CRUD listener through redux.</li>
+      <li>New messages: the chat icon with a red number near the three dots menu of the main app bar; when everything is read, the icon disappears.</li>
+    </ol>
+  </div>
+
+  <div class="note"><b>How the text was read</b> (change me if wrong): "shop" in "the shop where they are as chatMembers" = chat. "chatGUID" of the folder path = <code>chatObjectTable.rowGUID</code>. "task context menu - based on - chat" = the submenu <b>Create based on this</b> of the Task menu, new item <b>Chat</b>. "listened to" = read. The spec says "chatTheme" and "chatObject" both carry a title; here the object has a name (Main / the task) and the <b>theme</b> carries Title and Description - see section 3.</div>
+</section>
+
+<section id="wbs">
+  <h2>1. WBS</h2>
+  <p class="sub">Work packages in build order. All are <span class="pill yes">done</span> (2026-11-11). The Docker test <code>59_chat.sql</code> has 117 checks; <code>test_sql.sh</code> and every other Docker test pass except <code>60_monitor01</code>, which fails since before this work. NOT checked: the real Supabase Realtime, a real Drive / OneDrive upload from a chat, a phone.</p>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Work package</th><th>Where</th><th>Test</th></tr>
+    <tr><td>C1</td><td>Tables: <code>chatObjectTable</code>, <code>chatThemeTable</code>, <code>chatMembersTable</code>, <code>chatMessagesTable</code> (universal schema, indexes, uniques, CHECKs)</td><td><code>start1_sql_tables.sql</code> PART 50</td><td>Docker 59</td></tr>
+    <tr><td>C2</td><td>Membership helpers + RLS (read = member; writes by trigger-guarded insert and RPCs), realtime publication, REPLICA IDENTITY FULL</td><td><code>start2_sql_code.sql</code> PART 50</td><td>Docker 59</td></tr>
+    <tr><td>C3</td><td>RPCs: <code>chat_main_ensure</code>, <code>chat_theme_create</code>, <code>chat_task_ensure</code>, <code>chat_member_add / _remove</code>, <code>chat_mark_read</code>, <code>chat_unread_counts</code>, <code>chat_theme_list</code>, <code>chat_member_candidates</code></td><td>same</td><td>Docker 59</td></tr>
+    <tr><td>C4</td><td>Message guard trigger: member, author = caller, text limit, attachment list valid and not bigger than the organization limit; theme timestamp <code>lastMessageAt</code></td><td>same</td><td>Docker 59</td></tr>
+    <tr><td>C5</td><td>Settings: <code>chatFunctionalityEnabled</code> (project, SQL reader <code>chat_project_on</code>), <code>projectInnerPrefix</code>, <code>maximumChatAttachmentFileSize</code> + RPC <code>chat_set_max_attachment_size</code></td><td>PART 50 + app</td><td>Docker 59</td></tr>
+    <tr><td>C6</td><td>Task title / description derived live (<code>chat_task_title</code>), prefix default</td><td>PART 50</td><td>Docker 59</td></tr>
+    <tr><td>C7</td><td>Delete triggers: task / project / organization / user remove their chat (files queued for the storage)</td><td>PART 50 + PART 49 queue</td><td>Docker 59</td></tr>
+    <tr><td>C8</td><td>Drop of everything in <code>delete_sql_structure.sql</code> (new numbered part, reverse order)</td><td><code>delete_sql_structure.sql</code></td><td><code>test_sql.sh</code></td></tr>
+    <tr><td>C9</td><td>Files: scope <code>chat</code> in <code>files_authorize / files_add / files_list / files_delete</code>, row rule of <code>mediaPostTable</code>, folder chain <code>chat/&lt;chat&gt;/theme/&lt;theme&gt;/files</code> and size limit in the Edge Function, redeploy</td><td>PART 49 (in place), <code>supabase/functions/files-drive</code></td><td>Docker 55-58 + new, Jest function</td></tr>
+    <tr><td>C10</td><td>Redux entities (4) in <code>SystemMetaData</code> with realtime; model (types, title, URL parser, safe link rule); API of the RPCs</td><td><code>kit8/chat</code>, <code>kit8/redux</code></td><td>Jest model + API</td></tr>
+    <tr><td>C11</td><td>Hooks: <code>useChatThemes</code>, <code>useChatMessages</code> (paged), <code>useChatUnread</code>, <code>useOpenTaskChat</code></td><td><code>kit8/chat</code></td><td>Jest hooks</td></tr>
+    <tr><td>C12</td><td>Screens: theme list (+ New theme window), theme view (header, messages, input with auto focus), members window</td><td><code>kit8/chat</code>, <code>app/chat</code></td><td>Jest UI</td></tr>
+    <tr><td>C13</td><td>Attachments in the input and the bubble (pick, upload through the files module, re-attach from the theme files, open by URL); links</td><td><code>kit8/chat/attach</code></td><td>Jest UI</td></tr>
+    <tr><td>C14</td><td>Unread badge in the application bar beside the three dots menu; mark read when the theme is open and the window visible</td><td><code>ApplicationBarApp.tsx</code> + <code>kit8/chat/ChatBadge</code></td><td>Jest UI</td></tr>
+    <tr><td>C15</td><td>Drawer item <b>Chat</b>, route registration</td><td><code>app/_layout.tsx</code>, <code>CustomDrawerContent.tsx</code>, <code>app/chat/*</code></td><td>Jest nav</td></tr>
+    <tr><td>C16</td><td>Task side: item <b>Chat</b> in "Create based on this" (Task menu, line menu, toolbar icon), icon button <b>Go to Chat</b> in the task CRUD toolbar</td><td><code>useTaskRelatedMenu.ts</code>, <code>PMProjectTaskInputCRUD.tsx</code></td><td>Jest UI</td></tr>
+    <tr><td>C17</td><td>Project settings: tab <b>Chat</b> (after Files), field <code>projectInnerPrefix</code> on the main tab; Organization defaults; <code>normalizeOrganization</code> keeps the new key</td><td><code>PMProjectChatTab.tsx</code>, project settings window, Organization edit</td><td>Jest UI</td></tr>
+    <tr><td>C18</td><td>Texts <code>chat.*</code> in <code>kit8/i18n/i18n.ts</code> (English; other languages fall back)</td><td><code>kit8/i18n</code></td><td>Jest</td></tr>
+    <tr><td>C19</td><td>Bench: 100 000 messages (page, unread counts, a Post-like burst), RLS cost of realtime</td><td><code>kit8/docker/bench_chat.sh</code></td><td>bench</td></tr>
+    <tr><td>C20</td><td>README of <code>kit8/chat</code>, rows in <code>KNOW_HOW.md</code> (feature index, PART 50, Docker scripts)</td><td>docs</td><td>-</td></tr>
+  </table></div>
+</section>
+
+<section id="model">
+  <h2>2. Model</h2>
+  <p class="sub">The universal table schema of KNOW_HOW 2.3 (<code>rowGUID</code>, <code>rowOwnerGUID</code>, <code>rowParentGUID</code>, <code>orderInList</code>, <code>rowJSON</code>, <code>created_at</code>, <code>updated_at</code>) for all four tables. Names as the owner wrote them: <code>chatObjectTable</code>, <code>chatMembersTable</code>, <code>chatMessagesTable</code>; the "etc." is <code>chatThemeTable</code>.</p>
+
+  <div class="card">
+    <svg viewBox="0 0 1040 250" width="100%" role="img" aria-label="chatObject has themes, a theme has members and messages, a message has files and urls">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#64748b"/></marker></defs>
+      <rect x="10" y="20" width="210" height="90" rx="12" fill="#ede9fe" stroke="#7c3aed"/>
+      <text x="115" y="48" text-anchor="middle" font-weight="700" fill="#0f172a">chatObjectTable</text>
+      <text x="115" y="70" text-anchor="middle" font-size="12.5" fill="#334155">kind user  -> title "Main"</text>
+      <text x="115" y="90" text-anchor="middle" font-size="12.5" fill="#334155">kind task  -> 1 task</text>
+      <rect x="290" y="20" width="210" height="90" rx="12" fill="#cffafe" stroke="#0891b2"/>
+      <text x="395" y="48" text-anchor="middle" font-weight="700" fill="#0f172a">chatThemeTable</text>
+      <text x="395" y="70" text-anchor="middle" font-size="12.5" fill="#334155">Title, Description</text>
+      <text x="395" y="90" text-anchor="middle" font-size="12.5" fill="#334155">task theme: derived live</text>
+      <rect x="580" y="20" width="210" height="90" rx="12" fill="#d1fae5" stroke="#059669"/>
+      <text x="685" y="48" text-anchor="middle" font-weight="700" fill="#0f172a">chatMessagesTable</text>
+      <text x="685" y="70" text-anchor="middle" font-size="12.5" fill="#334155">text, urls[], files[]</text>
+      <text x="685" y="90" text-anchor="middle" font-size="12.5" fill="#334155">author, time, edited</text>
+      <rect x="290" y="150" width="210" height="80" rx="12" fill="#fef3c7" stroke="#d97706"/>
+      <text x="395" y="178" text-anchor="middle" font-weight="700" fill="#0f172a">chatMembersTable</text>
+      <text x="395" y="200" text-anchor="middle" font-size="12.5" fill="#334155">one row per theme + user</text>
+      <text x="395" y="218" text-anchor="middle" font-size="12.5" fill="#334155">lastReadAt = unread</text>
+      <rect x="850" y="20" width="180" height="90" rx="12" fill="#f1f5f9" stroke="#64748b"/>
+      <text x="940" y="48" text-anchor="middle" font-weight="700" fill="#0f172a">mediaPostTable</text>
+      <text x="940" y="70" text-anchor="middle" font-size="12.5" fill="#334155">file rows (PART 49)</text>
+      <text x="940" y="90" text-anchor="middle" font-size="12.5" fill="#334155">kind = chat</text>
+      <line x1="220" y1="65" x2="288" y2="65" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="500" y1="65" x2="578" y2="65" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="395" y1="110" x2="395" y2="148" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <line x1="790" y1="65" x2="848" y2="65" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)" stroke-dasharray="5 4"/>
+      <text x="254" y="56" text-anchor="middle" font-size="11" fill="#64748b">1 : n</text>
+      <text x="539" y="56" text-anchor="middle" font-size="11" fill="#64748b">1 : n</text>
+      <text x="819" y="56" text-anchor="middle" font-size="11" fill="#64748b">by URL</text>
+    </svg>
+  </div>
+
+  <div class="card scroll"><table>
+    <tr><th>Table</th><th><code>rowOwnerGUID</code></th><th><code>rowParentGUID</code></th><th><code>rowJSON</code> keys</th><th>Keys / checks</th></tr>
+    <tr><td><code>chatObjectTable</code><br><span class="sub">= chatGUID, the "1111" of the folder path</span></td><td>the creating user</td><td>the organization</td><td><code>chatKind</code> user | task · <code>title</code> ("Main" for kind user) · <code>taskGUID</code>, <code>projectGUID</code> (kind task)</td><td>unique: one Main per user; one object per task. CHECK on <code>chatKind</code></td></tr>
+    <tr><td><code>chatThemeTable</code><br><span class="sub">= chatThemeGUID, the "2222"</span></td><td>the creating user</td><td><code>chatObjectTable.rowGUID</code></td><td><code>title</code>, <code>description</code> (kind user) · <code>themeKind</code> user | task · <code>lastMessageAt</code> · <code>closed</code> (later)</td><td>a task theme stores NO title / description (they are derived, section 4). Index (parent, <code>lastMessageAt</code>)</td></tr>
+    <tr><td><code>chatMembersTable</code></td><td>the member (a user)</td><td>the theme</td><td><code>role</code> owner | member · <code>addedBy</code> · <code>lastReadAt</code></td><td>unique (parent, owner). The creator is always a row with role owner, so the field "chatMembers - maybe empty" means "no other users"</td></tr>
+    <tr><td><code>chatMessagesTable</code></td><td>the author</td><td>the theme</td><td><code>text</code> · <code>urls</code> [{ <code>url</code>, <code>title?</code> }] · <code>files</code> [{ <code>fileGUID</code>, <code>url</code>, <code>name</code>, <code>size</code>, <code>mime</code> }] · <code>editedAt</code> · <code>deleted</code></td><td>index (parent, <code>created_at</code>) - the page query and the unread count both use it. A message needs text, a url or a file</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:12px">Table names follow the owner's names (KNOW_HOW 2.2: the owner's own names win over the <code>_table</code> rule). Old tables are not renamed.</p>
+</section>
+
+<section id="scenarios">
+  <h2>3. Scenarios</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Scenario 1 - Main</h3>
+      <ol class="steps">
+        <li>The user opens the Drawer item <b>Chat</b> (route <code>/chat</code>).</li>
+        <li>The screen calls <code>chat_main_ensure()</code> once: it creates the chat object of the user (kind user, title "Main") if it does not exist, and returns it.</li>
+        <li>The list shows the themes the user may see: created by them, or where they have a <code>chatMembersTable</code> row, newest message first, with the unread count; plus the task chats of the user (section 4).</li>
+        <li>Button <b>New theme</b> opens a window: Title, Description, Message, chatMembers (multi pick of the active members of the organization, may stay empty). <b>Create</b> = ONE call <code>chat_theme_create</code>: the theme, the owner row, the member rows, the first message. The theme view opens with the cursor in the input.</li>
+        <li>A user sees only themes where they have a member row (the creator has one). Nobody else, also not an administrator (decision Q5).</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Scenario 2 - task chat</h3>
+      <ol class="steps">
+        <li>Task menu -> <b>Create based on this</b> -> <b>Chat</b> (also the line menu and the toolbar icon of the Finances table, like the other documents).</li>
+        <li><code>chat_task_ensure(task)</code>: if the task has a chat object, return it; else create the object, its ONE theme, the owner row (the caller) and the members of Q2. Idempotent, race safe (the unique key).</li>
+        <li>The app opens the theme view (a NEW browser window on web, a route on a phone - Q12).</li>
+        <li>The header shows Title and Description, both live from the task (section 4). The input has the focus, so the user types at once.</li>
+        <li>The icon <b>Go to Chat</b> in the toolbar of the task CRUD table calls the same function: it creates the chat when the task has none, else opens it.</li>
+        <li>Visible only while the project switch <code>chatFunctionalityEnabled</code> is not false.</li>
+      </ol>
+    </div>
+  </div>
+</section>
+
+<section id="task">
+  <h2>4. The chat of a task: title and description</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>Title</b> = <code>projectInnerPrefix</code> + the task name (the task text <code>rowJSON.taskDescription</code>); <b>Description</b> = the task description, changes in real time. <b>They are never copied into the theme.</b> The list RPC <code>chat_theme_list</code> computes the title with <code>chat_task_title(task)</code> (prefix of the project, one space, task text) and the app reads the task row for the header. A rename of the task or a new prefix is therefore in every chat at once, with nothing to keep in step.</li>
+      <li>The task row has ONE text field in the code (<code>taskDescription</code>) and a free-form <code>notes</code>. Reading: Title = <code>taskDescription</code>; Description = <code>notes</code> (empty = nothing shown). See Q4.</li>
+      <li><b>Real time</b>: the theme view subscribes to ONE row of <code>project_task_table</code> (<code>rowGUID=eq.&lt;task&gt;</code>, the channel helper of <code>kit8/redux/reusable/createSupabaseTableChannel.ts</code>), so it works also in a new browser window where the project cache is empty. A deleted task removes the chat (C7), the open window shows "This task no longer exists".</li>
+      <li><b>projectInnerPrefix</b>: 4 letters, stored in upper case in <code>project_table.rowJSON.projectInnerPrefix</code>; a missing value = the first 4 letters of the project name, upper case (computed, not stored). Not required to be unique (the settings field only warns when another project of the organization uses the same prefix).</li>
+      <li><b>Members of a task chat (owner's answers Q2 / Q13)</b>: the creator (owner) + <b>every user of the Time lines of the task - the RACI column, all four items, also when the task is finished</b>. They follow the Time lines <b>automatically</b>: a user who is added, changed or deleted in task -> Time -> RACI joins or leaves the chat at once (statement triggers on <code>task_line_table</code> call <code>chat_task_sync_members</code>; <code>chat_task_ensure</code> does it again). A member from the RACI is removed by changing the RACI; a member added by hand stays when the RACI changes. The people of <code>task_user_permission_table</code> are not used (that table only has open tasks).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="files">
+  <h2>5. Files in the chat (built ON the file attachments)</h2>
+  <div class="card">
+    <p style="margin-top:0">No second file system. A chat file is a file of <code>kit8/files</code> with a new scope <code>chat</code>:</p>
+    <ul class="steps">
+      <li><b>Row</b>: a row of <code>mediaPostTable</code> (PART 49): <code>rowOwnerGUID</code> = organization, <code>rowParentGUID</code> = chatThemeGUID, <code>rowJSON.fileSourceKind</code> = <code>chat</code>, <code>fileSourceProjectGUID</code> for a task chat, the storage keys as for every file (<code>googleDriveFileId</code> / <code>oneDriveItemId</code>, <code>fileStorageProvider</code>).</li>
+      <li><b>Folder</b> (<code>chainFor</code> of the Edge Function, one new branch). <b>Owner's answer Q9</b>: <code>kit8root/chat/user/&lt;userGUID&gt;/theme/&lt;chatThemeGUID&gt;/files/&lt;file&gt;</code> for the Main chat (1111 = the userGUID of the owner of Main); a task chat uses <code>chat/task/&lt;taskGUID&gt;/theme/&lt;chatThemeGUID&gt;/files/&lt;file&gt;</code>. The folders get the same marks as the others (<code>kit8Kind</code> chat / theme, <code>kit8OrganizationGUID</code>). Folder key <code>chat:&lt;themeGUID&gt;</code> (<code>files_authorize</code> tells the function the kind and the user / task guid: <code>chatKind</code>, <code>chatRefGUID</code>) (<code>scopeKeyFor</code>), so the OneDrive prefix rule works unchanged.</li>
+      <li><b>Storage</b>: a task chat follows the storage of its project (<code>projectFilesStorageProvider</code>), the Main chat follows the organization default (<code>files_provider_of_scope</code> gets the branch for <code>chat</code>). Upload, chunks, signed view link, replace / versions, permanent delete are the existing code.</li>
+      <li><b>Authorization</b> (<code>files_authorize</code>, new branch for scope <code>chat</code>, GUID = theme): read / add = the caller is a member of the theme; delete / update = the uploader, the theme owner, or an organization administrator; <code>switchOff</code> when the task chat's project has <code>filesFunctionalityEnabled</code> or <code>chatFunctionalityEnabled</code> off. The answer carries <code>maxBytes</code> = the organization limit (below).</li>
+      <li><b>The same file at many places</b>: a file belongs to the THEME, a message holds a REFERENCE: <code>{ fileGUID, url, name, size, mime }</code> where <code>url</code> is the address of the viewer route (<code>app/files/view</code>), never a storage link. Attaching it again = pick it from "files of this theme" (no upload, no copy); the message stores one more reference. Every click, preview and download goes through the URL and the function signs a short link at that moment. The bubble reads the name from the reference, so a renamed or replaced file needs no change in the messages (a new version has the same <code>fileGUID</code>).</li>
+      <li><b>Deleting</b>: deleting a message never deletes the file. Deleting a file (theme files list) leaves the references; the bubble shows "file deleted" for them.</li>
+      <li><b>Limit</b>: <code>organizationTable.rowJSON.maximumChatAttachmentFileSize</code> in MB (default 10, allowed 1..100: the 100 MB is the existing phase 1 cap of the file module, <code>MAX_UPLOAD_BYTES</code>). It is checked three times: the app before the upload, the Edge Function before the upload session is issued (<code>min(MAX_UPLOAD_BYTES, maxBytes)</code>), and the message guard trigger (the size in the reference is checked against the file row, not trusted).</li>
+      <li><b>Who changes the limit</b>: only an administrator or a project manager (a holder of the project manager profile in any project). Today <code>organizationTable</code> is updated by the administrator only, so a save from the Organization form would be refused for a project manager: the field is saved through the RPC <code>chat_set_max_attachment_size</code> (<code>organization_is_admin()</code> OR the project manager profile held anywhere through <code>perm_can</code> with no project). Other users see the value, read only.</li>
+      <li><b>No storage connected</b> (the administrator did not connect Google Drive / OneDrive): the attach button is disabled with the sentence of the files module; URLs and text still work.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="links">
+  <h2>6. URLs</h2>
+  <div class="card">
+    <ul class="steps">
+      <li>A message is: text, and/or URLs, and/or files. A URL is sent <b>inside the text</b> (the app finds <code>http(s)://</code> addresses and makes them links; the model function <code>extractUrls</code>) or <b>separately</b> (button "Add link": address + optional title, shown as a link card; same idea as "Add link" of the Files panel). A link sent apart is stored in <code>rowJSON.urls</code>; a url inside the text is found when the message is shown (so it is not shown twice).</li>
+      <li><b>Opening</b>: web = a new browser window (<code>window.open(url, '_blank', 'noopener,noreferrer')</code>); phone = a route: an address of this app (<code>/files/view</code>, <code>/pm/project/dashboard?...</code>, <code>/chat/...</code>) is opened with the router, an external address with <code>Linking.openURL</code> (the system browser).</li>
+      <li><b>Safe</b>: only <code>http</code>, <code>https</code> and the address of this app are links; <code>javascript:</code>, <code>data:</code> and anything else is shown as plain text and never opened. The database also refuses such a scheme in <code>urls</code>.</li>
+      <li>A file reference is a URL like any other (the viewer address), so the same bubble code opens both.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="realtime">
+  <h2>7. Realtime, unread numbers, the red icon</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>Redux entities</b> in <code>kit8/redux/SystemMetaData.ts</code>: <code>chatObject</code>, <code>chatTheme</code>, <code>chatMember</code>, <code>chatMessage</code> (table name, realtime on, <code>match</code> for a scope - the generic read already supports <code>match</code>, <code>orderBy</code> and paging). The realtime channel (<code>createSupabaseTableChannel</code>) feeds the store; Supabase Realtime sends only the rows the RLS lets the user read, so a user never gets another chat.</li>
+      <li><b>Messages</b>: a theme view reads the newest 50 (<code>match</code> = theme, order <code>created_at</code> descending), older ones on scroll up (Q16). A new message of the user is inserted by the saga with a GUID made by the client: optimistic, and the realtime echo has the same GUID, so it is not shown twice.</li>
+      <li><b>Unread</b> = the messages of a theme newer than the user's <code>lastReadAt</code> (the member row) that the user did not write. <code>chat_unread_counts()</code> gives the number per theme in one query. The badge number = the sum over the themes the user can see (a task chat of a project with the chat switch off does not count).</li>
+      <li><b>The icon</b>: a chat bubble button in <code>ApplicationBarApp</code>, placed right before the three dots menu, with a red round number (99+ above 99). It exists while the sum is above 0 and disappears at 0 (the request). Press = the list <code>/chat</code> with unread themes first. The hook <code>useChatUnread</code> starts from <code>chat_unread_counts()</code>, adds +1 for a realtime INSERT of a message of another author in a theme that is not open, and re-reads on a change of the user's own member rows (read on another device).</li>
+      <li><b>Mark read</b>: while a theme view is focused, the window is visible (<code>AppState</code> on a phone, <code>visibilitychange</code> on the web) and the list is at the end, the app calls <code>chat_mark_read(theme)</code> = <code>lastReadAt</code> := the time of the newest message of the theme (the server time, never the device clock). Messages that arrive while the view is open are read at once.</li>
+      <li><b>Cost</b>: Realtime checks the RLS policy for every subscriber for every change. The policy of the messages is ONE indexed probe, <code>chat_is_member(rowParentGUID)</code> (STABLE, unique key theme + user) - the bench C19 measures it with many members.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="access">
+  <h2>8. Access rules</h2>
+  <div class="card scroll"><table>
+    <tr><th>What</th><th>Who</th><th>How</th></tr>
+    <tr><td>Read a theme, its members, its messages, its files</td><td>a member of the theme</td><td>RLS <code>chat_is_member</code>. The files rows of <code>mediaPostTable</code> get the third row rule of PART 49 for <code>fileSourceKind = chat</code> (today those policies are <code>USING (true)</code> for plain posts - the chat rows must not leak)</td></tr>
+    <tr><td>Create Main, a user theme</td><td>any active member of the organization</td><td>RPCs <code>chat_main_ensure</code>, <code>chat_theme_create</code></td></tr>
+    <tr><td>Create / open a task chat</td><td>who may READ the task (a project participant)</td><td><code>chat_task_ensure</code> asks <code>perm_can_in</code> read on the project</td></tr>
+    <tr><td>Send a message</td><td>a member</td><td>INSERT policy + guard trigger: author = <code>app_user_guid()</code>, the theme is open (not closed), the chat switch of the project is on</td></tr>
+    <tr><td>Edit / delete a message</td><td>its author only</td><td>UPDATE / DELETE policy; delete = <code>deleted</code> true and the text cleared (Q5)</td></tr>
+    <tr><td>Add a member</td><td>the owner of the theme, a project manager or an administrator</td><td><code>chat_member_add</code></td></tr>
+    <tr><td>Exclude a member (owner's answer Q15)</td><td><b>only a project manager or an administrator</b></td><td><code>chat_member_remove</code> (<code>chat_can_manage</code>); nobody leaves by himself; the owner of the theme and a member who comes from the RACI cannot be excluded this way</td></tr>
+    <tr><td>Who can be added</td><td>the ACTIVE members of the same organization</td><td><code>chat_member_candidates()</code> (an invited, unregistered e-mail is not a user yet)</td></tr>
+    <tr><td>Change <code>maximumChatAttachmentFileSize</code></td><td>administrator or project manager</td><td>RPC <code>chat_set_max_attachment_size</code> (section 5)</td></tr>
+    <tr><td>Change <code>chatFunctionalityEnabled</code>, <code>projectInnerPrefix</code></td><td>who changes the project settings</td><td>the existing project settings save</td></tr>
+  </table></div>
+  <div class="note"><b>Permission matrix</b>: the four tables go into <code>kit8/sql/permissions/permission_matrix.py</code> (Docker test 53 lists the tables and RPCs without a permission check) with the line "membership rules, no profile letters". Every write RPC calls <code>perm_can_in</code> / <code>perm_require</code> or the membership helper.</div>
+</section>
+
+<section id="settings">
+  <h2>9. Settings</h2>
+  <div class="card scroll"><table>
+    <tr><th>Key</th><th>Where stored</th><th>Where edited</th><th>Default</th></tr>
+    <tr><td><code>chatFunctionalityEnabled</code></td><td><code>project_table.rowJSON</code></td><td>Project settings -> <b>Chat</b> (new tab after Files, <code>PMProjectChatTab</code>); Organization edit -> Projects -> Settings (default for new projects)</td><td><b>true</b> while never saved. SQL <code>vendor_project_setting(project, 'chatFunctionalityEnabled')</code> (TRUE unless stored false), TS <code>!== false</code></td></tr>
+    <tr><td><code>projectInnerPrefix</code></td><td><code>project_table.rowJSON</code></td><td>Project settings, the <b>main</b> tab: a field of 4 letters</td><td>missing = first 4 letters of the project name (computed)</td></tr>
+    <tr><td><code>maximumChatAttachmentFileSize</code></td><td><code>organizationTable.rowJSON</code> (MB)</td><td>Organization edit, section Chat; read only for others</td><td>10</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">With the switch off: the task chats of that project are hidden from the list, the badge and the task menu; nothing is deleted; the Main chat is not a project thing and stays. <code>normalizeOrganization</code> and the project settings normalizer must list the new keys or the edit form drops them on save (KNOW_HOW 7).</p>
+</section>
+
+<section id="sql">
+  <h2>10. SQL - PART 50</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>start1_sql_tables.sql</b>: the four tables, the uniques (Main per user; chat per task), CHECKs (<code>chatKind</code>, <code>role</code>, the scheme of <code>urls</code> is checked in the guard trigger because a CHECK cannot call a later function), indexes (members: parent + owner; messages: parent + <code>created_at</code>; themes: parent + <code>lastMessageAt</code>).</li>
+      <li><b>start2_sql_code.sql</b>: <code>kit8_setup_def_table</code> for each, <code>chat_is_member</code>, <code>chat_theme_visible</code>, policies, the guard triggers (messages, members, themes), <code>lastMessageAt</code> trigger, the RPCs of C3 / C5 / C6, the delete triggers of C7, the realtime publication, the grants; <b>in place</b>: <code>files_authorize</code>, <code>files_provider_of_scope</code>, <code>files_add</code>, <code>files_list</code>, <code>files_delete</code> and the cleanup queue learn the scope <code>chat</code> (they are redefined in PART 49: change the LAST definition).</li>
+      <li><b>start4 / start5</b>: nothing (no seed rows). <b>start3</b>: nothing (no worker).</li>
+      <li><b>delete_sql_structure.sql</b>: a new numbered part, tables WITH data, reverse order (do not write the scanned pattern in a comment).</li>
+      <li>A <code>RAISE</code> message uses <code>%</code> for a placeholder and <code>%%</code> for a percent sign. No <code>COALESCE(a, b)</code> among the arguments of a RAISE (the heuristic of <code>vendorInvoiceSql.test.ts</code>).</li>
+    </ul>
+  </div>
+  <h3>Functions</h3>
+  <div class="card scroll"><table>
+    <tr><th>RPC</th><th>Does</th></tr>
+    <tr><td><span class="pill rpc">chat_main_ensure()</span></td><td>the Main object of the caller; creates it once</td></tr>
+    <tr><td><span class="pill rpc">chat_theme_create(guid, title, description, message, members[])</span></td><td>theme + owner row + member rows + first message in one transaction; the client's GUID makes it idempotent</td></tr>
+    <tr><td><span class="pill rpc">chat_task_ensure(task)</span></td><td>get or create the chat object, its theme and the first members of a task; returns the GUIDs</td></tr>
+    <tr><td><span class="pill rpc">chat_theme_list()</span></td><td>the themes the caller sees: GUIDs, kind, computed title, last message time and text start, unread count</td></tr>
+    <tr><td><span class="pill rpc">chat_unread_counts()</span></td><td>{ theme, n } for the badge</td></tr>
+    <tr><td><span class="pill rpc">chat_mark_read(theme)</span></td><td><code>lastReadAt</code> := newest message time</td></tr>
+    <tr><td><span class="pill rpc">chat_member_add / _remove</span></td><td>owner rules; refuses a user of another organization</td></tr>
+    <tr><td><span class="pill rpc">chat_member_candidates()</span></td><td>the active members of the organization with name and e-mail</td></tr>
+    <tr><td><span class="pill rpc">chat_task_title(task)</span></td><td>prefix + task text (one place for the rule)</td></tr>
+    <tr><td><span class="pill rpc">chat_set_max_attachment_size(mb)</span></td><td>integer 1..100; administrator or project manager</td></tr>
+  </table></div>
+</section>
+
+<section id="ui">
+  <h2>11. User interface</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Routes (<code>app/chat</code>)</h3>
+      <ul class="steps">
+        <li><code>app/chat/index.tsx</code> - the list of themes + New theme.</li>
+        <li><code>app/chat/theme/index.tsx</code> - one theme, params <code>themeGUID</code> (and <code>taskGUID</code> for a task chat). Hidden from the Drawer, like <code>files/view</code>.</li>
+        <li>Drawer: one item <b>Chat</b> (icon chat) after Media, before Catalogs, with the unread number.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Theme view</h3>
+      <ul class="steps">
+        <li>Header: Title, Description, member avatars (button -> members window), Files of this theme.</li>
+        <li>Messages, oldest at the top, my messages at the right; date separators; link cards; file chips (icon by kind, name, size; press = open the URL); "edited", "deleted".</li>
+        <li>Input: multi line text, buttons Attach file (picker / drop on the web / from theme files), Add link, Send (Enter sends on the web, Shift+Enter a new line). <b>The cursor is placed in the input</b> when the view opens (<code>autoFocus</code> plus a ref focus after the first layout, because the web needs the second one) and after a send.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Task side</h3>
+      <ul class="steps">
+        <li>Task menu / line menu / toolbar icon "Create based on" -> <b>Chat</b> (<code>useTaskRelatedMenu</code>).</li>
+        <li>Icon button <b>Go to Chat</b> in the toolbar of the task CRUD table (<code>PMProjectTaskInputCRUD</code>), with a tip; hidden while the switch is off.</li>
+        <li>No chat tab in the task window in this plan (a later item).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="code">
+  <h2>12. Code map (planned)</h2>
+  <div class="card scroll"><table>
+    <tr><th>Path</th><th>Content</th></tr>
+    <tr><td><code>kit8/chat/chatModel.ts</code></td><td>types, <code>chatTaskTitle</code>, <code>prefixOf</code>, <code>extractUrls</code>, <code>isSafeLink</code>, limits (pure, node-testable)</td></tr>
+    <tr><td><code>kit8/chat/chatMetaData.ts</code></td><td>the four <code>SystemMetaData</code> entities</td></tr>
+    <tr><td><code>kit8/chat/chatApi.ts</code></td><td>the RPC calls</td></tr>
+    <tr><td><code>kit8/chat/useChatThemes.ts</code> <code>useChatMessages.ts</code> <code>useChatUnread.ts</code> <code>useOpenTaskChat.ts</code></td><td>hooks</td></tr>
+    <tr><td><code>kit8/chat/ChatListScreen.tsx</code> <code>ChatThemeScreen.tsx</code> <code>ChatNewThemeWindow.tsx</code> <code>ChatMembersWindow.tsx</code></td><td>screens and windows</td></tr>
+    <tr><td><code>kit8/chat/ChatMessageInput.tsx</code> <code>ChatMessageBubble.tsx</code> <code>ChatBadge.tsx</code></td><td>input (focus), bubble, the red icon</td></tr>
+    <tr><td><code>kit8/chat/attach/*</code></td><td>file and link attachment on top of <code>kit8/files/common</code> (<code>filesDriveApi</code>, <code>pickFiles</code>, <code>FileViewer</code>)</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/PMProjectChatTab.tsx</code></td><td>the Chat tab; the prefix field in the main tab</td></tr>
+    <tr><td><code>kit8/files/common/fileModel.ts</code>, <code>storageProviders.ts</code></td><td>scope type gets <code>chat</code></td></tr>
+    <tr><td><code>supabase/functions/files-drive/handler.ts</code></td><td><code>chainFor</code>, <code>scopeKeyFor</code>, the size limit (redeploy with <code>--no-verify-jwt</code> as before)</td></tr>
+    <tr><td><code>app/chat/index.tsx</code>, <code>app/chat/theme/index.tsx</code></td><td>thin route files</td></tr>
+  </table></div>
+</section>
+
+<section id="tests">
+  <h2>13. Tests</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>Docker</b> <code>tests/59_chat.sql</code> (number 59 is free): visibility (creator / member / outsider / other organization), one Main per user, one chat per task, task title follows the rename and the prefix, members rules, messages guard (author, closed, bad scheme, oversized file reference), unread counts and mark read, switch off hides, deletes cascade and queue the files, file scope <code>chat</code> authorization and <code>maxBytes</code>, who may call <code>chat_set_max_attachment_size</code>. <code>test_sql.sh</code> keeps its checks (install twice, tables alone, delete leaves nothing). Also run 53 (permissions list) and 55-58 (files).</li>
+      <li><b>Jest</b> <code>__tests__/chat</code>: model (title, prefix, URL parser, safe scheme, limits), hooks (unread +1 / -N, dedupe of the optimistic echo), UI with <code>pmUiTestKit</code> (list, new theme, theme view focus on the input, badge shows and hides, link opens by the right call, attach refused above the limit), task menu and toolbar items, project settings tab, SQL file scans (<code>__tests__/sql</code>: PART 50 in start1 and start2, delete part). The files function tests get the chat scope.</li>
+      <li><b>Bench</b> <code>bench_chat.sh 100000</code>: page of 50, unread counts of 200 themes, insert burst, and the RLS cost with 50 members per theme.</li>
+      <li>Not testable here (said in the report): the real Supabase Realtime, the user's Drive / OneDrive, the phone keyboard focus.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="not">
+  <h2>14. Not in this plan</h2>
+  <div class="card">
+    <ul class="steps">
+      <li>Push notifications / mails when the app is closed (the reminder module can be the base, phase 2).</li>
+      <li>Typing indicator, seen-by, reactions, replies and threads, search in messages, @mentions.</li>
+      <li>A chat tab in the task window, chats of documents or projects (the model allows more <code>chatKind</code> values).</li>
+      <li>Several themes in a task chat (the tables allow it; phase 1 creates one).</li>
+      <li>Moderation by the administrator, export of a chat.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>15. Questions with the answer I will build unless you change it</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Recommended answer</th></tr>
+    <tr><td>Q1</td><td>Spec says a task = 1 chatObject, and a theme has Title / Description. How many themes does a task chat have?</td><td>Exactly one (auto). The folder path already has the theme level, so more themes can come later.</td></tr>
+    <tr><td>Q2</td><td>Who are the members of a task chat?</td><td><b>OWNER: the members follow task -> Time -> RACI automatically</b> (a CRUD of the RACI column changes the members of the task chat). Built so. Plus the creator; more members can be added by hand.</td></tr>
+    <tr><td>Q3</td><td>Exact format of the title and the prefix?</td><td>Title = prefix, one space, task text (<code>PRJ1 Build the bridge</code>). Prefix: exactly 4 letters or digits, upper case, not unique; missing = first 4 letters of the project name.</td></tr>
+    <tr><td>Q4</td><td>A task has ONE text field (<code>taskDescription</code>) plus <code>notes</code>. "Task name" and "task description" are...?</td><td>Name = <code>taskDescription</code>; Description = <code>notes</code> (shown live; empty = no line).</td></tr>
+    <tr><td>Q5</td><td>Edit / delete of messages? Moderation?</td><td>The author edits (marked "edited") and deletes (marked "deleted", text cleared). No moderation, and an administrator does NOT read chats they are not a member of.</td></tr>
+    <tr><td>Q6</td><td>Attach the same file again?</td><td>The file belongs to the theme; attaching it again picks it from the theme files and stores one more reference (no second upload).</td></tr>
+    <tr><td>Q7</td><td>Deleting a file that messages refer to?</td><td>Allowed for the uploader, the theme owner, an administrator; the messages show "file deleted". Deleting a message keeps the file.</td></tr>
+    <tr><td>Q8</td><td>Default and range of <code>maximumChatAttachmentFileSize</code>?</td><td>10 MB, integer 1..100 (the file module's 100 MB cap).</td></tr>
+    <tr><td>Q9</td><td>Main chat has no project: where do its files go?</td><td><b>OWNER: the folder is <code>/chat/user/1111/theme/2222/files/chat_file1.txt</code>, 1111 = the userGUID.</b> Built so. The storage is the organization default; if none is connected the attach button is disabled with a sentence.</td></tr>
+    <tr><td>Q10</td><td>What does <code>chatFunctionalityEnabled = false</code> do to existing task chats?</td><td>Hidden everywhere (list, badge, menus), data kept; Main chat unaffected.</td></tr>
+    <tr><td>Q11</td><td>Notifications with the app closed?</td><td>Not now (phase 2).</td></tr>
+    <tr><td>Q12</td><td>"Go to Chat" / "Create based on -> Chat": same window or new?</td><td>A NEW browser window on web (like every "Go to" of the Task menu), a route on a phone.</td></tr>
+    <tr><td>Q13</td><td>Who can be picked as a chat member?</td><td><b>OWNER: yes, and all the RACI of task -> Time automatically.</b> Built so: the ACTIVE members of the organization (registered users) can be picked; the RACI users join without picking.</td></tr>
+    <tr><td>Q14</td><td>What happens on delete of a task / project / organization / user?</td><td>The task, project or organization chat is deleted with its files (queued for the storage). A deleted user's messages stay with the name "former member".</td></tr>
+    <tr><td>Q15</td><td>Who may leave a chat?</td><td><b>OWNER: only a project manager or an administrator can exclude members.</b> Built so; a member does not leave by himself.</td></tr>
+    <tr><td>Q16</td><td>How many messages are loaded?</td><td>50 at a time, older ones on scroll up.</td></tr>
+    <tr><td>Q17</td><td>Who may create a task chat?</td><td>Anyone who can read the task (a participant of the project).</td></tr>
+    <tr><td>Q18</td><td>The request lists "Main" as a chatObject title. One Main per user, made at the first open of Chat?</td><td>Yes.</td></tr>
+  </table></div>
+</section>
+
+<section id="install">
+  <h2>16. Install</h2>
+  <div class="card">
+    <ol class="steps">
+      <li>Supabase SQL Editor: <code>start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> (PART 50 and the changed PART 49 functions). Run it when nobody edits (the triggers are dropped and created for a few seconds).</li>
+      <li>Redeploy the Edge Function <code>files-drive</code> (chat scope, size limit) with <code>--no-verify-jwt</code>.</li>
+      <li>No <code>.env</code> line, no <code>start3</code>, no <code>start4</code>.</li>
+      <li>Restart Expo with a cleared cache; verify: open <b>Chat</b>, create a theme, write from a second user and watch the red number; task menu -> Create based on -> Chat.</li>
+    </ol>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

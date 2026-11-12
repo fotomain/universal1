@@ -58,6 +58,8 @@ export interface OrganizationRowJSON {
    * Edited in Organization edit -> Projects -> Settings, or saved from the Project settings window (three dots menu).
    */
   defaultProjectSettings?: Record<string, any>;
+  /** the biggest chat attachment in MB (whole number 1..100; default 10): kit8/chat - changed through the RPC chat_set_max_attachment_size (administrator or project manager) */
+  maximumChatAttachmentFileSize?: number;
   /** time sheet defaults of every user (Organization edit -> Time sheet): a Person may set his own (kit8/documents/timesheet/TabTimesheet). A missing key = the built-in default (false / true). */
   timesheetAllWorkCenterInputAvailable?: boolean;
   timesheetOnlyCurrentMonthInputEnabled?: boolean;
@@ -146,6 +148,8 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(isCapacityMode(raw.resourceCapacityStrongMode) && raw.resourceCapacityStrongMode !== 'capacityModeOff' ? { resourceCapacityStrongMode: raw.resourceCapacityStrongMode } : {}),
     // the defaults of a new project are kept as they are (an object); anything else is dropped
     ...(raw.defaultProjectSettings && typeof raw.defaultProjectSettings === 'object' && !Array.isArray(raw.defaultProjectSettings) ? { defaultProjectSettings: raw.defaultProjectSettings } : {}),
+    // chat: only a whole number of MB from 1 to 100 is kept (the form must not drop the value the RPC saved)
+    ...(Number.isInteger(raw.maximumChatAttachmentFileSize) && (raw.maximumChatAttachmentFileSize as number) >= 1 && (raw.maximumChatAttachmentFileSize as number) <= 100 ? { maximumChatAttachmentFileSize: raw.maximumChatAttachmentFileSize } : {}),
     // the time sheet defaults: only a stored boolean is kept
     ...(typeof raw.timesheetAllWorkCenterInputAvailable === 'boolean' ? { timesheetAllWorkCenterInputAvailable: raw.timesheetAllWorkCenterInputAvailable } : {}),
     ...(typeof raw.timesheetOnlyCurrentMonthInputEnabled === 'boolean' ? { timesheetOnlyCurrentMonthInputEnabled: raw.timesheetOnlyCurrentMonthInputEnabled } : {}),

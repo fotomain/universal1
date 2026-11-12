@@ -48,11 +48,11 @@ describe('the seed is generated from the matrix data', () => {
     expect(b).toContain('DO UPDATE SET');
     expect(a.replace(/ON CONFLICT[^;]*;/g, '')).toBe(b.replace(/ON CONFLICT[^;]*;/g, ''));
   });
-  it('11 profiles, 142 tables and 27 interface objects', () => {
+  it('11 profiles, 146 tables and 27 interface objects', () => {
     const a = block(s4);
     expect(a.match(/\('permission[A-Za-z]+', 'permissionCatalog', 'empty'/g)).toHaveLength(11);
     const crud = a.slice(a.indexOf('INSERT INTO public."project_permission_profile_crud_table"'), a.indexOf('INSERT INTO public."project_permission_profile_uxui_table"'));
-    expect(crud.match(/^ {4}\('[A-Za-z0-9_]+', ARRAY\[/gm)).toHaveLength(142);
+    expect(crud.match(/^ {4}\('[A-Za-z0-9_]+', ARRAY\[/gm)).toHaveLength(146);
     const ux = a.slice(a.indexOf('INSERT INTO public."project_permission_profile_uxui_table"'));
     expect(ux.match(/^ {4}\('(permission|project)[A-Za-z0-9]+', ARRAY\[/gm)).toHaveLength(27);
   });

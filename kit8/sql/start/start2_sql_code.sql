@@ -54,6 +54,7 @@
 --   47. create_permission_enforcement.sql - ENFORCEMENT (documentation/PERMISSIONS_WBS.html section 7): the matrix policies next to the owner policies (perm_projects / perm_tasks), create-project right, the catalogs (administrator writes, project manager inserts), the document RPC guards, the members read
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): policies, the guard trigger, organization_texts(language)
 --   49. create_files.sql - FILE ATTACHMENTS (first slice): RLS of files_google_connection_table (no policy, no grant: only the Edge Function reads it) and files_connection_status(organization) = the state without any secret
+--   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): membership helpers + read only policies of chatObjectTable / chatThemeTable / chatMembersTable / chatMessagesTable, the chat_ RPCs, the RACI synchronisation of the members of a task chat (trigger on task_line_table), the delete triggers, realtime; the scope chat of the file attachments (PART 49 functions changed in place)
 -- ===============================================================================================
 
 DO $$
@@ -15940,6 +15941,17 @@ $$;
 
 REVOKE ALL ON FUNCTION public.organization_member_user_guid(text) FROM PUBLIC, anon, authenticated;
 
+-- the same lookup for the guard when a USER (role authenticated) adds a member row: the guard is SECURITY INVOKER, so it needs a function the caller may execute.
+-- It answers only for an administrator of that organization (anybody else gets NULL: no e-mail -> user lookup for the rest of the world).
+CREATE OR REPLACE FUNCTION public.organization_member_lookup_user(p_organization text, p_email text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.organization_member_user_guid(p_email) WHERE public.organization_is_admin(p_organization)
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_member_lookup_user(text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_member_lookup_user(text, text) TO authenticated;
+
 -- does the user own projects of the organization? (project_table is readable by its owner only, so the guard asks through a SECURITY DEFINER function)
 CREATE OR REPLACE FUNCTION public.organization_member_owns_projects(p_organization text, p_user text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -16010,7 +16022,11 @@ BEGIN
       IF v_me <> '' THEN NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('invitedBy', v_me); END IF;
     END IF;
     IF NEW."rowParentGUID" = 'empty' THEN
-      v_user := public.organization_member_user_guid(v_email);
+      IF v_system THEN
+        v_user := public.organization_member_user_guid(v_email);
+      ELSE
+        v_user := public.organization_member_lookup_user(NEW."rowOwnerGUID", v_email);
+      END IF;
       IF v_user IS NOT NULL THEN NEW."rowParentGUID" := v_user; END IF;
     END IF;
     NEW."rowJSON" := jsonb_build_object('organizationAdministrator', false, 'autoCreatePerson', true) || NEW."rowJSON"
@@ -17468,7 +17484,7 @@ $$;
 -- Google's); organization and document files follow the organization default of the same key (Organization edit -> Projects -> Settings). Anything but 'oneDrive' is 'googleDrive'.
 CREATE OR REPLACE FUNCTION public.files_provider_of_scope(p_scope text, p_project uuid, p_org text) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
-  SELECT CASE WHEN lower(COALESCE(p_scope, '')) IN ('project', 'stage', 'task') THEN
+  SELECT CASE WHEN lower(COALESCE(p_scope, '')) IN ('project', 'stage', 'task') OR (lower(COALESCE(p_scope, '')) = 'chat' AND p_project IS NOT NULL) THEN
            CASE WHEN (SELECT p."rowJSON"->>'projectFilesStorageProvider' FROM public.project_table p WHERE p."rowGUID" = p_project) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
          ELSE
            CASE WHEN (SELECT o."rowJSON"->'defaultProjectSettings'->>'projectFilesStorageProvider' FROM public."organizationTable" o WHERE o."rowGUID" = p_org) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
@@ -17484,10 +17500,12 @@ DECLARE
   v_project uuid;
   v_ok      boolean;
   v_deny    text;
+  v_chat_kind text;
+  v_chat_ref  text;
 BEGIN
   IF v_user IS NULL OR v_org IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'signIn'); END IF;
   IF p_action NOT IN ('read', 'add', 'update', 'delete', 'reorder', 'move', 'connect') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'unknownAction'); END IF;
-  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document', 'chat') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
   IF p_action <> 'connect' THEN
     IF v_scope = 'project' THEN v_project := public.files_uuid_or_null(p_guid);
     ELSIF v_scope IN ('stage', 'task') THEN v_project := public.files_uuid_or_null(p_project);
@@ -17498,18 +17516,28 @@ BEGIN
         RETURN jsonb_build_object('allowed', false, 'reason', 'task');
       END IF;
       IF NOT public.vendor_project_setting(v_project, 'filesFunctionalityEnabled') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'switchOff'); END IF;
+    ELSIF v_scope = 'chat' THEN
+      -- CHAT (PART 50): p_guid = the theme; only a member of it (a task chat of a project with the chat switch off is hidden) · the files switch of the project of a task chat
+      IF COALESCE(p_guid, '') = '' OR public.chat_theme_org(p_guid) IS DISTINCT FROM v_org THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+      IF NOT public.chat_is_member(p_guid) THEN RETURN jsonb_build_object('allowed', false, 'reason', 'noPermission'); END IF;
+      SELECT o."rowJSON"->>'chatKind', CASE WHEN o."rowJSON"->>'chatKind' = 'task' THEN o."rowJSON"->>'taskGUID' ELSE o."rowOwnerGUID" END, public.files_uuid_or_null(o."rowJSON"->>'projectGUID')
+        INTO v_chat_kind, v_chat_ref, v_project
+        FROM public."chatThemeTable" t JOIN public."chatObjectTable" o ON o."rowGUID" = t."rowParentGUID" WHERE t."rowGUID" = p_guid;
+      IF v_project IS NOT NULL AND NOT public.vendor_project_setting(v_project, 'filesFunctionalityEnabled') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'switchOff'); END IF;
     ELSIF v_scope = 'document' AND COALESCE(p_guid, '') = '' THEN
       RETURN jsonb_build_object('allowed', false, 'reason', 'scope');
     END IF;
   END IF;
   IF p_action = 'read' THEN v_ok := true;
   ELSIF p_action = 'connect' THEN v_ok := public.perm_can('projectFileManager', 'U');
+  ELSIF v_scope = 'chat' THEN v_ok := p_action <> 'move';   -- a member adds / changes the files of his theme (the row rule is chat_file_manage_check); a chat file never moves
   ELSIF v_scope IN ('project', 'stage', 'task') THEN v_ok := public.perm_can_in('projectMediaPostManager', 'U', v_project);
   ELSE v_ok := public.perm_can('projectFileManager', 'U');
   END IF;
   IF NOT v_ok THEN v_deny := 'noPermission'; END IF;
   RETURN jsonb_build_object('allowed', v_ok, 'reason', v_deny, 'organizationGUID', v_org, 'userGUID', v_user, 'projectGUID', v_project, 'scope', v_scope, 'guid', p_guid,
-                            'provider', public.files_provider_of_scope(v_scope, v_project, v_org));
+                            'provider', public.files_provider_of_scope(v_scope, v_project, v_org),
+                            'chatKind', v_chat_kind, 'chatRefGUID', v_chat_ref, 'maxBytes', CASE WHEN v_scope = 'chat' THEN public.chat_max_attachment_bytes(v_org) END);
 END;
 $$;
 
@@ -17546,6 +17574,7 @@ BEGIN
              WHEN 'organization' THEN true
              WHEN 'project' THEN m."rowJSON"->>'fileSourceProjectGUID' = p_guid
              WHEN 'document' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'document'
+             WHEN 'chat' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'chat'
              ELSE m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' IN ('task', 'stage')
            END), '[]'::jsonb);
 END;
@@ -17730,6 +17759,9 @@ BEGIN
   IF v_pend."rowJSON"->>'scope' <> v_scope OR COALESCE(v_pend."rowJSON"->>'scopeGUID', '') <> COALESCE(p_guid, '') THEN
     RAISE EXCEPTION 'files_add: the upload was made for another place' USING ERRCODE = '42501';
   END IF;
+  IF v_scope = 'chat' AND (v_pend."rowJSON"->>'fileSize')::numeric > (v->>'maxBytes')::numeric THEN
+    RAISE EXCEPTION 'files_add: a chat attachment is at most % MB (the setting of the organization)', ((v->>'maxBytes')::numeric / 1048576)::integer USING ERRCODE = '54000';
+  END IF;
   -- OD4: the storage the upload was made in (a pending row without the key is a Google upload)
   v_prov := CASE WHEN v_pend."rowJSON"->>'provider' = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END;
   v_facts := public.files_org_facts(v_org, v_prov);
@@ -17817,6 +17849,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'files_update: no such file' USING ERRCODE = 'P0002'; END IF;
   v_scope := public.files_row_scope(v_row);
   PERFORM public.files_require('update', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  PERFORM public.chat_file_manage_check(v_row);
   IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_update: not your organization' USING ERRCODE = '42501'; END IF;
   IF p_patch ? 'fileDocumentTypeGUID' AND NOT public.files_document_type_ok(p_patch->>'fileDocumentTypeGUID', v_row."rowOwnerGUID") THEN RAISE EXCEPTION 'files_update: no such document type' USING ERRCODE = '22023'; END IF;
   FOREACH k IN ARRAY ARRAY['mediaPostTitle', 'mediaPostDescription', 'paperDocumentPlace', 'fileDocumentTypeGUID'] LOOP
@@ -17858,6 +17891,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'files_delete: no such file' USING ERRCODE = 'P0002'; END IF;
   v_scope := public.files_row_scope(v_row);
   PERFORM public.files_require('delete', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  PERFORM public.chat_file_manage_check(v_row);
   IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_delete: not your organization' USING ERRCODE = '42501'; END IF;
   v_file := COALESCE(v_row."rowJSON"->>'googleDriveFileId', v_row."rowJSON"->>'oneDriveItemId');
   IF v_file IS NOT NULL THEN
@@ -18055,6 +18089,7 @@ BEGIN
   IF NOT FOUND THEN RAISE EXCEPTION 'files_replace: no such file' USING ERRCODE = 'P0002'; END IF;
   v_scope := public.files_row_scope(v_row);
   PERFORM public.files_require('update', v_scope->>'scope', v_scope->>'guid', v_scope->>'project');
+  PERFORM public.chat_file_manage_check(v_row);
   IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_replace: not your organization' USING ERRCODE = '42501'; END IF;
   SELECT * INTO v_pend FROM public.files_upload_pending_table WHERE "rowJSON"->>'uploadId' = p_upload_id AND "rowOwnerGUID" = v_row."rowOwnerGUID" AND "rowParentGUID" = public.app_user_guid()::text;
   IF NOT FOUND OR v_pend."rowJSON"->>'state' <> 'verified' OR v_pend."rowJSON"->>'replaceOf' IS DISTINCT FROM p_post THEN
@@ -18103,6 +18138,7 @@ BEGIN
   v_prov := CASE WHEN v_row."rowJSON"->>'fileStorageProvider' = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END; -- a file never changes its storage: its folder keys are its storage's
   v_from := public.files_row_scope(v_row);
   PERFORM public.files_require('move', v_from->>'scope', v_from->>'guid', v_from->>'project');
+  IF lower(COALESCE(p_scope, '')) = 'chat' THEN RAISE EXCEPTION 'files_move: a file never moves into a chat' USING ERRCODE = '22023'; END IF;
   v_to := public.files_require('add', p_scope, p_guid, p_project);
   IF v_row."rowOwnerGUID" IS DISTINCT FROM public.organization_of_current_user() THEN RAISE EXCEPTION 'files_move: not your organization' USING ERRCODE = '42501'; END IF;
   v_parent := CASE WHEN v_to->>'scope' = 'organization' THEN v_row."rowOwnerGUID" ELSE p_guid END;
@@ -18170,6 +18206,671 @@ REVOKE ALL ON FUNCTION public.files_replace(text, text), public.files_versions_l
 
 GRANT EXECUTE ON FUNCTION public.files_replace(text, text), public.files_versions_list(text), public.files_move(text, text, text, text, text, text), public.files_storage_used(text, text),
   public.files_health_rows(text), public.files_delete_row_only(text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 50: create_chat.sql
+-- CHAT (documentation/CHAT_WBS.html). The tables are in start1. Here: the membership helpers, the policies (a client READS what its themes hold, it never writes a chat table), the RPCs, the RACI
+-- synchronisation of the members of a task chat, the delete triggers, the realtime publication. The chat scope of the file attachments is changed IN PLACE in PART 49 (files_authorize, files_list ...).
+--   * a user sees a theme when he has a row in chatMembersTable and (for a task chat) the project switch chatFunctionalityEnabled is not false (chat_my_themes);
+--   * the members of a TASK chat are the users of the Time lines of the task (the RACI column: Responsible, Accountable, Consulted, Informed) - kept in step by a trigger on task_line_table and by
+--     chat_task_ensure - plus the creator and the members added by hand; a member who comes from the RACI is removed by changing the RACI, not by hand;
+--   * a member is added by the owner of the theme, a project manager or an administrator; EXCLUDED only by a project manager or an administrator (Q15); nobody leaves by himself.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public."chatObjectTable"') IS NULL OR to_regclass('public."chatThemeTable"') IS NULL OR to_regclass('public."chatMembersTable"') IS NULL OR to_regclass('public."chatMessagesTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 50 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('chatObjectTable');
+SELECT public.kit8_setup_def_table('chatThemeTable');
+SELECT public.kit8_setup_def_table('chatMembersTable');
+SELECT public.kit8_setup_def_table('chatMessagesTable');
+
+REVOKE ALL ON public."chatObjectTable", public."chatThemeTable", public."chatMembersTable", public."chatMessagesTable" FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public' AND tablename IN ('chatObjectTable', 'chatThemeTable', 'chatMembersTable', 'chatMessagesTable') LOOP
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', r.policyname, r.tablename);
+  END LOOP;
+END $$;
+
+-- ---- helpers ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the project switch of a chat: TRUE unless stored false (like the Vendor switches); a theme without a project (Main) is always on
+CREATE OR REPLACE FUNCTION public.chat_project_on(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT p_project IS NULL OR public.vendor_project_setting(p_project, 'chatFunctionalityEnabled')
+$$;
+
+-- the themes the caller sees: he has a member row, and a task chat whose project switch is off is hidden (data kept)
+CREATE OR REPLACE FUNCTION public.chat_my_themes() RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT m."rowParentGUID"
+    FROM public."chatMembersTable" m
+    JOIN public."chatThemeTable" t ON t."rowGUID" = m."rowParentGUID"
+   WHERE m."rowOwnerGUID" = (SELECT public.app_user_guid()::text)
+     AND public.chat_project_on(public.files_uuid_or_null(t."rowJSON"->>'projectGUID'))
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_my_objects() RETURNS SETOF text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT o."rowGUID" FROM public."chatObjectTable" o WHERE o."rowJSON"->>'chatKind' = 'user' AND o."rowOwnerGUID" = (SELECT public.app_user_guid()::text)   -- the Main of the caller, also before it has a theme
+  UNION
+  SELECT t."rowParentGUID" FROM public."chatThemeTable" t WHERE t."rowGUID" IN (SELECT public.chat_my_themes())
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_is_member(p_theme text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT p_theme IS NOT NULL AND p_theme IN (SELECT public.chat_my_themes())
+$$;
+
+-- the organization of a theme
+CREATE OR REPLACE FUNCTION public.chat_theme_org(p_theme text) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT o."rowParentGUID" FROM public."chatThemeTable" t JOIN public."chatObjectTable" o ON o."rowGUID" = t."rowParentGUID" WHERE t."rowGUID" = p_theme
+$$;
+
+-- may the caller manage the members of a theme (add / exclude): an administrator of the organization, the project manager of the project of a task chat, a project manager (of any project) for the
+-- chats of a user. perm_profiles answers for the caller: the administrator and the owner of the project are in it.
+CREATE OR REPLACE FUNCTION public.chat_can_manage(p_theme text) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+  v_profiles text[];
+BEGIN
+  SELECT public.files_uuid_or_null(t."rowJSON"->>'projectGUID') INTO v_project FROM public."chatThemeTable" t WHERE t."rowGUID" = p_theme;
+  IF NOT FOUND THEN RETURN false; END IF;
+  v_profiles := public.perm_profiles(v_project, NULL, NULL);
+  RETURN 'permissionOrganizationAdmin' = ANY (v_profiles) OR 'permissionProjectManager' = ANY (v_profiles);
+END;
+$$;
+
+-- the limit of a chat attachment in bytes: organizationTable.rowJSON.maximumChatAttachmentFileSize (MB), default 10, 1..100
+CREATE OR REPLACE FUNCTION public.chat_max_attachment_bytes(p_org text) RETURNS bigint
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT (LEAST(100, GREATEST(1, COALESCE((SELECT floor(NULLIF(o."rowJSON"->>'maximumChatAttachmentFileSize', '')::numeric) FROM public."organizationTable" o WHERE o."rowGUID" = p_org), 10))) * 1048576)::bigint
+$$;
+
+-- the title of a task chat: the prefix of the project (projectInnerPrefix, 4 letters; missing = the first 4 letters of the project name), one space, the task text
+CREATE OR REPLACE FUNCTION public.chat_task_title(p_task uuid) RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT btrim(COALESCE(NULLIF(upper(btrim(COALESCE(p."rowJSON"->>'projectInnerPrefix', ''))), ''), upper(left(regexp_replace(COALESCE(p."rowJSON"->>'name', ''), '[^[:alnum:]]', '', 'g'), 4))) || ' ' || COALESCE(t."rowJSON"->>'taskDescription', ''))
+    FROM public.project_task_table t JOIN public.project_table p ON p."rowGUID" = t."projectGUID" WHERE t."rowGUID" = p_task
+$$;
+
+-- the users of the Time lines of a task (any RACI item, open or finished task): person -> user by e-mail; a work center of the kind Person stands for its base person
+CREATE OR REPLACE FUNCTION public.chat_task_raci_users(p_task uuid) RETURNS TABLE (user_guid text)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT DISTINCT u."rowGUID"
+    FROM public.task_line_table l
+    LEFT JOIN public."workCenterTable" wc ON l."rowJSON"->>'taskResourceKind' = 'workCenter' AND wc."rowGUID" = l."rowJSON"->>'taskResourceItem' AND wc."rowJSON"->>'workCenterKind' = 'person'
+    JOIN public."personTable" pe ON pe."rowGUID" = CASE WHEN COALESCE(l."rowJSON"->>'taskResourceKind', 'person') = 'person' THEN l."rowJSON"->>'taskResourceItem' ELSE wc."rowJSON"->>'workCenterBase' END
+    JOIN public."userTable" u ON u."rowOwnerGUID" = lower(btrim(COALESCE(pe."rowJSON"->>'personEmail', '')))
+   WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus'
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_project_on(uuid), public.chat_theme_org(text), public.chat_max_attachment_bytes(text), public.chat_task_title(uuid), public.chat_task_raci_users(uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.chat_task_raci_users(uuid) FROM authenticated;
+GRANT EXECUTE ON FUNCTION public.chat_my_themes(), public.chat_my_objects(), public.chat_is_member(text), public.chat_can_manage(text) TO authenticated;
+REVOKE ALL ON FUNCTION public.chat_my_themes(), public.chat_my_objects(), public.chat_is_member(text), public.chat_can_manage(text) FROM PUBLIC, anon;
+
+-- ---- policies: READ only, by membership ----------------------------------------------------------------------------------------------------------------------------------------------
+GRANT SELECT ON public."chatObjectTable", public."chatThemeTable", public."chatMembersTable", public."chatMessagesTable" TO authenticated;
+
+CREATE POLICY "chatObject_select" ON public."chatObjectTable" FOR SELECT TO authenticated USING ("rowGUID" IN (SELECT public.chat_my_objects()));
+
+CREATE POLICY "chatTheme_select" ON public."chatThemeTable" FOR SELECT TO authenticated USING ("rowGUID" IN (SELECT public.chat_my_themes()));
+
+CREATE POLICY "chatMembers_select" ON public."chatMembersTable" FOR SELECT TO authenticated USING ("rowParentGUID" IN (SELECT public.chat_my_themes()));
+
+CREATE POLICY "chatMessages_select" ON public."chatMessagesTable" FOR SELECT TO authenticated USING ("rowParentGUID" IN (SELECT public.chat_my_themes()));
+
+-- the file rows of a chat (mediaPostTable, PART 49) are read by the members of the theme only: the policy of PART 49 is replaced by the same one with this extra condition
+DROP POLICY IF EXISTS "mediaPost_select" ON public."mediaPostTable";
+CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
+  USING (
+    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' <> 'chat' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    OR ("rowJSON"->>'fileSourceKind' = 'chat' AND "rowParentGUID" IN (SELECT public.chat_my_themes()))
+    OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
+    OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
+  );
+
+-- ---- messages: a new message moves the theme to the top; the key fields never change -----------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.chat_message_after_insert() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  UPDATE public."chatThemeTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('lastMessageAt', NEW."created_at") WHERE "rowGUID" = NEW."rowParentGUID";
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_message_before_update() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF NEW."rowParentGUID" IS DISTINCT FROM OLD."rowParentGUID" OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" OR NEW."created_at" IS DISTINCT FROM OLD."created_at" THEN
+    RAISE EXCEPTION 'chatMessagesTable: the theme, the author and the time of a message do not change' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_chatMessages_after_insert ON public."chatMessagesTable";
+CREATE TRIGGER trg_chatMessages_after_insert AFTER INSERT ON public."chatMessagesTable" FOR EACH ROW EXECUTE FUNCTION public.chat_message_after_insert();
+
+DROP TRIGGER IF EXISTS trg_chatMessages_before_update ON public."chatMessagesTable";
+CREATE TRIGGER trg_chatMessages_before_update BEFORE UPDATE ON public."chatMessagesTable" FOR EACH ROW EXECUTE FUNCTION public.chat_message_before_update();
+
+-- ---- the RACI synchronisation of the members of a task chat -----------------------------------------------------------------------------------------------------------------------------------
+-- every user of a Time line of the task is a member (raci = true); a member whose last Time line is gone loses raci and leaves unless he was added by hand / is the owner.
+-- A member who joins an existing chat starts with lastReadAt = now (the history is there, but it is not "new").
+CREATE OR REPLACE FUNCTION public.chat_task_sync_members(p_task uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_theme text;
+  v_n     integer := 0;
+  v_rows  integer;
+BEGIN
+  SELECT t."rowGUID" INTO v_theme FROM public."chatThemeTable" t WHERE t."rowJSON"->>'themeKind' = 'task' AND t."rowJSON"->>'taskGUID' = p_task::text;
+  IF v_theme IS NULL THEN RETURN 0; END IF;
+  -- joined / kept
+  INSERT INTO public."chatMembersTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+  SELECT e.user_guid, v_theme, jsonb_build_object('role', 'member', 'raci', true, 'manual', false, 'lastReadAt', now())
+    FROM public.chat_task_raci_users(p_task) e
+  ON CONFLICT ("rowParentGUID", "rowOwnerGUID") DO NOTHING;
+  GET DIAGNOSTICS v_rows = ROW_COUNT; v_n := v_n + v_rows;
+  UPDATE public."chatMembersTable" m SET "rowJSON" = m."rowJSON" || '{"raci": true}'::jsonb
+   WHERE m."rowParentGUID" = v_theme AND COALESCE(m."rowJSON"->>'raci', 'false') <> 'true' AND m."rowOwnerGUID" IN (SELECT user_guid FROM public.chat_task_raci_users(p_task));
+  GET DIAGNOSTICS v_rows = ROW_COUNT; v_n := v_n + v_rows;
+  -- left the RACI: by hand or the owner = stays (raci false); otherwise leaves
+  UPDATE public."chatMembersTable" m SET "rowJSON" = m."rowJSON" || '{"raci": false}'::jsonb
+   WHERE m."rowParentGUID" = v_theme AND m."rowJSON"->>'raci' = 'true' AND m."rowOwnerGUID" NOT IN (SELECT user_guid FROM public.chat_task_raci_users(p_task))
+     AND (m."rowJSON"->>'manual' = 'true' OR m."rowJSON"->>'role' = 'owner');
+  GET DIAGNOSTICS v_rows = ROW_COUNT; v_n := v_n + v_rows;
+  DELETE FROM public."chatMembersTable" m
+   WHERE m."rowParentGUID" = v_theme AND m."rowJSON"->>'raci' = 'true' AND m."rowOwnerGUID" NOT IN (SELECT user_guid FROM public.chat_task_raci_users(p_task))
+     AND COALESCE(m."rowJSON"->>'manual', 'false') <> 'true' AND m."rowJSON"->>'role' <> 'owner';
+  GET DIAGNOSTICS v_rows = ROW_COUNT; v_n := v_n + v_rows;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_task_sync_members(uuid) FROM PUBLIC, anon, authenticated;
+
+-- after a statement on the Time lines: the chats of the touched tasks follow the RACI (app.task_bulk = on: a bulk fill, no chat exists yet for the new tasks)
+CREATE OR REPLACE FUNCTION public.chat_after_lines() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  IF current_setting('app.task_bulk', true) = 'on' THEN RETURN NULL; END IF;
+  IF TG_OP = 'INSERT' THEN
+    FOR r IN SELECT DISTINCT n."rowOwnerGUID" AS task FROM new_rows n WHERE n."rowParentGUID" = 'timeGenus' LOOP PERFORM public.chat_task_sync_members(r.task::uuid); END LOOP;
+  ELSIF TG_OP = 'DELETE' THEN
+    FOR r IN SELECT DISTINCT o."rowOwnerGUID" AS task FROM old_rows o WHERE o."rowParentGUID" = 'timeGenus' LOOP PERFORM public.chat_task_sync_members(r.task::uuid); END LOOP;
+  ELSE
+    FOR r IN SELECT DISTINCT x.task FROM (SELECT n."rowOwnerGUID" AS task FROM new_rows n WHERE n."rowParentGUID" = 'timeGenus' UNION SELECT o."rowOwnerGUID" FROM old_rows o WHERE o."rowParentGUID" = 'timeGenus') x LOOP
+      PERFORM public.chat_task_sync_members(r.task::uuid);
+    END LOOP;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_after_lines() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_task_line_chat_ins ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_chat_upd ON public.task_line_table;
+DROP TRIGGER IF EXISTS trg_task_line_chat_del ON public.task_line_table;
+
+CREATE TRIGGER trg_task_line_chat_ins AFTER INSERT ON public.task_line_table REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.chat_after_lines();
+
+CREATE TRIGGER trg_task_line_chat_upd AFTER UPDATE ON public.task_line_table REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.chat_after_lines();
+
+CREATE TRIGGER trg_task_line_chat_del AFTER DELETE ON public.task_line_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.chat_after_lines();
+
+-- ---- RPCs --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the Main object of the caller (made once)
+CREATE OR REPLACE FUNCTION public.chat_main_ensure() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me  text := public.app_user_guid()::text;
+  v_org text := public.organization_of_current_user();
+  v_row public."chatObjectTable"%ROWTYPE;
+BEGIN
+  IF v_me IS NULL OR v_org IS NULL THEN RAISE EXCEPTION 'chat: sign in first' USING ERRCODE = '42501'; END IF;
+  INSERT INTO public."chatObjectTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (v_me, v_org, jsonb_build_object('chatKind', 'user', 'title', 'Main'))
+  ON CONFLICT ("rowOwnerGUID") WHERE "rowJSON"->>'chatKind' = 'user' DO NOTHING;
+  SELECT * INTO v_row FROM public."chatObjectTable" o WHERE o."rowOwnerGUID" = v_me AND o."rowJSON"->>'chatKind' = 'user';
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- the users a caller may add: the ACTIVE members of his organization that are registered users (the caller himself is left out)
+CREATE OR REPLACE FUNCTION public.chat_member_candidates() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me  text := public.app_user_guid()::text;
+  v_org text := public.organization_of_current_user();
+BEGIN
+  IF v_me IS NULL OR v_org IS NULL THEN RETURN '[]'::jsonb; END IF;
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('userGUID', m."rowParentGUID", 'email', m."rowJSON"->>'userEmailForInvitation',
+                                         'name', COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), m."rowJSON"->>'userEmailForInvitation'))
+                      ORDER BY lower(COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), m."rowJSON"->>'userEmailForInvitation')))
+      FROM public."organizationMemberTable" m JOIN public."userTable" u ON u."rowGUID" = m."rowParentGUID"
+     WHERE m."rowOwnerGUID" = v_org AND m."rowJSON"->>'memberStatus' = 'active' AND m."rowParentGUID" <> 'empty' AND m."rowParentGUID" <> v_me), '[]'::jsonb);
+END;
+$$;
+
+-- the names of the members of a theme (for the members window)
+CREATE OR REPLACE FUNCTION public.chat_theme_members(p_theme text) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF NOT public.chat_is_member(p_theme) THEN RAISE EXCEPTION 'No permission: chat, not a member' USING ERRCODE = '42501'; END IF;
+  RETURN COALESCE((
+    SELECT jsonb_agg(jsonb_build_object('userGUID', m."rowOwnerGUID", 'role', m."rowJSON"->>'role', 'raci', COALESCE(m."rowJSON"->>'raci', 'false') = 'true', 'manual', COALESCE(m."rowJSON"->>'manual', 'false') = 'true',
+                                         'email', u."rowOwnerGUID", 'name', COALESCE(NULLIF(btrim(COALESCE(u."rowJSON"->>'firstName', '') || ' ' || COALESCE(u."rowJSON"->>'secondName', '')), ''), u."rowOwnerGUID"))
+                      ORDER BY (m."rowJSON"->>'role') DESC, m."created_at")
+      FROM public."chatMembersTable" m JOIN public."userTable" u ON u."rowGUID" = m."rowOwnerGUID" WHERE m."rowParentGUID" = p_theme), '[]'::jsonb);
+END;
+$$;
+
+-- the user must be an active member of the organization (an e-mail that did not log in yet is not a user)
+CREATE OR REPLACE FUNCTION public.chat_user_in_org(p_user text, p_org text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public."organizationMemberTable" m WHERE m."rowOwnerGUID" = p_org AND m."rowParentGUID" = p_user AND m."rowJSON"->>'memberStatus' = 'active')
+$$;
+
+-- a message into a theme, the one place that checks a message (send, and the first message of a new theme)
+CREATE OR REPLACE FUNCTION public.chat_message_insert(p_guid text, p_theme text, p_text text, p_urls jsonb, p_files jsonb) RETURNS public."chatMessagesTable"
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me    text := public.app_user_guid()::text;
+  v_org   text := public.chat_theme_org(p_theme);
+  v_text  text := btrim(COALESCE(p_text, ''));
+  v_urls  jsonb := '[]'::jsonb;
+  v_files jsonb := '[]'::jsonb;
+  v_max   bigint := public.chat_max_attachment_bytes(public.chat_theme_org(p_theme));
+  e       jsonb;
+  f       public."mediaPostTable"%ROWTYPE;
+  v_url   text;
+  v_row   public."chatMessagesTable"%ROWTYPE;
+  v_id    text := COALESCE(NULLIF(p_guid, ''), gen_random_uuid()::text);
+BEGIN
+  IF length(v_text) > 10000 THEN RAISE EXCEPTION 'chat: a message is at most 10000 characters' USING ERRCODE = '22023'; END IF;
+  IF jsonb_typeof(COALESCE(p_urls, '[]'::jsonb)) <> 'array' OR jsonb_typeof(COALESCE(p_files, '[]'::jsonb)) <> 'array' THEN RAISE EXCEPTION 'chat: urls and files are lists' USING ERRCODE = '22023'; END IF;
+  IF jsonb_array_length(COALESCE(p_urls, '[]'::jsonb)) > 20 OR jsonb_array_length(COALESCE(p_files, '[]'::jsonb)) > 20 THEN RAISE EXCEPTION 'chat: at most 20 urls and 20 files in a message' USING ERRCODE = '22023'; END IF;
+  FOR e IN SELECT * FROM jsonb_array_elements(COALESCE(p_urls, '[]'::jsonb)) LOOP
+    v_url := btrim(COALESCE(e->>'url', ''));
+    -- http(s) or an address of this app (/route?query); javascript:, data: and the rest are refused
+    IF v_url !~* '^(https?://[^[:space:]]+|/[^/[:space:]][^[:space:]]*)$' OR length(v_url) > 2000 THEN RAISE EXCEPTION 'chat: a link must be an http(s) address or an address of this app' USING ERRCODE = '22023'; END IF;
+    v_urls := v_urls || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('url', v_url, 'title', NULLIF(left(btrim(COALESCE(e->>'title', '')), 200), ''))));
+  END LOOP;
+  FOR e IN SELECT * FROM jsonb_array_elements(COALESCE(p_files, '[]'::jsonb)) LOOP
+    SELECT * INTO f FROM public."mediaPostTable" m WHERE m."rowGUID" = e->>'fileGUID' AND m."rowParentGUID" = p_theme AND m."rowJSON"->>'fileSourceKind' = 'chat';
+    IF NOT FOUND THEN RAISE EXCEPTION 'chat: the file is not a file of this theme' USING ERRCODE = '22023'; END IF;
+    IF COALESCE((f."rowJSON"->>'fileSizeBytes')::bigint, 0) > v_max THEN RAISE EXCEPTION 'chat: the file is bigger than the limit of % MB', v_max / 1048576 USING ERRCODE = '22023'; END IF;
+    v_url := btrim(COALESCE(e->>'url', ''));
+    IF v_url !~* '^(https?://[^[:space:]]+|/[^/[:space:]][^[:space:]]*)$' OR length(v_url) > 2000 THEN RAISE EXCEPTION 'chat: a file needs the address of the viewer' USING ERRCODE = '22023'; END IF;
+    -- name, size and type come from the file row, never from the caller
+    v_files := v_files || jsonb_build_array(jsonb_strip_nulls(jsonb_build_object('fileGUID', f."rowGUID", 'url', v_url, 'name', COALESCE(f."rowJSON"->>'fileName', f."rowJSON"->>'mediaPostTitle'),
+                'size', (f."rowJSON"->>'fileSizeBytes')::bigint, 'mime', f."rowJSON"->>'mediaPostMIME', 'kind', f."rowJSON"->>'fileKind')));
+  END LOOP;
+  IF v_text = '' AND jsonb_array_length(v_urls) = 0 AND jsonb_array_length(v_files) = 0 THEN RAISE EXCEPTION 'chat: an empty message' USING ERRCODE = '22023'; END IF;
+  INSERT INTO public."chatMessagesTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowJSON")
+  VALUES (v_id, v_me, p_theme, jsonb_strip_nulls(jsonb_build_object('text', NULLIF(v_text, ''),
+          'urls', CASE WHEN jsonb_array_length(v_urls) > 0 THEN v_urls END, 'files', CASE WHEN jsonb_array_length(v_files) > 0 THEN v_files END)))
+  ON CONFLICT ("rowGUID") DO NOTHING;
+  SELECT * INTO v_row FROM public."chatMessagesTable" WHERE "rowGUID" = v_id;
+  RETURN v_row;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_message_insert(text, text, text, jsonb, jsonb), public.chat_user_in_org(text, text) FROM PUBLIC, anon, authenticated;
+
+-- send: the guid is made by the client (the optimistic echo and the realtime event are the same row); a second send of the same guid by the author returns the first
+CREATE OR REPLACE FUNCTION public.chat_message_send(p_message text, p_theme text, p_text text DEFAULT NULL, p_urls jsonb DEFAULT '[]'::jsonb, p_files jsonb DEFAULT '[]'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row public."chatMessagesTable"%ROWTYPE;
+BEGIN
+  IF NOT public.chat_is_member(p_theme) THEN RAISE EXCEPTION 'No permission: chat, not a member' USING ERRCODE = '42501'; END IF;
+  IF p_message IS NOT NULL AND p_message <> '' THEN
+    SELECT * INTO v_row FROM public."chatMessagesTable" WHERE "rowGUID" = p_message;
+    IF FOUND THEN
+      IF v_row."rowOwnerGUID" <> public.app_user_guid()::text OR v_row."rowParentGUID" <> p_theme THEN RAISE EXCEPTION 'chat: that message id is taken' USING ERRCODE = '23505'; END IF;
+      RETURN to_jsonb(v_row);
+    END IF;
+  END IF;
+  v_row := public.chat_message_insert(p_message, p_theme, p_text, p_urls, p_files);
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_message_edit(p_message text, p_text text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row  public."chatMessagesTable"%ROWTYPE;
+  v_text text := btrim(COALESCE(p_text, ''));
+BEGIN
+  SELECT * INTO v_row FROM public."chatMessagesTable" WHERE "rowGUID" = p_message;
+  IF NOT FOUND THEN RAISE EXCEPTION 'chat: no such message' USING ERRCODE = 'P0002'; END IF;
+  IF v_row."rowOwnerGUID" <> public.app_user_guid()::text OR NOT public.chat_is_member(v_row."rowParentGUID") THEN RAISE EXCEPTION 'No permission: chat, only the author edits a message' USING ERRCODE = '42501'; END IF;
+  IF COALESCE(v_row."rowJSON"->>'deleted', 'false') = 'true' THEN RAISE EXCEPTION 'chat: the message was deleted' USING ERRCODE = '22023'; END IF;
+  IF length(v_text) > 10000 THEN RAISE EXCEPTION 'chat: a message is at most 10000 characters' USING ERRCODE = '22023'; END IF;
+  IF v_text = '' AND NOT (v_row."rowJSON" ? 'urls' OR v_row."rowJSON" ? 'files') THEN RAISE EXCEPTION 'chat: an empty message' USING ERRCODE = '22023'; END IF;
+  UPDATE public."chatMessagesTable" SET "rowJSON" = jsonb_strip_nulls(("rowJSON" - 'text') || jsonb_build_object('text', NULLIF(v_text, ''), 'editedAt', now())) WHERE "rowGUID" = p_message RETURNING * INTO v_row;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_message_delete(p_message text) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row public."chatMessagesTable"%ROWTYPE;
+BEGIN
+  SELECT * INTO v_row FROM public."chatMessagesTable" WHERE "rowGUID" = p_message;
+  IF NOT FOUND THEN RAISE EXCEPTION 'chat: no such message' USING ERRCODE = 'P0002'; END IF;
+  IF v_row."rowOwnerGUID" <> public.app_user_guid()::text OR NOT public.chat_is_member(v_row."rowParentGUID") THEN RAISE EXCEPTION 'No permission: chat, only the author deletes a message' USING ERRCODE = '42501'; END IF;
+  UPDATE public."chatMessagesTable" SET "rowJSON" = jsonb_build_object('deleted', true, 'deletedAt', now()) WHERE "rowGUID" = p_message RETURNING * INTO v_row;
+  RETURN to_jsonb(v_row);
+END;
+$$;
+
+-- a theme of a user (Scenario 1). p_theme = the guid made by the client (idempotent). Message and members are optional.
+CREATE OR REPLACE FUNCTION public.chat_theme_create(p_theme text, p_title text, p_description text DEFAULT NULL, p_message text DEFAULT NULL, p_members text[] DEFAULT '{}') RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me     text := public.app_user_guid()::text;
+  v_org    text := public.organization_of_current_user();
+  v_obj    jsonb;
+  v_guid   text := COALESCE(NULLIF(p_theme, ''), gen_random_uuid()::text);
+  v_title  text := btrim(COALESCE(p_title, ''));
+  u        text;
+  v_theme  public."chatThemeTable"%ROWTYPE;
+BEGIN
+  IF v_me IS NULL OR v_org IS NULL THEN RAISE EXCEPTION 'chat: sign in first' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_theme FROM public."chatThemeTable" WHERE "rowGUID" = v_guid;
+  IF FOUND THEN
+    IF v_theme."rowOwnerGUID" <> v_me THEN RAISE EXCEPTION 'chat: that theme id is taken' USING ERRCODE = '23505'; END IF;
+    RETURN to_jsonb(v_theme);
+  END IF;
+  IF v_title = '' OR length(v_title) > 200 THEN RAISE EXCEPTION 'chat: the title is required (at most 200 characters)' USING ERRCODE = '22023'; END IF;
+  IF length(COALESCE(p_description, '')) > 2000 THEN RAISE EXCEPTION 'chat: the description is at most 2000 characters' USING ERRCODE = '22023'; END IF;
+  FOREACH u IN ARRAY COALESCE(p_members, '{}') LOOP
+    IF u <> v_me AND NOT public.chat_user_in_org(u, v_org) THEN RAISE EXCEPTION 'chat: a member must be an active member of your organization' USING ERRCODE = '22023'; END IF;
+  END LOOP;
+  v_obj := public.chat_main_ensure();
+  INSERT INTO public."chatThemeTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowJSON")
+  VALUES (v_guid, v_me, v_obj->>'rowGUID', jsonb_strip_nulls(jsonb_build_object('themeKind', 'user', 'title', v_title, 'description', NULLIF(btrim(COALESCE(p_description, '')), ''), 'lastMessageAt', now())))
+  RETURNING * INTO v_theme;
+  INSERT INTO public."chatMembersTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (v_me, v_guid, jsonb_build_object('role', 'owner', 'manual', true, 'raci', false, 'addedBy', v_me));
+  FOREACH u IN ARRAY COALESCE(p_members, '{}') LOOP
+    INSERT INTO public."chatMembersTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (u, v_guid, jsonb_build_object('role', 'member', 'manual', true, 'raci', false, 'addedBy', v_me))
+    ON CONFLICT ("rowParentGUID", "rowOwnerGUID") DO NOTHING;
+  END LOOP;
+  IF btrim(COALESCE(p_message, '')) <> '' THEN PERFORM public.chat_message_insert(NULL, v_guid, p_message, '[]'::jsonb, '[]'::jsonb); END IF;
+  RETURN to_jsonb(v_theme);
+END;
+$$;
+
+-- the chat of a task (Scenario 2): get or make the object, its ONE theme and the owner row; the members follow the RACI; a caller who is no member gets in only as a project manager / administrator
+CREATE OR REPLACE FUNCTION public.chat_task_ensure(p_task uuid) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me      text := public.app_user_guid()::text;
+  v_task    public.project_task_table%ROWTYPE;
+  v_org     text;
+  v_obj     text;
+  v_theme   text;
+  v_created boolean := false;
+BEGIN
+  IF v_me IS NULL THEN RAISE EXCEPTION 'chat: sign in first' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_task FROM public.project_task_table WHERE "rowGUID" = p_task;
+  IF NOT FOUND THEN RAISE EXCEPTION 'chat: no such task' USING ERRCODE = 'P0002'; END IF;
+  v_org := public.files_project_org(v_task."projectGUID"::text);
+  IF v_org IS DISTINCT FROM public.organization_of_current_user() OR NOT public.perm_can_in('project_task_table', 'R', v_task."projectGUID", p_task) THEN
+    RAISE EXCEPTION 'No permission: chat, you cannot read this task' USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.chat_project_on(v_task."projectGUID") THEN RAISE EXCEPTION 'chat: the chat is switched off in this project' USING ERRCODE = '22023'; END IF;
+  SELECT t."rowGUID", t."rowParentGUID" INTO v_theme, v_obj FROM public."chatThemeTable" t WHERE t."rowJSON"->>'themeKind' = 'task' AND t."rowJSON"->>'taskGUID' = p_task::text;
+  IF v_theme IS NULL THEN
+    INSERT INTO public."chatObjectTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (v_me, v_org, jsonb_build_object('chatKind', 'task', 'taskGUID', p_task, 'projectGUID', v_task."projectGUID"))
+    ON CONFLICT (("rowJSON"->>'taskGUID')) WHERE "rowJSON"->>'chatKind' = 'task' DO NOTHING;
+    SELECT o."rowGUID" INTO v_obj FROM public."chatObjectTable" o WHERE o."rowJSON"->>'chatKind' = 'task' AND o."rowJSON"->>'taskGUID' = p_task::text;
+    INSERT INTO public."chatThemeTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+    SELECT v_me, v_obj, jsonb_build_object('themeKind', 'task', 'taskGUID', p_task, 'projectGUID', v_task."projectGUID", 'lastMessageAt', now())
+     WHERE NOT EXISTS (SELECT 1 FROM public."chatThemeTable" t WHERE t."rowParentGUID" = v_obj);
+    SELECT t."rowGUID" INTO v_theme FROM public."chatThemeTable" t WHERE t."rowParentGUID" = v_obj ORDER BY t."created_at" LIMIT 1;
+    INSERT INTO public."chatMembersTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (v_me, v_theme, jsonb_build_object('role', 'owner', 'manual', true, 'raci', false, 'addedBy', v_me))
+    ON CONFLICT ("rowParentGUID", "rowOwnerGUID") DO NOTHING;
+    v_created := true;
+  END IF;
+  PERFORM public.chat_task_sync_members(p_task);
+  IF NOT EXISTS (SELECT 1 FROM public."chatMembersTable" m WHERE m."rowParentGUID" = v_theme AND m."rowOwnerGUID" = v_me) THEN
+    IF public.chat_can_manage(v_theme) THEN
+      INSERT INTO public."chatMembersTable" ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (v_me, v_theme, jsonb_build_object('role', 'member', 'manual', true, 'raci', false, 'addedBy', v_me, 'lastReadAt', now()))
+      ON CONFLICT ("rowParentGUID", "rowOwnerGUID") DO NOTHING;
+    ELSE
+      RAISE EXCEPTION 'No permission: chat, you are not a member of the chat of this task (the members come from Time -> RACI of the task)' USING ERRCODE = '42501';
+    END IF;
+  END IF;
+  RETURN jsonb_build_object('objectGUID', v_obj, 'themeGUID', v_theme, 'taskGUID', p_task, 'projectGUID', v_task."projectGUID", 'created', v_created);
+END;
+$$;
+
+-- add members by hand: the owner of the theme, a project manager or an administrator; the users must be active members of the organization
+CREATE OR REPLACE FUNCTION public.chat_member_add(p_theme text, p_users text[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me  text := public.app_user_guid()::text;
+  v_org text := public.chat_theme_org(p_theme);
+  u     text;
+  v_n   integer := 0;
+  v_rows integer;
+BEGIN
+  IF NOT public.chat_is_member(p_theme) THEN RAISE EXCEPTION 'No permission: chat, not a member' USING ERRCODE = '42501'; END IF;
+  IF NOT (public.chat_can_manage(p_theme) OR EXISTS (SELECT 1 FROM public."chatMembersTable" m WHERE m."rowParentGUID" = p_theme AND m."rowOwnerGUID" = v_me AND m."rowJSON"->>'role' = 'owner')) THEN
+    RAISE EXCEPTION 'No permission: chat, only the owner of the theme, a project manager or an administrator adds members' USING ERRCODE = '42501';
+  END IF;
+  FOREACH u IN ARRAY COALESCE(p_users, '{}') LOOP
+    IF NOT public.chat_user_in_org(u, v_org) THEN RAISE EXCEPTION 'chat: a member must be an active member of the organization' USING ERRCODE = '22023'; END IF;
+    INSERT INTO public."chatMembersTable" AS cm ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (u, p_theme, jsonb_build_object('role', 'member', 'manual', true, 'raci', false, 'addedBy', v_me, 'lastReadAt', now()))
+    ON CONFLICT ("rowParentGUID", "rowOwnerGUID") DO UPDATE SET "rowJSON" = cm."rowJSON" || '{"manual": true}'::jsonb;
+    GET DIAGNOSTICS v_rows = ROW_COUNT; v_n := v_n + v_rows;
+  END LOOP;
+  RETURN v_n;
+END;
+$$;
+
+-- exclude a member: ONLY a project manager or an administrator (Q15). The owner stays; a member who comes from Time -> RACI is removed by changing the RACI.
+CREATE OR REPLACE FUNCTION public.chat_member_remove(p_theme text, p_user text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_row public."chatMembersTable"%ROWTYPE;
+BEGIN
+  IF NOT public.chat_is_member(p_theme) OR NOT public.chat_can_manage(p_theme) THEN RAISE EXCEPTION 'No permission: chat, only a project manager or an administrator excludes a member' USING ERRCODE = '42501'; END IF;
+  SELECT * INTO v_row FROM public."chatMembersTable" m WHERE m."rowParentGUID" = p_theme AND m."rowOwnerGUID" = p_user;
+  IF NOT FOUND THEN RETURN false; END IF;
+  IF v_row."rowJSON"->>'role' = 'owner' THEN RAISE EXCEPTION 'chat: the owner of the theme stays' USING ERRCODE = '22023'; END IF;
+  IF COALESCE(v_row."rowJSON"->>'raci', 'false') = 'true' THEN
+    IF COALESCE(v_row."rowJSON"->>'manual', 'false') = 'true' THEN
+      UPDATE public."chatMembersTable" SET "rowJSON" = "rowJSON" || '{"manual": false}'::jsonb WHERE "rowGUID" = v_row."rowGUID";
+      RETURN true;
+    END IF;
+    RAISE EXCEPTION 'chat: this member comes from Time -> RACI of the task; change the RACI column to remove them' USING ERRCODE = '22023';
+  END IF;
+  DELETE FROM public."chatMembersTable" WHERE "rowGUID" = v_row."rowGUID";
+  RETURN true;
+END;
+$$;
+
+-- the themes the caller sees (title computed for a task chat), newest first
+CREATE OR REPLACE FUNCTION public.chat_theme_list() RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH me AS (SELECT public.app_user_guid()::text AS u),
+  mine AS (
+    SELECT t."rowGUID" AS theme, t."rowParentGUID" AS object, t."rowJSON" AS tj, t."created_at", m."rowJSON" AS mj
+      FROM public."chatThemeTable" t JOIN public."chatMembersTable" m ON m."rowParentGUID" = t."rowGUID", me
+     WHERE m."rowOwnerGUID" = me.u AND t."rowGUID" IN (SELECT public.chat_my_themes())
+  )
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+      'themeGUID', x.theme, 'objectGUID', x.object, 'kind', x.tj->>'themeKind',
+      'title', CASE WHEN x.tj->>'themeKind' = 'task' THEN COALESCE(public.chat_task_title(public.files_uuid_or_null(x.tj->>'taskGUID')), '') ELSE x.tj->>'title' END,
+      'description', CASE WHEN x.tj->>'themeKind' = 'task' THEN (SELECT tk."rowJSON"->>'notes' FROM public.project_task_table tk WHERE tk."rowGUID" = public.files_uuid_or_null(x.tj->>'taskGUID')) ELSE x.tj->>'description' END,
+      'taskGUID', x.tj->>'taskGUID', 'projectGUID', x.tj->>'projectGUID', 'lastMessageAt', x.tj->>'lastMessageAt', 'role', x.mj->>'role',
+      'lastText', (SELECT left(COALESCE(g."rowJSON"->>'text', CASE WHEN g."rowJSON" ? 'files' THEN 'file' WHEN g."rowJSON" ? 'urls' THEN 'link' END, ''), 120)
+                     FROM public."chatMessagesTable" g WHERE g."rowParentGUID" = x.theme AND COALESCE(g."rowJSON"->>'deleted', 'false') <> 'true' ORDER BY g."created_at" DESC LIMIT 1),
+      'unread', (SELECT count(*) FROM public."chatMessagesTable" g, me WHERE g."rowParentGUID" = x.theme AND g."rowOwnerGUID" <> me.u AND COALESCE(g."rowJSON"->>'deleted', 'false') <> 'true'
+                    AND g."created_at" > COALESCE(NULLIF(x.mj->>'lastReadAt', '')::timestamptz, '-infinity'::timestamptz)),
+      'members', (SELECT count(*) FROM public."chatMembersTable" c WHERE c."rowParentGUID" = x.theme)
+    ) ORDER BY COALESCE(NULLIF(x.tj->>'lastMessageAt', '')::timestamptz, x.created_at) DESC), '[]'::jsonb)
+  FROM mine x
+$$;
+
+-- { theme, n } for the red number
+CREATE OR REPLACE FUNCTION public.chat_unread_counts() RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  WITH me AS (SELECT public.app_user_guid()::text AS u)
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('theme', s.theme, 'n', s.n)), '[]'::jsonb)
+    FROM (SELECT m."rowParentGUID" AS theme,
+                 (SELECT count(*) FROM public."chatMessagesTable" g WHERE g."rowParentGUID" = m."rowParentGUID" AND g."rowOwnerGUID" <> me.u AND COALESCE(g."rowJSON"->>'deleted', 'false') <> 'true'
+                     AND g."created_at" > COALESCE(NULLIF(m."rowJSON"->>'lastReadAt', '')::timestamptz, '-infinity'::timestamptz)) AS n
+            FROM public."chatMembersTable" m, me WHERE m."rowOwnerGUID" = me.u AND m."rowParentGUID" IN (SELECT public.chat_my_themes())) s
+   WHERE s.n > 0
+$$;
+
+-- the caller has read the theme up to its newest message (the server time of the message, never the clock of the device)
+CREATE OR REPLACE FUNCTION public.chat_mark_read(p_theme text) RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me   text := public.app_user_guid()::text;
+  v_last timestamptz;
+BEGIN
+  IF NOT public.chat_is_member(p_theme) THEN RAISE EXCEPTION 'No permission: chat, not a member' USING ERRCODE = '42501'; END IF;
+  SELECT max(g."created_at") INTO v_last FROM public."chatMessagesTable" g WHERE g."rowParentGUID" = p_theme;
+  v_last := COALESCE(v_last, now());
+  UPDATE public."chatMembersTable" m SET "rowJSON" = m."rowJSON" || jsonb_build_object('lastReadAt', v_last)
+   WHERE m."rowParentGUID" = p_theme AND m."rowOwnerGUID" = v_me AND COALESCE(NULLIF(m."rowJSON"->>'lastReadAt', '')::timestamptz, '-infinity'::timestamptz) < v_last;
+  RETURN FOUND;
+END;
+$$;
+
+-- the limit of a chat attachment: only an administrator or a project manager (of any project) changes it; 1..100 MB
+CREATE OR REPLACE FUNCTION public.chat_set_max_attachment_size(p_mb integer) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org      text := public.organization_of_current_user();
+  v_profiles text[] := public.perm_profiles(NULL, NULL, NULL);
+BEGIN
+  IF v_org IS NULL THEN RAISE EXCEPTION 'chat: sign in first' USING ERRCODE = '42501'; END IF;
+  IF NOT ('permissionOrganizationAdmin' = ANY (v_profiles) OR 'permissionProjectManager' = ANY (v_profiles)) THEN
+    RAISE EXCEPTION 'No permission: chat, only a project manager or an administrator changes the size of the chat attachments' USING ERRCODE = '42501';
+  END IF;
+  IF p_mb IS NULL OR p_mb < 1 OR p_mb > 100 THEN RAISE EXCEPTION 'chat: the size is a whole number of MB from 1 to 100' USING ERRCODE = '22023'; END IF;
+  UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || jsonb_build_object('maximumChatAttachmentFileSize', p_mb) WHERE "rowGUID" = v_org;
+  RETURN p_mb;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_main_ensure(), public.chat_member_candidates(), public.chat_theme_members(text), public.chat_message_send(text, text, text, jsonb, jsonb), public.chat_message_edit(text, text),
+  public.chat_message_delete(text), public.chat_theme_create(text, text, text, text, text[]), public.chat_task_ensure(uuid), public.chat_member_add(text, text[]), public.chat_member_remove(text, text),
+  public.chat_theme_list(), public.chat_unread_counts(), public.chat_mark_read(text), public.chat_set_max_attachment_size(integer) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.chat_main_ensure(), public.chat_member_candidates(), public.chat_theme_members(text), public.chat_message_send(text, text, text, jsonb, jsonb), public.chat_message_edit(text, text),
+  public.chat_message_delete(text), public.chat_theme_create(text, text, text, text, text[]), public.chat_task_ensure(uuid), public.chat_member_add(text, text[]), public.chat_member_remove(text, text),
+  public.chat_theme_list(), public.chat_unread_counts(), public.chat_mark_read(text), public.chat_set_max_attachment_size(integer) TO authenticated;
+
+-- ---- who may change a file of a chat (called by files_update / files_delete / files_replace): the uploader, the owner of the theme, an administrator or a project manager -------------------------
+CREATE OR REPLACE FUNCTION public.chat_file_manage_check(p_row public."mediaPostTable") RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me text := public.app_user_guid()::text;
+BEGIN
+  IF p_row."rowJSON"->>'fileSourceKind' IS DISTINCT FROM 'chat' THEN RETURN; END IF;
+  IF p_row."rowJSON"->>'fileUploadedByGUID' = v_me THEN RETURN; END IF;
+  IF EXISTS (SELECT 1 FROM public."chatMembersTable" m WHERE m."rowParentGUID" = p_row."rowParentGUID" AND m."rowOwnerGUID" = v_me AND m."rowJSON"->>'role' = 'owner') THEN RETURN; END IF;
+  IF public.chat_can_manage(p_row."rowParentGUID") THEN RETURN; END IF;
+  RAISE EXCEPTION 'No permission: chat, only the uploader, the owner of the theme, a project manager or an administrator changes this file' USING ERRCODE = '42501';
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_file_manage_check(public."mediaPostTable") FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.chat_file_manage_check(public."mediaPostTable") TO authenticated;
+
+-- ---- deletes ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the themes of a chat object go with it: members, messages, the file rows (the storage files and the theme folders are queued for the cleanup of PART 49)
+CREATE OR REPLACE FUNCTION public.chat_delete_objects(p_objects text[], p_why text) RETURNS void
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r      record;
+  v_themes text[];
+BEGIN
+  IF COALESCE(array_length(p_objects, 1), 0) = 0 THEN RETURN; END IF;
+  SELECT COALESCE(array_agg(t."rowGUID"), '{}') INTO v_themes FROM public."chatThemeTable" t WHERE t."rowParentGUID" = ANY (p_objects);
+  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceKind' = 'chat' AND m."rowParentGUID" = ANY (v_themes)
+           RETURNING m."rowOwnerGUID" AS org, COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') AS fid, COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', p_why, false, r.prov);
+  END LOOP;
+  FOR r IN DELETE FROM public.files_folder_table f WHERE f."rowJSON"->>'scopeKey' IN (SELECT 'chat:' || x FROM unnest(v_themes) x UNION ALL SELECT 'oneDrive:chat:' || x FROM unnest(v_themes) x)
+           RETURNING f."rowOwnerGUID" AS org, f."rowJSON"->>'driveFolderId' AS fid, COALESCE(f."rowJSON"->>'provider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'folder', p_why, false, r.prov);
+  END LOOP;
+  DELETE FROM public."chatMessagesTable" WHERE "rowParentGUID" = ANY (v_themes);
+  DELETE FROM public."chatMembersTable" WHERE "rowParentGUID" = ANY (v_themes);
+  DELETE FROM public."chatThemeTable" WHERE "rowGUID" = ANY (v_themes);
+  DELETE FROM public."chatObjectTable" WHERE "rowGUID" = ANY (p_objects);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_on_task_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.chat_delete_objects((SELECT COALESCE(array_agg(c."rowGUID"), '{}') FROM public."chatObjectTable" c WHERE c."rowJSON"->>'chatKind' = 'task' AND c."rowJSON"->>'taskGUID' IN (SELECT o."rowGUID"::text FROM old_rows o)), 'task deleted');
+  RETURN NULL;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.chat_on_organization_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.chat_delete_objects((SELECT COALESCE(array_agg(c."rowGUID"), '{}') FROM public."chatObjectTable" c WHERE c."rowParentGUID" IN (SELECT o."rowGUID" FROM old_rows o)), 'organization deleted');
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.chat_delete_objects(text[], text), public.chat_on_task_delete(), public.chat_on_organization_delete() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS trg_chat_task_delete ON public.project_task_table;
+CREATE TRIGGER trg_chat_task_delete AFTER DELETE ON public.project_task_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.chat_on_task_delete();
+
+DROP TRIGGER IF EXISTS trg_chat_organization_delete ON public."organizationTable";
+CREATE TRIGGER trg_chat_organization_delete AFTER DELETE ON public."organizationTable" REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.chat_on_organization_delete();
+
+-- realtime: the themes, the members and the messages follow the database (the policies above let a user receive only the rows of his themes)
+DO $$
+DECLARE
+  v_all boolean;
+  t     text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['chatObjectTable', 'chatThemeTable', 'chatMembersTable', 'chatMessagesTable'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
 
 NOTIFY pgrst, 'reload schema';
 
