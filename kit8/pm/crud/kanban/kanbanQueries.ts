@@ -14,7 +14,7 @@ import { usePMStore } from '../../store/store_pm';
 import { PMProjectKanbanData } from '../../model/kanbanTypes';
 import { errorMessage } from '../api/apiUtils';
 import { PMKanbanMissingError } from '../api/kanbanApi';
-import { pmKeys, usePMApi } from '../shared/queryShared';
+import { assertProjectWritable, pmKeys, usePMApi } from '../shared/queryShared';
 
 export function useReadKanbanStageCatalogQuery(enabled = true) {
   const api = usePMApi();
@@ -92,6 +92,7 @@ export function useKanbanMutation<TVars, TResult>(
   return useMutation({
     mutationFn,
     onMutate: async (vars: TVars) => {
+      assertProjectWritable(projectGUID);
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<PMProjectKanbanData>(key);
       if (prev) qc.setQueryData<PMProjectKanbanData>(key, applyOptimistic(prev, vars));

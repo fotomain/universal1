@@ -37,3 +37,6 @@ Push notifications / mails when the app is closed; seen-by, reactions, replies, 
 
 ## Tests
 `__tests__/chat` (model, SQL scans, RPC calls, the pieces of the screens: red number, message, input with the cursor / Enter / attach limit / links) · `__tests__/files/filesDriveFunction.test.ts` (chat chain, limit) · Docker `tests/59_chat.sql` (117 checks: visibility, Main, members rules, RACI sync, unread, project switch, files scope, deletes).
+
+## Read-only project (2026-11-12)
+The chat of a task of a READ-ONLY project (`project_table.rowJSON.projectIsReadonly`, SQL PART 51, `kit8/pm/README.md`) is only read: no new task chat (`chat_task_ensure` of a task without a chat is refused), no message / edit / delete (trigger `zz_project_readonly` on `chatMessagesTable`), no member added or excluded (`project_readonly_check_theme` in `chat_member_add / _remove`), no file. The read mark (`chat_mark_read`) still works. `chat_theme_list` returns `projectIsReadonly`; `useChatTaskLive` reads it live from the project row; `ChatThemeScreen` shows the text `chat-theme-readonly` instead of the input and passes `readOnly` to `ChatMessageBubble` / `ChatMembersWindow`. The Main chat of a user has no project and is never closed.

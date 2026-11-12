@@ -128,6 +128,7 @@ export function filesErrorText(reason: string | null | undefined, fallback = 'Th
   switch (reason) {
     case 'noPermission': return 'You have no permission to change files here.';
     case 'switchOff': return 'The files function is switched off in the settings of this project.';
+    case 'projectReadonly': return 'The project is read-only: its files cannot be added, changed or deleted. Turn off Project settings -> Main -> Read-only project first.';
     case 'signIn': return 'Sign in first.';
     case 'notConnected': return 'Google Drive is not connected - ask the administrator.';
     case 'needsReconnect': return 'Google Drive is disconnected - an administrator must reconnect it.';

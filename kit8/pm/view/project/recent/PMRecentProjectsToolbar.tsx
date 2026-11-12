@@ -30,6 +30,7 @@ import {
   useBuildProjectRow,
   useCreateProjectMutation,
   useDeleteProjectMutation,
+  useSetProjectReadonlyMutation,
   useSaveProjectUserSettings,
   useUpdateProjectMutation,
 } from "../../../crud/queries";
@@ -59,6 +60,7 @@ import SelectProjectFromList from "../SelectProjectFromList";
 import OrganizationFilter from "../../../../catalog/organization/switch/OrganizationFilter";
 import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
 import SwitchApp from "../../../../ui/components/common/SwitchApp";
+import { projectIsReadonly } from "../../../model/projectReadonly";
 import TextInputApp from "../../../../ui/components/common/TextInputApp";
 import PMKanbanStagesModalWindow from "../../kanban/PMKanbanStagesModalWindow";
 import type { PMProjectRow, PMRowJSON, PMPlanDateInputFormat, PMContextCommandsMode, PMUxUiSettings } from "../../../model/types";
@@ -122,6 +124,8 @@ interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProject
   mainCustomerContractGUID?: string | null;
   /** project manager = a person of the persons catalog (personTable.rowGUID); the Share button of a busy resource writes to his e-mail */
   projectManagerPerson?: string | null;
+  /** the read-only switch (model/projectReadonly.ts, SQL PART 51): false while never saved */
+  projectIsReadonly?: boolean;
 }
 
 export default function PMRecentProjectsToolbar({
@@ -161,6 +165,7 @@ export default function PMRecentProjectsToolbar({
   const updateProject = useUpdateProjectMutation(ownerGUID);
   const { saveUxuiSettings } = useSaveProjectUserSettings(ownerGUID);
   const deleteProject = useDeleteProjectMutation(ownerGUID);
+  const setProjectReadonly = useSetProjectReadonlyMutation(ownerGUID);
 
   const win = useWindowDimensions();
   const compact = win.width < 640;
@@ -217,6 +222,9 @@ export default function PMRecentProjectsToolbar({
   const selected = selectedProjectGUID
     ? projectsById[selectedProjectGUID]
     : undefined;
+  /** the read-only switch (model/projectReadonly.ts): of the selected project (toolbar) and of the project in the settings window AS STORED (the window is locked until the switch is saved off) */
+  const selectedReadonly = projectIsReadonly(selected?.rowJSON);
+  const settingsLocked = !!draft?.rowGUID && projectIsReadonly(projectsById[draft.rowGUID]?.rowJSON);
 
   // ribbon = recently selected projects only, sorted by name
   const ribbon = useMemo(
@@ -347,6 +355,7 @@ export default function PMRecentProjectsToolbar({
       mainCustomerGUID: project.rowJSON.mainCustomerGUID ?? null,
       mainCustomerContractGUID: project.rowJSON.mainCustomerContractGUID ?? null,
       projectManagerPerson: project.rowJSON.projectManagerPerson ?? null,
+      projectIsReadonly: projectIsReadonly(project.rowJSON),
       ...budgetsValuesOf(project.rowJSON),
       ...vendorValuesOf(project.rowJSON),
       ...customerValuesOf(project.rowJSON),
@@ -426,6 +435,14 @@ export default function PMRecentProjectsToolbar({
 
   const saveDraft = () => {
     if (!draft) return;
+    // a READ-ONLY project (as stored): the ONE thing that is saved is the switch itself - nothing else of the window is sent (the database would refuse it)
+    if (settingsLocked && draft.rowGUID) {
+      if (!draft.projectIsReadonly) {
+        setProjectReadonly.mutate({ rowGUID: draft.rowGUID, readonly: false }, { onSettled: () => { projectPermissions.refresh(); } });
+      }
+      setDraft(null);
+      return;
+    }
     const name = draft.name.trim();
     const startDateVal = draft.projectStartDate || draft.start;
     const startMs = parseDateISO(startDateVal) ?? parsePlanDate(startDateVal, draft.planDateInputFormat);
@@ -470,6 +487,7 @@ export default function PMRecentProjectsToolbar({
             mainCustomerGUID: draft.mainCustomerGUID ?? null,
             mainCustomerContractGUID: draft.mainCustomerContractGUID ?? null,
             projectManagerPerson: draft.projectManagerPerson ?? null,
+            projectIsReadonly: !!draft.projectIsReadonly,
             ...budgetsValuesOf(draft),
             ...vendorValuesOf(draft),
             ...customerValuesOf(draft),
@@ -485,7 +503,7 @@ export default function PMRecentProjectsToolbar({
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
-      });
+      }, { onSettled: () => { projectPermissions.refresh(); } });
       // the user's own settings row overrides the project's: without this a mode saved earlier there keeps winning
       saveUxuiSettings(draft.rowGUID, { projectTreeContextCommandsMode: treeCmdMode, projectGanttChartContextCommandsMode: ganttCmdMode });
     } else {
@@ -618,6 +636,7 @@ export default function PMRecentProjectsToolbar({
                 project.rowDuration ? Date.parse(project.rowDuration) : null
               }
               active={guid === selectedProjectGUID}
+              readonly={projectIsReadonly(project.rowJSON)}
               colors={themeColors}
               onPress={() => selectProject(guid)}
               onClose={() => closeChip(guid)}
@@ -657,7 +676,7 @@ export default function PMRecentProjectsToolbar({
         icon="delete"
         title={pmT('Delete project')}
         color={themeColors.error}
-        disabled={!selected}
+        disabled={!selected || selectedReadonly}
         onPress={remove}
       />
       <PMIconButton
@@ -684,7 +703,7 @@ export default function PMRecentProjectsToolbar({
         projectGUID={selectedProjectGUID}
         costBudgetOn={projectCostBudgetOn(selected?.rowJSON)}
         color={themeColors.text}
-        disabled={!selected || !projectPermissions.can('task_line_table', 'U')}
+        disabled={!selected || selectedReadonly || !projectPermissions.can('task_line_table', 'U')}
         width={PM_SETTINGS_BUTTON_WIDTH}
         size={PM_SETTINGS_ICON_SIZE}
       />
@@ -860,6 +879,25 @@ export default function PMRecentProjectsToolbar({
               </ScrollableTabBar>
 
               <ScrollView style={styles.modalBody} contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+                {/* the read-only switch (Main tab, a saved project): the ONE control that stays live while the project is read-only */}
+                {activeTab === 'TabMain' && !!draft?.rowGUID && (
+                  <View testID="pm-project-readonly-block" style={{ marginBottom: 12 }}>
+                    <SwitchApp
+                      testID="pm-project-readonly"
+                      label={pmT('Read-only project (projectIsReadonly)')}
+                      value={!!draft?.projectIsReadonly}
+                      onValueChange={(v) => setDraft((d) => (d ? { ...d, projectIsReadonly: v } : d))}
+                      style={styles.switchRow}
+                    />
+                    <Text testID="pm-project-readonly-hint" style={{ color: settingsLocked ? themeColors.error : themeColors.text, opacity: settingsLocked ? 1 : 0.7, fontSize: 13 }}>
+                      {settingsLocked
+                        ? pmT('This project is read-only: only this switch can be changed. Turn it off and press Save to edit the project again.')
+                        : pmT('On: nobody can create, change or delete anything in this project (tasks, lines, documents, settings) until the switch is turned off again.')}
+                    </Text>
+                  </View>
+                )}
+                {/* a read-only project: everything else of the window is shown but cannot be touched */}
+                <View testID="pm-project-settings-body" style={[{ flexGrow: 1 }, settingsLocked ? { opacity: 0.55, pointerEvents: 'none' } : null]}>
                 {activeTab === 'TabMain' && (
                   <View testID="pm-project-tab-main-content">
                     <TextInputApp
@@ -870,7 +908,8 @@ export default function PMRecentProjectsToolbar({
                         setDraft((d) => (d ? { ...d, name: v } : d))
                       }
                       placeholder={pmT('Project name')}
-                      autoFocus
+                      autoFocus={!settingsLocked}
+                      disabled={settingsLocked}
                       onSubmitEditing={saveDraft}
                       style={{ marginBottom: 12 }}
                     />
@@ -1252,6 +1291,7 @@ export default function PMRecentProjectsToolbar({
                     />
                   </View>
                 )}
+                </View>
               </ScrollView>
               {!!draftError && (
                 <Text style={{ color: themeColors.error, marginTop: 6 }}>
@@ -1297,7 +1337,7 @@ export default function PMRecentProjectsToolbar({
                   testID: "pm-project-settings-save-to-organization",
                   label: "Save settings to organization",
                   icon: "domain",
-                  disabled: !organization.organizationGUID,
+                  disabled: !organization.organizationGUID || settingsLocked,
                   onPress: saveSettingsToOrganization,
                 },
               ]}
@@ -1341,6 +1381,7 @@ function ProjectChip({
   progress,
   finishMs,
   active,
+  readonly,
   colors,
   onPress,
   onClose,
@@ -1350,12 +1391,14 @@ function ProjectChip({
   progress: number;
   finishMs: number | null;
   active: boolean;
-  colors: { primary: string; background: string; border: string; text: string };
+  /** the project is read-only (model/projectReadonly.ts): a lock before the name */
+  readonly?: boolean;
+  colors: { primary: string; background: string; border: string; text: string; error: string };
   onPress: () => void;
   onClose: () => void;
 }) {
   const tip = usePMTip(
-    `${name} · ${progress}% done${finishMs ? ` · finishes ${formatDateShort(finishMs - 1)}` : ""}`,
+    `${name} · ${progress}% done${finishMs ? ` · finishes ${formatDateShort(finishMs - 1)}` : ""}${readonly ? ` · ${pmT('Read-only project')}` : ""}`,
   );
   const closeTip = usePMTip(
     "Close (remove from this bar; the project is not deleted)",
@@ -1385,6 +1428,15 @@ function ProjectChip({
           },
         ]}
       >
+        {readonly && (
+          <IconApp
+            testID={`pm-project-chip-readonly-${guid}`}
+            name="lock"
+            size={14}
+            color={active ? "#fff" : colors.error}
+            style={{ marginRight: 4 }}
+          />
+        )}
         <Text
           numberOfLines={1}
           style={{

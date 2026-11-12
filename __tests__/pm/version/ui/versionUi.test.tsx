@@ -20,6 +20,7 @@ jest.mock('../../../../kit8/pm/crud/queries', () => ({
   useCreateProjectMutation: () => ({ mutate: jest.fn() }),
   useUpdateProjectMutation: () => ({ mutate: jest.fn() }),
   useDeleteProjectMutation: () => ({ mutate: jest.fn() }),
+  useSetProjectReadonlyMutation: () => ({ mutate: jest.fn() }),
   useProjectSearchQuery: () => ({ data: undefined, isFetching: false }),
 }));
 jest.mock('../../../../kit8/pm/crud/exchange/project/ImportExportProject', () => ({ __esModule: true, default: () => null }));
@@ -102,6 +103,19 @@ describe('Gantt bar buttons', () => {
     expect(prompt.title.startsWith(project.rowJSON.name)).toBe(true);
     press('pm-version-restore');
     expect(usePMVersionStore.getState().restorePickerOpen).toBe(true);
+  });
+
+  it('a READ-ONLY project: Save version and Restore are disabled (no window opens)', () => {
+    const { project } = seedVersions();
+    act(() => {
+      const s = require('../../../../kit8/pm/store/store_pm').usePMStore.getState();
+      s.setProjects(Object.values(s.projectsById).map((p: any) => (p.rowGUID === project.rowGUID ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: true } } : p)) as any);
+    });
+    renderUI(<PMGanttVersionButtons palette={palette} />);
+    press('pm-version-save');
+    expect(usePMVersionStore.getState().titlePrompt).toBeNull();
+    press('pm-version-restore');
+    expect(usePMVersionStore.getState().restorePickerOpen).toBe(false);
   });
 
   it('SQL not run: the buttons stay active and explain what to do instead of opening a window', () => {

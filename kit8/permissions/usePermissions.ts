@@ -49,6 +49,8 @@ function useClient(): any {
 export interface Permissions {
   /** the answer of the database is there (false = everything is allowed in the interface) */
   ready: boolean;
+  /** the project of the hook is read-only (SQL PART 51): can() answers false for C / U / D */
+  projectIsReadonly: boolean;
   profiles: string[];
   isAdmin: boolean;
   canCreateProject: boolean;
@@ -106,6 +108,8 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
         for (const table of ['project_permission_profile_user_table', 'task_user_permission_table']) {
           channel.on('postgres_changes', { event: '*', schema: 'public', table }, refetch);
         }
+        // the read-only switch of the project (SQL PART 51) takes the letters C / U / D away: follow the project row
+        if (projectGUID) channel.on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'project_table', filter: `rowGUID=eq.${projectGUID}` }, refetch);
         channel.subscribe?.();
       }
     } catch {
@@ -115,7 +119,7 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
       try { unsubscribe?.unsubscribe?.(); } catch { /* ignore */ }
       try { if (channel) client.removeChannel?.(channel); } catch { /* ignore */ }
     };
-  }, [client, key, load]);
+  }, [client, key, load, projectGUID]);
 
   const ready = !!entry && entry.at > 0;
   const matrix = entry?.matrix ?? EMPTY_MATRIX;
@@ -123,7 +127,7 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
   const canUi = useCallback((object: string, letter: PermLetter) => !ready || canObject(matrix, object, letter), [ready, matrix]);
 
   return useMemo(
-    () => ({ ready, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
+    () => ({ ready, projectIsReadonly: ready && matrix.projectIsReadonly, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
     [ready, matrix, can, canUi, load],
   );
 }

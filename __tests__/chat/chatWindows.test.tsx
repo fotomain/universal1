@@ -135,6 +135,14 @@ describe('Members', () => {
     await settle();
     expect(mockRemove).toHaveBeenCalledWith({}, 't1', 'boris');
   });
+  it('the chat of a task of a READ-ONLY project: the list is shown, nobody is added or excluded - also not by the owner or a manager', () => {
+    mockCanManage = true;
+    mount(<ChatMembersWindow visible themeGUID="t1" isOwner kind="task" readOnly onClose={() => {}} />);
+    expect(q('chat-members-row-boris')).not.toBeNull();
+    expect(q('chat-members-add-u-boris')).toBeNull();
+    expect(q('chat-members-remove-boris')).toBeNull();
+    expect(q('chat-members-remove-dora')).toBeNull();
+  });
   it('a refusal of the database is shown in the error window', async () => {
     mockCanManage = true;
     mockRemove.mockResolvedValue({ ok: false, error: 'Only a project manager or an administrator excludes a member' });

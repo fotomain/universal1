@@ -133,6 +133,12 @@ describe('a message', () => {
     press('chat-message-m1-edit-save');
     expect(onEdit).toHaveBeenCalledWith('m1', 'changed text');
   });
+  it('the chat of a task of a READ-ONLY project: my message has no Edit / Delete', () => {
+    bubble(msg(), { mine: true, readOnly: true });
+    expect(q('chat-message-m1')).not.toBeNull();
+    expect(q('chat-message-m1-edit')).toBeNull();
+    expect(q('chat-message-m1-delete')).toBeNull();
+  });
 });
 
 const input = (props: Record<string, any> = {}) => {

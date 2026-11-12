@@ -7,6 +7,14 @@ import { createPMApi, PMApi } from '../api/api_pm';
 import { usePMStore } from '../../store/store_pm';
 import { PMProjectData, PMProjectRow } from '../../model/types';
 import { errorMessage } from '../api/apiUtils';
+import { projectIsReadonly, projectReadonlyMessage } from '../../model/projectReadonly';
+
+/** A read-only project (model/projectReadonly.ts): the change is refused HERE, before the optimistic step (the database would refuse it anyway). */
+export function assertProjectWritable(projectGUID: string | null | undefined): void {
+  if (!projectGUID) return;
+  const project = usePMStore.getState().projectsById?.[projectGUID];
+  if (projectIsReadonly(project?.rowJSON)) throw new Error(projectReadonlyMessage(project?.rowJSON?.name));
+}
 
 export const pmKeys = {
   all: ['pm'] as const,
@@ -45,6 +53,7 @@ export function useProjectMutation<TVars, TResult>(
   return useMutation({
     mutationFn: (vars: TVars) => mutationFn(vars, qc.getQueryData<PMProjectData>(key)),
     onMutate: async (vars: TVars) => {
+      assertProjectWritable(projectGUID);
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<PMProjectData>(key);
       if (prev) qc.setQueryData<PMProjectData>(key, applyOptimistic(prev, vars));

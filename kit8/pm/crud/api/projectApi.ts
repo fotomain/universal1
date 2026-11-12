@@ -74,6 +74,11 @@ export function createProjectApi(sb: SupabaseClient) {
     return normalizeProject(data);
   }
 
+  /** The read-only switch (SQL project_set_readonly, PART 51): the one write a read-only project accepts. */
+  async function setProjectReadonly(rowGUID: string, readonly: boolean): Promise<boolean> {
+    return check(await sb.rpc('project_set_readonly', { p_project: rowGUID, p_readonly: !!readonly })) === true;
+  }
+
   async function deleteProject(rowGUID: string): Promise<void> {
     check(await sb.from(projectTable).delete().eq('rowGUID', rowGUID));
   }
@@ -83,6 +88,7 @@ export function createProjectApi(sb: SupabaseClient) {
     createProject,
     readProject,
     updateProject,
+    setProjectReadonly,
     deleteProject,
     // batch / list / helpers
     createProjects,

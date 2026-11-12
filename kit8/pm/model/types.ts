@@ -134,6 +134,8 @@ export interface PMRowJSON {
   projectStartAt?: string;
   /** true = durations count Mon-Fri only. */
   skipWeekends?: boolean;
+  /** the read-only switch (model/projectReadonly.ts, SQL PART 51): true = nothing of the project can be changed but this switch; false while never saved */
+  projectIsReadonly?: boolean;
   /** Planning units: plan in days (default true). */
   planDay?: boolean;
   /** Planning units: plan in hours. */

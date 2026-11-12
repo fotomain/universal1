@@ -88,6 +88,7 @@ describe('the model', () => {
     expect(driveStateText('needsReconnect')).toMatch(/reconnect/);
     expect(driveStateText(undefined)).toMatch(/not connected/);
     expect(filesErrorText('noPermission')).toMatch(/no permission/i);
+    expect(filesErrorText('projectReadonly')).toMatch(/read-only/i);
     expect(filesErrorText('weird', 'fallback')).toBe('fallback');
   });
 });

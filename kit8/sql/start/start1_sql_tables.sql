@@ -56,6 +56,7 @@
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): organizationTextTable = the texts an administrator replaces for the whole organization, per language
 --   49. create_files.sql - FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C; first slice): files_google_connection_table = the Google Drive connection of an organization (the encrypted refresh token; NO client can read it)
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): chatObjectTable, chatThemeTable, chatMembersTable, chatMessagesTable
+--   51. create_project_readonly.sql - READ-ONLY PROJECT: no table (the switch is the key projectIsReadonly of project_table.rowJSON); the guard triggers are in start2_sql_code.sql
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).

@@ -13,6 +13,7 @@
 // Zustand themselves - they call a mutation; the mutation edits the React Query cache
 // optimistically; the cache hydrates Zustand; Skia repaints.
 
+import { projectIsReadonly } from '../model/projectReadonly';
 import { useContext, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ReactReduxContext } from 'react-redux';
 import { useQueryClient } from '@tanstack/react-query';
@@ -89,6 +90,8 @@ export function useScheduleWriteBack(projectGUID: string | null | undefined) {
     const flush = async (force = false, attempt = 0): Promise<void> => {
       const s = usePMStore.getState();
       if (s.loadedProjectGUID !== projectGUID) return;
+      // a read-only project (model/projectReadonly.ts): the calculated dates are shown, never written
+      if (projectIsReadonly(s.projectsById[projectGUID]?.rowJSON)) return;
       if (inFlight.current || qc.isMutating() > 0) {
         if (force && attempt < 20) timer = setTimeout(() => void flush(true, attempt + 1), 250);
         return;

@@ -9,9 +9,11 @@ export interface MyMatrix {
   uxui: Record<string, string>;
   isAdmin: boolean;
   canCreateProject: boolean;
+  /** the project of the question is read-only (SQL PART 51): only R is left, and U of project_table for the switch itself */
+  projectIsReadonly: boolean;
 }
 
-export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false };
+export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false };
 
 export const PROFILE_TITLES: Record<string, string> = {
   permissionOrganizationAdmin: 'Organization administrator',
@@ -51,6 +53,7 @@ export function matrixOf(raw: any): MyMatrix {
     uxui: obj(raw.uxui),
     isAdmin: raw.isAdmin === true,
     canCreateProject: raw.canCreateProject === true,
+    projectIsReadonly: raw.projectIsReadonly === true,
   };
 }
 
@@ -61,11 +64,13 @@ export const hasLetter = (set: string | undefined | null, letter: PermLetter): b
  * nothing for is simply missing from `crud` (he has no letter there ... except that every signed-in user can read what the read-only baseline gives, which the function already returns).
  */
 export function canTable(m: MyMatrix, table: string, letter: PermLetter, known: boolean = table in m.crud): boolean {
+  if (m.projectIsReadonly && !(letter === 'R' || (table === 'project_table' && letter === 'U'))) return false;
   if (known) return hasLetter(m.crud[table], letter);
   return m.isAdmin || letter === 'R';
 }
 
-export const canObject = (m: MyMatrix, object: string, letter: PermLetter): boolean => (object in m.uxui ? hasLetter(m.uxui[object], letter) : letter === 'R');
+export const canObject = (m: MyMatrix, object: string, letter: PermLetter): boolean =>
+  m.projectIsReadonly && letter !== 'R' ? false : object in m.uxui ? hasLetter(m.uxui[object], letter) : letter === 'R';
 
 /** what the database said when it refused: "No permission: <table>, <letter>" / "... (<field>)" (SQLSTATE 42501), or null for any other error */
 export interface PermissionRefusal {

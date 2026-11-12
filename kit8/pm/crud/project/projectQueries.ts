@@ -82,6 +82,16 @@ export function useUpdateProjectMutation(ownerGUID: string | null | undefined) {
   );
 }
 
+/** The read-only switch of a project (model/projectReadonly.ts): saved by the RPC project_set_readonly - nothing else of the row is sent. */
+export function useSetProjectReadonlyMutation(ownerGUID: string | null | undefined) {
+  const api = usePMApi();
+  return useProjectsListMutation<{ rowGUID: string; readonly: boolean }, boolean>(
+    ownerGUID,
+    (v) => api.setProjectReadonly(v.rowGUID, v.readonly),
+    (list, v) => list.map((p) => (p.rowGUID === v.rowGUID ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: v.readonly } } : p))
+  );
+}
+
 export function useDeleteProjectMutation(ownerGUID: string | null | undefined) {
   const api = usePMApi();
   return useProjectsListMutation<string, void>(

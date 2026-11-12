@@ -19,6 +19,8 @@ export interface ChatMessageBubbleProps {
   onOpenLink: (url: string) => void;
   onEdit: (messageGUID: string, text: string) => Promise<void> | void;
   onDelete: (messageGUID: string) => void;
+  /** the chat of a task of a read-only project: no Edit / Delete on the own messages */
+  readOnly?: boolean;
   testID?: string;
 }
 
@@ -29,7 +31,7 @@ const timeOf = (iso?: string) => {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 };
 
-export default function ChatMessageBubble({ message, mine, authorName, existingFiles, onOpenLink, onEdit, onDelete, testID = 'chat-message' }: ChatMessageBubbleProps) {
+export default function ChatMessageBubble({ message, mine, authorName, existingFiles, onOpenLink, onEdit, onDelete, readOnly = false, testID = 'chat-message' }: ChatMessageBubbleProps) {
   const { themeColors: c } = useDesignSystem();
   const j = message.rowJSON || {};
   const id = message.rowGUID;
@@ -97,7 +99,7 @@ export default function ChatMessageBubble({ message, mine, authorName, existingF
             </Pressable>
           );
         })}
-        {mine && !editing ? (
+        {mine && !editing && !readOnly ? (
           <View style={styles.actions}>
             {j.text ? <PMIconButton tipScope="app" testID={`${testID}-${id}-edit`} icon="edit" title={pmT('Edit the message')} color={fg} size={14} onPress={() => { setDraft(j.text || ''); setEditing(true); }} /> : null}
             <PMIconButton tipScope="app" testID={`${testID}-${id}-delete`} icon="delete" title={pmT('Delete the message')} color={fg} size={14} onPress={() => onDelete(id)} />

@@ -1,0 +1,448 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Camera date and time - plan</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline, no external file) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 13px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 12px; overflow-x: auto; margin: 8px 0 0; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  nav a.active { background: var(--text); color: #fff; }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.plan { background: var(--amber-soft); color: var(--amber); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.web { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); white-space: nowrap; }
+  table.data th { cursor: pointer; user-select: none; }
+  table.data th:hover { color: var(--text); }
+  table.data th[data-dir="asc"]::after { content: " \25B2"; }
+  table.data th[data-dir="desc"]::after { content: " \25BC"; }
+  .tools { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+  .tools input, .tools select { font: 14px var(--font); padding: 7px 10px; border: 1px solid var(--border-strong); border-radius: 10px; background: #fff; color: var(--text); }
+  .tools input { flex: 1; min-width: 180px; }
+  .count { color: var(--muted); font-size: 13px; align-self: center; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  ul.tight { margin: 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+  svg text { font-family: var(--font); }
+  /* the live mock of the recorder */
+  .mock { display: grid; gap: 18px; grid-template-columns: minmax(260px, 1.3fr) minmax(240px, 1fr); align-items: start; }
+  @media (max-width: 720px) { .mock { grid-template-columns: 1fr; } }
+  .screen { position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden; background: linear-gradient(135deg, #1e293b, #475569 60%, #0f766e); }
+  .screen .rec { position: absolute; top: 4%; left: 50%; transform: translateX(-50%); background: rgba(0,0,0,.55); color: #fff; font: 600 12px var(--mono); padding: 2px 10px; border-radius: 999px; }
+  .screen .rec::before { content: "\25CF  "; color: #f43f5e; }
+  .stamp { position: absolute; color: #fff; font: 600 clamp(11px, 2.4vw, 17px) var(--mono); text-shadow: 0 1px 2px #000, 0 0 6px rgba(0,0,0,.8); }
+  .stamp.topLeft { top: 4%; left: 3%; } .stamp.topRight { top: 4%; right: 3%; }
+  .stamp.bottomLeft { bottom: 4%; left: 3%; } .stamp.bottomRight { bottom: 4%; right: 3%; }
+  .panel label { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
+  .panel fieldset { border: 1px solid var(--border); border-radius: 10px; margin: 8px 0 0; padding: 8px 12px; }
+  .panel fieldset:disabled { opacity: .45; }
+  .panel legend { font-size: 12px; color: var(--muted); padding: 0 6px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Camera date and time</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#settings">Settings</a></li><li><a href="#mock">Screen</a></li>
+    <li><a href="#how">How it works</a></li><li><a href="#ways">Ways</a></li><li><a href="#data">Data</a></li>
+    <li><a href="#wbs">WBS</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+<section id="goal">
+  <span class="pill plan">PLAN ONLY - no code yet</span> <span class="pill key">2026-11-12</span>
+  <h1>Date and time over the recorded video</h1>
+  <p class="lead">The video recorder (Drawer: Record &rarr; Video) gets two settings. With the switch on, the current date and time is shown over the picture in one of the four corners, the way a camcorder or a dash cam does it.</p>
+  <div class="grid">
+    <div class="card"><h3>What is asked</h3>
+      <ul class="tight">
+        <li><code>recordDateTimeOverEnabled</code> - a <b>switch</b></li>
+        <li><code>recordDateTimeOverPosition</code> - a <b>radio</b>: Top Left, Top Right, Bottom Left, Bottom Right</li>
+      </ul></div>
+    <div class="card"><h3>What exists today</h3>
+      <ul class="tight">
+        <li>The recorder has NO settings store: only the switch "Record sound" and the camera flip button on its card.</li>
+        <li>The player has one: <code>uxuiState.PlayVideoSettings</code> (persisted, gear button, panel). The new settings are built as its twin.</li>
+        <li>Two recorders: <code>RecordVideo.tsx</code> (iOS / Android, Vision Camera 4) and <code>RecordVideo.web.tsx</code> (browser MediaRecorder).</li>
+      </ul></div>
+    <div class="card"><h3>The one hard point</h3>
+      <p style="margin:0">On the <b>web</b> the stamp can be written into the file itself. On <b>iOS / Android</b> the camera writes the file in hardware and nothing can be drawn into it on the way: it needs either a second pass over the file (new native code) or a stamp that the app shows when it plays the video. See <a href="#ways">Ways</a> and question Q1.</p></div>
+  </div>
+</section>
+
+<section id="settings">
+  <h2>The settings</h2>
+  <p class="sub">New object <code>uxuiState.RecordVideoSettings</code> - per device, persisted by redux-persist, like <code>PlayVideoSettings</code>. No SQL.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Key</th><th>Control</th><th>Values</th><th>Default</th><th>Rule</th></tr>
+      <tr><td><code>recordDateTimeOverEnabled</code></td><td>Switch "Date and time over the video"</td><td><code>true</code> / <code>false</code></td><td><code>false</code></td><td>Off = the recorder works exactly as today.</td></tr>
+      <tr><td><code>recordDateTimeOverPosition</code></td><td>Radio "Position"</td><td><code>topLeft</code> &middot; <code>topRight</code> &middot; <code>bottomLeft</code> &middot; <code>bottomRight</code><br>shown as Top Left &middot; Top Right &middot; Bottom Left &middot; Bottom Right</td><td><code>bottomRight</code></td><td>Disabled (grey) while the switch is off; the value is kept.</td></tr>
+    </table>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h3>Sample of input data</h3><p class="sub">What the settings panel saves (redux action <code>setRecordVideoSettings</code>).</p>
+<pre>{
+  "recordDateTimeOverEnabled": true,
+  "recordDateTimeOverPosition": "topLeft"
+}</pre></div>
+    <div class="card"><h3>Rules of the panel</h3>
+      <ul class="tight">
+        <li>Opened by a new <b>gear button</b> on the recorder card, next to the camera flip button (the same idea as the gear of the player).</li>
+        <li>Both controls are <b>locked while a recording runs</b> (recording, paused, switching the sound, saving): one video has one position.</li>
+        <li>A state saved by an older app version has no such object: every reader goes through <code>selectRecordVideoSettings</code> (defaults, an unknown position becomes <code>bottomRight</code>).</li>
+        <li>Button <b>Reset</b> puts both back to the defaults.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="mock">
+  <h2>The screen</h2>
+  <p class="sub">A working model of the two controls. The clock is the real clock of this browser.</p>
+  <div class="card mock">
+    <div>
+      <div class="screen" id="screen"><span class="rec">00:12</span><span class="stamp bottomRight" id="stamp" hidden></span></div>
+      <p class="sub" style="margin:8px 0 0">Sample of output: the text drawn over the picture is <code id="stampText">2026-11-12 14:03:27</code></p>
+    </div>
+    <div class="panel">
+      <h3 style="margin-top:0">Record settings</h3>
+      <label><input type="checkbox" id="swEnabled"> Date and time over the video</label>
+      <fieldset id="fsPosition" disabled><legend>Position</legend>
+        <label><input type="radio" name="pos" value="topLeft"> Top Left</label>
+        <label><input type="radio" name="pos" value="topRight"> Top Right</label>
+        <label><input type="radio" name="pos" value="bottomLeft"> Bottom Left</label>
+        <label><input type="radio" name="pos" value="bottomRight" checked> Bottom Right</label>
+      </fieldset>
+      <pre id="jsonOut" style="margin-top:12px"></pre>
+    </div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">The look of the stamp</h3>
+    <ul class="tight">
+      <li>Text <code>YYYY-MM-DD HH:mm:ss</code>, local time of the device, 24 hours, changes every second (question Q2).</li>
+      <li>White monospace text with a dark shadow, no box: readable on a light and on a dark picture.</li>
+      <li>Height of the text = 4 % of the short side of the picture; margin = 3 % of the width, 4 % of the height. One pure function gives the place for the preview, the file and the player, so the three always agree.</li>
+      <li>The red time badge of the recorder moves away when it would lie under the stamp.</li>
+      <li>The front camera preview is mirrored; the stamp is never mirrored.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="how">
+  <h2>How it works</h2>
+  <p class="sub">One settings object, one pure helper, three places that draw.</p>
+  <div class="card scroll">
+    <svg viewBox="0 0 1040 330" width="100%" style="min-width:760px" role="img" aria-label="Flow from the settings to the preview, the file and the player">
+      <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#64748b"/></marker></defs>
+      <g font-size="13" fill="#0f172a">
+        <rect x="10" y="120" width="190" height="84" rx="12" fill="#ede9fe" stroke="#7c3aed"/>
+        <text x="105" y="148" text-anchor="middle" font-weight="700">RecordVideoSettings</text>
+        <text x="105" y="168" text-anchor="middle" fill="#334155">switch + position</text>
+        <text x="105" y="186" text-anchor="middle" fill="#64748b" font-size="12">uxuiState, persisted</text>
+
+        <rect x="250" y="120" width="190" height="84" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+        <text x="345" y="148" text-anchor="middle" font-weight="700">dateTimeOver.ts</text>
+        <text x="345" y="168" text-anchor="middle" fill="#334155">text, place, time map</text>
+        <text x="345" y="186" text-anchor="middle" fill="#64748b" font-size="12">pure, tested alone</text>
+
+        <rect x="500" y="14" width="230" height="74" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="615" y="42" text-anchor="middle" font-weight="700">Preview while recording</text>
+        <text x="615" y="62" text-anchor="middle" fill="#334155">a text over the camera picture</text>
+        <text x="615" y="78" text-anchor="middle" fill="#64748b" font-size="12">web + iOS + Android</text>
+
+        <rect x="500" y="126" width="230" height="74" rx="12" fill="#cffafe" stroke="#0891b2"/>
+        <text x="615" y="154" text-anchor="middle" font-weight="700">Web: canvas &rarr; MediaRecorder</text>
+        <text x="615" y="174" text-anchor="middle" fill="#334155">every frame + stamp</text>
+        <text x="615" y="190" text-anchor="middle" fill="#64748b" font-size="12">the stamp is IN the file</text>
+
+        <rect x="500" y="238" width="230" height="74" rx="12" fill="#fef3c7" stroke="#d97706"/>
+        <text x="615" y="266" text-anchor="middle" font-weight="700">iOS / Android: file as today</text>
+        <text x="615" y="286" text-anchor="middle" fill="#334155">+ start time and pauses kept</text>
+        <text x="615" y="302" text-anchor="middle" fill="#64748b" font-size="12">the stamp is NOT in the file</text>
+
+        <rect x="800" y="126" width="230" height="74" rx="12" fill="#d1fae5" stroke="#059669"/>
+        <text x="915" y="154" text-anchor="middle" font-weight="700">Media post</text>
+        <text x="915" y="174" text-anchor="middle" fill="#334155">mediaDateTimeOver</text>
+        <text x="915" y="190" text-anchor="middle" fill="#64748b" font-size="12">burnedIn true / false</text>
+
+        <rect x="800" y="238" width="230" height="74" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+        <text x="915" y="266" text-anchor="middle" font-weight="700">Player of the app</text>
+        <text x="915" y="286" text-anchor="middle" fill="#334155">draws the stamp when</text>
+        <text x="915" y="302" text-anchor="middle" fill="#64748b" font-size="12">burnedIn = false</text>
+      </g>
+      <g stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+        <path d="M200 162 H248"/><path d="M440 150 C470 150 470 52 498 52"/><path d="M440 162 H498"/><path d="M440 174 C470 174 470 275 498 275"/>
+        <path d="M730 162 H798"/><path d="M730 275 C765 275 765 180 798 176"/><path d="M915 200 V236"/>
+      </g>
+    </svg>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h3><span class="pill web">Web</span> the stamp is written into the file</h3>
+      <ul class="tight">
+        <li>Today: camera stream &rarr; <code>MediaRecorder</code>. New, only while the switch is on: camera stream &rarr; hidden <code>&lt;canvas&gt;</code> (each frame is drawn, then the text) &rarr; <code>canvas.captureStream()</code> + the microphone track &rarr; <code>MediaRecorder</code>.</li>
+        <li>The canvas has the size of the camera picture (1280 &times; 720 asked today), so the quality is the same.</li>
+        <li>The visible preview stays the <code>&lt;video&gt;</code> tag with a text above it (a mirrored canvas would mirror the text).</li>
+        <li>Frames are taken with <code>requestVideoFrameCallback</code>, a timer where the browser has none.</li>
+        <li>The switch "Record sound", pause and the 1 hour limit keep working: they act on the same recorder.</li>
+        <li>Switch off = the old direct path, not one line changes for it.</li>
+      </ul></div>
+    <div class="card"><h3><span class="pill plan">iOS / Android</span> phase 1: the app shows it</h3>
+      <ul class="tight">
+        <li>The file is recorded as today (hardware H.264). The post keeps when each part started and every pause.</li>
+        <li>The player of the app draws the same text at the same place: the time = start of the part + the position in the video, pauses and the gap of a sound switch counted in. A video of several parts stays correct.</li>
+        <li>No new native library, no new development build, no waiting after Stop.</li>
+        <li>Limit: a file taken out of the app (shared, uploaded and opened in another program) has no stamp.</li>
+      </ul></div>
+    <div class="card"><h3><span class="pill plan">iOS / Android</span> phase 2: into the file</h3>
+      <ul class="tight">
+        <li>After Stop the file is written once more with the stamp: iOS AVFoundation (video composition), Android Media3 Transformer with a text overlay (Media3 1.9.0 is already in the app through expo-video).</li>
+        <li>That is a small local native module (Swift + Kotlin) and a new development build.</li>
+        <li>Cost: the user waits after Stop (estimate 0.3-1 &times; the length of the video, to be measured), battery, one more encode of the picture.</li>
+        <li>Starts with a spike S0 on two real phones; phase 1 already works meanwhile and the post simply changes to <code>burnedIn: true</code>.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="ways">
+  <h2>Ways that were looked at</h2>
+  <p class="sub">Click a header to sort, type to filter.</p>
+  <div class="card">
+    <div class="tools"><input type="search" placeholder="Filter the ways..." data-filter="tblWays">
+      <select data-filter-col="tblWays" data-col="1"><option value="">All platforms</option><option>Web</option><option>iOS / Android</option><option>All</option></select>
+      <span class="count" data-count="tblWays"></span></div>
+    <div class="scroll"><table class="data" id="tblWays">
+      <thead><tr><th>Way</th><th>Platform</th><th>Stamp in the file</th><th>New native code</th><th>Wait after Stop</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Canvas between camera and MediaRecorder</td><td>Web</td><td>Yes</td><td>No</td><td>No</td><td><span class="pill yes">Chosen</span></td></tr>
+        <tr><td>Stamp drawn by the player from the saved times</td><td>All</td><td>No</td><td>No</td><td>No</td><td><span class="pill yes">Chosen, phase 1 of the phones</span></td></tr>
+        <tr><td>Second pass with AVFoundation / Media3 Transformer</td><td>iOS / Android</td><td>Yes</td><td>Yes, local module</td><td>Yes</td><td><span class="pill plan">Phase 2, after spike S0</span></td></tr>
+        <tr><td>Vision Camera Skia frame processor</td><td>iOS / Android</td><td>No (preview only, as far as known for version 4 - to be confirmed in S0)</td><td>Yes, worklets-core + plugin</td><td>No</td><td><span class="pill no">Not chosen</span></td></tr>
+        <tr><td>FFmpeg (ffmpeg-kit) drawtext</td><td>iOS / Android</td><td>Yes</td><td>Yes, about 30-50 MB</td><td>Yes</td><td><span class="pill no">Not chosen: the library was retired in 2025</span></td></tr>
+        <tr><td>Own camera pipeline that draws every frame before the encoder</td><td>iOS / Android</td><td>Yes</td><td>Yes, replaces Vision Camera recording</td><td>No</td><td><span class="pill no">Not chosen: weeks of work</span></td></tr>
+        <tr><td>Screen-record the preview view</td><td>iOS / Android</td><td>Yes</td><td>Yes</td><td>No</td><td><span class="pill no">Not chosen: low quality, system prompts</span></td></tr>
+      </tbody></table></div>
+  </div>
+</section>
+
+<section id="data">
+  <h2>Data</h2>
+  <p class="sub">No SQL change: the new keys go into <code>mediaPostTable.rowJSON</code>, written by <code>buildRecordingPost</code>.</p>
+  <div class="grid">
+    <div class="card"><h3>Sample of output data - web</h3>
+<pre>{
+  "mediaKind": "video",
+  "mediaPostMIME": "video/webm",
+  "mediaDurationSec": 75,
+  "mediaWithAudio": true,
+  "mediaRecordedAt": "2026-11-12T14:03:15.000+01:00",
+  "mediaDateTimeOver": {
+    "position": "topLeft",
+    "burnedIn": true
+  }
+}</pre></div>
+    <div class="card"><h3>Sample of output data - phone, 2 parts, 1 pause</h3>
+<pre>{
+  "mediaKind": "video",
+  "mediaPostMIME": "video/mp4",
+  "mediaDurationSec": 75,
+  "mediaRecordedAt": "2026-11-12T14:03:15.000+01:00",
+  "mediaDateTimeOver": {
+    "position": "topLeft",
+    "burnedIn": false
+  },
+  "mediaSegments": [
+    { "uri": "...1.mp4", "durationSec": 40, "withAudio": true,
+      "startedAt": "2026-11-12T14:03:15.000+01:00",
+      "pauses": [ { "atSec": 12, "lengthSec": 20 } ] },
+    { "uri": "...2.mp4", "durationSec": 35, "withAudio": false,
+      "startedAt": "2026-11-12T14:04:15.700+01:00" }
+  ]
+}</pre></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Reading the second sample</h3>
+    <p style="margin:0">Second 30 of part 1 lies after the pause at second 12, so the player shows 14:03:15 + 30 s + 20 s = <code>2026-11-12 14:04:05</code>. Part 2 starts 0.7 s after part 1 ended (the gap of the sound switch) and shows its own <code>startedAt</code>. A post without <code>mediaDateTimeOver</code> (every post of today) is played as today.</p>
+  </div>
+</section>
+
+<section id="wbs">
+  <h2>WBS</h2>
+  <p class="sub">All code in <code>kit8/ui/components/media</code> and <code>kit8/redux</code>; tests in <code>__tests__/media</code>. Click a header to sort, type to filter.</p>
+  <div class="card">
+    <div class="tools"><input type="search" placeholder="Filter the work..." data-filter="tblWbs">
+      <select data-filter-col="tblWbs" data-col="3"><option value="">All phases</option><option>1</option><option>2</option></select>
+      <span class="count" data-count="tblWbs"></span></div>
+    <div class="scroll"><table class="data" id="tblWbs">
+      <thead><tr><th>Id</th><th>Work</th><th>Files</th><th>Phase</th><th>Platform</th></tr></thead>
+      <tbody>
+        <tr><td>W1</td><td>Settings model: type, defaults (<code>false</code>, <code>bottomRight</code>), <code>normalizeRecordVideoSettings</code>, <code>selectRecordVideoSettings</code>; reducers <code>setRecordVideoSettings</code> / <code>resetRecordVideoSettings</code></td><td><code>kit8/redux/recordVideoSettings.ts</code> (new), <code>uxuiSlice.ts</code></td><td>1</td><td>All</td></tr>
+        <tr><td>W2</td><td>Hook <code>useRecordVideoSettings</code>: settings, change, reset</td><td><code>useRecordVideoSettings.ts</code> (new)</td><td>1</td><td>All</td></tr>
+        <tr><td>W3</td><td>Settings panel: the switch, the radio of four items, Reset; gear button on the recorder card; locked while a recording runs</td><td><code>RecordVideoSettingsPanel.tsx</code> (new), both <code>RecordVideo</code> files</td><td>1</td><td>All</td></tr>
+        <tr><td>W4</td><td>Pure helper: the text of a moment, the place of the stamp for a picture size, the clock time of a second of a part (pauses)</td><td><code>dateTimeOver.ts</code> (new)</td><td>1</td><td>All</td></tr>
+        <tr><td>W5</td><td>Stamp over the preview, ticking every second; the time badge moves away from its corner</td><td><code>DateTimeOverStamp.tsx</code> (new), both <code>RecordVideo</code> files</td><td>1</td><td>All</td></tr>
+        <tr><td>W6</td><td>Web: canvas path between the camera and the MediaRecorder, only while the switch is on</td><td><code>RecordVideo.web.tsx</code>, <code>stampedStream.web.ts</code> (new)</td><td>1</td><td>Web</td></tr>
+        <tr><td>W7</td><td>Media post: <code>mediaRecordedAt</code>, <code>mediaDateTimeOver</code>, <code>startedAt</code> + <code>pauses</code> of a part; the phone recorder notes them</td><td><code>mediaPost.ts</code>, <code>RecordVideo.tsx</code></td><td>1</td><td>All</td></tr>
+        <tr><td>W8</td><td>Player draws the stamp of a post with <code>burnedIn: false</code>, following the position, a jump and the change of a part</td><td><code>VideoPlayerView.tsx</code>, <code>VideoPlayerView.web.tsx</code>, <code>MediaPlayer.tsx</code></td><td>1</td><td>All</td></tr>
+        <tr><td>W9</td><td>Texts of the panel in <code>kit8/i18n</code> (English; other languages fall back)</td><td><code>kit8/i18n/i18n.ts</code></td><td>1</td><td>All</td></tr>
+        <tr><td>W10</td><td>Jest tests (see Tests), README of the media folder, KNOW_HOW row</td><td><code>__tests__/media</code>, <code>README.md</code></td><td>1</td><td>All</td></tr>
+        <tr><td>S0</td><td>Spike on a real iPhone and a real Android phone: second pass of a 1 minute and a 10 minute video with a changing text; measure the time, the size, the quality; confirm that a Skia frame processor is not recorded</td><td>scratch project</td><td>2</td><td>iOS / Android</td></tr>
+        <tr><td>W11</td><td>Local native module "write the stamp into the file" (Swift + Kotlin), called after Stop for every part, progress shown; the post becomes <code>burnedIn: true</code>; on a failure the original file is kept with <code>burnedIn: false</code></td><td><code>modules/kit8-video-stamp</code> (new), <code>useSaveRecording.ts</code></td><td>2</td><td>iOS / Android</td></tr>
+        <tr><td>W12</td><td>New development build, test on devices, README</td><td><code>app.config.js</code></td><td>2</td><td>iOS / Android</td></tr>
+      </tbody></table></div>
+  </div>
+</section>
+
+<section id="tests">
+  <h2>Tests and limits</h2>
+  <div class="grid">
+    <div class="card"><h3>Jest (written in the same round)</h3>
+      <ul class="tight">
+        <li><code>recordVideoSettings.test.ts</code>: defaults, an old persisted state, a wrong position, reset.</li>
+        <li><code>dateTimeOver.test.ts</code>: the text, the four places for landscape and portrait, the clock time with pauses and parts (the sample above is a case).</li>
+        <li><code>recordVideoSettingsPanel.test.tsx</code>: the radio is disabled while the switch is off; everything is locked while recording.</li>
+        <li><code>recordVideoWeb</code> / <code>recordVideoNative</code>: switch off = the path of today; switch on = canvas path (fake canvas) / the times in the post.</li>
+        <li><code>videoPlayerView</code> (+ Web): the stamp shows only for <code>burnedIn: false</code>.</li>
+      </ul></div>
+    <div class="card"><h3>What a test cannot show</h3>
+      <ul class="tight">
+        <li>A real camera: the stamp in a real file must be looked at in Chrome, Firefox and Safari, and on the phones.</li>
+        <li>Web, tab in the background: browsers slow down a hidden tab, the picture of that stretch can stand still (the sound goes on). To be checked; said in the README.</li>
+        <li>Web, weak computer: drawing 30 frames a second costs processor time. To be measured on a 1 hour recording.</li>
+        <li>The clock is the clock of the device: a wrong device clock gives a wrong stamp.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>Questions to the owner</h2>
+  <p class="sub">Each has a recommended answer; the work can start with them.</p>
+  <div class="card">
+    <div class="tools"><input type="search" placeholder="Filter the questions..." data-filter="tblQ"><span class="count" data-count="tblQ"></span></div>
+    <div class="scroll"><table class="data" id="tblQ">
+      <thead><tr><th>Id</th><th>Question</th><th>Recommended</th><th>Other answer</th></tr></thead>
+      <tbody>
+        <tr><td>Q1</td><td>iOS / Android: is it enough at first that the app shows the stamp when it plays the video (the file itself has none)?</td><td>Yes: phase 1 now, phase 2 (into the file) after the spike</td><td>No: nothing for the phones until the stamp is in the file</td></tr>
+        <tr><td>Q2</td><td>The text of the stamp</td><td><code>2026-11-12 14:03:27</code> - the same everywhere, local time</td><td>The format of the device language (12.11.2026 14:03:27, 11/12/2026 2:03:27 PM)</td></tr>
+        <tr><td>Q3</td><td>The defaults</td><td>Switch off, Bottom Right</td><td>Another corner</td></tr>
+        <tr><td>Q4</td><td>Where the settings are kept</td><td>On the device (<code>uxuiState</code>, like the player settings)</td><td>With the user in the database: the same on all his devices (needs SQL)</td></tr>
+        <tr><td>Q5</td><td>May the user change the position while recording?</td><td>No, locked until Stop</td><td>Yes (possible on the web only)</td></tr>
+        <tr><td>Q6</td><td>Seconds in the stamp</td><td>Yes</td><td>Minutes only</td></tr>
+        <tr><td>Q7</td><td>A video whose stamp is only shown by the app, sent to the chat / files</td><td>Sent as it is; the receiver sees the stamp in the app player only</td><td>Refuse to send until phase 2 has written it into the file</td></tr>
+      </tbody></table></div>
+  </div>
+  <div class="note"><b>Not checked here:</b> nothing was run on a camera, a browser or a phone for this plan. The statement about the Skia frame processor of Vision Camera 4 (drawings are not recorded) is from memory of its documentation and is a task of spike S0. The colour file of the report requirements (Google Drive) was not opened: the page uses the palette of the other documentation pages.</div>
+</section>
+</main>
+
+<script>
+// live mock
+(function () {
+  var sw = document.getElementById('swEnabled'), fs = document.getElementById('fsPosition');
+  var stamp = document.getElementById('stamp'), out = document.getElementById('jsonOut'), txt = document.getElementById('stampText');
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  function text() { var d = new Date(); return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds()); }
+  function pos() { return document.querySelector('input[name=pos]:checked').value; }
+  function draw() {
+    fs.disabled = !sw.checked; stamp.hidden = !sw.checked; stamp.className = 'stamp ' + pos();
+    var t = text(); stamp.textContent = t; txt.textContent = t;
+    out.textContent = JSON.stringify({ recordDateTimeOverEnabled: sw.checked, recordDateTimeOverPosition: pos() }, null, 2);
+  }
+  document.querySelector('.panel').addEventListener('change', draw); setInterval(draw, 1000); draw();
+})();
+// tables: filter + sort
+(function () {
+  function rows(t) { return Array.prototype.slice.call(t.tBodies[0].rows); }
+  function apply(id) {
+    var t = document.getElementById(id), q = (document.querySelector('[data-filter="' + id + '"]').value || '').toLowerCase();
+    var sel = document.querySelector('[data-filter-col="' + id + '"]'), shown = 0;
+    rows(t).forEach(function (r) {
+      var ok = r.textContent.toLowerCase().indexOf(q) >= 0;
+      if (ok && sel && sel.value) ok = r.cells[+sel.dataset.col].textContent.trim() === sel.value;
+      r.style.display = ok ? '' : 'none'; if (ok) shown++;
+    });
+    var c = document.querySelector('[data-count="' + id + '"]'); if (c) c.textContent = shown + ' of ' + rows(t).length;
+  }
+  document.querySelectorAll('table.data').forEach(function (t) {
+    var id = t.id;
+    document.querySelector('[data-filter="' + id + '"]').addEventListener('input', function () { apply(id); });
+    var sel = document.querySelector('[data-filter-col="' + id + '"]'); if (sel) sel.addEventListener('change', function () { apply(id); });
+    Array.prototype.forEach.call(t.tHead.rows[0].cells, function (th, i) {
+      th.addEventListener('click', function () {
+        var dir = th.dataset.dir === 'asc' ? 'desc' : 'asc';
+        Array.prototype.forEach.call(t.tHead.rows[0].cells, function (h) { delete h.dataset.dir; });
+        th.dataset.dir = dir;
+        rows(t).sort(function (a, b) {
+          var x = a.cells[i].textContent.trim(), y = b.cells[i].textContent.trim();
+          var r = x.localeCompare(y, undefined, { numeric: true, sensitivity: 'base' });
+          return dir === 'asc' ? r : -r;
+        }).forEach(function (r) { t.tBodies[0].appendChild(r); });
+      });
+    });
+    apply(id);
+  });
+})();
+// the top menu follows the scroll
+(function () {
+  var links = Array.prototype.slice.call(document.querySelectorAll('nav a'));
+  var secs = links.map(function (a) { return document.querySelector(a.getAttribute('href')); });
+  function mark() {
+    var y = window.scrollY + 90, cur = 0;
+    secs.forEach(function (s, i) { if (s.offsetTop <= y) cur = i; });
+    if (window.innerHeight + window.scrollY >= document.body.scrollHeight - 4) cur = secs.length - 1;
+    if (cur === last) return;
+    last = cur;
+    links.forEach(function (a, i) { a.classList.toggle('active', i === cur); });
+    // keep the active button visible in the menu: move ONLY the menu sideways (scrollIntoView would stop the scroll of the page)
+    var act = links[cur], left = act.offsetLeft - navEl.offsetLeft;
+    if (left < navEl.scrollLeft) navEl.scrollLeft = left;
+    else if (left + act.offsetWidth > navEl.scrollLeft + navEl.clientWidth) navEl.scrollLeft = left + act.offsetWidth - navEl.clientWidth;
+  }
+  var last = -1, navEl = document.querySelector('nav');
+  // every "#..." link scrolls by script: a preview that shows the page as a data: address refuses the jump of a plain link
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a[href^="#"]'); if (!a) return;
+    var s = document.querySelector(a.getAttribute('href')); if (!s) return;
+    e.preventDefault();
+    window.scrollTo({ top: s.getBoundingClientRect().top + window.scrollY - 64, behavior: 'smooth' });
+  });
+  window.addEventListener('scroll', mark, { passive: true }); mark();
+})();
+</script>
+</body>
+</html>

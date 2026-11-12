@@ -20,7 +20,7 @@ describe('matrixOf', () => {
   it('a missing, wrong or partial answer is the empty matrix', () => {
     expect(matrixOf(null)).toBe(EMPTY_MATRIX);
     expect(matrixOf('x')).toBe(EMPTY_MATRIX);
-    expect(matrixOf({ crud: [], uxui: 5, profiles: [1, 'a'] })).toEqual({ profiles: ['a'], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false });
+    expect(matrixOf({ crud: [], uxui: 5, profiles: [1, 'a'] })).toEqual({ profiles: ['a'], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false });
   });
 });
 

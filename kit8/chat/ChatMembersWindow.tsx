@@ -9,16 +9,16 @@ import { showErrorModal } from '../ui/components/common/ErrorModalWindow';
 import { chatMemberAdd, chatMemberRemove } from './chatApi';
 import { useChatCandidates, useChatCanManage, useChatMembers } from './useChat';
 
-export interface ChatMembersWindowProps { visible: boolean; themeGUID: string; isOwner: boolean; kind: 'user' | 'task'; onClose: () => void; testID?: string }
+export interface ChatMembersWindowProps { visible: boolean; themeGUID: string; isOwner: boolean; kind: 'user' | 'task'; onClose: () => void; testID?: string; /** the chat of a task of a read-only project: the list is shown, nobody is added or excluded */ readOnly?: boolean }
 
-export default function ChatMembersWindow({ visible, themeGUID, isOwner, kind, onClose, testID = 'chat-members' }: ChatMembersWindowProps) {
+export default function ChatMembersWindow({ visible, themeGUID, isOwner, kind, onClose, testID = 'chat-members', readOnly = false }: ChatMembersWindowProps) {
   const { themeColors: c } = useDesignSystem();
   const supabase = useChatClient();
   const { members, reload } = useChatMembers(themeGUID, visible);
-  const canManage = useChatCanManage(visible ? themeGUID : '');
+  const canManage = useChatCanManage(visible ? themeGUID : '') && !readOnly;
   const candidates = useChatCandidates(visible);
   const [busy, setBusy] = useState(false);
-  const canAdd = canManage || isOwner;
+  const canAdd = !readOnly && (canManage || isOwner);
   const free = candidates.filter((u) => !members.some((m) => m.userGUID === u.userGUID));
   const add = async (u: string) => {
     setBusy(true);

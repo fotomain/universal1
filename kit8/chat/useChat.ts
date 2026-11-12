@@ -118,7 +118,7 @@ export function useChatCanManage(themeGUID: string): boolean {
   return can;
 }
 
-export interface ChatTaskLive { loaded: boolean; gone: boolean; title: string; description: string; projectGUID: string }
+export interface ChatTaskLive { loaded: boolean; gone: boolean; title: string; description: string; projectGUID: string; /** the project of the task is read-only (live) */ projectIsReadonly: boolean }
 /** the task behind a task chat, LIVE: its text and notes (title + description) and the project (the prefix), also in a new browser window where nothing is cached */
 export function useChatTaskLive(taskGUID: string): ChatTaskLive {
   const supabase = useChatClient();
@@ -161,5 +161,6 @@ export function useChatTaskLive(taskGUID: string): ChatTaskLive {
     title: task ? chatTaskTitle(project?.rowJSON, task.rowJSON?.taskDescription) : '',
     description: String(task?.rowJSON?.notes ?? ''),
     projectGUID,
+    projectIsReadonly: project?.rowJSON?.projectIsReadonly === true,
   };
 }

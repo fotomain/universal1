@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000000000000000000. delete_project_readonly.sql - PART 51: drops the read-only guard triggers of the project tables and the project_readonly_* / project_set_readonly / project_is_readonly functions; the key projectIsReadonly stays on the projects as inert JSON (runs very first: it is the newest)
 --  1a-00000000000000000. delete_chat.sql - PART 50: drops chatObjectTable + chatThemeTable + chatMembersTable + chatMessagesTable (data included: ALL chats, members and messages of ALL organizations), the chat_ functions and triggers (the Time line trigger of the RACI members, the task / organization delete triggers); the file rows of the chats stay in mediaPostTable until PART 49 is deleted (runs very first: it is the newest)
 --  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table + files_onedrive_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
 --  1a-000000000000000. delete_organization_texts.sql - PART 48: drops organizationTextTable (data included: the replaced texts of ALL organizations), its guard trigger and organization_texts (runs very first: it is the newest)
@@ -42,6 +43,26 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-000000000000000000: delete_project_readonly.sql  (PART 51 of the structure file: the READ-ONLY PROJECT - runs before everything else, it is the newest)
+-- =====================================================================================
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT t.tgname, c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND t.tgname IN ('aa_project_readonly', 'zz_project_readonly') AND NOT t.tgisinternal LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.tgname, r.relname);
+  END LOOP;
+  FOR r IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND (p.proname LIKE 'project\_readonly\_%' OR p.proname IN ('project_set_readonly', 'project_is_readonly')) LOOP
+    EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', r.sig);
+  END LOOP;
+END $$;
+NOTIFY pgrst, 'reload schema';
 
 
 

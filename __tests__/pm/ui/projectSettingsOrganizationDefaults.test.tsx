@@ -19,6 +19,7 @@ jest.mock('../../../kit8/pm/crud/queries', () => ({
   useCreateProjectMutation: () => ({ mutate: mockCreate }),
   useUpdateProjectMutation: () => ({ mutate: jest.fn() }),
   useDeleteProjectMutation: () => ({ mutate: jest.fn() }),
+  useSetProjectReadonlyMutation: () => ({ mutate: jest.fn() }),
   useProjectSearchQuery: () => ({ data: undefined, isFetching: false }),
   useSaveProjectUserSettings: () => ({ saveUxuiSettings: jest.fn(), isSaving: false }),
 }));

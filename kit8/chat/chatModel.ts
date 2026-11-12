@@ -81,6 +81,8 @@ export interface ChatThemeItem {
   description?: string | null;
   taskGUID?: string | null;
   projectGUID?: string | null;
+  /** the chat of a task of a READ-ONLY project (SQL PART 51): it is only read - no message, edit, delete, member, file */
+  projectIsReadonly?: boolean;
   lastMessageAt?: string | null;
   role?: 'owner' | 'member';
   lastText?: string | null;

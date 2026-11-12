@@ -7,6 +7,7 @@ import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, O
 const mockCreate = jest.fn();
 const mockUpdate = jest.fn();
 const mockDelete = jest.fn();
+const mockSetReadonly = jest.fn();
 const mockSaveUxui = jest.fn();
 jest.mock('../../../kit8/pm/crud/queries', () => ({
   useBuildProjectRow: () => (name: string, startMs?: number) => ({
@@ -21,6 +22,7 @@ jest.mock('../../../kit8/pm/crud/queries', () => ({
   useCreateProjectMutation: () => ({ mutate: mockCreate }),
   useUpdateProjectMutation: () => ({ mutate: mockUpdate }),
   useDeleteProjectMutation: () => ({ mutate: mockDelete }),
+  useSetProjectReadonlyMutation: () => ({ mutate: mockSetReadonly }),
   useSaveProjectUserSettings: () => ({ saveUxuiSettings: mockSaveUxui, isSaving: false }),
   useProjectSearchQuery: (_owner: string, text: string, enabled: boolean) => {
     const { usePMStore } = require('../../../kit8/pm/store/store_pm');
@@ -333,6 +335,65 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(mockSaveUxui).toHaveBeenCalledWith(guid, { projectTreeContextCommandsMode: 'onRightClickMenuMode', projectGanttChartContextCommandsMode: 'onRightClickMenuMode' });
   });
 
+  // ---- the read-only switch (kit8/pm/model/projectReadonly.ts, SQL PART 51) ----
+  it('read-only switch: on the Main tab of a saved project, OFF by default, saved with the other settings', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    expect(q('pm-project-readonly-lock')).toBeNull();
+    press('pm-project-edit');
+    expect(textOf('pm-project-readonly-block')).toContain('Read-only project (projectIsReadonly)');
+    expect(getComputedStyle(mustGet('pm-project-settings-body')).pointerEvents).not.toBe('none');
+    mockUpdate.mockClear();
+    press('pm-project-save');
+    expect(mockUpdate.mock.calls[0][0].patch.rowJSON.projectIsReadonly).toBe(false);
+    press('pm-project-edit');
+    toggleSwitch('pm-project-readonly');
+    press('pm-project-save');
+    expect(mockUpdate.mock.calls[mockUpdate.mock.calls.length - 1][0].patch.rowJSON.projectIsReadonly).toBe(true);
+    expect(mockSetReadonly).not.toHaveBeenCalled();
+  });
+
+  it('read-only switch: a NEW project has no switch', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    press('pm-project-add-menu-new');
+    expect(q('pm-project-name')).not.toBeNull();
+    expect(q('pm-project-readonly')).toBeNull();
+  });
+
+  it('a READ-ONLY project: no lock in the bar, Delete disabled, the window is locked, Save sends ONLY the switch', () => {
+    const { demo } = seedStore();
+    const guid = demo.projects[0].rowGUID;
+    act(() => {
+      const s = usePMStore.getState();
+      s.setProjects(Object.values(s.projectsById).map((p: any) => (p.rowGUID === guid ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: true } } : p)) as any);
+    });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    expect(q('pm-project-readonly-lock')).toBeNull(); // no lock in the bar: the lock is in the rows of the project list
+    mockDelete.mockClear();
+    press('pm-project-delete');
+    expect(q('pm-approve-window')).toBeNull();
+    press('pm-project-edit');
+    expect(textOf('pm-project-readonly-hint')).toContain('only this switch can be changed');
+    expect(getComputedStyle(mustGet('pm-project-settings-body')).pointerEvents).toBe('none');
+    // Save with the switch still on: nothing is sent at all
+    mockUpdate.mockClear();
+    mockSetReadonly.mockClear();
+    mockSaveUxui.mockClear();
+    press('pm-project-save');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSetReadonly).not.toHaveBeenCalled();
+    expect(mockSaveUxui).not.toHaveBeenCalled();
+    // switch off + Save: the RPC of the switch, and nothing else of the window
+    press('pm-project-edit');
+    toggleSwitch('pm-project-readonly');
+    press('pm-project-save');
+    expect(mockUpdate).not.toHaveBeenCalled();
+    expect(mockSetReadonly.mock.calls[0][0]).toEqual({ rowGUID: guid, readonly: false });
+    expect(q('pm-project-name')).toBeNull();
+  });
+
   it('settings dialog edits name, Cancel discards', () => {
     const { demo } = seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
@@ -378,6 +439,54 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     press(`pm-project-search-item-${p2.rowGUID}`);
     expect(usePMStore.getState().selectedProjectGUID).toBe(p2.rowGUID);
     expect(usePMStore.getState().recentProjectGUIDs).toContain(p2.rowGUID);
+  });
+
+  it('SelectProjectFromList: a READ-ONLY project has a lock in its row, the other rows have none', async () => {
+    const { demo } = seedStore();
+    const [p1, p2] = demo.projects;
+    act(() => {
+      const s = usePMStore.getState();
+      s.setProjects(Object.values(s.projectsById).map((p: any) => (p.rowGUID === p2.rowGUID ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: true } } : p)) as any);
+    });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    act(() => mustGet('pm-project-search').querySelector('input')?.focus() ?? (mustGet('pm-project-search') as HTMLInputElement).focus());
+    await wait(300);
+    const row = mustGet(`pm-project-search-item-${p2.rowGUID}`);
+    expect(row.contains(mustGet(`pm-project-search-readonly-${p2.rowGUID}`))).toBe(true);
+    expect(q(`pm-project-search-item-${p1.rowGUID}`)).not.toBeNull();
+    expect(q(`pm-project-search-readonly-${p1.rowGUID}`)).toBeNull();
+  });
+
+  it('SelectProjectFromList: the field has a lock BEFORE the name of a read-only selected project, none while a search text is typed or for an ordinary project', async () => {
+    const { demo } = seedStore();
+    const guid = demo.projects[0].rowGUID;
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    expect(q('pm-project-search-readonly')).toBeNull();
+    act(() => {
+      const s = usePMStore.getState();
+      s.setProjects(Object.values(s.projectsById).map((p: any) => (p.rowGUID === guid ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: true } } : p)) as any);
+    });
+    const lock = mustGet('pm-project-search-readonly');
+    expect(mustGet('pm-project-search-icon').compareDocumentPosition(lock) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(lock.compareDocumentPosition(mustGet('pm-project-search')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    act(() => mustGet('pm-project-search').querySelector('input')?.focus() ?? (mustGet('pm-project-search') as HTMLInputElement).focus());
+    typeInto('pm-project-search', 'ect 2');
+    await wait(300);
+    expect(q('pm-project-search-readonly')).toBeNull();
+  });
+
+  it('project chip: a READ-ONLY project has a lock inside its chip, the other chips have none', () => {
+    const { demo } = seedStore();
+    const [p1, p2] = demo.projects;
+    act(() => {
+      const s = usePMStore.getState();
+      s.setRecentProjects([p1.rowGUID, p2.rowGUID]);
+      s.setProjects(Object.values(s.projectsById).map((p: any) => (p.rowGUID === p2.rowGUID ? { ...p, rowJSON: { ...p.rowJSON, projectIsReadonly: true } } : p)) as any);
+    });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    expect(mustGet(`pm-project-chip-${p2.rowGUID}`).contains(mustGet(`pm-project-chip-readonly-${p2.rowGUID}`))).toBe(true);
+    expect(q(`pm-project-chip-${p1.rowGUID}`)).not.toBeNull();
+    expect(q(`pm-project-chip-readonly-${p1.rowGUID}`)).toBeNull();
   });
 
   it('SelectProjectFromList: "Create new" is the LAST item of the dropdown and opens the New project window', async () => {

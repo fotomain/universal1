@@ -55,6 +55,7 @@
 --   48. create_organization_texts.sql - APPLICATION TEXTS of an organization (documentation/PERMISSIONS_WBS.html section 10): policies, the guard trigger, organization_texts(language)
 --   49. create_files.sql - FILE ATTACHMENTS (first slice): RLS of files_google_connection_table (no policy, no grant: only the Edge Function reads it) and files_connection_status(organization) = the state without any secret
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): membership helpers + read only policies of chatObjectTable / chatThemeTable / chatMembersTable / chatMessagesTable, the chat_ RPCs, the RACI synchronisation of the members of a task chat (trigger on task_line_table), the delete triggers, realtime; the scope chat of the file attachments (PART 49 functions changed in place)
+--   51. create_project_readonly.sql - READ-ONLY PROJECT (project_table.rowJSON.projectIsReadonly, Project settings -> Main): the guard triggers that refuse every change of the data of a read-only project made by a signed-in user, project_set_readonly
 -- ===============================================================================================
 
 DO $$
@@ -363,6 +364,16 @@ CREATE OR REPLACE FUNCTION public.pm_owns_project(p_project uuid) RETURNS boolea
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowOwnerGUID" = public.app_user_guid());
 $$;
+
+-- the read-only switch of a project (PART 51): project_table.rowJSON.projectIsReadonly = true. FALSE while never saved. Defined here so that the functions of every PART can ask.
+CREATE OR REPLACE FUNCTION public.project_is_readonly(p_project uuid) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowJSON"->'projectIsReadonly' = 'true'::jsonb);
+$$;
+
+REVOKE ALL ON FUNCTION public.project_is_readonly(uuid) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_is_readonly(uuid) TO authenticated;
 
 -- the permission test of the RPCs (PART 46 / 47, documentation/PERMISSIONS_WBS.html): "do I hold a profile that gives the letter C / R / U / D for the table in THIS project?" - false for a NULL
 -- project, like pm_owns_project(NULL). It is plpgsql so that a LANGUAGE sql function of an earlier PART can call it before perm_can exists (PART 46).
@@ -863,6 +874,10 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
 DECLARE
   v_count integer;
 BEGIN
+  -- (read-only project, PART 51) the schedule write-back of an open dashboard is automatic: it changes nothing and says nothing
+  IF auth.uid() IS NOT NULL AND public.project_is_readonly(p_project_guid) THEN
+    RETURN 0;
+  END IF;
   -- PART 46 / 47: who may change the dates (perm_field_check on the computed fields; the system roles always) writes the whole schedule, everybody else - a responsible who moved his
   -- progress - writes the progress only: the dates are the plan of the project manager
   IF auth.uid() IS NULL OR current_user IN ('postgres', 'service_role', 'supabase_admin') OR to_regprocedure('public.perm_field_check(text,uuid,uuid,text[])') IS NULL
@@ -1152,7 +1167,8 @@ BEGIN
     RAISE EXCEPTION 'pm_gantt: project not found';
   END IF;
   PERFORM pg_advisory_xact_lock(hashtext('pm_kanban_stages:' || p_project::text));
-  IF NOT EXISTS (SELECT 1 FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = p_project) THEN
+  -- (read-only project, PART 51) opening the Kanban view creates nothing
+  IF NOT EXISTS (SELECT 1 FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = p_project) AND NOT (auth.uid() IS NOT NULL AND public.project_is_readonly(p_project)) THEN
     INSERT INTO public.project_kanban_stage_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
     SELECT p_project, k."rowGUID", k."orderInList",
            jsonb_build_object('stageCode', k."rowJSON"->>'stageCode', 'stageName', k."rowJSON"->>'stageName',
@@ -2977,6 +2993,10 @@ LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
 DECLARE
   v_count integer;
 BEGIN
+  -- (read-only project, PART 51) the place is a convenience written while the user only looks: quietly not saved
+  IF auth.uid() IS NOT NULL AND public.project_is_readonly((SELECT x."projectGUID" FROM public.project_task_table x WHERE x."rowGUID" = p_task_guid)) THEN
+    RETURN 0;
+  END IF;
   UPDATE public.project_task_table t
      SET "rowJSON" = CASE WHEN p_place IS NULL OR jsonb_typeof(p_place) = 'null'
                           THEN t."rowJSON" - 'lastEditPlace'
@@ -3340,6 +3360,7 @@ BEGIN
   IF v_project IS NULL OR NOT public.perm_can_in('task_line_table', 'U', v_project) THEN
     RAISE EXCEPTION 'create_task_line_plan: task % does not exist or is not yours', v_task USING ERRCODE = '42501';
   END IF;
+  PERFORM public.project_readonly_check(v_project, 'task_line_plan');      -- (read-only project, PART 51) nothing is posted
   PERFORM public.subproject_assert_no_cycle(v_project);      -- PART 29: a project in a cycle of subprojects cannot be posted
   IF jsonb_typeof("taskLinePlanJSON"->'lines') <> 'array' THEN
     RAISE EXCEPTION 'create_task_line_plan: "lines" must be an array';
@@ -8793,6 +8814,9 @@ BEGIN
   IF NOT FOUND THEN
     RETURN false;
   END IF;
+  IF public.project_is_readonly(l."rowProjectGUID") THEN
+    RETURN false;                                    -- (read-only project, PART 51) the origin task of a read-only project does not follow its subproject
+  END IF;
   SELECT d.start_at, d.finish_at INTO v_start, v_finish FROM public.subproject_dates_of(l."rowSubprojectGUID") d;
   IF v_start IS NULL OR v_finish IS NULL THEN
     RETURN false;                                    -- the subproject has no schedule yet
@@ -12645,6 +12669,7 @@ BEGIN
   IF v_project IS NULL OR NOT public.perm_can_in('task_payment_plan_lines', 'U', v_project) THEN
     RAISE EXCEPTION 'post_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
   END IF;
+  PERFORM public.project_readonly_check(v_project, 'task_payment_plan_lines');      -- (read-only project, PART 51)
   SELECT count(*) INTO v_count FROM public.task_payment_plan_lines l WHERE l."rowOwnerGUID" = p_task;
   IF v_count = 0 THEN
     RETURN jsonb_build_object('status', 'nothing', 'lines', 0, 'problems', '[]'::jsonb);
@@ -12709,6 +12734,7 @@ BEGIN
   IF v_project IS NULL OR NOT public.perm_can_in('task_payment_plan_lines', 'U', v_project) THEN
     RAISE EXCEPTION 'unpost_task_payment_plan: task % does not exist or is not yours', p_task USING ERRCODE = '42501';
   END IF;
+  PERFORM public.project_readonly_check(v_project, 'task_payment_plan_lines');      -- (read-only project, PART 51)
   PERFORM set_config('app.payment_plan_post', 'on', true);
   DELETE FROM public.task_payment_plan_movements m WHERE m."rowOwnerGUID" = p_task;
   UPDATE public.task_payment_plan_lines l SET "rowJSON" = l."rowJSON" || '{"paymentIsPosted": false}'::jsonb
@@ -16568,7 +16594,7 @@ DECLARE
   v_crud     jsonb;
   v_uxui     jsonb;
 BEGIN
-  IF public.app_user_guid() IS NULL THEN RETURN jsonb_build_object('profiles', '[]'::jsonb, 'crud', '{}'::jsonb, 'uxui', '{}'::jsonb, 'isAdmin', false, 'canCreateProject', false); END IF;
+  IF public.app_user_guid() IS NULL THEN RETURN jsonb_build_object('profiles', '[]'::jsonb, 'crud', '{}'::jsonb, 'uxui', '{}'::jsonb, 'isAdmin', false, 'canCreateProject', false, 'projectIsReadonly', false); END IF;
   v_profiles := public.perm_profiles(p_project, p_task);
   IF p_project IS NOT NULL THEN SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project; ELSE v_org := public.organization_of_current_user(); END IF;
   SELECT COALESCE(jsonb_object_agg(tbl, letters), '{}'::jsonb) INTO v_crud FROM (
@@ -16589,7 +16615,9 @@ BEGIN
      WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.obj) q;
   RETURN jsonb_build_object('profiles', to_jsonb(v_profiles), 'crud', v_crud, 'uxui', v_uxui,
                             'isAdmin', 'permissionOrganizationAdmin' = ANY (v_profiles),
-                            'canCreateProject', public.perm_can('project_table', 'C'));
+                            'canCreateProject', public.perm_can('project_table', 'C'),
+                            -- PART 51: the interface takes the letters C / U / D away while the project is read-only (the guard triggers are the law)
+                            'projectIsReadonly', p_project IS NOT NULL AND public.project_is_readonly(p_project));
 END;
 $$;
 
@@ -17527,6 +17555,10 @@ BEGIN
     ELSIF v_scope = 'document' AND COALESCE(p_guid, '') = '' THEN
       RETURN jsonb_build_object('allowed', false, 'reason', 'scope');
     END IF;
+  END IF;
+  -- (read-only project, PART 51) the files of a read-only project - also of the chats of its tasks - are only read
+  IF p_action NOT IN ('read', 'connect') AND v_project IS NOT NULL AND public.project_is_readonly(v_project) THEN
+    RETURN jsonb_build_object('allowed', false, 'reason', 'projectReadonly');
   END IF;
   IF p_action = 'read' THEN v_ok := true;
   ELSIF p_action = 'connect' THEN v_ok := public.perm_can('projectFileManager', 'U');
@@ -18680,6 +18712,7 @@ BEGIN
   IF NOT (public.chat_can_manage(p_theme) OR EXISTS (SELECT 1 FROM public."chatMembersTable" m WHERE m."rowParentGUID" = p_theme AND m."rowOwnerGUID" = v_me AND m."rowJSON"->>'role' = 'owner')) THEN
     RAISE EXCEPTION 'No permission: chat, only the owner of the theme, a project manager or an administrator adds members' USING ERRCODE = '42501';
   END IF;
+  PERFORM public.project_readonly_check_theme(p_theme, 'chatMembersTable');      -- (read-only project, PART 51)
   FOREACH u IN ARRAY COALESCE(p_users, '{}') LOOP
     IF NOT public.chat_user_in_org(u, v_org) THEN RAISE EXCEPTION 'chat: a member must be an active member of the organization' USING ERRCODE = '22023'; END IF;
     INSERT INTO public."chatMembersTable" AS cm ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (u, p_theme, jsonb_build_object('role', 'member', 'manual', true, 'raci', false, 'addedBy', v_me, 'lastReadAt', now()))
@@ -18697,6 +18730,7 @@ DECLARE
   v_row public."chatMembersTable"%ROWTYPE;
 BEGIN
   IF NOT public.chat_is_member(p_theme) OR NOT public.chat_can_manage(p_theme) THEN RAISE EXCEPTION 'No permission: chat, only a project manager or an administrator excludes a member' USING ERRCODE = '42501'; END IF;
+  PERFORM public.project_readonly_check_theme(p_theme, 'chatMembersTable');      -- (read-only project, PART 51)
   SELECT * INTO v_row FROM public."chatMembersTable" m WHERE m."rowParentGUID" = p_theme AND m."rowOwnerGUID" = p_user;
   IF NOT FOUND THEN RETURN false; END IF;
   IF v_row."rowJSON"->>'role' = 'owner' THEN RAISE EXCEPTION 'chat: the owner of the theme stays' USING ERRCODE = '22023'; END IF;
@@ -18726,6 +18760,7 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
       'title', CASE WHEN x.tj->>'themeKind' = 'task' THEN COALESCE(public.chat_task_title(public.files_uuid_or_null(x.tj->>'taskGUID')), '') ELSE x.tj->>'title' END,
       'description', CASE WHEN x.tj->>'themeKind' = 'task' THEN (SELECT tk."rowJSON"->>'notes' FROM public.project_task_table tk WHERE tk."rowGUID" = public.files_uuid_or_null(x.tj->>'taskGUID')) ELSE x.tj->>'description' END,
       'taskGUID', x.tj->>'taskGUID', 'projectGUID', x.tj->>'projectGUID', 'lastMessageAt', x.tj->>'lastMessageAt', 'role', x.mj->>'role',
+      'projectIsReadonly', public.project_is_readonly(public.files_uuid_or_null(x.tj->>'projectGUID')),      -- PART 51: the chat of a task of a read-only project is only read
       'lastText', (SELECT left(COALESCE(g."rowJSON"->>'text', CASE WHEN g."rowJSON" ? 'files' THEN 'file' WHEN g."rowJSON" ? 'urls' THEN 'link' END, ''), 120)
                      FROM public."chatMessagesTable" g WHERE g."rowParentGUID" = x.theme AND COALESCE(g."rowJSON"->>'deleted', 'false') <> 'true' ORDER BY g."created_at" DESC LIMIT 1),
       'unread', (SELECT count(*) FROM public."chatMessagesTable" g, me WHERE g."rowParentGUID" = x.theme AND g."rowOwnerGUID" <> me.u AND COALESCE(g."rowJSON"->>'deleted', 'false') <> 'true'
@@ -18873,6 +18908,341 @@ BEGIN
 END $$;
 
 NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 51: create_project_readonly.sql
+-- READ-ONLY PROJECT. The switch is project_table.rowJSON.projectIsReadonly (Project settings -> Main; FALSE while never saved). While it is TRUE:
+--   * the ONLY change of the project row is the switch itself (project_set_readonly, or an UPDATE that changes nothing else); the project cannot be deleted;
+--   * no row of the project can be created, changed or deleted: tasks, links, task lines, the payment plan, Kanban, subproject links, fact input, the lines of the vendor / customer
+--     invoices, purchase orders, product receipts, payment facts and time sheets - and a document that has a line in the project cannot be changed, posted, unposted or deleted;
+--   * the MEMBERS of the project (project_permission_profile_user_table), the CHAT of its tasks (no new chat, message, edit, delete, member), its FILES and media posts
+--     (mediaPostTable, files_authorize answers projectReadonly) and its VERSIONS (version_project_table: no save, rename, restore) are closed too.
+--   * a NEW project is never read-only: the key is taken off an inserted project row (a project made from a template / file / copy of a read-only one starts open).
+-- The law is the BEFORE trigger zz_project_readonly on every such table (zz_ = it runs LAST of the BEFORE triggers: the project column of a new line is filled by an earlier
+-- trigger) and aa_project_readonly on project_table (aa_ = FIRST: it compares what the client sent). It looks at auth.uid(): a request of a signed-in user is refused, also inside a
+-- SECURITY DEFINER RPC; the SQL editor, the service key and the pg_cron workers (no session) pass. The derived tables (plan movements, register, turnover, Monitor01, cost total,
+-- ROI, the RACI-derived task_user_permission_table and chat members) have no guard: nothing feeds them while the sources are closed. NOT guarded: the personal things of a user
+-- (project_user_settings_table, the read mark of a chat = chat_mark_read) and the templates saved FROM the project.
+-- The helper project_is_readonly(project) is in PART 1 (next to pm_owns_project).
+-- ===============================================================================================
+
+-- refuses when a signed-in user touches a row of a read-only project
+CREATE OR REPLACE FUNCTION public.project_readonly_check(p_project uuid, p_table text) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_name text;
+BEGIN
+  IF p_project IS NULL OR auth.uid() IS NULL THEN
+    RETURN;
+  END IF;
+  SELECT COALESCE(p."rowJSON"->>'name', '') INTO v_name FROM public.project_table p WHERE p."rowGUID" = p_project AND p."rowJSON"->'projectIsReadonly' = 'true'::jsonb;
+  IF FOUND THEN
+    RAISE EXCEPTION 'Read-only project "%": nothing can be changed (%). Turn off Project settings -> Main -> Read-only project first.', v_name, p_table USING ERRCODE = '42501';
+  END IF;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_readonly_check(uuid, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_readonly_check(uuid, text) TO authenticated;
+
+-- one trigger function per name of the project column (a static column is much cheaper per row than a dynamic one)
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_project_guid() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(OLD."projectGUID", TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."projectGUID" IS DISTINCT FROM OLD."projectGUID" THEN PERFORM public.project_readonly_check(NEW."projectGUID", TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_row_project() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(OLD."rowProjectGUID", TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."rowProjectGUID" IS DISTINCT FROM OLD."rowProjectGUID" THEN PERFORM public.project_readonly_check(NEW."rowProjectGUID", TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_row_owner() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(OLD."rowOwnerGUID", TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" THEN PERFORM public.project_readonly_check(NEW."rowOwnerGUID", TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- a line of a time sheet: its project is timesheetLineProject (empty while the line is not finished)
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_timesheet_line() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(OLD."timesheetLineProject", TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."timesheetLineProject" IS DISTINCT FROM OLD."timesheetLineProject" THEN PERFORM public.project_readonly_check(NEW."timesheetLineProject", TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- an entered cell (hours of a day) of a time sheet: the project of its line
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_timesheet_cell() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_line uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'DELETE' THEN v_line := OLD."rowLineGUID"; ELSE v_line := NEW."rowLineGUID"; END IF;
+  PERFORM public.project_readonly_check((SELECT l."timesheetLineProject" FROM public.project_timesheet_lines l WHERE l."rowGUID" = v_line), TG_TABLE_NAME);
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- the header of a document: TG_ARGV[0] = its lines table, TG_ARGV[1] = the project column of the lines. A change / Post / Unpost / delete of the document is refused while ONE of
+-- its lines is in a read-only project (Post changes only the header and the register, so the guard of the lines alone would not see it).
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_header() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_project uuid;
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    EXECUTE format('SELECT l.%1$I FROM public.%2$I l JOIN public.project_table p ON p."rowGUID" = l.%1$I WHERE l."rowHeaderGUID" = $1 AND p."rowJSON"->''projectIsReadonly'' = ''true''::jsonb LIMIT 1',
+                   TG_ARGV[1], TG_ARGV[0])
+       INTO v_project USING OLD."rowGUID";
+    IF v_project IS NOT NULL THEN
+      PERFORM public.project_readonly_check(v_project, TG_TABLE_NAME);
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- the project row itself: while it is read-only only the switch may change, and the project is not deleted
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_project() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_name text;
+BEGIN
+  IF TG_OP = 'INSERT' THEN
+    -- a new project is never read-only (made from a template, a file or a copy of a read-only project)
+    IF auth.uid() IS NOT NULL AND NEW."rowJSON" ? 'projectIsReadonly' THEN NEW."rowJSON" := NEW."rowJSON" - 'projectIsReadonly'; END IF;
+    RETURN NEW;
+  END IF;
+  v_name := COALESCE(OLD."rowJSON"->>'name', '');
+  IF auth.uid() IS NULL OR (OLD."rowJSON"->'projectIsReadonly') IS DISTINCT FROM 'true'::jsonb THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'Read-only project "%": it cannot be deleted (project_table). Turn off Project settings -> Main -> Read-only project first.', v_name USING ERRCODE = '42501';
+  END IF;
+  IF (to_jsonb(NEW) - 'rowJSON' - 'updated_at') IS DISTINCT FROM (to_jsonb(OLD) - 'rowJSON' - 'updated_at')
+     OR (NEW."rowJSON" - 'projectIsReadonly') IS DISTINCT FROM (OLD."rowJSON" - 'projectIsReadonly') THEN
+    RAISE EXCEPTION 'Read-only project "%": only the switch Read-only project can be changed (project_table). Turn it off and save first.', v_name USING ERRCODE = '42501';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_project_readonly ON public.project_table;
+
+CREATE TRIGGER aa_project_readonly BEFORE INSERT OR UPDATE OR DELETE ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.project_readonly_guard_project();
+
+-- columns: table · guard function · (headers only) lines table · project column of the lines
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('project_task_table',                   'project_readonly_guard_project_guid',   NULL, NULL),
+    ('project_task_dependencies_table',      'project_readonly_guard_project_guid',   NULL, NULL),
+    ('task_line_table',                      'project_readonly_guard_row_project',    NULL, NULL),
+    ('task_payment_plan_lines',              'project_readonly_guard_row_project',    NULL, NULL),
+    ('project_subproject_link',              'project_readonly_guard_row_project',    NULL, NULL),
+    ('task_fact_header',                     'project_readonly_guard_row_project',    NULL, NULL),
+    ('task_fact_usage_timeline',             'project_readonly_guard_row_project',    NULL, NULL),
+    ('vendor_invoice_lines',                 'project_readonly_guard_row_project',    NULL, NULL),
+    ('purchase_order_lines',                 'project_readonly_guard_row_project',    NULL, NULL),
+    ('product_receipt_lines',                'project_readonly_guard_row_project',    NULL, NULL),
+    ('customer_invoice_lines',               'project_readonly_guard_row_project',    NULL, NULL),
+    ('project_payment_fact_lines',           'project_readonly_guard_row_project',    NULL, NULL),
+    ('project_kanban_stage_table',           'project_readonly_guard_row_owner',      NULL, NULL),
+    ('project_task_kanban_state_table',      'project_readonly_guard_row_owner',      NULL, NULL),
+    ('project_timesheet_lines',              'project_readonly_guard_timesheet_line', NULL, NULL),
+    ('project_timesheet_lines_data_entered', 'project_readonly_guard_timesheet_cell', NULL, NULL),
+    ('vendor_invoice_header',                'project_readonly_guard_header',         'vendor_invoice_lines',       'rowProjectGUID'),
+    ('purchase_order_header',                'project_readonly_guard_header',         'purchase_order_lines',       'rowProjectGUID'),
+    ('product_receipt_header',               'project_readonly_guard_header',         'product_receipt_lines',      'rowProjectGUID'),
+    ('customer_invoice_header',              'project_readonly_guard_header',         'customer_invoice_lines',     'rowProjectGUID'),
+    ('project_payment_fact_header',          'project_readonly_guard_header',         'project_payment_fact_lines', 'rowProjectGUID'),
+    ('project_timesheet_header',             'project_readonly_guard_header',         'project_timesheet_lines',    'timesheetLineProject')
+  ) AS v(tbl, fn, lines_tbl, lines_col)
+  LOOP
+    IF to_regclass('public.' || quote_ident(r.tbl)) IS NULL THEN CONTINUE; END IF;
+    EXECUTE format('DROP TRIGGER IF EXISTS zz_project_readonly ON public.%I', r.tbl);
+    IF r.lines_tbl IS NULL THEN
+      EXECUTE format('CREATE TRIGGER zz_project_readonly BEFORE INSERT OR UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.%I()', r.tbl, r.fn);
+    ELSE
+      EXECUTE format('CREATE TRIGGER zz_project_readonly BEFORE UPDATE OR DELETE ON public.%I FOR EACH ROW EXECUTE FUNCTION public.%I(%L, %L)', r.tbl, r.fn, r.lines_tbl, r.lines_col);
+    END IF;
+  END LOOP;
+END $$;
+
+-- ---- members, versions, chat, files (2026-11-12) ---------------------------------------------------------------------------------------------------------------------------------
+-- a project version (version_project_table.rowGUID = the project): no save, no rename, no delete; Restore is refused twice (its backup version, then the tasks)
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_row_guid() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(OLD."rowGUID", TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."rowGUID" IS DISTINCT FROM OLD."rowGUID" THEN PERFORM public.project_readonly_check(NEW."rowGUID", TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- a member of a project (project_permission_profile_user_table.rowOwnerGUID = the project as TEXT; a row of an organization = "may create projects" is no project and passes)
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_owner_text() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NULL THEN
+    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+    RETURN NEW;
+  END IF;
+  IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(public.files_uuid_or_null(OLD."rowOwnerGUID"), TG_TABLE_NAME); END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  IF TG_OP = 'INSERT' OR NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" THEN PERFORM public.project_readonly_check(public.files_uuid_or_null(NEW."rowOwnerGUID"), TG_TABLE_NAME); END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- the project of a chat theme (NULL for the Main chat of a user) and the check by theme, for the chat RPCs
+CREATE OR REPLACE FUNCTION public.project_readonly_check_theme(p_theme text, p_table text) RETURNS void
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.project_readonly_check((SELECT public.files_uuid_or_null(t."rowJSON"->>'projectGUID') FROM public."chatThemeTable" t WHERE t."rowGUID" = p_theme), p_table);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_readonly_check_theme(text, text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_readonly_check_theme(text, text) TO authenticated;
+
+-- a message of a chat: send, edit, delete (rowParentGUID = the theme)
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_chat_message() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    IF TG_OP = 'DELETE' THEN PERFORM public.project_readonly_check_theme(OLD."rowParentGUID", TG_TABLE_NAME);
+    ELSE PERFORM public.project_readonly_check_theme(NEW."rowParentGUID", TG_TABLE_NAME);
+    END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- a NEW theme = the chat of a task is made (chat_task_ensure); an existing theme only gets its lastMessageAt from a message, which is refused before
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_chat_theme() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    PERFORM public.project_readonly_check(public.files_uuid_or_null(NEW."rowJSON"->>'projectGUID'), TG_TABLE_NAME);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+-- a row of mediaPostTable: a FILE (rowJSON.fileSourceKind: project -> the parent, stage / task -> fileSourceProjectGUID, chat -> the project of the theme; organization and
+-- document files have no project) or a plain media post whose parent is a project
+CREATE OR REPLACE FUNCTION public.project_readonly_media_project(p_parent text, p_json jsonb) RETURNS uuid
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT CASE
+    WHEN NOT (p_json ? 'fileSourceKind') THEN public.files_uuid_or_null(p_parent)
+    WHEN p_json->>'fileSourceKind' = 'project' THEN public.files_uuid_or_null(p_parent)
+    WHEN p_json->>'fileSourceKind' IN ('stage', 'task') THEN public.files_uuid_or_null(p_json->>'fileSourceProjectGUID')
+    WHEN p_json->>'fileSourceKind' = 'chat' THEN (SELECT public.files_uuid_or_null(t."rowJSON"->>'projectGUID') FROM public."chatThemeTable" t WHERE t."rowGUID" = p_parent)
+  END
+$$;
+
+REVOKE ALL ON FUNCTION public.project_readonly_media_project(text, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_readonly_media_project(text, jsonb) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.project_readonly_guard_media_post() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF auth.uid() IS NOT NULL THEN
+    IF TG_OP <> 'INSERT' THEN PERFORM public.project_readonly_check(public.project_readonly_media_project(OLD."rowParentGUID", OLD."rowJSON"), TG_TABLE_NAME); END IF;
+    IF TG_OP <> 'DELETE' THEN PERFORM public.project_readonly_check(public.project_readonly_media_project(NEW."rowParentGUID", NEW."rowJSON"), TG_TABLE_NAME); END IF;
+  END IF;
+  IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;
+  RETURN NEW;
+END;
+$$;
+
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('version_project_table',                 'project_readonly_guard_row_guid',     'INSERT OR UPDATE OR DELETE'),
+    ('project_permission_profile_user_table', 'project_readonly_guard_owner_text',   'INSERT OR UPDATE OR DELETE'),
+    ('chatMessagesTable',                     'project_readonly_guard_chat_message', 'INSERT OR UPDATE OR DELETE'),
+    ('chatThemeTable',                        'project_readonly_guard_chat_theme',   'INSERT'),
+    ('mediaPostTable',                        'project_readonly_guard_media_post',   'INSERT OR UPDATE OR DELETE')
+  ) AS v(tbl, fn, ops)
+  LOOP
+    IF to_regclass('public.' || quote_ident(r.tbl)) IS NULL THEN CONTINUE; END IF;
+    EXECUTE format('DROP TRIGGER IF EXISTS zz_project_readonly ON public.%I', r.tbl);
+    EXECUTE format('CREATE TRIGGER zz_project_readonly BEFORE %s ON public.%I FOR EACH ROW EXECUTE FUNCTION public.%I()', r.ops, r.tbl, r.fn);
+  END LOOP;
+END $$;
+
+-- the switch: the one write a read-only project accepts. SECURITY INVOKER: the policies of project_table decide who may change the project (0 rows = not yours -> refused).
+CREATE OR REPLACE FUNCTION public.project_set_readonly(p_project uuid, p_readonly boolean) RETURNS boolean
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_on boolean := COALESCE(p_readonly, false);
+BEGIN
+  UPDATE public.project_table p SET "rowJSON" = jsonb_set(p."rowJSON", '{projectIsReadonly}', to_jsonb(v_on), true) WHERE p."rowGUID" = p_project;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'No permission: project_table, U' USING ERRCODE = '42501';
+  END IF;
+  RETURN v_on;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_set_readonly(uuid, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_set_readonly(uuid, boolean) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

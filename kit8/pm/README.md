@@ -198,6 +198,28 @@ with top tabs **Import** (TabImport, default: the drop zone) and **Export** (Tab
 stored per user in AsyncStorage (`pm.recentProjects.v1.<userGUID>`, see `view/project/recent/recentProjects.ts`) · switching project
 shows the loader until the project's data was re-read.
 
+## Read-only project (`projectIsReadonly`, 2026-11-12)
+
+Project settings → **Main** → switch **Read-only project (projectIsReadonly)** = `project_table.rowJSON.projectIsReadonly`, FALSE while never saved (a saved project only; not a default of the organization).
+
+While it is TRUE:
+- the user can change ONLY the switch: the settings window shows everything, but only the switch is live; **Save** sends the RPC `project_set_readonly(project, false)` and nothing else of the window;
+- no create / change / delete of the project data: the project row (also Delete project), tasks, links, task lines, the payment plan, Kanban, subproject links, fact input, the lines of vendor / customer invoices, purchase orders, product receipts, payment facts and time sheets; a document with a line in the project is not changed, posted, unposted or deleted; Post of a task / of the payment plan is refused;
+- also closed (2026-11-12, second round): the **members** of the project (Project settings → Members: `project_permission_profile_user_table`), the **chat** of its tasks (no new task chat, no message / edit / delete, no member added or excluded; the screen shows "can only be read" instead of the input), its **files** and media posts (`files_authorize` answers `projectReadonly` for every action but `read`, also for the files of its task chats; trigger on `mediaPostTable`), its **versions** (no Save version, rename, delete, Restore; the two buttons of the project bar are disabled);
+- a NEW project is never read-only: the key is taken off an inserted project row (a project made from a template, a file or a copy of a read-only project starts open).
+
+**The database is the law** (SQL PART 51, `start2_sql_code.sql`): the BEFORE triggers `zz_project_readonly` (every table above) and `aa_project_readonly` (`project_table`) refuse a request of a SIGNED-IN user (`auth.uid()`), also inside a SECURITY DEFINER RPC, with `Read-only project "<name>": nothing can be changed (<table>) ...`. The SQL editor, the service key and the pg_cron workers (no session) pass. Helper `project_is_readonly(project)` (PART 1). The automatic writes of an open dashboard are QUIET (no error, nothing written): `pm_apply_schedule`, `pm_set_task_last_edit_place`, `pm_kanban_ensure_project_stages`; the origin task of a read-only project does not follow its subproject (`subproject_sync_origin_task`).
+
+NOT closed: the personal things of a user (the view settings `project_user_settings_table`, the read mark of a chat `chat_mark_read`), templates saved FROM the project, files of the scope `document` / `organization` (they have no project), the derived tables (register, Monitor01, cost total, ROI, the RACI-derived permission and chat member rows - nothing feeds them).
+
+Interface (it only says it earlier):
+- `model/projectReadonly.ts` - `projectIsReadonly(rowJSON)`, the message, `readonlyAllows`;
+- `crud/shared/queryShared.ts` `assertProjectWritable` - every optimistic task / link / Kanban mutation of a read-only project stops BEFORE the optimistic step with the message (error banner); `useScheduleWriteBack` writes nothing;
+- `perm_my_matrix` returns `projectIsReadonly`: `usePermissions(project).can(table, 'C' | 'U' | 'D')` is false (but `project_table` U), so the Finances tables are read only and the document forms hide Post / Delete; the hook follows the project row by realtime;
+- the project bar: Delete project and Actions disabled (no icon in the bar); the project list of the search field (`SelectProjectFromList`) shows a red lock in the row of a read-only project, and inside the field before the name while the selected project is read-only. The chip of a read-only project in the bar has the lock before its name too (white on the selected chip).
+
+Tests: Docker `kit8/docker/tests/44_project_readonly.sql` (76 checks), Jest `__tests__/pm/model/projectReadonly.test.ts`, `__tests__/sql/projectReadonlySql.test.ts`, `__tests__/pm/ui/toolbars.test.tsx` (read-only switch).
+
 ## Resize / rotation
 
 `PMGanttSurface` follows onLayout live and, once the size settles (window resize, split view, landscape ↔

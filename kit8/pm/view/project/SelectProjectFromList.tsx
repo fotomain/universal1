@@ -14,6 +14,8 @@ import { useProjectSearchQuery } from '../../crud/queries';
 import { formatDateShort } from './scheduling';
 import { PMProjectRow } from '../../model/types';
 import { pmT } from '../../i18n/pmT';
+import { projectIsReadonly } from '../../model/projectReadonly';
+import { PMTipIcon } from '../../inner/buttons';
 
 const DEBOUNCE_MS = 220;
 
@@ -29,6 +31,10 @@ function useDebounced<T>(value: T, ms: number): T {
 export default function SelectProjectFromList({ ownerGUID, width = 220 }: { ownerGUID: string; width?: number }) {
   const { themeColors: c } = useDesignSystem();
   const selectedName = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON.name ?? '' : ''));
+  /** the loaded projects: their row is newer than a cached search answer (the read-only switch just saved) */
+  const projectsById = usePMStore((s) => s.projectsById);
+  /** the selected project is read-only: a lock before its name in the field (only while the field shows that name, not a search text) */
+  const selectedReadonly = usePMStore((s) => (s.selectedProjectGUID ? projectIsReadonly(s.projectsById[s.selectedProjectGUID]?.rowJSON) : false));
   const [text, setText] = useState('');
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState(false);
@@ -100,6 +106,16 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
     <View style={[styles.root, { width }]}>
       <View style={[styles.field, { borderColor: focused ? c.primary : c.border, backgroundColor: c.background }]}>
         <IconApp testID="pm-project-search-icon" name="search" size={16} color={c.text} />
+        {selectedReadonly && !!text && text === selectedName && (
+          <PMTipIcon
+            tip={pmT('Read-only project: nothing can be changed. Project settings -> Main -> Read-only project.')}
+            testID="pm-project-search-readonly"
+            name="lock"
+            size={14}
+            color={c.error}
+            style={{ marginLeft: 6 }}
+          />
+        )}
         <TextInput
           ref={inputRef}
           testID="pm-project-search"
@@ -142,6 +158,17 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
                   <Text numberOfLines={1} style={{ color: c.text, fontWeight: '600', flex: 1 }}>
                     {item.rowJSON.name || 'Project'}
                   </Text>
+                  {/* a read-only project (model/projectReadonly.ts): the same lock as in the project bar */}
+                  {projectIsReadonly((projectsById[item.rowGUID] ?? item).rowJSON) && (
+                    <PMTipIcon
+                      tip={pmT('Read-only project: nothing can be changed. Project settings -> Main -> Read-only project.')}
+                      testID={`pm-project-search-readonly-${item.rowGUID}`}
+                      name="lock"
+                      size={14}
+                      color={c.error}
+                      style={{ marginLeft: 6 }}
+                    />
+                  )}
                   <Text style={{ color: c.text, opacity: 0.55, fontSize: 11, marginLeft: 8 }}>
                     {Math.round(item.rowProgress || 0)}%{item.rowDuration ? ` · ${formatDateShort(Date.parse(item.rowDuration) - 1)}` : ''}
                   </Text>

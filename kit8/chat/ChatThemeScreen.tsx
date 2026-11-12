@@ -87,6 +87,8 @@ export default function ChatThemeScreen() {
   const title = isTask && live.title ? live.title : item?.title || '';
   const description = isTask ? live.description : item?.description || '';
   const projectGUID = item?.projectGUID || live.projectGUID || null;
+  // the chat of a task of a READ-ONLY project (SQL PART 51) is only read: no input, no Edit / Delete, no member changes (the database refuses them)
+  const readOnly = isTask && (live.projectIsReadonly || item?.projectIsReadonly === true);
 
   const { messages, hasMore } = useChatMessages(themeGUID, limit, sent);
   const { members } = useChatMembers(themeGUID, !!themeGUID);
@@ -188,11 +190,17 @@ export default function ChatThemeScreen() {
                 onOpenLink={(u) => { void openChatLink(u, router); }}
                 onEdit={onEdit}
                 onDelete={onDelete}
+                readOnly={readOnly}
               />
             </React.Fragment>
           );
         })}
       </ScrollView>
+      {readOnly ? (
+        <Text testID="chat-theme-readonly" style={{ color: c.error, textAlign: 'center', padding: 12 }}>
+          {pmT('The project of this task is read-only: the chat can only be read.')}
+        </Text>
+      ) : (
       <ChatMessageInput
         themeGUID={themeGUID}
         projectGUID={projectGUID}
@@ -203,7 +211,8 @@ export default function ChatThemeScreen() {
         onFilesChanged={() => void loadFiles()}
         onSend={onSend}
       />
-      <ChatMembersWindow visible={membersOpen} themeGUID={themeGUID} isOwner={item?.role === 'owner'} kind={isTask ? 'task' : 'user'} onClose={() => setMembersOpen(false)} />
+      )}
+      <ChatMembersWindow visible={membersOpen} themeGUID={themeGUID} isOwner={item?.role === 'owner'} kind={isTask ? 'task' : 'user'} readOnly={readOnly} onClose={() => setMembersOpen(false)} />
     </View>
   );
 }
