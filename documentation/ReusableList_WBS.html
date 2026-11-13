@@ -1,0 +1,428 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReusableList - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.plan { background: var(--amber-soft); color: var(--amber); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.n, th.n { text-align: center; white-space: nowrap; }
+  tr.win td { background: var(--emerald-soft); }
+  tr.out td { color: var(--muted); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d9a4; border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+  .bad { background: var(--rose-soft); border: 1px solid #f6b6c1; border-radius: 10px; padding: 12px 14px; margin: 14px 0; }
+  .layers { display: grid; gap: 8px; }
+  .layer { border: 1px solid var(--border-strong); border-radius: 12px; padding: 10px 14px; background: var(--card); }
+  .layer b { display: block; }
+  .layer.a { background: var(--purple-soft); border-color: var(--purple); }
+  .layer.b { background: var(--cyan-soft); border-color: var(--cyan); }
+  .layer.c { background: var(--emerald-soft); border-color: var(--emerald); }
+  .layer.d { background: var(--amber-soft); border-color: var(--amber); }
+  .cols { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+  @media (max-width: 640px) { h1 { font-size: 27px; } th, td { padding: 6px 7px; font-size: 13px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">ReusableList</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#today">Today</a></li><li><a href="#parity">Parity</a></li><li><a href="#big">Big lists</a></li>
+    <li><a href="#libs">Plugins vs custom</a></li><li><a href="#verdict">Verdict</a></li><li><a href="#arch">Architecture</a></li><li><a href="#data">Data</a></li>
+    <li><a href="#api">API</a></li><li><a href="#wbs">WBS</a></li><li><a href="#bench">Benchmark</a></li><li><a href="#tests">Tests</a></li>
+    <li><a href="#risks">Risks</a></li><li><a href="#not">Not in scope</a></li><li><a href="#questions">Questions</a></li><li><a href="#sources">Sources</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>ReusableList</h1>
+  <p class="lead">One list component for iOS, Android and the web that does everything <code>ReusableTable</code> does (create, edit, delete, search, sort, filter, select, export, folders, menus, Post ...) and stays fast with a very big number of rows.</p>
+  <p class="sub"><span class="pill plan">PLAN ONLY</span> 2026-11-13. No code is written. Planned folder <code>kit8/ui/components/list/reusable</code> (it exists and is empty) · planned demo route <code>/demo/reusablelist</code> · no SQL in the first phases.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">The request (owner, in order)</h3>
+    <ol class="steps">
+      <li>This document: <code>documentation/ReusableList_WBS.html</code>. No code now.</li>
+      <li>It must work on <b>devices</b> (iOS, Android) and on the <b>web</b>.</li>
+      <li>It must have <b>the same functionality as ReusableTable</b>.</li>
+      <li>It must work with a <b>big list</b> of items.</li>
+      <li>Use the <b>best plugins</b>, or <b>prove that a custom approach is better</b> - with a table (section 4).</li>
+    </ol>
+  </div>
+
+  <div class="good"><b>Result in one paragraph.</b> The best engine on the shelf is <b>FlashList v2</b> (<code>@shopify/flash-list</code> 2.0.2 is already in <code>package.json</code> and not used by any screen). It scores highest of all candidates that run on all three platforms (51 of 60, section 4), and a custom list loses on every point except "no dependency" (35 of 60). The one open cell is the web: FlashList v2 claims react-native-web support and reorder-by-drag on the web has to be proven with <code>@hello-pangea/dnd</code>, so the first work package is a <b>2 day spike with pass / fail numbers</b> (W1) that decides between <i>FlashList everywhere</i> (expected) and <i>FlashList on devices + a DOM virtual list on the web</i> (fallback). The plan has the same parts in both cases because the engine sits behind one small adapter (section 6).</div>
+
+  <div class="note"><b>What "list" means here</b> (change me if wrong): a <b>ReusableTable shows one row as cells in columns</b>; a <b>ReusableList shows one row as one item</b> (a card or a line, chosen by <code>renderItem</code>, or built from the same <code>visualColumns</code> by default). Everything around the rows - data, CRUD, search, sort, filter, selection, menus, export, folders - is the same. A table of 100 000 rows and a list of 100 000 rows read the same data and the same columns.</div>
+</section>
+
+<section id="today">
+  <h2>1. Where we are today (read from the code)</h2>
+  <p class="sub">Facts found on 2026-11-13. They decide what is hard.</p>
+  <div class="card scroll"><table>
+    <tr><th>Finding</th><th>Where</th><th>Meaning for a big list</th></tr>
+    <tr><td><code>ReusableTable</code> draws <b>every</b> row: <code>visible.map(...)</code> in a ScrollView on devices, <code>rows.map</code> inside <code>@hello-pangea/dnd</code> on the web. No windowing.</td><td><code>ReusableTable.tsx</code> (body), <code>ReusableTableBodyWeb.tsx</code></td><td>10 000 rows = 10 000 mounted rows with their cells and editors. This is the first thing a list must not do.</td></tr>
+    <tr><td>The read gets <b>page 0 of 1000 rows</b> (<code>paginationSize: 1000, originationCurrentPage: 0</code>) and <code>readDataSuccess</code> <b>replaces</b> the array.</td><td><code>useReusableTableCrud.ts</code> line 32, <code>reusableRootSaga.ts</code>, <code>reusableCrudSlice.ts</code></td><td>Today a table never shows more than 1000 rows unless a screen passes other <code>readParams</code>. "Big" needs a decision about paging (section 7).</td></tr>
+    <tr><td>Search, sort, filter, footer sums run on the whole array on the client, on every change.</td><td><code>tableRows.ts</code> (<code>rowSearchText</code>, <code>sortRows</code>, <code>columnFooterTotal</code>), <code>tableFilter.ts</code></td><td>Fine for 1000, a cost at 100 000 (section 3).</td></tr>
+    <tr><td>Selection is <code>string[]</code>: <code>selected.filter(id =&gt; rows.some(...))</code> and <code>visible.every(r =&gt; selectedHere.includes(...))</code> = <b>O(selected x rows)</b> on every render.</td><td><code>ReusableTable.tsx</code> "---- selection ----"</td><td>"Select all" of 100 000 rows would be 10^10 steps. The list needs a <code>Set</code> and an "all matching except these" mode.</td></tr>
+    <tr><td>The pure helpers are already separate files: <code>tableRows.ts</code>, <code>tableFilter.ts</code>, <code>tableExport.ts</code>, <code>tablePdf.ts</code>, <code>tableExportActions.ts</code>, <code>useSearchHistory.ts</code>, <code>useReusableTableCrud.ts</code>.</td><td><code>kit8/ui/components/table/reusable</code></td><td>The list can <b>reuse</b> them as they are. Only the 796 lines of orchestration inside <code>ReusableTable.tsx</code> (search state, sort, filter, selection, menus, folders) have to be written again or extracted.</td></tr>
+    <tr><td>Big-list practice already exists: <code>FlatList</code> with <code>getItemLayout</code> (fixed 30 px rows) shows <b>200 000</b> products in the tree demo; <code>Monitor01Table</code> uses a <code>FlatList</code>.</td><td><code>kit8/ui/components/tree/FolderTree200k.tsx</code>, <code>kit8/pm/reports/monitor01/Monitor01Table.tsx</code></td><td>A baseline to beat and a safe fallback (fixed row height).</td></tr>
+    <tr><td>Installed and relevant: <code>@shopify/flash-list</code> 2.0.2 (unused), <code>react-native-draggable-flatlist</code> 4.0.3, <code>react-native-reanimated-dnd</code> 2.0.0, <code>@hello-pangea/dnd</code> 18.0.1, <code>react-native-swipeable-item</code>, <code>react-native-reanimated</code> 4.5.1, <code>react-native-gesture-handler</code> 2.32, <code>react-native-web</code> 0.21.2, React Native 0.86.3 (New Architecture only), Skia 2.6.2.</td><td><code>package.json</code></td><td>No new dependency is needed for the expected path.</td></tr>
+    <tr><td>The web body is a separate file loaded only when <code>Platform.OS === 'web'</code>; a web-only row is a DOM <code>&lt;div&gt;</code>.</td><td><code>ReusableTable.tsx</code> + <code>ReusableTableBodyWeb.tsx</code></td><td>The platform split is an accepted pattern here (<code>X.web.tsx</code>). It is also the fallback of this plan.</td></tr>
+    <tr><td><code>ListWebCardsComponent</code> (1454 lines) is a <b>web-only</b> card list (it crashes on a phone: KNOW_HOW section 7) and has no windowing; the phone has its own <code>MediaPostsNativeList</code> (113 lines).</td><td><code>kit8/ui/components/list/web</code></td><td>Two different lists for one job today. <code>ReusableList</code> is the one that replaces both (a later work package, W14).</td></tr>
+  </table></div>
+</section>
+
+<section id="parity">
+  <h2>2. Parity with ReusableTable</h2>
+  <p class="sub">Every feature of the README and of <code>reusableTableTypes.ts</code>, and what it becomes in a list. <span class="pill yes">same</span> = the same prop, same behavior · <span class="pill key">adapted</span> = same function, other look · <span class="pill no">n/a</span> = a column idea that has no meaning in a list.</p>
+  <div class="card scroll"><table>
+    <tr><th>ReusableTable feature</th><th>In ReusableList</th><th></th></tr>
+    <tr><td>Data: redux entity, optimistic create / update / delete + Undo, realtime (<code>entityName</code>, <code>listOwnerGUID</code>, <code>listParentGUID</code>, <code>readParams</code>, <code>realtime</code>)</td><td>The same hook <code>useReusableTableCrud</code>, the same props.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Local rows mode (<code>localRows</code> + <code>onLocalRowsChange</code>), all-rows mode (<code>REUSABLE_TABLE_ALL</code>, <code>rowFilter</code>, <code>newRowDefaults</code>, <code>computeRowJSON</code>)</td><td>Same props, same meaning.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td><code>visualColumns</code> (14 column types, <code>validate</code>, <code>target</code> root columns, <code>fromStored</code>, <code>dependsOn</code>, catalog columns, number columns with <code>total</code> / <code>totalWhenSame</code>)</td><td>The columns stay the <b>schema</b> of the list: they give types, validation, storage target, search text, sort key, filter, export and the edit form. A list is made of a table's columns at no extra cost.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Cells edited in place (<code>uxuiTable.inlineEdit</code>)</td><td>An item shows values. Tap = the editor of ONE field opens in the item (the editor is mounted on demand, its draft lives in a store - section 6, decision D3). Default for a list: <code>inlineEdit: false</code> and the <b>edit card</b> (next row).</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td><code>EditRowModalCard</code>, <code>onRowOpen</code>, <code>openLabel</code>, <code>setCell</code> / <code>patchRow</code></td><td>The same, unchanged. For a list this is the main way to edit.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Column header: Copy header name · Fill all lines (<code>ReusableTableFillColumnModal</code>)</td><td>A <b>Fields</b> menu in the bar: pick a column, then Copy field name or Fill all lines (the same modal, reused).</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td>Sort + filter per column (▾ of a header), <code>columnSortAndFilter</code>, <code>tableFilter.ts</code></td><td>Bar buttons <b>Sort</b> and <b>Filter</b> open the same <code>ReusableTableColumnMenu</code> content as a sheet (devices) or a popover (web). Active sort / filters show as chips.</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td>Column order, width, drag, resize, fit to width, <code>fixedWidth</code>, horizontal scroll</td><td>No columns on screen. Replaced by <b>which fields an item shows</b> (role of a column: title · subtitle · meta · badge · hidden) and the layout (line, card, grid). Default settings button resets.</td><td><span class="pill no">n/a</span></td></tr>
+    <tr><td>Search box + the history of the last 10 searches (<code>useSearchHistory</code>), <code>searchEnabled</code></td><td>Same box, same history, same hook. Search text is cached per row (section 3).</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Selection: check boxes, select all, <code>onSelectionChange</code>, <code>selectRowCheckBoxForm</code>, delete selected</td><td>Same props. Inside: <code>Set</code> + "all matching except" mode (section 3). Selection mode on a phone: long press starts it.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Row menu (right-click, long-press, ⋮): Edit, add above / below, duplicate, move up / down / first / last, copy GUID, archive, delete, <code>extraMenuItems</code></td><td>Same menu component, same commands. On a phone: swipe actions are optional (<code>react-native-swipeable-item</code> is installed).</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>CRUD panel (add first / add / duplicate / move / delete), <code>crudPanelEnabled</code>, <code>addEnabled</code>, <code>readOnly</code>, <code>deleteEnabled</code>, <code>onAdd</code>, permissions</td><td>Same props, same panel, same <code>usePermissions</code> wiring.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Reorder by drag (<code>reorderEnabled</code>, web ⠿ handle with <code>@hello-pangea/dnd</code>; devices: menu commands)</td><td>Rule kept: only without search / filter / sort. Web: ⠿ with the same library in its <b>virtual mode</b> (spike W1). Devices: menu commands as today; drag on a phone only in <b>small</b> mode (W9).</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td>Folders tree beside the table (<code>foldersTree</code>, drag rows onto a folder, counts, stacked below 720 px)</td><td>Same <code>FolderTreeReusable</code> beside the list, same props. The ⠿ drag of a row feeds the same drag session (<code>folderTreeDnd</code>); devices use <code>ReusableTableFolderGrip</code>.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Footer: count + sums of number columns, <code>justifyTotalsOfFieldsMode</code></td><td>A <b>summary bar</b> under the list (count, sums as chips), outside the virtualized area so it is always visible.</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td>Post button (<code>postDataNeeded</code>, <code>postState</code>, <code>onPost</code>, ...), <code>duplicateOverrides</code></td><td>Same, first element of the bar.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Export / Share: JSON, CSV, PDF full, PDF visible (<code>tableExport.ts</code>, <code>tablePdf.ts</code>)</td><td>Same functions. They read the <b>data</b>, never the mounted items. PDF has a row limit with a clear message (section 12).</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td>Settings ⚙ (Default settings), three dots menu with the table name in <code>DEV_ENVIRONMENT</code>, <code>barMenuItems</code>, <code>toolbarExtra</code></td><td>Same.</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td><code>focusRowGUID</code> (mark the row and scroll it into view), <code>emptyText</code>, loading / error states, <code>testID</code></td><td>Same. Scroll to a row = <code>scrollToIndex</code> of the engine (needs the index of the row in the VIEW).</td><td><span class="pill yes">same</span></td></tr>
+    <tr><td><code>uxuiTable</code> (rounded cells, borders, row height, bar layout variants, search height, header color)</td><td><code>uxuiList</code>: item height / density, divider lines, rounded cards, bar layout variants, search height. Same names where the idea is the same.</td><td><span class="pill key">adapted</span></td></tr>
+    <tr><td>Row number column, totals per column, <code>justifyTotals...</code></td><td>Row number = optional index badge on the item. Totals = the summary bar.</td><td><span class="pill key">adapted</span></td></tr>
+  </table></div>
+  <div class="note"><b>One rule keeps parity honest:</b> a table feature is in the list as <i>same</i> by <b>sharing code</b> (the helpers above, and later the extracted engine hook, section 6), not by copying it. A copied feature drifts; the README of the list will name, for every <i>adapted</i> and <i>n/a</i> line, the reason.</div>
+</section>
+
+<section id="big">
+  <h2>3. What "big" means, and what it costs</h2>
+  <p class="sub">Rendering is only one of five costs. A fast virtual list on top of a slow data layer is still slow.</p>
+
+  <h3>Targets (to confirm, question Q1)</h3>
+  <div class="card scroll"><table>
+    <tr><th>Size</th><th>Use</th><th>Mode</th><th>Must hold</th></tr>
+    <tr><td>up to 1 000</td><td>all today's tables</td><td>client</td><td>No visible difference from today; opens in &lt; 150 ms.</td></tr>
+    <tr><td>10 000</td><td>big catalogs, movements, partner balance lines</td><td>client</td><td>First items in &lt; 300 ms; scroll without blank areas at 55+ fps on the floor device; search / sort / filter answer in &lt; 150 ms.</td></tr>
+    <tr><td>100 000</td><td>registers, logs</td><td>client (memory test) or server</td><td>Scroll stays smooth; search / sort in &lt; 500 ms with a progress hint; select all is instant.</td></tr>
+    <tr><td>200 000 - 500 000</td><td>the tree demo size</td><td>server mode</td><td>Only the loaded pages are in memory; search / sort / filter run in the database.</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">Floor device for the numbers: the Samsung SM_A336B (Galaxy A33) the owner already uses for Android runs (KNOW_HOW section 7), plus Chrome on the Mac and the iPhone simulator. A fast Mac says nothing about a phone.</p>
+
+  <h3>The five costs</h3>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Cost</th><th>Today</th><th>Plan</th></tr>
+    <tr><td>1</td><td><b>Rows on screen</b> (mount, layout, memory)</td><td>All rows are mounted.</td><td>A virtualized engine mounts only the screen plus a margin and <b>recycles</b> the cells (FlashList) - section 4.</td></tr>
+    <tr><td>2</td><td><b>Cost of one item</b> (a table row has ~10 cells, each a TextInput / picker)</td><td>Every cell is an editor from the start.</td><td>An item is <b>display only</b> until tapped (text, no inputs). One heavy editor mounts for one field of one item, never for all.</td></tr>
+    <tr><td>3</td><td><b>Search / sort / filter / sums</b> over the whole array on every change</td><td>Recomputed every time; <code>rowSearchText</code> rebuilds the text of every row per keystroke.</td><td>Search text cached per row object (<code>WeakMap</code>, rebuilt only when the row object changes); debounce 150 ms; sort keys cached; one pass for the sums; all memoized on (rows, search, filters, sort). Above 100 000 rows: server mode.</td></tr>
+    <tr><td>4</td><td><b>Selection and re-render</b></td><td>Array, O(selected x rows); a selection change re-renders every row.</td><td><code>Set</code> + "all matching except" flag; each item subscribes to <b>its own</b> selected state (<code>useSyncExternalStore</code>), so one tap re-renders one item.</td></tr>
+    <tr><td>5</td><td><b>Data in memory and on the wire</b></td><td>One page of 1000, array replaced on read; (to check in W2: does an edit copy the whole array in the slice?).</td><td>Section 6: client up to ~100 000, server pages beyond; realtime patches batched (100 - 250 ms) and applied by <code>rowGUID</code>.</td></tr>
+  </table></div>
+</section>
+
+<section id="libs">
+  <h2>4. Candidates: plugins and custom, in one table</h2>
+  <p class="sub">Scale 0 - 3 per criterion, multiplied by the weight. Sources are the official docs and articles of section 15; the numbers are a <b>desk estimate</b> and the two decisive cells are measured in W1 before anything is built on them. A knockout is a must-have that the candidate cannot meet at all.</p>
+
+  <div class="card scroll"><table>
+    <tr>
+      <th>Candidate</th><th class="n">iOS + Android<br>(x3)</th><th class="n">Web<br>(x3)</th><th class="n">Big-list speed<br>(x3)</th><th class="n">Variable item height<br>(x2)</th><th class="n">Drag reorder<br>fits (x2)</th><th class="n">scrollToIndex, keeps position<br>(x2)</th><th class="n">Maintenance<br>(x2)</th><th class="n">Already installed<br>(x1)</th><th class="n">Jest<br>(x1)</th><th class="n">A11y, keys<br>(x1)</th><th class="n">Total<br>/ 60</th><th>Knockout</th>
+    </tr>
+    <tr class="win"><td><b>FlashList v2</b> 2.0.2 (Shopify)</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">3</td><td class="n">1</td><td class="n">3</td><td class="n">3</td><td class="n">3</td><td class="n">2</td><td class="n">2</td><td class="n"><b>51</b></td><td>-</td></tr>
+    <tr><td>RN <code>FlatList</code> (+ <code>getItemLayout</code>)</td><td class="n">3</td><td class="n">3</td><td class="n">1</td><td class="n">2</td><td class="n">2</td><td class="n">2</td><td class="n">3</td><td class="n">3</td><td class="n">3</td><td class="n">2</td><td class="n">47</td><td>-</td></tr>
+    <tr><td><b>TanStack Virtual</b> (web only)</td><td class="n">0</td><td class="n">3</td><td class="n">3</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">3</td><td class="n">0</td><td class="n">2</td><td class="n">3</td><td class="n">45</td><td>no devices</td></tr>
+    <tr><td>LegendList v3 (<code>@legendapp/list</code>, beta)</td><td class="n">3</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">1</td><td class="n">3</td><td class="n">1</td><td class="n">0</td><td class="n">1</td><td class="n">2</td><td class="n">43</td><td>-</td></tr>
+    <tr><td>react-window v2 (web only)</td><td class="n">0</td><td class="n">3</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">0</td><td class="n">2</td><td class="n">3</td><td class="n">43</td><td>no devices</td></tr>
+    <tr class="out"><td>Skia canvas list (we draw it)</td><td class="n">3</td><td class="n">3</td><td class="n">3</td><td class="n">1</td><td class="n">1</td><td class="n">2</td><td class="n">1</td><td class="n">3</td><td class="n">0</td><td class="n">0</td><td class="n">40</td><td>no text input, no selection, no screen reader</td></tr>
+    <tr class="out"><td>react-virtuoso (web only)</td><td class="n">0</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">1</td><td class="n">3</td><td class="n">3</td><td class="n">0</td><td class="n">2</td><td class="n">3</td><td class="n">40</td><td>no devices</td></tr>
+    <tr class="out"><td>RecyclerListView (Flipkart)</td><td class="n">3</td><td class="n">2</td><td class="n">3</td><td class="n">1</td><td class="n">1</td><td class="n">2</td><td class="n">1</td><td class="n">0</td><td class="n">1</td><td class="n">1</td><td class="n">36</td><td>-</td></tr>
+    <tr class="out"><td><b>Custom</b> windowing on a ScrollView / FlatList</td><td class="n">2</td><td class="n">2</td><td class="n">2</td><td class="n">1</td><td class="n">2</td><td class="n">2</td><td class="n">0</td><td class="n">3</td><td class="n">3</td><td class="n">1</td><td class="n">35</td><td>-</td></tr>
+  </table></div>
+
+  <h3>Why each cell is what it is</h3>
+  <div class="card scroll"><table>
+    <tr><th>Candidate</th><th>For</th><th>Against</th></tr>
+    <tr><td><b>FlashList v2</b></td><td>Rewritten for the New Architecture (RN 0.86 has no other), <b>JavaScript only</b>, no <code>estimatedItemSize</code> to tune, items of any height, <code>maintainVisibleContentPosition</code>, masonry / columns, sticky headers; the docs say it works with react-native-web with no setup; <code>jestSetup.js</code> ships in the package; already installed at 2.0.2.</td><td>No drag-to-reorder of its own. Recycling reuses a cell for another row: state inside a cell leaks unless it is kept outside (solved in section 6, D3). Web is claimed by the docs, <b>not yet proven by us</b>: it is the first thing W1 tests. Some FlatList props are not planned (<code>windowSize</code>, <code>updateCellsBatchingPeriod</code>, <code>onScrollToIndexFailed</code>).</td></tr>
+    <tr><td><b>FlatList</b></td><td>In React Native itself, runs on web through react-native-web, nothing to install, the repo already uses it for 200 000 rows with fixed 30 px rows (<code>getItemLayout</code>). <code>react-native-draggable-flatlist</code> is built on it.</td><td>No recycling: scrolling fast shows blank areas; with variable heights it needs measuring and loses speed; the repo's own 200k case works only because every row is 30 px. This is the <b>fallback</b> when a row height is fixed.</td></tr>
+    <tr><td><b>TanStack Virtual</b>, <b>react-window</b>, <b>react-virtuoso</b></td><td>Web (DOM) virtualizers: native browser scrolling, window scroll, good a11y; <code>@hello-pangea/dnd</code> documents a <b>virtual mode</b> with react-window; TanStack's headless core measures rows with a <code>ResizeObserver</code>; Virtuoso brings groups, sticky headers and tables.</td><td><b>Web only.</b> Choosing one means a second list body for devices and two code paths to keep equal - exactly the drift this plan avoids. Their own benchmark page (self-published in the TanStack repo) shows Virtuoso slowest with variable heights.</td></tr>
+    <tr><td><b>LegendList v3</b></td><td>React Native, react-native-web (RN entry) and a DOM build; dynamic sizes without estimates; sticky headers; <code>SectionList</code>; <code>alwaysRender</code>; chat-style bottom anchoring; reports lower CPU / memory than FlashList in its own test.</td><td>Version 3 is labeled <b>Beta</b>; the benchmark page is a template (no numbers); not installed; warns about sticky headers with Reanimated 4 (we run 4.5.1); small team. A candidate for the spike, not a base.</td></tr>
+    <tr><td><b>RecyclerListView</b></td><td>The recycling idea FlashList v1 was built on.</td><td>Needs layout dimensions up front (hard for cards), slow maintenance, not installed. FlashList is its successor.</td></tr>
+    <tr><td><b>Skia canvas</b></td><td>Fastest possible drawing (the Gantt chart uses it).</td><td>Text inputs, selection, long-press menus, accessibility and "select text" do not exist on a canvas. Fails the first must-have (editing).</td></tr>
+    <tr><td><b>Custom</b></td><td>No dependency. Total control of the row height (fixed-height math is simple and fast - the 200k tree demo).</td><td>We would own: measuring variable heights, recycling, scroll-to-index, keeping position on insert, overscan tuning, the iOS / Android / web scroll quirks, a11y and tests - for years. The libraries above exist to carry exactly that. See the proof below.</td></tr>
+  </table></div>
+
+  <h3>The proof that custom is not better (requested)</h3>
+  <div class="card">
+    <p style="margin-top:0">A custom list has to match what the winner gives. The question is: <b>what would it cost us to build it, and where could it beat FlashList?</b></p>
+    <div class="scroll"><table>
+      <tr><th>Capability needed by the list</th><th>FlashList v2</th><th>Custom virtualizer</th><th>Custom wins?</th></tr>
+      <tr><td>Draw only what is visible, any height</td><td>built in, auto-measured</td><td>measure each item, cache heights, correct the scroll when a measured height differs from the guess</td><td><span class="pill no">no</span> (more code, same result)</td></tr>
+      <tr><td>Reuse cells while scrolling</td><td>built in (recycling)</td><td>write a view pool with its own leak rules</td><td><span class="pill no">no</span></td></tr>
+      <tr><td>Fixed height rows (the table-like case)</td><td>fast</td><td>trivial math, the fastest possible</td><td><span class="pill plan">tie</span>: FlatList + <code>getItemLayout</code> already does it, with no new code</td></tr>
+      <tr><td><code>scrollToIndex</code>, <code>focusRowGUID</code></td><td>built in</td><td>exact only for fixed heights; variable heights need measured offsets</td><td><span class="pill no">no</span></td></tr>
+      <tr><td>Insert / delete above the viewport without a jump</td><td><code>maintainVisibleContentPosition</code></td><td>anchor row logic per platform</td><td><span class="pill no">no</span></td></tr>
+      <tr><td>Native scroll feel (iOS bounce, Android fling, web wheel)</td><td>native <code>ScrollView</code> under it</td><td>the same, if built on <code>ScrollView</code></td><td><span class="pill plan">tie</span></td></tr>
+      <tr><td>Maintenance by someone else, fixes for new RN versions</td><td>Shopify</td><td>us</td><td><span class="pill no">no</span></td></tr>
+      <tr><td>Time to a result we can trust at 100 000 rows on a phone</td><td>days (spike + tune)</td><td>weeks, then bugs</td><td><span class="pill no">no</span></td></tr>
+    </table></div>
+    <p>The only place a custom approach ties is <b>fixed-height rows</b>, and there the existing <code>FlatList</code> with <code>getItemLayout</code> is the "custom" solution already - no new virtualizer is needed. <b>Conclusion: no custom virtualizer.</b> We write custom code only where no library exists: the shared engine (data, search, selection, menus), the recycling-safe item state and the reorder handles.</p>
+  </div>
+  <p class="sub" style="margin-top:10px">Also seen, not scored: <code>virtua</code> (a virtual list for React and React Native) and <code>react-native-big-list</code> - not evaluated in depth; both are cheap extras to try in W1 if FlashList fails on the web.</p>
+</section>
+
+<section id="verdict">
+  <h2>5. Verdict and the decision gate</h2>
+  <div class="good">
+    <b>Default engine: FlashList v2 on iOS, Android and the web.</b> Fixed-height lists can use the same component with a fixed <code>itemHeight</code> (faster layout). A <code>FlatList</code> body stays as a built-in fallback (same adapter) and is the Jest body (section 11).
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">W1 spike: pass / fail (2 days, before anything else is built)</h3>
+    <p class="sub">The same 10-line demo, one row = one card with a title, 3 fields and a checkbox, 3 sizes (10 000 · 100 000 · 500 000 generated rows, like <code>folderTreeDemoData.ts</code>).</p>
+    <div class="scroll"><table>
+      <tr><th>#</th><th>Test</th><th>Pass</th><th>If it fails</th></tr>
+      <tr><td>S1</td><td>FlashList v2 renders on <b>web</b> (Chrome, Safari, Firefox - the owner's Firefox has history problems, KNOW_HOW section 7) with mixed item heights; scroll fps; no blank areas</td><td>&ge; 55 fps, blank area &lt; 1 screen at fast scroll, no console errors</td><td>Web body = a DOM virtual list (react-window or TanStack Virtual) behind the same adapter.</td></tr>
+      <tr><td>S2</td><td>FlashList v2 on the floor Android phone and the iPhone simulator, 100 000 rows</td><td>&ge; 55 fps; memory stays flat while scrolling</td><td>FlatList + <code>getItemLayout</code> body for fixed-height lists.</td></tr>
+      <tr><td>S3</td><td><b>Drag reorder on the web</b>: <code>@hello-pangea/dnd</code> <code>Droppable mode="virtual"</code> around the list (needs overscan &ge; 1; window auto-scroll is off in virtual mode) - drag an item over 2 screens</td><td>Drop lands at the right index; the clone follows the pointer; no flicker</td><td>Web reorder = "Move to position..." and the menu commands only (already in the row menu); or web DOM body.</td></tr>
+      <tr><td>S4</td><td>Recycling with an <b>editor open</b>: type in a field of item 5, scroll 2 screens and back</td><td>Draft is kept or committed; no text appears on another item</td><td>Design fix in section 6, D3 (drafts in a store); if it still leaks: editing only in the edit card.</td></tr>
+      <tr><td>S5</td><td>Per-item selection: tap one check box among 100 000 items</td><td>Only that item re-renders (count renders with a probe)</td><td>Rework the subscription (section 6).</td></tr>
+      <tr><td>S6</td><td><code>scrollToIndex</code> + <code>maintainVisibleContentPosition</code> on insert above the viewport, on all three platforms</td><td>No visible jump; target is in view</td><td>Fall back to a "marked row" highlight without a scroll animation.</td></tr>
+      <tr><td>S7</td><td><code>@shopify/flash-list/jestSetup</code> in this repo's Jest (jest-expo 57)</td><td>A list test mounts and finds items</td><td>Inject the FlatList / plain body through the adapter in tests.</td></tr>
+      <tr><td>S8</td><td>Optional: LegendList v3 on the same demo</td><td>Only if S1 or S2 failed</td><td>-</td></tr>
+    </table></div>
+    <p>Gate rule: S1 + S2 + S4 + S5 pass = <b>FlashList everywhere</b>. S3 failing alone is not fatal (reorder has a menu route). S1 or S2 failing = the fallback of its row (last column) becomes the plan; the other work packages do not change.</p>
+  </div>
+</section>
+
+<section id="arch">
+  <h2>6. Architecture</h2>
+  <div class="card">
+    <div class="layers">
+      <div class="layer a"><b>Screen</b> passes the same props as a ReusableTable: <code>entityName</code>, <code>listOwnerGUID</code>, <code>visualColumns</code>, <code>foldersTree</code> ... plus <code>renderItem</code> / <code>uxuiList</code> (optional).</div>
+      <div class="layer b"><b>ReusableList</b> (bar, summary, folders tree, menus, windows) &middot; the <b>bar</b> is the same component family as the table's bar.</div>
+      <div class="layer c"><b>Collection engine</b> (no UI): data source -&gt; rows -&gt; search -&gt; filter -&gt; sort -&gt; <code>view</code> (array of <code>rowGUID</code> + a Map to the row), selection store, drafts store, summary. First it <b>reuses</b> the pure helpers of the table; when the list is proven, it is <b>extracted</b> as <code>useReusableCollection</code> and <code>ReusableTable</code> becomes its second user (W13: a virtualized "big mode" for the table too).</div>
+      <div class="layer d"><b>ListBody adapter</b>: <code>{ data: rowGUID[], renderItem, itemHeight?, getKey, scrollToIndex, onEndReached, header, footer, empty }</code> &rarr; <code>FlashListBody</code> (default) · <code>FlatListBody</code> (fixed height + tests) · <code>DomListBody.web</code> (only if W1 says so).</div>
+      <div class="layer"><b>Data source</b>: redux entity (as today) · local rows · <b>server pages</b> (new, W11) - all give the engine the same <code>{ rows, total, loading, loadMore, patch }</code>.</div>
+    </div>
+  </div>
+
+  <h3>Decisions with reasons</h3>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Decision</th><th>Reason</th></tr>
+    <tr><td>D1</td><td>The list first <b>imports</b> <code>useReusableTableCrud</code>, <code>tableRows</code>, <code>tableFilter</code>, <code>tableExport*</code>, <code>tablePdf</code>, <code>useSearchHistory</code>; the orchestration is written once in the engine hook and copied from nowhere.</td><td>Zero risk for the live tables now (the 31 baseline test failures stay as they are); the extraction into <code>useReusableCollection</code> happens at W13 with the table's own tests as the net.</td></tr>
+    <tr><td>D2</td><td>The list <b>data</b> to the body is an array of <code>rowGUID</code> plus a stable <code>Map&lt;rowGUID, row&gt;</code>; <code>renderItem</code> receives one row, memoized by row object identity.</td><td>A realtime patch of one row changes one object and re-renders one item. Recycling needs stable keys.</td></tr>
+    <tr><td>D3</td><td><b>No state inside an item that must survive recycling</b>: selection, open editor, draft text, menu open, swipe position live in stores keyed by <code>rowGUID</code>; the item reads them with <code>useSyncExternalStore</code>. FlashList's <code>useRecyclingState</code> only for pure view state (a collapsed block).</td><td>A recycled cell is the same React component for another row; local state would show on the wrong item (test S4).</td></tr>
+    <tr><td>D4</td><td>An item is <b>display only</b>; one editor mounts on tap for one field. Heavy cells (catalog picker, date picker) are never mounted per item.</td><td>Cost 2 of section 3: a table row with 10 inputs is what makes 1000 rows slow today.</td></tr>
+    <tr><td>D5</td><td>The default item is built from <code>visualColumns</code> by a new optional column key <code>listRole</code>: <code>title</code> · <code>subtitle</code> · <code>meta</code> · <code>badge</code> · <code>hidden</code> (default: first text column = title, next 3 = meta, others hidden). <code>renderItem</code> replaces it.</td><td>Any existing table becomes a list in one prop; a catalog screen can show a list on a phone and a table on a desktop with the same columns.</td></tr>
+    <tr><td>D6</td><td>Layouts: <code>line</code> (default, one column), <code>card</code>, <code>grid</code> (<code>numColumns</code>), <code>masonry</code>. Responsive: the layout may differ per width (a phone = line, desktop = grid).</td><td>FlashList supports columns and masonry; the table cannot do this.</td></tr>
+    <tr><td>D7</td><td>The bar, the CRUD panel, the menus, the windows and the folders tree are <b>shared components</b>, not rendered by the body. Only the scrolling items are in the body; header = search / sort chips (sticky), footer = summary.</td><td>The body re-renders rarely; the bar can use ordinary React state.</td></tr>
+    <tr><td>D8</td><td>Realtime patches go through <code>applyPatches(rows, patches)</code> batched every 100 - 250 ms.</td><td>A burst of 500 realtime rows must not mean 500 renders.</td></tr>
+  </table></div>
+</section>
+
+<section id="data">
+  <h2>7. Data for a big list</h2>
+  <p class="sub">Three sources behind the same engine contract. The first two are today's behavior.</p>
+  <div class="card scroll"><table>
+    <tr><th>Mode</th><th>How</th><th>Good for</th><th>Cost / limit</th></tr>
+    <tr><td><b>client</b> (default)</td><td>All rows of the scope are read (pages of 1000 until done, with a count first) and held in the redux entity; search / sort / filter in the engine.</td><td>up to ~100 000 rows (memory test in the bench, W12)</td><td>First load time; one array in memory. Realtime works as today.</td></tr>
+    <tr><td><b>server</b> (new, W11)</td><td>The list asks for a page (<code>range</code>), a search text, a sort, filters, and a total; PostgREST <code>count</code> (estimated for large tables) gives the number; the engine keeps loaded pages only, <code>onEndReached</code> loads the next. Keyset (cursor) pages for stable order; Realtime patches only the loaded pages.</td><td>200 000 and more, registers and logs</td><td>Needs a database side per entity (a view or RPC with the allowed columns; a generic "any column" RPC is a security and performance risk, so it is <b>not</b> planned). Sums over the whole scope come from a second call. Reorder is off in this mode. Select all = "all matching" flag, the delete runs on the server.</td></tr>
+    <tr><td><b>local rows</b></td><td>As today; the screen holds the array.</td><td>Settings lists</td><td>Client mode limits.</td></tr>
+  </table></div>
+  <div class="note"><b>Check in W2 before choosing:</b> does the redux slice copy the whole array for a one-cell edit (<code>reusableCrudSlice</code> uses immer; one edit of a 100 000-row array would be a problem)? If yes the entity keeps an index <code>Map</code> and patches by key. Same check for <code>crudMoment</code> triggering a full selector run in every list.</div>
+</section>
+
+<section id="api">
+  <h2>8. API (proposal)</h2>
+  <p class="sub">Props of <code>ReusableTableProps</code> are accepted unchanged where the idea is the same; the new or changed ones:</p>
+  <div class="card scroll"><table>
+    <tr><th>Prop</th><th>Meaning</th></tr>
+    <tr><td><code>layout</code></td><td><code>'line'</code> (default) | <code>'card'</code> | <code>'grid'</code> | <code>'masonry'</code>; <code>numColumns</code> for grid / masonry (a number or a function of the width).</td></tr>
+    <tr><td><code>renderItem(row, state)</code></td><td>Draws one item. <code>state</code> = <code>{ index, selected, focused, onOpen, onMenu, setCell, patchRow }</code>. Default: the item built from the columns (<code>listRole</code>).</td></tr>
+    <tr><td><code>itemHeight</code></td><td>A number = every item has this height (the fast path, fixed layout). Missing = measured.</td></tr>
+    <tr><td><code>visualColumns[].listRole</code></td><td><code>'title' | 'subtitle' | 'meta' | 'badge' | 'hidden'</code>.</td></tr>
+    <tr><td><code>dataMode</code></td><td><code>'client'</code> (default) | <code>'server'</code> + <code>serverSource</code> (<code>{ page(params), count(params), sums? }</code>).</td></tr>
+    <tr><td><code>uxuiList</code></td><td><code>density</code>, <code>dividers</code>, <code>roundedCards</code>, <code>tableBarLayoutVariant</code> (same values as the table), <code>searchInputHeight</code>, <code>stickyHeader</code>, <code>showIndex</code>.</td></tr>
+    <tr><td><code>sortOptions</code>, <code>filterColumns</code></td><td>Which columns the Sort and Filter sheets offer (default: every sortable / filterable column, as the table).</td></tr>
+    <tr><td><code>selectionMode</code></td><td><code>'always'</code> (check boxes visible, as the table) | <code>'onLongPress'</code> (default on a phone).</td></tr>
+    <tr><td><code>swipeActions</code></td><td>Optional: left / right actions per item on devices.</td></tr>
+    <tr><td><code>engine</code></td><td>Escape hatch for tests and fallbacks: <code>'flashlist' | 'flatlist' | 'dom'</code>. Default: by platform and by the W1 decision.</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">Planned files (all new, in <code>kit8/ui/components/list/reusable</code>): <code>reusableListTypes.ts</code> · <code>ReusableList.tsx</code> · <code>ReusableListBar.tsx</code> · <code>ReusableListItem.tsx</code> (default item) · <code>body/ListBody.types.ts</code>, <code>body/FlashListBody.tsx</code>, <code>body/FlatListBody.tsx</code>, <code>body/DomListBody.web.tsx</code> (only if needed) · <code>engine/useReusableCollection.ts</code>, <code>engine/selectionStore.ts</code>, <code>engine/draftStore.ts</code>, <code>engine/searchIndex.ts</code>, <code>engine/applyPatches.ts</code> · <code>README.md</code> · <code>index.ts</code>. Route <code>app/demo/reusablelist.tsx</code>.</p>
+</section>
+
+<section id="wbs">
+  <h2>9. WBS</h2>
+  <p class="sub">Work packages in build order. Size: S = under 1 day, M = 1 - 2 days, L = 3 - 5 days (one person, with tests and the README in the same round, as the working agreement says). Nothing here changes SQL until W11.</p>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Work package</th><th>Where</th><th>Size</th><th>Depends</th><th>Done when</th></tr>
+    <tr><td>W0</td><td>Owner answers Q1 - Q10 (section 14) or accepts the defaults</td><td>this document</td><td>-</td><td>-</td><td>Defaults confirmed</td></tr>
+    <tr><td>W1</td><td><b>Spike</b>: demo route with 10k / 100k / 500k generated rows, FlashList v2 vs FlatList (+ LegendList if needed), tests S1 - S8 of section 5 on web, the floor Android phone, iPhone simulator; numbers written into section 10 of this document</td><td><code>app/demo/reusablelist.tsx</code>, <code>list/reusable/spike</code></td><td>M</td><td>W0</td><td>Gate decision recorded; the spike folder is deleted or kept as the benchmark</td></tr>
+    <tr><td>W2</td><td>Read the data path for cost: slice update per edit, selectors, <code>crudMoment</code>, realtime batching; write down fixes</td><td><code>kit8/redux/reusable</code></td><td>S</td><td>W1</td><td>List of fixes with measured numbers (10k, 100k)</td></tr>
+    <tr><td>W3</td><td>Types and the engine core: view (search -&gt; filter -&gt; sort), <code>searchIndex</code> with the <code>WeakMap</code> cache, sort key cache, summary in one pass</td><td><code>list/reusable/engine</code></td><td>M</td><td>W2</td><td>Pure Jest tests; 100k rows search under 150 ms (mid laptop)</td></tr>
+    <tr><td>W4</td><td>Selection store (<code>Set</code>, "all matching except", per-item subscribe) and draft store; hooks <code>useIsSelected(guid)</code>, <code>useDraft(guid, key)</code></td><td><code>list/reusable/engine</code></td><td>M</td><td>W3</td><td>Select all of 100k = O(1); one tap = one item render (probe test)</td></tr>
+    <tr><td>W5</td><td><b>ListBody adapter</b> + <code>FlashListBody</code> + <code>FlatListBody</code> (+ <code>DomListBody.web</code> only on a failed gate); header / footer / empty / loading; <code>scrollToIndex</code>; keep position on insert</td><td><code>list/reusable/body</code></td><td>M</td><td>W1</td><td>Demo scrolls 100k on three platforms; Jest uses the FlatList body</td></tr>
+    <tr><td>W6</td><td>Default item from <code>visualColumns</code> (<code>listRole</code>), layouts line / card / grid / masonry, density, row number badge, display of every column type (check, select label, catalog title, color swatch, date, number)</td><td><code>ReusableListItem.tsx</code></td><td>M</td><td>W3</td><td>Every column type renders; snapshot tests per type</td></tr>
+    <tr><td>W7</td><td>Bar: search + history, Sort and Filter sheets (reuse <code>ReusableTableColumnMenu</code> content), chips of active sort / filters, CRUD panel, Post button, ⚙, three dots menu (export, share, DEV table name), Fields menu (copy name, Fill all lines), summary bar</td><td><code>ReusableListBar.tsx</code></td><td>L</td><td>W3, W6</td><td>Each bar feature has a test; the same texts as the table</td></tr>
+    <tr><td>W8</td><td>Editing: tap an item -&gt; one editor for one field (mount on demand, draft in the store) or the <code>EditRowModalCard</code> / <code>onRowOpen</code>; validation, <code>computeRowJSON</code>, root columns exactly like the table; Undo snackbar</td><td><code>ReusableList.tsx</code></td><td>L</td><td>W4, W6</td><td>Edit, scroll away, scroll back: nothing leaks (S4 as a test)</td></tr>
+    <tr><td>W9</td><td>Row menu and commands (add above / below, duplicate, move, copy GUID, archive, delete, <code>extraMenuItems</code>), long-press selection mode, swipe actions on devices, <b>reorder</b>: web ⠿ with <code>@hello-pangea/dnd</code> virtual mode (if S3 passed); devices: menu commands; <code>react-native-draggable-flatlist</code> only for lists under 500 rows</td><td><code>ReusableList.tsx</code></td><td>L</td><td>W5, W8</td><td>Every command of the table works; reorder works without sort / filter</td></tr>
+    <tr><td>W10</td><td>Folders tree beside the list: <code>foldersTree</code>, drag rows onto a folder (web ⠿, device grip), counts per folder computed once per change, stacked layout under 720 px</td><td><code>ReusableList.tsx</code></td><td>M</td><td>W9</td><td>Product-catalog-like screen works with 100k rows</td></tr>
+    <tr><td>W11</td><td><b>Server mode</b>: data-source contract, paged read with count, keyset cursor, server search / sort / filter, loaded-page patching by Realtime, "all matching" delete. First user: one real register screen. <span class="pill plan">SQL</span> a view / RPC per entity in <code>start2_sql_code.sql</code> (new PART, number decided then), Docker test, bench</td><td><code>list/reusable/engine/serverSource.ts</code>, SQL</td><td>L</td><td>W3, W5</td><td>500k rows: first page &lt; 400 ms, search &lt; 600 ms; Docker test + bench script</td></tr>
+    <tr><td>W12</td><td><b>Benchmark</b> on the floor devices with the protocol of section 10, tune (<code>drawDistance</code>, item memoization, image / icon cost), write the numbers into this document</td><td><code>app/demo/reusablelist.tsx</code></td><td>M</td><td>W6 - W10</td><td>Targets of section 3 met or the gap is written down</td></tr>
+    <tr><td>W13</td><td>Extract <code>useReusableCollection</code> from <code>ReusableTable.tsx</code> and use it in both; <b>big mode</b> of the table (body windowed, same cells) behind a prop; fix the O(n x s) selection of the table</td><td><code>kit8/ui/components/table/reusable</code></td><td>L</td><td>W12</td><td>All table tests green as before (compare the <code>FAIL</code> lines with the baseline); a 50 000-row table is smooth</td></tr>
+    <tr><td>W14</td><td>First real users: <b>Media posts</b> (replaces the web card list and the native list in one component), one big catalog (Products), the partner-balance movements. <code>ListWebCardsComponent</code> kept until all its callers are moved</td><td><code>app/posts</code>, catalogs</td><td>L</td><td>W12</td><td>Phone and web show the same list; the web-only crash note in KNOW_HOW can be dropped</td></tr>
+    <tr><td>W15</td><td>i18n texts (<code>list.*</code>, English; others fall back), a11y roles and keyboard on web (arrows, Home / End, Space = select, Enter = open, Ctrl+A = select all, Delete)</td><td><code>kit8/i18n</code>, list files</td><td>M</td><td>W8</td><td>Keyboard test on web</td></tr>
+    <tr><td>W16</td><td>README of the folder, the feature row and the folder row in <code>KNOW_HOW.md</code>, the pitfalls found, this document updated to "BUILT"</td><td>docs</td><td>S</td><td>all</td><td>-</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">Rough total: 6 L + 7 M + 2 S, about <b>30 - 40 working days</b> for everything, of which the useful core (W1 - W10 and W12) is about <b>22 - 28</b>. The spike (2 days) is bought first so the rest is not built on a guess.</p>
+</section>
+
+<section id="bench">
+  <h2>10. Benchmark protocol (W1 and W12)</h2>
+  <div class="card scroll"><table>
+    <tr><th>Metric</th><th>How it is measured</th><th>Target</th></tr>
+    <tr><td>Time to first item</td><td>From mount to the first item painted (<code>performance.now()</code> marks; <code>onLoad</code> of the list).</td><td>&lt; 300 ms at 10k</td></tr>
+    <tr><td>Scroll smoothness</td><td>Web: Chrome Performance panel / <code>PerformanceObserver</code> long frames. Android: <a href="https://github.com/bamlab/android-performance-profiler">Flashlight</a>-style frame report or the RN perf monitor. iOS: Instruments (Core Animation FPS).</td><td>&ge; 55 fps average, no frame &gt; 100 ms</td></tr>
+    <tr><td>Blank area</td><td>FlashList's own profiling hook (name to confirm in W1) or a count of unmounted pixels at fast scroll.</td><td>&lt; 1 screen height</td></tr>
+    <tr><td>Memory</td><td>After 30 s of scrolling a 100k list, Xcode / Android Studio profiler, web <code>performance.memory</code>.</td><td>flat (no growth with scrolling), under 200 MB total at 100k rows on the floor phone</td></tr>
+    <tr><td>Search / sort / filter latency</td><td>Time from the last keystroke to the new view.</td><td>&lt; 150 ms at 10k, &lt; 500 ms at 100k</td></tr>
+    <tr><td>Selection</td><td>Select all and tap one item at 100k: renders counted.</td><td>1 item re-renders; select all &lt; 50 ms</td></tr>
+    <tr><td>Realtime burst</td><td>500 patches in one second.</td><td>&le; 6 renders of the body; no dropped frames</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:10px">The result table will be pasted here after W1 and W12 with the date, the device, the engine and the numbers. The old claims in the sources (for example "10 000 items at 60 fps" of react-beautiful-dnd) are not taken as our numbers.</p>
+</section>
+
+<section id="tests">
+  <h2>11. Tests</h2>
+  <div class="card scroll"><table>
+    <tr><th>Layer</th><th>What</th><th>How</th></tr>
+    <tr><td>Pure Jest</td><td>engine: view, search cache, sort, summary, selection set, "all matching", patches, <code>listRole</code> defaults</td><td><code>__tests__/ui/list/engine/*.test.ts</code></td></tr>
+    <tr><td>Component Jest</td><td>each bar feature, each column type as an item, edit flow, menu commands, folders drop, read only / permissions</td><td><code>__tests__/ui/list/*.test.tsx</code>; <code>engine="flatlist"</code> in tests (renders all items; or <code>@shopify/flash-list/jestSetup</code> if S7 passed). The tests use <code>pmUiTestKit</code> rules (KNOW_HOW section 5).</td></tr>
+    <tr><td>Parity test</td><td>One test file runs the <b>same scenario</b> against <code>ReusableTable</code> and <code>ReusableList</code> (add, edit, validate, search, sort, filter, select, delete + Undo, export) and compares the rows saved. This is how "same functionality" is proven and kept.</td><td><code>__tests__/ui/list/parityWithTable.test.tsx</code></td></tr>
+    <tr><td>Render probe</td><td>1 tap = 1 item render; realtime patch = 1 item render</td><td>a counting <code>renderItem</code></td></tr>
+    <tr><td>Device / browser</td><td>The W1 / W12 demo route on web, Android, iOS (the app cannot be seen by Claude on the owner's phone: the numbers are run and read by the owner or from the simulator)</td><td>section 10</td></tr>
+    <tr><td>SQL (W11 only)</td><td>paged read, count, keyset order, search / sort, the RLS of the view; bench with 500k rows</td><td>Docker test <code>tests/NN_*.sql</code> + a bench script</td></tr>
+  </table></div>
+</section>
+
+<section id="risks">
+  <h2>12. Risks</h2>
+  <div class="card scroll"><table>
+    <tr><th>Risk</th><th>Why it matters</th><th>Answer</th></tr>
+    <tr><td>FlashList on the web is claimed by the docs but not proven here</td><td>The one cell of the score table we did not measure.</td><td>W1 S1 first; the DOM body is in the plan as fallback.</td></tr>
+    <tr><td>Drag reorder with a virtual list</td><td>The library documents <code>mode="virtual"</code> with react-window; with FlashList on the web it is untested. Needs overscan &ge; 1 and has no window auto-scroll during a drag.</td><td>S3; reorder also by menu; reorder is off under sort / filter / search anyway.</td></tr>
+    <tr><td>Recycled cell shows another row's state</td><td>A typed text, an open menu or a selection mark appears on the wrong item.</td><td>D3: no per-row state in the item; test S4 and a regression test.</td></tr>
+    <tr><td>Reanimated 4.5.1 with <code>react-native-draggable-flatlist</code> 4.0.3</td><td>The package's peer range is <code>&gt;=2.8.0</code>, but it was published long before Reanimated 4; not checked here.</td><td>Use it only for lists under 500 rows and only after a smoke test in W9.</td></tr>
+    <tr><td>Only page 0 (1000 rows) is read today</td><td>A "big" list that shows 1000 rows is not big.</td><td>Section 7: pages until done (client) or server mode; decided by Q1 / Q2.</td></tr>
+    <tr><td>Export of a big list</td><td>A PDF of 100 000 rows is not practical (memory, size).</td><td>JSON / CSV stream from the data in chunks; PDF has a row limit with a clear message (Q8).</td></tr>
+    <tr><td>Browser find (Ctrl+F) sees only mounted items</td><td>A normal limit of every virtual list.</td><td>The search box is the answer; say so in the README.</td></tr>
+    <tr><td>Variable heights and the scrollbar size</td><td>The scrollbar length is an estimate until items are measured.</td><td>A <code>itemHeight</code> option for fixed lists; accepted for variable ones.</td></tr>
+    <tr><td>Refactor of <code>ReusableTable</code> (W13)</td><td>29 suites already fail at baseline; a new break could hide in them.</td><td>Done last, after the list is proven; compare the <code>FAIL</code> lines before and after (KNOW_HOW section 5).</td></tr>
+    <tr><td>Beta / young libraries (LegendList v3)</td><td>API and bug risk.</td><td>Not a base; only in the spike if FlashList fails.</td></tr>
+  </table></div>
+</section>
+
+<section id="not">
+  <h2>13. Not in scope (first version)</h2>
+  <div class="card">
+    <ul class="steps">
+      <li>A custom virtualizer, a Skia list.</li>
+      <li>A generic "any table, any column" server RPC (security and speed; each big register gets its own view or RPC in W11).</li>
+      <li>Hour-by-hour or tree-in-list (a tree is <code>FolderTreeReusable</code> + the list beside it).</li>
+      <li>Offline cache of a big list on the device.</li>
+      <li>Replacing the Gantt tree, Monitor01 or the Monitor07 report tables (they have their own <code>FlatList</code> bodies; they may adopt the adapter later).</li>
+      <li>Translation of the new texts beyond English (the fallback covers the rest).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>14. Questions for the owner (with the default I will use)</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Default</th></tr>
+    <tr><td>Q1</td><td>What is the biggest list the owner really needs in the next year (rows of one list)?</td><td>100 000 in client mode, 500 000 in server mode (section 3).</td></tr>
+    <tr><td>Q2</td><td>May the list read <b>all</b> rows of a scope (pages of 1000 until done) in client mode, or must it page from the first screen?</td><td>All rows up to 20 000, server mode above.</td></tr>
+    <tr><td>Q3</td><td>On a phone, is the default edit a <b>card window</b> (like a form), with in-place editing only on the web?</td><td>Yes: <code>inlineEdit: false</code> on devices, the edit card for editing.</td></tr>
+    <tr><td>Q4</td><td>Does the list show the table's <b>footer sums</b> as a summary bar always visible?</td><td>Yes.</td></tr>
+    <tr><td>Q5</td><td>Is <b>drag reorder on a phone</b> needed, or are the menu commands (move up / down / first / last) enough?</td><td>Menu only; drag in lists under 500 rows if the smoke test passes.</td></tr>
+    <tr><td>Q6</td><td>The first real users after the demo (W14): Media posts, Products, partner-balance movements - right order?</td><td>Media posts first (two components become one).</td></tr>
+    <tr><td>Q7</td><td>Should <code>ReusableTable</code> get the same virtual body ("big mode", W13)?</td><td>Yes, after the list is proven.</td></tr>
+    <tr><td>Q8</td><td>PDF export of a list over a set row count (for example 5 000 rows): refuse with a message, or allow and warn?</td><td>Refuse above 5 000 rows with a message; CSV / JSON are not limited.</td></tr>
+    <tr><td>Q9</td><td>May the W1 spike use a Samsung SM_A336B on USB and the iPhone simulator for the numbers?</td><td>Yes.</td></tr>
+    <tr><td>Q10</td><td>Name: <code>ReusableList</code> in <code>kit8/ui/components/list/reusable</code>, the route <code>/demo/reusablelist</code>?</td><td>Yes.</td></tr>
+  </table></div>
+</section>
+
+<section id="sources">
+  <h2>15. Sources</h2>
+  <p class="sub">Read on 2026-11-13. Scores and claims about libraries come from these pages (docs and articles); a page that only repeats a library's own claims is marked. None of them replaces the W1 numbers.</p>
+  <div class="card">
+    <ul class="steps">
+      <li><a href="https://shopify.engineering/flashlist-v2">FlashList v2 (Shopify Engineering)</a> · <a href="https://www.mintlify.com/shopify/flash-list/installation">FlashList installation: works with react-native-web</a> · <a href="https://www.mintlify.com/shopify/flash-list/migration/v2-changes">FlashList v2 changes</a> · <a href="https://www.mintlify.com/shopify/flash-list/faq">FlashList FAQ</a> (the known-issues page returned "410 Gone" when fetched; its content was read in a search summary only).</li>
+      <li><a href="https://legendapp.com/open-source/list/v3/overview/">LegendList v3 overview</a> (features and platforms; "Beta"; its comparison with FlashList is its own claim) · <a href="https://legendapp.com/open-source/list/benchmarks/placeholder">its benchmark page</a> (a template, no numbers) · <a href="https://www.pkgpulse.com/guides/flashlist-vs-flatlist-vs-legendlist-react-native-lists-2026">PkgPulse list comparison</a> (a blog; not verified).</li>
+      <li><a href="https://raw.githubusercontent.com/hello-pangea/dnd/HEAD//docs/patterns/virtual-lists.md">@hello-pangea/dnd: virtual lists</a> (<code>mode="virtual"</code>, overscan &ge; 1, react-window examples).</li>
+      <li><a href="https://www.pkgpulse.com/guides/tanstack-virtual-vs-react-window-vs-react-virtuoso-2026">TanStack Virtual vs react-window vs react-virtuoso</a> · <a href="https://upd.dev/TanStack/virtual/src/branch/main/benchmarks">TanStack Virtual benchmark folder</a> (published by the TanStack project itself).</li>
+      <li><a href="https://cdn.jsdelivr.net/npm/react-native-draggable-flatlist@4.0.3/README.md">react-native-draggable-flatlist 4.0.3</a> (needs Reanimated + Gesture Handler) · <a href="https://www.mintlify.com/shopify/flash-list/api/flash-list">FlashList API</a> (no drag reorder of its own).</li>
+      <li>In this repository: <code>kit8/ui/components/table/reusable/README.md</code>, <code>reusableTableTypes.ts</code>, <code>ReusableTable.tsx</code>, <code>ReusableTableBodyWeb.tsx</code>, <code>useReusableTableCrud.ts</code>, <code>kit8/redux/reusable/reusableRootSaga.ts</code>, <code>reusableCrudSlice.ts</code>, <code>kit8/ui/components/tree/FolderTree200k.tsx</code>, <code>kit8/pm/reports/monitor01/Monitor01Table.tsx</code>, <code>package.json</code>, <code>node_modules/@shopify/flash-list</code> (<code>jestSetup.js</code> present).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="install">
+  <h2>16. Install</h2>
+  <div class="card">
+    <p style="margin:0">Nothing to install: this is a plan. No SQL, no <code>.env</code> line, no new package (FlashList 2.0.2 is already in <code>package.json</code>). The first change that touches the app is the W1 spike (a demo route); the first SQL is W11.</p>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

@@ -31,6 +31,7 @@ export const CardThreeDotsMenu: React.FC<CardThreeDotsMenuProps> = ({
   onShare,
   onMenuOpenStateChange,
   primaryColor = "#6200ee",
+  flushRight = false,
 }) => {
   const [visible, setVisible] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number }>({ top: 0, left: 0 });
@@ -91,6 +92,18 @@ export const CardThreeDotsMenu: React.FC<CardThreeDotsMenuProps> = ({
     onMenuOpenStateChange?.(nextState);
   };
 
+  const renderFlushDots = (label: string) => (
+    <div
+      role="img"
+      aria-label={label}
+      style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", justifyContent: "center", gap: "3px", width: "4px", height: "24px" }}
+    >
+      {[0, 1, 2].map((i) => (
+        <span key={i} style={{ display: "block", width: "4px", height: "4px", borderRadius: "2px", backgroundColor: primaryColor }} />
+      ))}
+    </div>
+  );
+
   const renderWebFallbackIcon = (name: string, label?: string) => (
     <Text
       accessibilityLabel={label || name}
@@ -110,12 +123,12 @@ export const CardThreeDotsMenu: React.FC<CardThreeDotsMenuProps> = ({
       ref={anchorRef}
       onMouseEnter={handleOpen}
       onMouseLeave={handleCloseDelayed}
-      style={{ display: "inline-block", padding: "4px" }}
+      style={{ display: "inline-block", padding: flushRight ? "4px 0 4px 8px" : "4px" }}
     >
       <div title="Card Options" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
         <TouchableOpacity activeOpacity={0.7} onPress={handleToggle}>
           {Platform.OS === "web"
-            ? renderWebFallbackIcon("more-vert", "More options")
+            ? (flushRight ? renderFlushDots("More options") : renderWebFallbackIcon("more-vert", "More options"))
             : <MaterialIcons name="more-vert" size={24} color={primaryColor} />}
         </TouchableOpacity>
       </div>

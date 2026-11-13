@@ -151,6 +151,7 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
             onShare={() => onShare?.(card.id)}
             onMenuOpenStateChange={onMenuOpenStateChange}
             primaryColor={themePrimary}
+            flushRight
           />
         </View>
       </View>

@@ -55,6 +55,8 @@ export interface CardThreeDotsMenuProps {
   onShare: () => void;
   onMenuOpenStateChange?: (isOpen: boolean) => void;
   primaryColor?: string;
+  /** Draw the three dots as a tight column whose right edge is the right edge of the component (no side bearing, no right padding): lines up with the right border of the card image / video. */
+  flushRight?: boolean;
 }
 
 export interface CardIconsBottomComponentProps {
