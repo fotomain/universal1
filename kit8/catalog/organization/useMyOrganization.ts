@@ -12,6 +12,7 @@ import { useSupabase } from '../../providers/WithSupabase';
 import { selectUserOrganizationGUID } from '../../redux/activeUserSlice';
 import { organizationTable, type OrganizationRowJSON } from './organizationModel';
 import { numberOfVisitsEnabledOf } from '../user/visit/routeVisitModel';
+import { filesProviderOfOrganization } from '../../files/common/fileModel';
 import {
   DEFAULT_PROJECT_SETTINGS_KEY,
   defaultProjectSettingsOf,
@@ -75,5 +76,8 @@ export function useMyOrganization() {
   /** the stored rowJSON of the row (null until it is read): the chat limit maximumChatAttachmentFileSize ... */
   const organizationJSON: Record<string, any> | null = (query.data?.rowJSON as Record<string, any> | undefined) ?? null;
 
-  return { organizationGUID, organizationJSON, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, saveDefaultProjectSettings };
+  /** where the files of ALL projects of the organization are stored (Organization edit -> Files) */
+  const filesProvider = filesProviderOfOrganization(organizationJSON);
+
+  return { organizationGUID, organizationJSON, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, filesProvider, saveDefaultProjectSettings };
 }

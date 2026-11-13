@@ -99,3 +99,26 @@ it('a video that cannot be played tells so', async () => {
   fire('error');
   expect(onError).toHaveBeenCalledWith(expect.stringContaining('could not be played'));
 });
+
+describe('date and time of a recording whose file has no stamp (documentation/CAMERA_DATE_TIME.html)', () => {
+  const startedAt = new Date(2026, 10, 12, 14, 3, 15).toISOString();
+
+  it('no stamp without the prop (every post of before, and a web recording that has it in the picture)', async () => {
+    mount();
+    await flush();
+    expect(q('video-player-datetime')).toBeNull();
+  });
+
+  it('draws the clock of the position: start + seconds + the pauses before it; follows a jump', async () => {
+    mount({ dateTimeOver: { position: 'topLeft', part: { startedAt, pauses: [{ atSec: 12, lengthSec: 20 }] } } });
+    await flush();
+    expect(text('video-player-datetime')).toBe('2026-11-12 14:03:15');
+    expect(q('video-player-datetime')!.getAttribute('aria-label')).toBe('Date and time topLeft');
+    setProp('currentTime', 5);
+    fire('timeupdate');
+    expect(text('video-player-datetime')).toBe('2026-11-12 14:03:20');
+    setProp('currentTime', 30);
+    fire('timeupdate');
+    expect(text('video-player-datetime')).toBe('2026-11-12 14:04:05');
+  });
+});

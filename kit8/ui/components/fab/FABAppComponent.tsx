@@ -3,12 +3,13 @@ import { View, StyleSheet, TouchableOpacity, Animated, Platform, ScrollView, use
 import { Text, Surface, useTheme } from 'react-native-paper';
 import FABApp from '../common/FABApp';
 import { useSelector } from 'react-redux';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useFAB, useFABCurrentContextActions } from '../../../providers/FABProvider';
 import { CustomLightTheme } from '../../theme/palettes';
 import { getFabMainColors, getFabMiniColors } from './fabColors';
 import { useHiddenDuringScreenshot } from '../../../lib/shareScreenshot';
 import { fabBottomOffset, useBottomInset } from '../navigation/bottomTabsLayout';
+import { fabHiddenOnRoute } from './fabRoutes';
 
 export interface FABAppAction {
   icon: string;
@@ -39,6 +40,8 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   const win = useWindowDimensions();
   const bottomInset = useBottomInset();
   const hiddenForScreenshot = useHiddenDuringScreenshot();
+  /** a screen whose own controls stand where the button floats (the video recorder): fabRoutes.ts */
+  const hiddenOnRoute = fabHiddenOnRoute(usePathname());
 
   const fabIdRef = useRef('app-global-fab');
   const [isOpen, setIsOpen] = useState(false);
@@ -144,7 +147,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   const bottomOffset = fabBottomOffset(bottomTabsAreVisible, bottomInset);
 
   // a picture without the floating button is being taken (project management: Export to PDF)
-  if (hiddenForScreenshot) return null;
+  if (hiddenForScreenshot || hiddenOnRoute) return null;
 
   return (
     <View style={styles.fixedWrapper} pointerEvents="box-none">

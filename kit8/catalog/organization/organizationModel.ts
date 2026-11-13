@@ -67,6 +67,8 @@ export interface OrganizationRowJSON {
   numberOfVisitsFunctionalityEnabled?: boolean;
   /** the base currency of the exchange rate book the database converts with (SQL fx_base_currency, default EUR): it must be the currency the rates are quoted against (EXPO_PUBLIC_CURRENCY_RATES_BASE of the app) */
   baseCurrency?: string;
+  /** where the files of ALL projects of the organization are stored (Organization edit -> Files): 'googleDrive' | 'oneDrive'; a missing value = googleDrive. A file stays in the storage it was made in; a change moves nothing. kit8/files, SQL files_provider_of_scope */
+  organizationFilesStorageProvider?: 'googleDrive' | 'oneDrive';
 }
 
 export interface OrganizationRow {
@@ -155,6 +157,8 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(typeof raw.timesheetOnlyCurrentMonthInputEnabled === 'boolean' ? { timesheetOnlyCurrentMonthInputEnabled: raw.timesheetOnlyCurrentMonthInputEnabled } : {}),
     // route visits: only a stored boolean is kept (a missing key reads as TRUE)
     ...(typeof raw.numberOfVisitsFunctionalityEnabled === 'boolean' ? { numberOfVisitsFunctionalityEnabled: raw.numberOfVisitsFunctionalityEnabled } : {}),
+    // the storage of the files of the organization: only a known storage is kept
+    ...(raw.organizationFilesStorageProvider === 'googleDrive' || raw.organizationFilesStorageProvider === 'oneDrive' ? { organizationFilesStorageProvider: raw.organizationFilesStorageProvider } : {}),
     // a 3 letter currency code (upper case); anything else is dropped: the database then uses EUR
     ...(/^[A-Za-z]{3}$/.test(String(raw.baseCurrency ?? '').trim()) ? { baseCurrency: String(raw.baseCurrency).trim().toUpperCase() } : {}),
   };

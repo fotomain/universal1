@@ -1,5 +1,6 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { normalizePlayVideoSettings, PLAY_VIDEO_DEFAULTS, PlayVideoSettings } from "./playVideoSettings";
+import { normalizeRecordVideoSettings, RECORD_VIDEO_DEFAULTS, RecordVideoSettings } from "./recordVideoSettings";
 
 export type FABAnimationVariant = 'defaultFABAnimation' | 'reanimatedBasicFABAnimation';
 export type DesignSystemType = 'tamagui' | 'paper' | 'ant' | 'native' | 'expo' | 'googlemd3web' | 'applemacui';
@@ -40,6 +41,8 @@ export interface UxuiState {
   intentInfo: UxuiIntentInfo | null;
   /** Video player (kit8/ui/components/media): hide the buttons after N seconds, rewind / forward N seconds. A persisted state of an older version has none: read it with selectPlayVideoSettings. */
   PlayVideoSettings: PlayVideoSettings;
+  /** Video recorder: the date and time over the video + its corner. Read it with selectRecordVideoSettings (documentation/CAMERA_DATE_TIME.html). */
+  RecordVideoSettings: RecordVideoSettings;
 }
 
 /** uxui.intentInfo: what was received + what the user decided to add from it. */
@@ -99,6 +102,7 @@ const uxuiInitialState: UxuiState = {
   hideTreeSelectColumn: false,
   intentInfo: null,
   PlayVideoSettings: { ...PLAY_VIDEO_DEFAULTS },
+  RecordVideoSettings: { ...RECORD_VIDEO_DEFAULTS },
   snackbar: {
     visible: false,
     message: '',
@@ -167,6 +171,12 @@ const uxuiSlice = createSlice({
     },
     resetPlayVideoSettings: (state) => {
       state.PlayVideoSettings = { ...PLAY_VIDEO_DEFAULTS };
+    },
+    setRecordVideoSettings: (state, action: PayloadAction<Partial<RecordVideoSettings>>) => {
+      state.RecordVideoSettings = normalizeRecordVideoSettings({ ...normalizeRecordVideoSettings(state.RecordVideoSettings), ...action.payload });
+    },
+    resetRecordVideoSettings: (state) => {
+      state.RecordVideoSettings = { ...RECORD_VIDEO_DEFAULTS };
     },
     /** a new share arrived (null = forget it) */
     setIntentInfo: (state, action: PayloadAction<UxuiIntentInfo | null>) => {
@@ -251,6 +261,8 @@ export const {
   updateIntentInfo,
   setPlayVideoSettings,
   resetPlayVideoSettings,
+  setRecordVideoSettings,
+  resetRecordVideoSettings,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,

@@ -15,6 +15,7 @@ the capacity check reads the organization of a *user* - the scope is always the 
 
 ## Default project settings (`rowJSON.defaultProjectSettings`)
 
+* **Organization edit -> Files** (2026-11-13): the STORAGE of the files of ALL projects of the organization (`organizationTable.rowJSON.organizationFilesStorageProvider`, radio Google Drive | Microsoft OneDrive, saved with Save) and its connection (Connect / Reconnect / Disconnect, storage used, Check files) = `kit8/files/common/OrganizationFilesTab.tsx`, README of `kit8/files`. It was a per-project setting before.
 * **Organization edit** has two top tabs: **Main** (the old form) and **Projects** → sub tab **Settings** (`OrganizationProjectSettings.tsx`, loaded lazily): the same switches and tabs as the Project settings window
   (Main = working days / plan units / date format, Budgets, Vendor, Product, Subprojects - the very same components) edit the defaults of a NEW project. Save / Cancel are on both tabs; a user who is not the administrator sees them read-only.
 * **Project settings window → three dots menu → "Save settings to organization"** (`PMRecentProjectsToolbar`, testID `pm-project-settings-save-to-organization`): the values IN the window (also unsaved edits) become `defaultProjectSettings`

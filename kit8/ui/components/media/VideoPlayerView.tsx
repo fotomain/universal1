@@ -9,8 +9,10 @@ import { StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import VideoControlsOverlay from './VideoControlsOverlay';
 import type { MediaPlayerViewProps } from './AudioPlayerView';
+import DateTimeOverStamp from './DateTimeOverStamp';
+import { clockTimeAt, formatDateTimeOver } from './dateTimeOver';
 
-export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError }: MediaPlayerViewProps) {
+export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError, dateTimeOver }: MediaPlayerViewProps) {
   // a new file is a new player: MediaPlayer gives the view a key
   const player = useVideoPlayer({ uri }, (p) => {
     p.loop = false;
@@ -58,10 +60,14 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError 
     setCurrentTime(seconds);
   };
 
+  // a recording whose file has no date and time stamp (iOS / Android): drawn here from the saved times
+  const stampAt = dateTimeOver ? clockTimeAt(dateTimeOver.part, currentTime) : null;
+
   return (
     <View style={styles.box} testID="video-player-view">
       {/* tsc resolves the .web typings first (moduleSuffixes): the player type differs there */}
       <VideoView player={player as never} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" allowsPictureInPicture />
+      {dateTimeOver && stampAt && <DateTimeOverStamp position={dateTimeOver.position} text={formatDateTimeOver(stampAt)} testID="video-player-datetime" />}
       <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} />
     </View>
   );

@@ -69,7 +69,8 @@ import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskPaymentPlan from '../payments/PMTaskPaymentPlan';
 import { PAYMENT_TAB_ID } from '../payments/paymentPlanModel';
 import PMTaskFilesPanel from '../../../../files/common/PMTaskFilesPanel';
-import { FILES_TAB_ID, filesEnabledOfProject, filesProviderOfProject } from '../../../../files/common/fileModel';
+import { FILES_TAB_ID, filesEnabledOfProject } from '../../../../files/common/fileModel';
+import { useOrganizationFilesProvider } from '../../../../files/common/useOrganizationFilesProvider';
 import { useFilesList } from '../../../../files/common/useFiles';
 import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
@@ -165,6 +166,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   // the sixth tab "Files" (kit8/files, documentation/FILE_ATTACHMENT_WBS.html): the files of the task in Google Drive; offered while the project switch filesFunctionalityEnabled is not false and the screen is no picker
   const filesOffered = !picker && filesEnabledOfProject(projectJSON);
   const filesActive = filesOffered && pickedGenus === FILES_TAB_ID;
+  // the storage of the files is the organization's (Organization edit -> Files), not the project's
+  const organizationFilesProvider = useOrganizationFilesProvider();
   const { rows: fileRows } = useFilesList({ scope: 'task', guid: taskGUID, projectGUID }, filesOffered && !!taskGUID);
   // Post: the whole task; the state of the button (Post · Posted · Post needed) comes from the lines of ALL tabs
   const { state: postState, post } = useTaskPost({ projectGUID, taskGUID, lines: taskLines, distributions: data.distribution });
@@ -327,7 +330,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
       {paymentsActive ? (
         <PMTaskPaymentPlan projectGUID={projectGUID} taskGUID={taskGUID} data={data} taskLines={taskLines} payments={payments} testID={`${testID}-payments`} />
       ) : filesActive ? (
-        <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} provider={filesProviderOfProject(projectJSON)} testID={`${testID}-files`} />
+        <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} provider={organizationFilesProvider} testID={`${testID}-files`} />
       ) : (
         <ReusableTable
           key={def.genus}

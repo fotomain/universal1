@@ -1,6 +1,6 @@
 // Web twin of RecordVideo.tsx: getUserMedia (camera + microphone) recorded by the browser MediaRecorder into one webm / mp4.
 //
-// The "Record sound" switch works while the video is being recorded and keeps ONE file: the microphone track stays in the
+// The sound switch ("Sound on" / "Sound off") works while the video is being recorded and keeps ONE file: the microphone track stays in the
 // recording, the switch enables / disables it (a disabled track records silence).
 import React, { useEffect, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
@@ -8,9 +8,14 @@ import { Card, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { ButtonPrimaryApp, SwitchApp, showErrorModal } from '../common';
 import RecordingResult from './RecordingResult';
 import { useSaveRecording } from './useSaveRecording';
+import { useRecordVideoSettings } from './useRecordVideoSettings';
+import RecordVideoSettingsPanel from './RecordVideoSettingsPanel';
+import { LiveDateTimeOverStamp } from './DateTimeOverStamp';
 import type { RecordingPost } from './mediaPost';
 import { formatDuration } from './mediaSource';
 import type { RecordVideoProps } from './recordVideoTypes';
+import { createStampedStream, StampedStream } from './stampedStream';
+import type { RecordingDateTimeOver } from './mediaPost';
 
 export type { RecordVideoProps };
 
@@ -32,12 +37,21 @@ type Phase = 'idle' | 'recording' | 'paused' | 'saving' | 'saved';
 export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, onSaved }: RecordVideoProps) {
   const theme = useTheme();
   const save = useSaveRecording('video');
+  const { settings: recordSettings, change: changeRecordSettings, reset: resetRecordSettings } = useRecordVideoSettings();
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  /** the stamp of the recording that runs: fixed at Record (the settings are locked until Stop) */
+  const stampOn = recordSettings.recordDateTimeOverEnabled;
+  const stampPosition = recordSettings.recordDateTimeOverPosition;
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunks = useRef<Blob[]>([]);
   const clock = useRef({ base: 0, since: 0 as number | null });
   const soundEver = useRef(false);
+  /** the canvas between the camera and the recorder while the date and time are written into the picture */
+  const stamped = useRef<StampedStream | null>(null);
+  const recordedOver = useRef<RecordingDateTimeOver | null>(null);
+  const startedAt = useRef('');
 
   const [facing, setFacing] = useState<'user' | 'environment'>('user');
   const [hasMicrophone, setHasMicrophone] = useState(false);
@@ -91,6 +105,8 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   // the camera light goes off when the screen is closed
   useEffect(
     () => () => {
+      stamped.current?.stop();
+      stamped.current = null;
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = null;
     },
@@ -127,7 +143,23 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
     if (!stream) return;
     try {
       const mimeType = pickRecorderMimeType((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m));
-      const recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+      // the date and time over the video: every frame goes through a canvas that draws the text (stampedStream.ts)
+      stamped.current?.stop();
+      stamped.current = null;
+      recordedOver.current = null;
+      let input: MediaStream = stream;
+      if (stampOn && videoRef.current) {
+        try {
+          stamped.current = createStampedStream(videoRef.current, stream, stampPosition);
+          input = stamped.current.stream;
+          recordedOver.current = { position: stampPosition, burnedIn: true };
+        } catch (e) {
+          // a browser without canvas.captureStream: the video is recorded as before, without the stamp
+          showErrorModal(e, 'Record video');
+        }
+      }
+      startedAt.current = new Date().toISOString();
+      const recorder = new MediaRecorder(input, mimeType ? { mimeType } : undefined);
       chunks.current = [];
       soundEver.current = audioOn && hasMicrophone;
       recorder.ondataavailable = (e) => {
@@ -168,11 +200,13 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
 
   const onStopped = async (mime: string) => {
     const durationSec = Math.round(clock.current.base / 100) / 10;
+    stamped.current?.stop();
+    stamped.current = null;
     try {
       const blob = new Blob(chunks.current, { type: mime.split(';')[0] });
       if (!blob.size) throw new Error('Nothing was recorded.');
       const url = URL.createObjectURL(blob);
-      const saved = await save([{ uri: url, durationSec, hasAudio: soundEver.current }]);
+      const saved = await save([{ uri: url, durationSec, hasAudio: soundEver.current, startedAt: startedAt.current || undefined }], undefined, { dateTimeOver: recordedOver.current });
       URL.revokeObjectURL(url);
       setPost(saved);
       setPhase('saved');
@@ -205,11 +239,13 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   }
 
   const active = phase === 'recording' || phase === 'paused';
+  const previewReady = !cameraError;
+  const settingsLocked = active || phase === 'saving';
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={3} testID="record-video">
-        <Card.Title title="Record video" titleStyle={{ color: theme.colors.primary, fontWeight: 'bold' }} />
-        <Card.Content>
+        {/* no title in the card: the application bar already says "Record Video" */}
+        <Card.Content style={styles.content}>
           <Surface style={styles.preview} elevation={2}>
             {cameraError ? (
               <View style={styles.center}>
@@ -225,46 +261,54 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               />
             )}
             {active && (
-              <View style={[styles.badge, { backgroundColor: phase === 'paused' ? '#6b7280' : theme.colors.error }]}>
+              <View testID={stampOn && stampPosition === 'topLeft' ? 'record-video-badge-right' : 'record-video-badge'} style={[styles.badge, stampOn && stampPosition === 'topLeft' ? styles.badgeRight : null, { backgroundColor: phase === 'paused' ? '#6b7280' : theme.colors.error }]}>
                 <Text variant="labelSmall" style={styles.badgeText} testID="record-video-time">
                   {phase === 'paused' ? 'PAUSED' : 'REC'} {formatDuration(elapsed)}
                 </Text>
               </View>
             )}
+            {stampOn && previewReady && <LiveDateTimeOverStamp position={stampPosition} testID="record-video-datetime" />}
           </Surface>
 
           <View style={styles.row}>
+            {!active && (
+              <ButtonPrimaryApp icon="fiber_manual_record" color={theme.colors.error} onPress={start} disabled={!!cameraError || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start">
+                Record
+              </ButtonPrimaryApp>
+            )}
             <SwitchApp
-              label={audioOn && hasMicrophone ? 'Record sound: on' : 'Record sound: off'}
+              label={audioOn && hasMicrophone ? 'Sound on' : 'Sound off'}
               value={audioOn && hasMicrophone}
               onValueChange={setAudioOn}
               disabled={!hasMicrophone || phase === 'saving'}
+              style={styles.sound}
               testID="record-video-sound"
             />
-            <IconButton icon="camera-flip" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} disabled={active || phase === 'saving'} accessibilityLabel="Switch camera" testID="record-video-flip" />
+            <View style={styles.rowIcons}>
+              <IconButton icon="camera-flip" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} disabled={active || phase === 'saving'} accessibilityLabel="Switch camera" size={22} style={styles.flip} testID="record-video-flip" />
+              <IconButton icon="cog" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
+            </View>
           </View>
+          {settingsOpen && (
+            <RecordVideoSettingsPanel settings={recordSettings} onChange={changeRecordSettings} onReset={resetRecordSettings} locked={settingsLocked} />
+          )}
           {!hasMicrophone && !cameraError && (
             <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }} testID="record-video-nomic">
               No microphone is allowed: the video is recorded without sound.
             </Text>
           )}
 
-          <View style={styles.buttons}>
-            {!active ? (
-              <ButtonPrimaryApp icon="fiber_manual_record" color={theme.colors.error} onPress={start} disabled={!!cameraError || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start">
-                Record
+          {/* Pause / Stop while a recording runs; Record itself stands in the row above, left of the sound switch */}
+          {active && (
+            <View style={styles.buttons}>
+              <ButtonPrimaryApp icon={phase === 'paused' ? 'play_arrow' : 'pause'} onPress={pauseOrResume} testID="record-video-pause">
+                {phase === 'paused' ? 'Resume' : 'Pause'}
               </ButtonPrimaryApp>
-            ) : (
-              <>
-                <ButtonPrimaryApp icon={phase === 'paused' ? 'play_arrow' : 'pause'} onPress={pauseOrResume} testID="record-video-pause">
-                  {phase === 'paused' ? 'Resume' : 'Pause'}
-                </ButtonPrimaryApp>
-                <ButtonPrimaryApp icon="stop" onPress={stop} testID="record-video-stop">
-                  Stop & save
-                </ButtonPrimaryApp>
-              </>
-            )}
-          </View>
+              <ButtonPrimaryApp icon="stop" onPress={stop} testID="record-video-stop">
+                Stop & save
+              </ButtonPrimaryApp>
+            </View>
+          )}
         </Card.Content>
       </Card>
     </ScrollView>
@@ -274,11 +318,20 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
 const styles = StyleSheet.create({
   container: { padding: 16, alignItems: 'center' },
   card: { width: '100%', maxWidth: 640, borderRadius: 16 },
+  content: { paddingTop: 16 },
   preview: { width: '100%', height: 360, borderRadius: 12, overflow: 'hidden', backgroundColor: '#000' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   light: { color: '#fff', textAlign: 'center' },
   badge: { position: 'absolute', top: 10, left: 10, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  badgeRight: { left: undefined, right: 10 },
   badgeText: { color: '#fff', fontWeight: 'bold' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  rowIcons: { flexDirection: 'row', alignItems: 'center', marginLeft: 'auto' },
+  /* the gear ends at the right edge of the picture (an icon button has 8 of empty space around its sign) */
+  gear: { margin: 0, marginRight: -8, marginLeft: -4 },
+  /* the camera sign stands in the middle between the sound switch and the gear */
+  flip: { margin: 0, marginLeft: 4 },
+  /* ONE line also on a narrow phone: the switch gives way (its text may break), nothing drops to a second line */
+  sound: { flexShrink: 1, marginLeft: 8 },
   buttons: { flexDirection: 'row', gap: 12, marginTop: 16, flexWrap: 'wrap' },
 });

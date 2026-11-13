@@ -348,6 +348,22 @@ export const reusableRootSaga = (p: any) => {
 
             if (error) throw error;
 
+            // Row-level security does NOT raise an error for a DELETE it filters out: PostgREST answers 200 with an empty list.
+            // Taking that as "deleted" removed the card from the screen while the row stayed in the database (it came back with
+            // the next read). Empty answer: look whether the row is really gone before calling it a success.
+            if (!data || data.length === 0) {
+                const {count, error: checkError} = yield call(() =>
+                    supabase
+                        .from(tableName)
+                        .select("rowGUID", {count: "exact", head: true})
+                        .eq("rowGUID", rowGUID)
+                );
+                if (checkError) throw checkError;
+                if ((count ?? 0) > 0) {
+                    throw {code: "42501", message: `row-level security: ${itemLabel} was not deleted`};
+                }
+            }
+
             const deletedRecord = (data && data[0]) ? data[0] : action.payload;
             yield put(actions.deleteOneSuccess(deletedRecord));
             yield put(
@@ -359,8 +375,14 @@ export const reusableRootSaga = (p: any) => {
                     entityName: entityKey || "mediaPostReusable",
                 })
             );
-        } catch (e) {
+        } catch (e: any) {
             yield put(actions.deleteOneFailure(e));
+            // a media post of a READ-ONLY project: say whose project it is (the database error carries the name)
+            let readonlyText: string | null = null;
+            if (tableName === "mediaPostTable") {
+                try { readonlyText = require("../../ui/components/media/mediaPostProject").readonlyDeleteMessageOf(e); } catch { /* the generic text below */ }
+            }
+            yield put(showSnackbar({message: readonlyText ?? `${itemLabel} was not deleted: ${dbErrorMessage(e)}`}));
         }
     }
 

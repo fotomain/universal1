@@ -33,19 +33,24 @@ SET LOCAL ROLE anon;
 SELECT tt.fails('SELECT count(*) FROM public.files_onedrive_connection_table', 'permission denied', 'anon cannot read it');
 RESET ROLE;
 
--- ================= 2. the storage of a scope ==================================================================================================================================
-SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'googleDrive', 'a project without the key is Google Drive (every project made before OneDrive)');
-SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'googleDrive', '... and so is the organization default when missing');
-UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"projectFilesStorageProvider": "oneDrive"}' WHERE "rowGUID" = 'aaaaaaaa-0000-0000-0000-000000000058';
-SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'oneDrive', 'the project setting projectFilesStorageProvider = oneDrive');
-SELECT tt.eq(public.files_provider_of_scope('project', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'oneDrive', '... for the project scope too');
-SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'googleDrive', 'but an organization file ignores the project setting');
-UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"projectFilesStorageProvider": "nonsense"}' WHERE "rowGUID" = 'aaaaaaaa-0000-0000-0000-000000000058';
-SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'googleDrive', 'anything but oneDrive is googleDrive');
+-- ================= 2. the storage of a scope: ONE storage for the whole organization (Organization edit -> Files) ==================================================================
+SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'googleDrive', 'an organization without the key is Google Drive (every organization made before OneDrive)');
+SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'googleDrive', '... for the organization files too');
+-- the old per-project key and the old default are NOT read any more
 UPDATE public.project_table SET "rowJSON" = "rowJSON" || '{"projectFilesStorageProvider": "oneDrive"}' WHERE "rowGUID" = 'aaaaaaaa-0000-0000-0000-000000000058';
 UPDATE public."organizationTable" SET "rowJSON" = jsonb_set("rowJSON", '{defaultProjectSettings}', '{"projectFilesStorageProvider": "oneDrive"}'::jsonb || COALESCE("rowJSON"->'defaultProjectSettings', '{}'::jsonb)) WHERE "rowGUID" = :'orga';
-SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'oneDrive', 'the organization default decides the organization files');
-SELECT tt.eq(public.files_provider_of_scope('document', NULL, :'orga'), 'oneDrive', '... and the document files');
+SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'googleDrive', 'the old project key projectFilesStorageProvider no longer decides');
+SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'googleDrive', '... nor the old organization default of the same key');
+-- the organization key decides EVERY scope
+UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"organizationFilesStorageProvider": "oneDrive"}'::jsonb WHERE "rowGUID" = :'orga';
+SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'oneDrive', 'the organization setting organizationFilesStorageProvider = oneDrive: a task file');
+SELECT tt.eq(public.files_provider_of_scope('project', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'oneDrive', '... a project file');
+SELECT tt.eq(public.files_provider_of_scope('organization', NULL, :'orga'), 'oneDrive', '... an organization file');
+SELECT tt.eq(public.files_provider_of_scope('document', NULL, :'orga'), 'oneDrive', '... a document file');
+SELECT tt.eq(public.files_provider_of_scope('chat', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'oneDrive', '... a chat file');
+UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"organizationFilesStorageProvider": "nonsense"}'::jsonb WHERE "rowGUID" = :'orga';
+SELECT tt.eq(public.files_provider_of_scope('task', 'aaaaaaaa-0000-0000-0000-000000000058'::uuid, :'orga'), 'googleDrive', 'anything but oneDrive is googleDrive');
+UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{"organizationFilesStorageProvider": "oneDrive"}'::jsonb WHERE "rowGUID" = :'orga';
 SELECT tt.as_user('anna@od.test', '58585858-5858-5858-5858-585858585801');
 SELECT tt.eq(public.files_authorize('add', 'task', 'bbbbbbbb-0000-0000-0000-000000000581', 'aaaaaaaa-0000-0000-0000-000000000058')->>'provider', 'oneDrive', 'files_authorize tells the function the storage of a task file');
 SELECT tt.eq(public.files_authorize('add', 'organization')->>'provider', 'oneDrive', '... and of an organization file');

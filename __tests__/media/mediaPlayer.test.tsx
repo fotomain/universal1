@@ -121,6 +121,26 @@ describe('MediaPlayer', () => {
     expect(onEnded).toHaveBeenCalledTimes(1);
   });
 
+  it('date and time stamp: each file gets ITS part; a stamp in the picture or another source chosen by the user gets none', async () => {
+    const over = { position: 'topLeft' as const, burnedIn: false, parts: [{ startedAt: '2026-11-12T13:03:15.000Z' }, { startedAt: '2026-11-12T13:04:15.700Z' }] };
+    render(<MediaPlayer kind="video" source={['https://a/1.mp4', 'https://a/2.mp4']} dateTimeOver={over} />);
+    await flush();
+    expect(lastView().props.dateTimeOver).toEqual({ position: 'topLeft', part: over.parts[0] });
+    await act(async () => lastView().props.onEnd());
+    await flush();
+    expect(lastView().props.dateTimeOver).toEqual({ position: 'topLeft', part: over.parts[1] });
+    cleanup();
+
+    render(<MediaPlayer kind="video" source="https://a/1.mp4" dateTimeOver={{ position: 'topLeft', burnedIn: true }} />);
+    await flush();
+    expect(lastView().props.dateTimeOver).toBeNull();
+    cleanup();
+
+    render(<MediaPlayer kind="audio" source="https://a/1.mp3" dateTimeOver={over} />);
+    await flush();
+    expect(lastView().props.dateTimeOver).toBeNull();
+  });
+
   it('a recording stored by the app is resolved before it is played', async () => {
     render(<MediaPlayer kind="video" source="kit8media://kit8video_1.webm" />);
     await flush();

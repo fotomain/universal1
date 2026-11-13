@@ -47,9 +47,43 @@ The file stays on the device (phone: document folder, web: IndexedDB as `kit8med
   new setting (about `SEGMENT_GAP_MS` = 0.7 s between the parts is NOT recorded). The parts are ONE post (`mediaSegments`) that the player plays one
   after the other. The same switch before Record only sets the first part.
 
+## Video: date and time over the picture (`RecordVideoSettings`)
+
+Design + spikes: `documentation/CAMERA_DATE_TIME.html`. The gear button of the recorder card opens `RecordVideoSettingsPanel`:
+
+| Key (`uxuiState.RecordVideoSettings`, persisted) | Control | Default |
+|---|---|---|
+| `recordDateTimeOverEnabled` | switch "Date and time over the video" | `false` |
+| `recordDateTimeOverPosition` | radio, two lines of two equal items: Top Left, Top Right / Bottom Left, Bottom Right (`RadioSetApp columns={2}`); disabled while the switch is off | `bottomRight` |
+
+Both are locked while a recording runs. Model `kit8/redux/recordVideoSettings.ts` (normalize, selector), hook `useRecordVideoSettings`.
+
+- The text is `YYYY-MM-DD HH:mm:ss`, local time. ONE pure file gives the text, the place (4 % of the short side; 3 % / 4 % margins) and the clock
+  time of a second of a file: `dateTimeOver.ts`. `DateTimeOverStamp` draws it over a box (`LiveDateTimeOverStamp` = the clock of now, the preview).
+- **Web**: the stamp is IN the file. `stampedStream.ts`: camera -> `<video>` -> hidden canvas (frame + text) -> `captureStream` + the SAME
+  microphone track -> `MediaRecorder`. A browser without `canvas.captureStream` records as before and says so. Post: `mediaDateTimeOver { position, burnedIn: true }`.
+- **iOS / Android**: the file has NO stamp (the camera writes it in hardware). The recorder notes when each part started and its pauses
+  (`PartClock`); post: `mediaDateTimeOver { position, burnedIn: false, parts: [{ startedAt, pauses: [{ atSec, lengthSec }] }] }` (one part per file).
+  The player draws the stamp: `<MediaPlayer dateTimeOver={dateTimeOverOfPost(rowJSON)} />` (the result card does), or the route parameter
+  `&stamp=<JSON>` (`buildPlayRoute({ dateTimeOver })`). A file taken out of the app has no stamp - writing it into the mp4 is phase 2 (not built).
+- Limits: in the player the place is counted from the player box, not from the picture inside it; the start of a part is the moment
+  `startRecording` was called (the first frame is a little later).
+- The card of the recorder has no title: the application bar says "Record Video".
+- The row under the picture is ONE line: **Record** · switch **Sound on / Sound off** · camera flip · gear (at the right edge). While a recording
+  runs, Pause / Stop & save stand in a line under it. The floating "+" button of the application is hidden on `/media/record/video`
+  (`kit8/ui/components/fab/fabRoutes.ts`, test `__tests__/ui/fabRoutes.test.ts`). Reset of the panel is a plain text button.
+
+## Media Posts list on a phone
+
+The web list (`app/posts/mediapostcrud/index.tsx` -> `ListWebCardsComponent`) is built from browser tags (div, span) and crashed on iOS / Android
+("View config getter for component `div`") when the user pressed **Media posts** after a recording. Expo Router takes
+`app/posts/mediapostcrud/index.native.tsx` on a phone: `MediaPostsNativeList` (the user's posts, newest first, Play in `MediaPlayerModal`
+with the date and time stamp, Delete after a question). Rows: `mediaPostList.ts` (pure). The web list is unchanged; editing titles, archive and
+drag and drop exist on the web only.
+
 ## Tests (`__tests__/media`)
 
-`mediaSource`, `mediaPost` (pure) · `mediaPlayer` (MediaPlayer, modal, route) · `audioPlayerView` · `videoPlayerView` (+ `Web`) · `videoControlsOverlay` · `videoControlsLogic` · `playVideoSettings` · `recordAudio` · `recordVideoNative` (fake camera:
+`mediaSource`, `mediaPost`, `dateTimeOver`, `recordVideoSettings`, `mediaPostList` (pure) · `mediaPostsNativeList` · `mediaPlayer` (MediaPlayer, modal, route) · `audioPlayerView` · `videoPlayerView` (+ `Web`) · `videoControlsOverlay` · `videoControlsLogic` · `playVideoSettings` · `recordAudio` · `recordVideoNative` (fake camera:
 parts, switch, pause, limit) · `recordVideoWeb` (fake MediaRecorder / getUserMedia) · `saveRecording` · `mediaFileStore` · `mediaRoutes`.
 `mediaUiTestKit.tsx` mocks Paper / common / expo-router. What a test cannot do: record with a real camera or microphone — try it on a device.
 
@@ -74,3 +108,8 @@ Files: `VideoControls.tsx` (look), `VideoControlsOverlay.tsx` (gestures, state),
 ## Do not install
 
 `react-native-video` (6.19 needs media3 1.8, `expo-audio` / `expo-video` bring 1.9.0: `NoSuchMethodError DefaultLoadControl.<init>`, the app closes when a video starts) and `expo-camera` (CameraX 1.6.0 vs Vision Camera 1.5.0-alpha03). A test in `mediaRoutes.test.ts` guards both.
+
+
+## Signed-in users only, projects on cards (2026-11-13)
+- `RecordingSignInGate` wraps `app/media/record/audio` and `video`: a guest sees Sign in / Sign in and connect the file storage (back to `/catalog/organization`, Organization edit -> Files, where the administrator sets `organizationFilesStorageProvider`). `useSaveRecording` refuses a guest as a second lock.
+- `mediaPostProject.ts`: the project of a post (a file row of the Files tab, or a post whose parent is a project) and the words of a delete stopped by a read-only project. A post with no project is changed by its owner only. Cards show `Project: <name>`; the delete of a project file goes through the files-drive function (`deleteFileRow`), never a plain DELETE.

@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Price plan calculator</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline, no external file) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 13px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; padding: 14px 16px; border-radius: 12px; overflow-x: auto; margin: 8px 0 0; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .grid > * { min-width: 0; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.m { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.b { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.a { background: var(--amber-soft); color: var(--amber); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); white-space: nowrap; }
+  td.n, th.n { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .bad { background: var(--rose-soft); border: 1px solid #f7b6c2; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  ul.tight { margin: 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+  /* the live sketch */
+  .calc { display: grid; gap: 18px; grid-template-columns: minmax(280px, 1fr) minmax(280px, 1fr); align-items: start; }
+  @media (max-width: 760px) { .calc { grid-template-columns: 1fr; } }
+  .calc label { display: grid; grid-template-columns: 1fr 120px; gap: 10px; align-items: center; padding: 4px 0; font-size: 14px; }
+  .calc label.sub2 { padding-left: 18px; color: var(--text-2); }
+  .calc input[type=number], .calc select { font: 14px var(--font); padding: 6px 8px; border: 1px solid var(--border-strong); border-radius: 8px; width: 100%; background: #fff; color: var(--text); text-align: right; }
+  .calc input[type=checkbox] { justify-self: end; width: 18px; height: 18px; }
+  .calc h4 { margin: 14px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+  .big { font-size: 40px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.1; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin: 12px 0; }
+  .tile { background: var(--bg-subtle); border-radius: 10px; padding: 10px 12px; }
+  .tile b { display: block; font-size: 18px; }
+  .tile span { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="top-inner">
+    <div class="brand">Price plan calculator</div>
+    <nav><ul>
+      <li><a href="#goal">Goal</a></li>
+      <li><a href="#bill">The bill</a></li>
+      <li><a href="#prices">Prices</a></li>
+      <li><a href="#inputs">Parameters</a></li>
+      <li><a href="#model">Model</a></li>
+      <li><a href="#vm">Virtual machine</a></li>
+      <li><a href="#results">Results</a></li>
+      <li><a href="#sketch">Live sketch</a></li>
+      <li><a href="#fetch">Price fetcher</a></li>
+      <li><a href="#app">In the app</a></li>
+      <li><a href="#sales">Sales plans</a></li>
+      <li><a href="#wbs">WBS</a></li>
+      <li><a href="#questions">Questions</a></li>
+    </ul></nav>
+  </div>
+</header>
+<main>
+
+<section id="goal" style="margin-top:0">
+  <h1>Price plan calculator</h1>
+  <p class="lead">The administrator wants to know what the application costs to own per month. He types how big his work is (projects, tasks, plan lines, users, changes, ROI, reports) and the screen <code>ApplicationCostsPlanCalculator.tsx</code> answers with the Supabase cloud bill: the total, the virtual machine that is needed, and the numbers behind them. Later the same calculator is the base of the sales pricing plans.</p>
+  <p class="sub">PLAN ONLY, 2026-11-12. No app code is written. Prices were read from the public Supabase pages today; sizes of rows were measured today on the local Docker database.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">What it is</h3>
+      <ul class="tight">
+        <li>One screen for the organization administrator: parameters on the left, the bill on the right.</li>
+        <li>A pure model (no network): parameters + price list + coefficients → resources → dollars.</li>
+        <li>A price list that is fetched from the public Supabase data by an Edge Function, stored with its date, and never trusted blindly.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">What it is not</h3>
+      <ul class="tight">
+        <li>Not the real invoice. It is an estimate: the load model has assumptions (marked <span class="pill a">A</span> below).</li>
+        <li>Not a monitor of the live Supabase usage (the Supabase dashboard is that).</li>
+        <li>Not the sales price itself: it gives the COST; the margin and the plans come later (section Sales plans).</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Three findings of the analysis</h3>
+      <ul class="tight">
+        <li>For most sizes the bill is <b>plan fee + virtual machine</b>. Disk, traffic, users and Realtime stay inside the included amounts for a long time.</li>
+        <li>The virtual machine is chosen by <b>memory</b> and by the <b>biggest single project</b>, less by the number of users.</li>
+        <li>The pg_cron log of the 2 second worker is never cleaned today: about 1.5 million rows a month. It is a hidden disk cost (section Model, finding F1).</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="bill">
+  <h2>1. How Supabase makes the bill</h2>
+  <p class="sub">The calculator must copy these rules, not only the prices.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Part of the bill</th><th>Rule</th><th>What drives it in Universal 1</th></tr>
+      <tr><td><b>Plan fee</b></td><td>Per Supabase ORGANIZATION, per month: Free 0, Pro 25, Team 599. Plans are not mixed inside one organization.</td><td>Fixed. Team only when its extras are wanted (SSO, 14 days of backups, longer logs).</td></tr>
+      <tr><td><b>Compute</b> (the virtual machine)</td><td>Per Supabase PROJECT, per hour, no included amount. A paid plan has 10 USD of compute credits a month = one Micro machine.</td><td>Memory for the data that is used, CPU for the writes / posts / reports, the biggest project. A second environment (DEV) is a second machine.</td></tr>
+      <tr><td><b>Disk</b></td><td>8 GB per project included, then per GB. The disk holds the database, its indexes, the write ahead log and the system.</td><td>Tasks, lines, plan rows (one per line and working day or month), register, report tables, versions, documents, the pg_cron log.</td></tr>
+      <tr><td><b>Egress</b> (traffic out)</td><td>250 GB per organization included, then per GB.</td><td>Opening a project (all tasks + lines), report requests, Realtime messages, the 3 second check of an open Monitor01.</td></tr>
+      <tr><td><b>Monthly active users</b></td><td>100 000 included, then per user.</td><td>Number of users. Not a cost at any size the app will see soon.</td></tr>
+      <tr><td><b>Realtime</b></td><td>500 peak connections and 5 million messages included, then per 1 000 connections / per million messages. One changed row sent to N listening clients = N messages.</td><td>Users online at the same time; changed rows x clients that look at the same project.</td></tr>
+      <tr><td><b>Edge Function calls</b></td><td>2 million included, then per million.</td><td>Files (Drive / OneDrive), invitations, the price fetcher. Far below the limit.</td></tr>
+      <tr><td><b>File storage</b></td><td>100 GB included, then per GB.</td><td>Almost nothing: the files of the app live in the customer's Google Drive / OneDrive, not in Supabase Storage.</td></tr>
+      <tr><td><b>Add-ons</b></td><td>Each a fixed price per month and project.</td><td>Point in time recovery, custom domain, IPv4 address, read replica: switches of the calculator.</td></tr>
+      <tr><td><b>API requests</b></td><td>Unlimited, not billed.</td><td>They still use CPU and traffic, so the model counts them there.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="prices">
+  <h2>2. The prices, read on 2026-11-12</h2>
+  <p class="sub">Sources: <code>supabase.com/pricing</code>, <code>supabase.com/docs/guides/platform/compute-and-disk</code>, <code>supabase.com/docs/guides/platform/billing-on-supabase</code>, and the data files of the public repository <code>supabase/supabase</code> (<code>packages/shared-data/plans.ts</code>, <code>pricing.ts</code>). USD. This table is the built-in snapshot the calculator starts with when it has never fetched.</p>
+  <div class="grid">
+    <div class="card scroll"><h3 style="margin-top:0">Plans and included amounts</h3>
+      <table>
+        <tr><th>Item</th><th class="n">Free</th><th class="n">Pro / Team</th><th class="n">Above the included</th></tr>
+        <tr><td>Plan fee / month</td><td class="n">0</td><td class="n">25 / 599</td><td class="n">-</td></tr>
+        <tr><td>Compute credits</td><td class="n">-</td><td class="n">10</td><td class="n">-</td></tr>
+        <tr><td>Database / disk per project</td><td class="n">500 MB</td><td class="n">8 GB</td><td class="n">0.125 / GB</td></tr>
+        <tr><td>Egress</td><td class="n">5 GB</td><td class="n">250 GB</td><td class="n">0.09 / GB</td></tr>
+        <tr><td>Cached egress</td><td class="n">5 GB</td><td class="n">250 GB</td><td class="n">0.03 / GB</td></tr>
+        <tr><td>Monthly active users</td><td class="n">50 000</td><td class="n">100 000</td><td class="n">0.00325 / user</td></tr>
+        <tr><td>Realtime peak connections</td><td class="n">200</td><td class="n">500</td><td class="n">10 / 1 000</td></tr>
+        <tr><td>Realtime messages</td><td class="n">2 million</td><td class="n">5 million</td><td class="n">2.50 / million</td></tr>
+        <tr><td>Edge Function calls</td><td class="n">500 000</td><td class="n">2 million</td><td class="n">2 / million</td></tr>
+        <tr><td>File storage</td><td class="n">1 GB</td><td class="n">100 GB</td><td class="n">0.0213 / GB</td></tr>
+        <tr><td>Automatic backups</td><td class="n">-</td><td class="n">7 / 14 days</td><td class="n">-</td></tr>
+      </table>
+      <h3>Disk and add-ons</h3>
+      <table>
+        <tr><th>Item</th><th class="n">Price</th></tr>
+        <tr><td>General purpose disk: 3 000 IOPS and 125 MB/s included</td><td class="n">0.024 / IOPS · 0.095 / MB/s above</td></tr>
+        <tr><td>High performance disk</td><td class="n">0.195 / GB · 0.119 / IOPS</td></tr>
+        <tr><td>Point in time recovery</td><td class="n">100 / month per 7 days kept</td></tr>
+        <tr><td>Custom domain</td><td class="n">10 / month</td></tr>
+        <tr><td>Database branch</td><td class="n">0.01344 / hour</td></tr>
+        <tr><td>IPv4 address</td><td class="n">about 4 / month - NOT on the pages read today, to be confirmed by the fetcher</td></tr>
+        <tr><td>Read replica</td><td class="n">not on the pages read today (expected: the price of its own machine + disk)</td></tr>
+      </table>
+    </div>
+    <div class="card scroll"><h3 style="margin-top:0">Compute sizes (the virtual machines)</h3>
+      <table>
+        <tr><th>Size</th><th class="n">USD / month</th><th class="n">USD / hour</th><th>CPU</th><th class="n">Memory</th><th class="n">Database up to</th><th class="n">Direct / pooler connections</th></tr>
+        <tr><td>Nano (Free)</td><td class="n">0</td><td class="n">0</td><td>shared</td><td class="n">0.5 GB</td><td class="n">500 MB</td><td class="n">60 / 200</td></tr>
+        <tr><td>Micro</td><td class="n">10</td><td class="n">0.01344</td><td>shared</td><td class="n">1 GB</td><td class="n">10 GB</td><td class="n">60 / 200</td></tr>
+        <tr><td>Small</td><td class="n">15</td><td class="n">0.0206</td><td>shared</td><td class="n">2 GB</td><td class="n">50 GB</td><td class="n">90 / 400</td></tr>
+        <tr><td>Medium</td><td class="n">60</td><td class="n">0.0822</td><td>shared</td><td class="n">4 GB</td><td class="n">100 GB</td><td class="n">120 / 600</td></tr>
+        <tr><td>Large</td><td class="n">110</td><td class="n">0.1517</td><td>2 dedicated</td><td class="n">8 GB</td><td class="n">200 GB</td><td class="n">160 / 800</td></tr>
+        <tr><td>XL</td><td class="n">210</td><td class="n">0.2877</td><td>4 dedicated</td><td class="n">16 GB</td><td class="n">500 GB</td><td class="n">240 / 1 000</td></tr>
+        <tr><td>2XL</td><td class="n">410</td><td class="n">0.562</td><td>8 dedicated</td><td class="n">32 GB</td><td class="n">1 TB</td><td class="n">380 / 1 500</td></tr>
+        <tr><td>4XL</td><td class="n">960</td><td class="n">1.32</td><td>16 dedicated</td><td class="n">64 GB</td><td class="n">2 TB</td><td class="n">480 / 3 000</td></tr>
+        <tr><td>8XL</td><td class="n">1 870</td><td class="n">2.562</td><td>32 dedicated</td><td class="n">128 GB</td><td class="n">4 TB</td><td class="n">490 / 6 000</td></tr>
+        <tr><td>12XL</td><td class="n">2 800</td><td class="n">3.836</td><td>48 dedicated</td><td class="n">192 GB</td><td class="n">6 TB</td><td class="n">500 / 9 000</td></tr>
+        <tr><td>16XL</td><td class="n">3 730</td><td class="n">5.12</td><td>64 dedicated</td><td class="n">256 GB</td><td class="n">10 TB</td><td class="n">500 / 12 000</td></tr>
+      </table>
+      <p class="sub" style="margin:10px 0 0">"Database up to" is the size Supabase recommends for the machine. The Free plan is not offered by the calculator as an answer for real work: a Free project pauses after a week without use and has no backups.</p>
+    </div>
+  </div>
+</section>
+
+<section id="inputs">
+  <h2>3. The parameters</h2>
+  <p class="sub">The first table is the owner's list. The second table is what the model also needs; every one has a default, so the administrator may leave it alone ("Advanced", folded).</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Parameter</th><th>Key (proposed)</th><th class="n">Default</th><th>Meaning, and what it drives</th></tr>
+      <tr><td><b>Number of projects</b></td><td><code>numberOfProjects</code></td><td class="n">20</td><td>Projects that hold data (open and finished). Disk, memory.</td></tr>
+      <tr><td><b>Maximum tasks in one project</b></td><td><code>maximumTasksInOneProject</code></td><td class="n">500</td><td>Stages + tasks + milestones of the biggest project. Smallest machine that can open, post and recalculate it; cost of one date change.</td></tr>
+      <tr><td style="padding-left:26px"><b>Maximum lines in plans</b></td><td><code>maximumPlanLinesInOneProject</code></td><td class="n">1 000</td><td>Task lines (Time, Material, Expense, Deliverable) of the biggest project. The largest part of the disk: each line makes plan rows, register rows and report rows.</td></tr>
+      <tr><td><b>Number of users</b></td><td><code>numberOfUsers</code></td><td class="n">30</td><td>Users who sign in during a month. Peak connections, opens of projects, traffic.</td></tr>
+      <tr><td><b>Number of data changes</b> / month</td><td></td><td></td><td></td></tr>
+      <tr><td style="padding-left:26px"><b>Dates</b></td><td><code>dateChangesPerMonth</code></td><td class="n">2 000</td><td>A task moved / resized / linked. One change reschedules the tasks behind it: several rows written, several Realtime messages.</td></tr>
+      <tr><td style="padding-left:26px"><b>Planning data lines</b></td><td><code>planLineChangesPerMonth</code></td><td class="n">3 000</td><td>A task line added / edited / deleted.</td></tr>
+      <tr><td style="padding-left:26px">Posts of tasks</td><td><code>taskPostsPerMonth</code></td><td class="n">1 500</td><td>The plan of a task calculated again (Post). The heaviest everyday write: it rewrites the plan rows and wakes the Monitor01 worker.</td></tr>
+      <tr><td style="padding-left:26px">Documents posted</td><td><code>documentsPostedPerMonth</code></td><td class="n">200</td><td>Fact input, invoices, orders, receipts, payments, time sheets. They are kept for ever: the disk grows with the months.</td></tr>
+      <tr><td><b>ROI calculations</b></td><td><code>roiForTasksEnabled</code>, <code>roiHistoryEnabled</code></td><td class="n">off / off</td><td>The two project switches. ROI per task adds a worker step and rows per task and month; the history adds a row per change, for ever.</td></tr>
+      <tr><td><b>Reports requests</b> / month</td><td><code>reportRequestsPerMonth</code></td><td class="n">1 000</td><td>Monitor01, 02, 03, 07 opened or refreshed. Each reads the report rows of a project.</td></tr>
+      <tr><td style="padding-left:26px">Minutes a report stays open</td><td><code>reportOpenMinutes</code></td><td class="n">10</td><td>With Auto refresh ON an open Monitor01 asks the database every 3 seconds (20 small calls a minute).</td></tr>
+    </table>
+  </div>
+  <div class="card scroll">
+    <h3 style="margin-top:0">Advanced parameters (with defaults)</h3>
+    <table>
+      <tr><th>Parameter</th><th class="n">Default</th><th>Why it is needed</th></tr>
+      <tr><td>Average project = % of the maximum (<code>averageProjectFillPercent</code>)</td><td class="n">60 %</td><td>The owner gives maximums; the disk needs the sum. Total tasks = projects x maximum x this share.</td></tr>
+      <tr><td>Plan rows per line (<code>planRowsPerLine</code>)</td><td class="n">6</td><td>A line is spread over the working days / months of its task. Measured on BUDGET1: 5.6. Long tasks planned by day make many more.</td></tr>
+      <tr><td>Users online at the busiest moment (<code>concurrentUsersPercent</code>)</td><td class="n">30 %</td><td>Realtime connections and memory.</td></tr>
+      <tr><td>Project opens per user and working day</td><td class="n">4</td><td>Each open reads all tasks and lines of the project.</td></tr>
+      <tr><td>Saved versions per project</td><td class="n">2</td><td>A version is a copy of the tasks and lines.</td></tr>
+      <tr><td>Months of documents kept</td><td class="n">24</td><td>Documents and the ROI history only grow.</td></tr>
+      <tr><td>pg_cron log is cleaned (keeps 7 days)</td><td class="n">yes</td><td>See finding F1. "No" shows what happens today.</td></tr>
+      <tr><td>Realtime on</td><td class="n">yes</td><td>Off = no messages, no connections (the report still follows by its 3 second check).</td></tr>
+      <tr><td>Supabase plan</td><td class="n">Pro</td><td>Pro | Team.</td></tr>
+      <tr><td>Second environment (DEV / test project)</td><td class="n">no</td><td>One more machine (Micro) in the same organization.</td></tr>
+      <tr><td>Point in time recovery · custom domain · IPv4</td><td class="n">no · no · no</td><td>Fixed add-ons. Point in time recovery needs at least a Small machine.</td></tr>
+      <tr><td>Safety margin on the machine</td><td class="n">60 % target load</td><td>The machine is chosen so that the busy hour uses at most this share of it.</td></tr>
+    </table>
+  </div>
+  <div class="ok"><b>Button "Fill from this database".</b> The administrator should not guess. One RPC (<code>application_usage_facts()</code>, administrator only) returns the real numbers of his organization: projects, the biggest project's tasks and lines, users, the changes / posts / documents of the last 30 days (from <code>updated_at</code> and the posted documents), the switches of ROI, the database size. The calculator shows them and he changes only what he plans to grow. Report requests are not recorded anywhere today: that field stays typed (or the route visits counter of <code>/pm/reports/…</code> is used, PART 41).</div>
+</section>
+
+<section id="model">
+  <h2>4. The model: parameters → resources → dollars</h2>
+  <p class="sub">One pure function, three steps. Every number it uses is a named coefficient in ONE table, with its source: <span class="pill m">M</span> measured today, <span class="pill b">B</span> from the benches of the project, <span class="pill a">A</span> assumption to calibrate.</p>
+  <div class="card">
+    <h3 style="margin-top:0">Step 1 - volumes</h3>
+<pre>tasksAvg   = maximumTasksInOneProject     x fill          linesAvg = maximumPlanLinesInOneProject x fill
+tasksTotal = numberOfProjects x tasksAvg                   linesTotal = numberOfProjects x linesAvg
+peakClients = numberOfUsers x concurrentUsersPercent</pre>
+    <h3>Step 2 - resources</h3>
+<pre>DISK     data = base
+              + tasksTotal x (task row + links)
+              + linesTotal x (line row + planRowsPerLine x plan row + report rows)
+              + versions x (tasksTotal x task row + linesTotal x line row)
+              + documentsPostedPerMonth x months kept x document
+              + ROI rows (per task; + history per post and month kept)
+              + pg_cron log (7 days of it, or all months when it is not cleaned)
+         database = data x bloat            disk = (database + write ahead log and system) x free space
+
+CPU      busy time of a month = date changes x (base + per task of the project)
+              + line changes x line write
+              + posts x (base + per plan row of the task + worker + ROI step)
+              + documents x document post
+              + report requests x (base + per line of the project) + open minutes x 20 checks
+              + project opens x (base + per row read)
+         needed vCPU = busy time / working seconds of a month x peak factor   (+ the pg_cron ticks, day and night)
+
+MEMORY   needed GB = Postgres and Supabase services + database x share that is hot + peakClients x per client
+
+REALTIME connections = peakClients x tabs per user
+         messages = changed rows x clients that look at the same project
+
+EGRESS   GB = project opens x (tasks + lines as JSON) + report requests x report rows as JSON
+              + messages x message size + the 3 second checks</pre>
+    <h3>Step 3 - dollars</h3>
+<pre>total = plan fee
+      + price of the chosen machine - compute credits (not below 0)   [+ a Micro for the second environment]
+      + max(0, disk GB - 8) x disk price
+      + max(0, egress - 250 GB) x egress price
+      + max(0, connections - 500) / 1000 x 10  +  max(0, messages - 5 million) / million x 2.50
+      + max(0, users - 100 000) x user price
+      + add-ons that are switched on</pre>
+  </div>
+
+  <div class="card scroll">
+    <h3 style="margin-top:0">The coefficients (file <code>applicationCostsCoefficients.ts</code>, editable in the screen under "Model coefficients")</h3>
+    <table>
+      <tr><th>Coefficient</th><th class="n">Value</th><th>Source</th></tr>
+      <tr><td>Empty database with the seeds (base)</td><td class="n">30 MB</td><td><span class="pill m">M</span> database after start1 + start2 + start4 minus the project (45.7 MB - 15.3 MB)</td></tr>
+      <tr><td>Task row with its indexes</td><td class="n">4.1 KB</td><td><span class="pill m">M</span> BUDGET1: 450 rows = 1.86 MB (the row itself 0.97 KB)</td></tr>
+      <tr><td>Links of a task (dependency + closure)</td><td class="n">5.8 KB</td><td><span class="pill m">M</span> 377 links + 5 847 closure rows = 2.6 MB. The closure grows faster than the tasks in a long chain: <span class="pill a">A</span> for big projects</td></tr>
+      <tr><td>Task line row with its indexes</td><td class="n">3.85 KB</td><td><span class="pill m">M</span> 818 lines = 3.15 MB (the row itself 0.78 KB)</td></tr>
+      <tr><td>One plan row = plan movement + timeline + register movement</td><td class="n">1.35 KB</td><td><span class="pill m">M</span> 4 604 rows x 3 tables = 6.2 MB</td></tr>
+      <tr><td>Report rows of a line (turnover + Monitor01 view)</td><td class="n">1.5 KB</td><td><span class="pill m">M</span> 918 rows = 1.2 MB for 818 lines</td></tr>
+      <tr><td>ROI rows of a task · ROI history row</td><td class="n">0.4 KB · 0.3 KB</td><td><span class="pill m">M</span> 438 rows = 0.14 MB · <span class="pill a">A</span></td></tr>
+      <tr><td>One posted document with its lines and movements</td><td class="n">30 KB</td><td><span class="pill a">A</span> about 10 lines</td></tr>
+      <tr><td>pg_cron log: rows a month · size of a row</td><td class="n">1 555 000 · 0.15 KB</td><td>ticks of 2 s + 10 s + 1 min · <span class="pill a">A</span> not measured</td></tr>
+      <tr><td>Bloat of a database that is updated</td><td class="n">x 1.3</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>Write ahead log + system on the disk · free space kept</td><td class="n">2 GB · x 1.5</td><td><span class="pill a">A</span> Supabase grows the disk by itself when it is 90 % full</td></tr>
+      <tr><td>Monitor01 worker, per posted task</td><td class="n">1.1 ms</td><td><span class="pill m">M</span> 357 tasks in 0.40 s</td></tr>
+      <tr><td>Read of all lines of a project by a member</td><td class="n">0.025 ms / line</td><td><span class="pill b">B</span> bench_permissions: 10 000 tasks, about 250 ms</td></tr>
+      <tr><td>Date change: base + per task of the project</td><td class="n">10 ms + 0.04 ms</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>Line write · document post · small check (stamp)</td><td class="n">5 ms · 80 ms · 2 ms</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>Post of a task: base + per plan row</td><td class="n">30 ms + 0.5 ms</td><td><span class="pill a">A</span> (a Post of 261 days took about 1 s on Supabase, KNOW_HOW section 7)</td></tr>
+      <tr><td>Rows written by one date change</td><td class="n">5</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>Peak factor (busy hour against the average working hour)</td><td class="n">x 4</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>Working time of a month</td><td class="n">176 h</td><td>22 days x 8 h</td></tr>
+      <tr><td>Memory: services · hot share of the database · per client</td><td class="n">0.6 GB · 25 % · 10 MB</td><td><span class="pill a">A</span></td></tr>
+      <tr><td>JSON on the wire: task · line · report row · Realtime message</td><td class="n">1.3 · 1.0 · 1.0 · 1.5 KB</td><td>from the measured row sizes, <span class="pill a">A</span> for the message</td></tr>
+      <tr><td>Steady CPU of the shared machines (Micro · Small · Medium)</td><td class="n">0.2 · 0.4 · 0.8 vCPU</td><td><span class="pill a">A</span> burstable machines: short peaks are faster, a long load is not</td></tr>
+    </table>
+    <p class="sub" style="margin:10px 0 0">Measured on a Mac with Docker Postgres 15, not on Supabase hardware: sizes carry over exactly, times do not (task W2 calibrates them on a real project).</p>
+  </div>
+
+  <div class="bad"><b>Finding F1 - the pg_cron log.</b> pg_cron writes one row into <code>cron.job_run_details</code> for every run. The workers run every 2 s (<code>monitor01_tick</code>), every 10 s (<code>cash_ledger_tick</code>) and every minute (<code>files_cleanup_tick</code>): about 1.5 million rows a month, about 230 MB a month with the assumed row size. Nothing in <code>start2</code> / <code>start3</code> deletes them (searched today: no <code>job_run_details</code> in <code>kit8/sql/start</code>). After a year this alone is more than the 8 GB that are included. Recommended, as a separate small job: a daily pg_cron line that deletes rows older than 7 days (Supabase's own advice). The calculator has the switch so that both cases can be seen. Not checked on the owner's Supabase: the real size is <code>select pg_size_pretty(pg_total_relation_size('cron.job_run_details'))</code>.</div>
+  <div class="note"><b>Finding F2 - the 2 second tick is a fixed cost, not a per-user cost.</b> 43 200 runs a day happen with zero users. On a Micro machine it is small but never zero, and it keeps a Free project from pausing. A sales plan for very small customers may want a slower tick (5-10 s): the open report already has its own 3 second safety net.</div>
+</section>
+
+<section id="vm">
+  <h2>5. How the virtual machine is chosen</h2>
+  <div class="card">
+    <p style="margin-top:0">The calculator walks the list of sizes from the smallest and takes the FIRST one that passes all five tests. The test that rejected the size before it is shown as the <b>limiting factor</b> - the administrator sees WHY he pays for this machine.</p>
+    <div class="scroll"><table>
+      <tr><th>#</th><th>Test</th><th>Rule</th></tr>
+      <tr><td>1</td><td>Memory</td><td>memory of the size ≥ needed GB (services + hot share of the database + clients)</td></tr>
+      <tr><td>2</td><td>CPU</td><td>steady vCPU of the size x target load (60 %) ≥ needed vCPU of the busy hour</td></tr>
+      <tr><td>3</td><td>Database size</td><td>"Database up to" of the size ≥ the database (Supabase's own recommendation)</td></tr>
+      <tr><td>4</td><td>Biggest project</td><td>more than 2 000 tasks in one project → at least Small; more than 10 000 → Medium; more than 50 000 → Large. Reason: one user action on such a project (open, repost all, leveling, fill from a template) must finish inside the 8 s statement limit of a signed-in user. <span class="pill a">A</span> thresholds, from the benches (2 000 rows of a template: under 4 s on the test machine)</td></tr>
+      <tr><td>5</td><td>Add-on</td><td>point in time recovery → at least Small</td></tr>
+    </table></div>
+    <p class="sub" style="margin:10px 0 0">Database connections are not a test: the app talks through the Supabase API (a small shared pool), not one connection per user. Realtime connections are billed, not limited by the machine.</p>
+  </div>
+</section>
+
+<section id="results">
+  <h2>6. The results</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Total costs</h3>
+      <ul class="tight">
+        <li><b>Total per month</b> (USD; optional second currency by the app's exchange rates) and per year.</li>
+        <li>The bill by lines: plan fee · machine (minus credits) · disk · egress · Realtime · users · add-ons · second environment. A line that is 0 says "inside the included amount".</li>
+        <li><b>Cost per user</b> and <b>cost per project</b> - the two numbers the sales plans start from.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Virtual machine type</h3>
+      <ul class="tight">
+        <li>The size (Micro … 16XL), its CPU, memory, price per month and per hour.</li>
+        <li>The limiting factor (memory | CPU | database size | biggest project | add-on).</li>
+        <li>Headroom: how much of the machine the busy hour uses, and <b>"the next size is needed at about …"</b> (the number of projects / users at which the answer changes - found by running the model upward).</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Important parameters</h3>
+      <ul class="tight">
+        <li>Database size and disk to pay for (GB), with the three biggest parts (plan rows, lines, pg_cron log …).</li>
+        <li>Total tasks, total lines, total plan rows.</li>
+        <li>Needed memory (GB) and busy-hour CPU (vCPU).</li>
+        <li>Realtime: peak connections and messages a month, each against its included amount (a bar).</li>
+        <li>Egress GB a month against 250 GB.</li>
+        <li>Growth: disk after 12 and 24 months with the same activity.</li>
+        <li>Date and source of the price list; a warning when it is older than 30 days or the built-in snapshot.</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="sketch">
+  <h2>7. Live sketch of the model</h2>
+  <p class="sub">This is the model of section 4 running inside this page with the prices of section 2, so that the numbers can be tried before anything is built. It is an illustration, not the app code.</p>
+  <div class="card">
+    <div class="calc">
+      <div id="in"></div>
+      <div>
+        <div class="sub" style="margin:0">Total costs per month</div>
+        <div class="big" id="total">-</div>
+        <div id="vmline" style="margin-top:6px"></div>
+        <div class="tiles" id="tiles"></div>
+        <div class="scroll"><table id="billt"></table></div>
+      </div>
+    </div>
+  </div>
+  <div class="card scroll">
+    <h3 style="margin-top:0">Four example sizes (calculated by the same sketch)</h3>
+    <table id="examples"></table>
+    <p class="sub" style="margin:10px 0 0">All with the defaults of section 3 for what is not shown; changes, posts, documents and report requests grow with the users.</p>
+  </div>
+</section>
+
+<section id="fetch">
+  <h2>8. The price fetcher ("Uncle ATO")</h2>
+  <p class="sub">The prices change (Supabase changed them several times). The calculator must not carry a price list that silently goes old, and must not break when the fetch fails.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Why a Supabase Edge Function</h3>
+      <ul class="tight">
+        <li>A browser cannot read <code>supabase.com</code> pages (no cross-origin permission); a server can.</li>
+        <li>One fetch serves every user and organization; the result is stored, the page of Supabase is asked at most once a day.</li>
+        <li>The parsing rules live in one place and are fixed without a new app build.</li>
+        <li>Cost: a few calls a day, nothing against the 2 million included.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Where the public data is</h3>
+      <ul class="tight">
+        <li><b>No official price API was found.</b> The pricing page is a web page.</li>
+        <li>Source 1 (preferred): the data files the pricing page itself is built from, in the public repository <code>supabase/supabase</code>: <code>packages/shared-data/plans.ts</code> (plan fees as plain numbers) and <code>pricing.ts</code> (included amounts and overage as short texts like "then $0.125 per GB" - read with patterns). Checked today: both exist and hold the numbers of section 2.</li>
+        <li>Source 2: the compute table of <code>docs/guides/platform/compute-and-disk</code> (sizes, hourly and monthly price, CPU, memory, database size). It is NOT in <code>pricing.ts</code>; whether a data file of the repository holds it is the first thing of spike P0.</li>
+        <li>Source 3 (cross-check): <code>supabase.com/pricing</code> itself.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Rules of the function</h3>
+      <ul class="tight">
+        <li>Fetch → parse → <b>validate</b> → store. Validation: every key of the price list is present, every number is inside a sane range (a plan fee between 1 and 10 000, a size list of at least 8 rows with rising prices …) and no number moved more than x 3 against the last stored list without a flag.</li>
+        <li>A list that fails is NOT stored; the last good one stays, the answer carries <code>state: stale</code> and the reason.</li>
+        <li>The calculator shows "Prices of 2026-11-12 · supabase.com · Refresh" and, for the administrator, an editable copy: a price typed by hand wins over the fetched one (enterprise discounts, another region, another cloud).</li>
+        <li>Never fetched and no network → the built-in snapshot of section 2, with a visible warning.</li>
+        <li>The function reads public pages only; it sends nothing about the user or the organization.</li>
+      </ul></div>
+  </div>
+  <div class="card">
+    <h3 style="margin-top:0">Shape of a stored price list</h3>
+<pre>{ "fetchedAt": "2026-11-12T09:30:00Z", "source": "github:supabase/supabase@&lt;commit&gt; + docs/compute-and-disk", "currency": "USD",
+  "plans":   { "pro": { "fee": 25, "computeCredits": 10 }, "team": { "fee": 599, "computeCredits": 10 } },
+  "included":{ "diskGBPerProject": 8, "egressGB": 250, "monthlyActiveUsers": 100000, "realtimeConnections": 500,
+               "realtimeMessages": 5000000, "edgeFunctionCalls": 2000000, "storageGB": 100 },
+  "overage": { "diskGB": 0.125, "egressGB": 0.09, "monthlyActiveUser": 0.00325, "realtimeConnectionsPer1000": 10,
+               "realtimeMessagesPerMillion": 2.5, "edgeFunctionCallsPerMillion": 2, "storageGB": 0.0213 },
+  "addons":  { "pointInTimeRecoveryPer7Days": 100, "customDomain": 10, "ipv4": 4 },
+  "compute": [ { "size": "Micro", "perMonth": 10, "perHour": 0.01344, "cpu": "shared", "vcpu": 0.2, "memoryGB": 1, "maxDatabaseGB": 10 }, … ] }</pre>
+    <p class="sub" style="margin:10px 0 0">Stored as one row per fetch in a history table (<code>supabase_price_history</code>: the rule "xxx_history = values over time"), written only by the function (service role), read by every signed-in user through <code>supabase_prices_latest()</code>. Old rows stay: a sales plan can show how the cost moved.</p>
+  </div>
+  <div class="note">"Uncle ATO" is taken here as the name of this fetcher. If it means something else, see question Q1.</div>
+</section>
+
+<section id="app">
+  <h2>9. Where it lives in the app</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>Piece</th><th>Place (proposed)</th><th>Note</th></tr>
+      <tr><td>Screen</td><td><code>kit8/catalog/organization/costs/ApplicationCostsPlanCalculator.tsx</code></td><td>Next to <code>members</code> and <code>texts</code>. Parameters, results, folded "Advanced" and "Model coefficients", buttons Fill from this database · Refresh prices · Reset.</td></tr>
+      <tr><td>Model (pure, no React)</td><td><code>applicationCostsModel.ts</code>, <code>applicationCostsCoefficients.ts</code>, <code>supabasePricesModel.ts</code> (the snapshot, the validation), same folder</td><td>The function of section 4. Tested with golden cases.</td></tr>
+      <tr><td>Hooks</td><td><code>useSupabasePrices.ts</code>, <code>useApplicationUsageFacts.ts</code></td><td>React Query; work without a network (snapshot).</td></tr>
+      <tr><td>Route + menu</td><td><code>app/catalog/organization/costs.tsx</code> · Drawer: System settings → Application costs</td><td>Organization administrator only (<code>organization_is_admin</code>); texts through <code>pmT</code>.</td></tr>
+      <tr><td>Edge Function</td><td><code>supabase/functions/supabase-prices</code> (<code>handler.ts</code> pure + tested, <code>index.ts</code> Deno)</td><td>Like <code>organization-invite</code>.</td></tr>
+      <tr><td>SQL</td><td>a new PART 52: table <code>supabase_price_history</code> (start1); <code>supabase_prices_latest()</code>, <code>application_usage_facts()</code>, RLS, grants (start2); the drop in the delete file; the row in <code>permission_matrix.py</code></td><td>Docker test <code>tests/60_…</code> number to be chosen; no pg_cron line needed in phase 1 (the fetch is started by the screen when the list is older than a day).</td></tr>
+      <tr><td>Tests</td><td><code>__tests__/catalog/organization/costs</code> (model golden cases, price validation, screen), <code>__tests__/functions</code> for the handler with saved copies of the three sources</td><td>The saved copies of today's pages are the fixtures: a changed page layout is seen as a failed parse, not as a wrong price.</td></tr>
+      <tr><td>README + KNOW_HOW</td><td>README in the folder; one row in the feature index</td><td>In the build round.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="sales">
+  <h2>10. Later: from cost to sales pricing plans</h2>
+  <div class="card">
+    <ul class="tight">
+      <li><b>Who pays the Supabase bill</b> decides everything. Today ONE Supabase project holds ALL organizations. Two ways to sell: (a) <b>shared</b> - customers share the machine, the cost of a customer is his SHARE (his rows, his changes) plus a part of the fixed fee; (b) <b>dedicated</b> - one Supabase project per customer, his cost is the whole bill of this calculator. The model is built so that both are one switch: "share of a machine" against "own machine". Phase 1 answers (b) and the owner's own bill.</li>
+      <li><b>Saved scenarios</b> (phase 2): a parameter set with a name (Small / Medium / Large …) stored for the organization; a table that compares them side by side = the draft of the price list.</li>
+      <li><b>Price = cost x margin + what is not Supabase</b>: e-mail sending, Google / Microsoft storage (the customer's own), app stores, support hours. Phase 2 adds free lines "other monthly cost".</li>
+      <li><b>Plan borders come from the model</b>: "the next machine is needed at about N projects" is exactly where a plan should end.</li>
+      <li>The stored price history lets a plan be re-priced when Supabase changes its list.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="wbs">
+  <h2>11. Work breakdown</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>#</th><th>Task</th><th>Result</th></tr>
+      <tr><td>P0</td><td>Spike: the sources of the fetcher</td><td>Where the compute table is as data; the IPv4 and read replica prices; saved copies of the sources as fixtures; do the pages allow a fetch from an Edge Function (status, size)</td></tr>
+      <tr><td>W1</td><td>Model + coefficients + built-in price snapshot (pure TypeScript) with golden tests</td><td>The four examples of section 7 as tests</td></tr>
+      <tr><td>W2</td><td>Calibration on a real Supabase project (Micro): BUDGET1 and a 10 000 task project - time of open, Post, report, date change; the real size of <code>cron.job_run_details</code></td><td>The <span class="pill a">A</span> coefficients become measured; the thresholds of the "biggest project" test</td></tr>
+      <tr><td>W3</td><td>SQL PART 52: price history table, <code>supabase_prices_latest</code>, <code>application_usage_facts</code>; Docker test</td><td>start1, start2, delete file, permission matrix</td></tr>
+      <tr><td>W4</td><td>Edge Function <code>supabase-prices</code>: fetch, parse, validate, store; tests with the fixtures</td><td>Deployed by the owner</td></tr>
+      <tr><td>W5</td><td>Screen <code>ApplicationCostsPlanCalculator</code>, route, Drawer item, texts, README, KNOW_HOW</td><td>Screen tests</td></tr>
+      <tr><td>W6</td><td>(separate, recommended first) the daily cleanup of the pg_cron log, start3</td><td>Finding F1 closed</td></tr>
+      <tr><td>Phase 2</td><td>Saved scenarios, comparison table, shared / dedicated switch, other monthly costs, margin</td><td>Sales pricing plans</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>12. Questions for the owner (each with the default taken when there is no answer)</h2>
+  <div class="card scroll">
+    <table>
+      <tr><th>#</th><th>Question</th><th>Default</th></tr>
+      <tr><td>Q1</td><td>"Uncle ATO must fetch the current supabase public data" - is Uncle ATO the name of the fetcher, or something else?</td><td>The name of the Edge Function that fetches the prices (folder <code>supabase-prices</code>).</td></tr>
+      <tr><td>Q2</td><td>"Maximum lines in plans": per PROJECT or per TASK?</td><td>Per project (the biggest project's task lines), as it stands under "Maximum tasks in one project".</td></tr>
+      <tr><td>Q3</td><td>Who may open the calculator?</td><td>Organization administrator only.</td></tr>
+      <tr><td>Q4</td><td>Is the answer the bill of the WHOLE Supabase project (all organizations in it) or of this organization's share?</td><td>Phase 1: the whole project, as if this organization had it alone (dedicated).</td></tr>
+      <tr><td>Q5</td><td>Currency of the result?</td><td>USD, plus the organization's base currency by the app's exchange rate of today.</td></tr>
+      <tr><td>Q6</td><td>May the Free plan be an answer?</td><td>No (pauses, no backups); it is shown only as a remark for the smallest sizes.</td></tr>
+      <tr><td>Q7</td><td>Other clouds later (self-hosted Supabase, AWS)?</td><td>Not now; the price list has a <code>source</code> so that another list can be added.</td></tr>
+      <tr><td>Q8</td><td>Should the parameters of a calculation be saved?</td><td>Phase 1: the last set, on the device. Phase 2: named scenarios in the database.</td></tr>
+      <tr><td>Q9</td><td>Build W6 (cleanup of the pg_cron log) now, before the calculator?</td><td>Yes, recommended: it is a real cost today.</td></tr>
+    </table>
+  </div>
+</section>
+
+</main>
+
+<script id="costmodel">
+/* The sketch of the model (section 4). Illustration for this document only. */
+var PRICES = {
+  plans: { pro: { fee: 25, credits: 10 }, team: { fee: 599, credits: 10 } },
+  included: { diskGB: 8, egressGB: 250, mau: 100000, rtConn: 500, rtMsg: 5e6 },
+  over: { diskGB: 0.125, egressGB: 0.09, mau: 0.00325, rtConnPer1000: 10, rtMsgPerMillion: 2.5 },
+  addons: { pitr: 100, domain: 10, ipv4: 4 },
+  compute: [
+    { size: 'Micro', usd: 10, vcpu: 0.2, cpu: 'shared', ram: 1, maxDb: 10 },
+    { size: 'Small', usd: 15, vcpu: 0.4, cpu: 'shared', ram: 2, maxDb: 50 },
+    { size: 'Medium', usd: 60, vcpu: 0.8, cpu: 'shared', ram: 4, maxDb: 100 },
+    { size: 'Large', usd: 110, vcpu: 2, cpu: '2 dedicated', ram: 8, maxDb: 200 },
+    { size: 'XL', usd: 210, vcpu: 4, cpu: '4 dedicated', ram: 16, maxDb: 500 },
+    { size: '2XL', usd: 410, vcpu: 8, cpu: '8 dedicated', ram: 32, maxDb: 1000 },
+    { size: '4XL', usd: 960, vcpu: 16, cpu: '16 dedicated', ram: 64, maxDb: 2000 },
+    { size: '8XL', usd: 1870, vcpu: 32, cpu: '32 dedicated', ram: 128, maxDb: 4000 },
+    { size: '12XL', usd: 2800, vcpu: 48, cpu: '48 dedicated', ram: 192, maxDb: 6000 },
+    { size: '16XL', usd: 3730, vcpu: 64, cpu: '64 dedicated', ram: 256, maxDb: 10000 }
+  ]
+};
+var K = {
+  baseMB: 30, kbTask: 4.1, kbLinks: 5.8, kbLine: 3.85, kbPlanRow: 1.35, kbReportPerLine: 1.5, kbRoiTask: 0.4, kbRoiHistory: 0.3,
+  kbDocument: 30, cronRows: 1555000, kbCronRow: 0.15, bloat: 1.3, walSystemGB: 2, freeSpace: 1.5,
+  msWorkerTask: 1.1, msRoiTask: 1, msReportBase: 5, msReportPerLine: 0.025, msDateBase: 10, msDatePerTask: 0.04, msLine: 5,
+  msDocument: 80, msStamp: 2, msPostBase: 30, msPostPerPlanRow: 0.5, msOpenBase: 5, msOpenPerRow: 0.03, msCronTick: 1,
+  rowsPerDateChange: 5, peakFactor: 4, workHours: 176, ramBaseGB: 0.6, hotShare: 0.25, ramPerClientGB: 0.01,
+  tabsPerUser: 1.5, kbTaskJson: 1.3, kbLineJson: 1.0, kbReportJson: 1.0, kbMessage: 1.5, kbStamp: 0.3, targetLoad: 0.6, monthsKept: 24
+};
+var DEFAULTS = {
+  projects: 20, maxTasks: 500, maxLines: 1000, users: 30, dateChanges: 2000, lineChanges: 3000, posts: 1500, documents: 200,
+  roiTasks: false, roiHistory: false, reports: 1000, reportMinutes: 10,
+  fill: 60, planRowsPerLine: 6, concurrent: 30, opensPerDay: 4, versions: 2, cronCleaned: true, realtime: true,
+  plan: 'pro', secondEnv: false, pitr: false, domain: false, ipv4: false
+};
+function costModel(i, P, k) {
+  var fill = i.fill / 100, tasksAvg = i.maxTasks * fill, linesAvg = i.maxLines * fill;
+  var tasks = i.projects * tasksAvg, lines = i.projects * linesAvg, planRows = lines * i.planRowsPerLine;
+  var peakClients = Math.ceil(i.users * i.concurrent / 100);
+  // disk
+  var parts = {
+    'Plan rows': planRows * k.kbPlanRow,
+    'Task lines + report rows': lines * (k.kbLine + k.kbReportPerLine),
+    'Tasks + links': tasks * (k.kbTask + k.kbLinks),
+    'Versions': i.versions * (tasks * k.kbTask + lines * k.kbLine),
+    'Documents': i.documents * k.monthsKept * k.kbDocument,
+    'ROI': (i.roiTasks ? tasks * k.kbRoiTask : 0) + (i.roiHistory ? i.posts * k.monthsKept * k.kbRoiHistory : 0),
+    'pg_cron log': k.cronRows * k.kbCronRow * (i.cronCleaned ? 7 / 30 : k.monthsKept),
+    'Empty database': k.baseMB * 1024
+  };
+  var dataKB = 0; for (var p in parts) dataKB += parts[p];
+  var dbGB = dataKB / 1048576 * k.bloat;
+  var diskGB = Math.max(P.included.diskGB, Math.ceil((dbGB + k.walSystemGB) * k.freeSpace));
+  // cpu
+  var opens = i.users * i.opensPerDay * 22;
+  var stampCalls = i.reports * i.reportMinutes * 20;
+  var rowsPerTask = tasksAvg > 0 ? linesAvg / tasksAvg * i.planRowsPerLine : 0;
+  var workMs = i.dateChanges * (k.msDateBase + k.msDatePerTask * tasksAvg) + i.lineChanges * k.msLine
+    + i.posts * (k.msPostBase + k.msPostPerPlanRow * rowsPerTask + k.msWorkerTask + (i.roiTasks ? k.msRoiTask : 0))
+    + i.documents * k.msDocument + i.reports * (k.msReportBase + k.msReportPerLine * linesAvg) + stampCalls * k.msStamp
+    + opens * (k.msOpenBase + k.msOpenPerRow * (tasksAvg + linesAvg));
+  var vcpu = workMs / (k.workHours * 3.6e6) * k.peakFactor + k.cronRows * k.msCronTick / (730 * 3.6e6);
+  var ramGB = k.ramBaseGB + dbGB * k.hotShare + peakClients * k.ramPerClientGB;
+  // realtime + egress
+  var rtConn = i.realtime ? Math.ceil(peakClients * k.tabsPerUser) : 0;
+  var changedRows = i.dateChanges * k.rowsPerDateChange + i.lineChanges + i.posts * (1 + (tasksAvg > 0 ? linesAvg / tasksAvg : 0) * 1.12) + i.documents * 5;
+  var listeners = Math.max(1, peakClients / Math.max(1, Math.min(i.projects, peakClients)));
+  var rtMsg = i.realtime ? changedRows * listeners : 0;
+  var egressGB = (opens * (tasksAvg * k.kbTaskJson + linesAvg * k.kbLineJson) + i.reports * linesAvg * 1.12 * k.kbReportJson
+    + rtMsg * k.kbMessage + stampCalls * k.kbStamp) / 1048576;
+  // machine
+  var minIdx = i.maxTasks > 50000 ? 3 : i.maxTasks > 10000 ? 2 : i.maxTasks > 2000 ? 1 : 0;
+  var why = '', vm = null, c = P.compute;
+  for (var n = 0; n < c.length; n++) {
+    var fail = c[n].ram < ramGB ? 'memory' : c[n].vcpu * k.targetLoad < vcpu ? 'CPU' : c[n].maxDb < dbGB ? 'database size'
+      : n < minIdx ? 'biggest project' : (i.pitr && n < 1) ? 'point in time recovery' : '';
+    if (!fail) { vm = c[n]; break; }
+    why = fail;
+  }
+  if (!vm) { vm = c[c.length - 1]; why = 'above the list: ask Supabase'; }
+  // dollars
+  var plan = P.plans[i.plan];
+  var bill = [
+    ['Plan fee (' + (i.plan === 'pro' ? 'Pro' : 'Team') + ')', plan.fee],
+    ['Virtual machine ' + vm.size + ' minus ' + plan.credits + ' of credits', Math.max(0, vm.usd - plan.credits)],
+    ['Second environment (Micro)', i.secondEnv ? P.compute[0].usd : 0],
+    ['Disk above ' + P.included.diskGB + ' GB', Math.max(0, diskGB - P.included.diskGB) * P.over.diskGB],
+    ['Egress above ' + P.included.egressGB + ' GB', Math.max(0, egressGB - P.included.egressGB) * P.over.egressGB],
+    ['Realtime connections above ' + P.included.rtConn, Math.max(0, rtConn - P.included.rtConn) / 1000 * P.over.rtConnPer1000],
+    ['Realtime messages above 5 million', Math.max(0, rtMsg - P.included.rtMsg) / 1e6 * P.over.rtMsgPerMillion],
+    ['Users above 100 000', Math.max(0, i.users - P.included.mau) * P.over.mau],
+    ['Add-ons', (i.pitr ? P.addons.pitr : 0) + (i.domain ? P.addons.domain : 0) + (i.ipv4 ? P.addons.ipv4 : 0)]
+  ];
+  var total = 0; bill.forEach(function (b) { total += b[1]; });
+  return { total: total, vm: vm, limited: !!why, why: why || 'none: the smallest paid machine is enough', bill: bill, tasks: tasks, lines: lines, planRows: planRows,
+    dbGB: dbGB, diskGB: diskGB, ramGB: ramGB, vcpu: vcpu, load: vcpu / vm.vcpu, rtConn: rtConn, rtMsg: rtMsg, egressGB: egressGB,
+    perUser: total / Math.max(1, i.users), perProject: total / Math.max(1, i.projects), parts: parts };
+}
+var EXAMPLES = [
+  ['Small team', { projects: 5, maxTasks: 200, maxLines: 400, users: 5 }],
+  ['Medium (the defaults)', {}],
+  ['Large', { projects: 200, maxTasks: 2000, maxLines: 5000, users: 300 }],
+  ['Very large', { projects: 1000, maxTasks: 10000, maxLines: 20000, users: 2000 }]
+];
+function exampleInput(over) {
+  var i = {}; for (var d in DEFAULTS) i[d] = DEFAULTS[d];
+  for (var o in over) i[o] = over[o];
+  var f = i.users / DEFAULTS.users;
+  ['dateChanges', 'lineChanges', 'posts', 'documents', 'reports'].forEach(function (key) { if (!(key in over)) i[key] = Math.round(DEFAULTS[key] * f); });
+  return i;
+}
+if (typeof module !== 'undefined') module.exports = { costModel: costModel, PRICES: PRICES, K: K, DEFAULTS: DEFAULTS, EXAMPLES: EXAMPLES, exampleInput: exampleInput };
+</script>
+<script>
+(function () {
+  var FIELDS = [
+    ['h', 'The owner\'s parameters'],
+    ['projects', 'Number of projects'], ['maxTasks', 'Maximum tasks in one project'], ['maxLines', 'Maximum lines in plans (one project)', 1],
+    ['users', 'Number of users'],
+    ['h', 'Data changes per month'],
+    ['dateChanges', 'Dates', 1], ['lineChanges', 'Planning data lines', 1], ['posts', 'Posts of tasks', 1], ['documents', 'Documents posted', 1],
+    ['h', 'ROI and reports'],
+    ['roiTasks', 'ROI for tasks'], ['roiHistory', 'ROI history'], ['reports', 'Reports requests per month'], ['reportMinutes', 'Minutes a report stays open', 1],
+    ['h', 'Advanced'],
+    ['fill', 'Average project, % of the maximum'], ['planRowsPerLine', 'Plan rows per line'], ['concurrent', 'Users online at the peak, %'],
+    ['opensPerDay', 'Project opens per user and day'], ['versions', 'Saved versions per project'], ['cronCleaned', 'pg_cron log is cleaned'],
+    ['realtime', 'Realtime on'], ['plan', 'Supabase plan'], ['secondEnv', 'Second environment'], ['pitr', 'Point in time recovery'],
+    ['domain', 'Custom domain'], ['ipv4', 'IPv4 address']
+  ];
+  var box = document.getElementById('in'), state = {};
+  for (var d in DEFAULTS) state[d] = DEFAULTS[d];
+  FIELDS.forEach(function (f) {
+    if (f[0] === 'h') { var h = document.createElement('h4'); h.textContent = f[1]; box.appendChild(h); return; }
+    var l = document.createElement('label'); if (f[2]) l.className = 'sub2';
+    var s = document.createElement('span'); s.textContent = f[1]; l.appendChild(s);
+    var v = DEFAULTS[f[0]], e;
+    if (f[0] === 'plan') { e = document.createElement('select'); e.innerHTML = '<option value="pro">Pro</option><option value="team">Team</option>'; }
+    else { e = document.createElement('input'); e.type = typeof v === 'boolean' ? 'checkbox' : 'number'; if (e.type === 'number') { e.min = 0; e.value = v; } else e.checked = v; }
+    e.addEventListener('input', function () {
+      state[f[0]] = e.type === 'checkbox' ? e.checked : f[0] === 'plan' ? e.value : Math.max(0, Number(e.value) || 0); draw();
+    });
+    l.appendChild(e); box.appendChild(l);
+  });
+  function usd(x) { return '$' + (x >= 100 ? Math.round(x).toLocaleString('en-US') : x.toFixed(2)); }
+  function num(x, d) { return x.toLocaleString('en-US', { maximumFractionDigits: d === undefined ? 0 : d }); }
+  function draw() {
+    var r = costModel(state, PRICES, K);
+    document.getElementById('total').textContent = usd(r.total);
+    document.getElementById('vmline').innerHTML = 'Virtual machine <b>' + r.vm.size + '</b> (' + r.vm.cpu + ' CPU, ' + r.vm.ram + ' GB memory, $' + r.vm.usd +
+      ' a month). ' + (r.limited ? 'A smaller one is not enough because of: <b>' + r.why + '</b>.' : 'The smallest paid machine is enough.') + ' The busy hour uses ' + num(r.load * 100) + ' % of its steady CPU.';
+    var t = [[usd(r.perUser), 'per user'], [usd(r.perProject), 'per project'], [num(r.dbGB, 2) + ' GB', 'database'], [num(r.diskGB) + ' GB', 'disk paid (8 included)'],
+      [num(r.ramGB, 1) + ' GB', 'memory needed'], [num(r.vcpu, 2), 'vCPU at the busy hour'], [num(r.tasks), 'tasks in all'], [num(r.lines), 'lines in all'],
+      [num(r.planRows), 'plan rows'], [num(r.rtConn) + ' / 500', 'Realtime connections'], [num(r.rtMsg / 1e6, 2) + ' / 5 M', 'Realtime messages'], [num(r.egressGB, 1) + ' / 250 GB', 'egress']];
+    document.getElementById('tiles').innerHTML = t.map(function (x) { return '<div class="tile"><b>' + x[0] + '</b><span>' + x[1] + '</span></div>'; }).join('');
+    document.getElementById('billt').innerHTML = '<tr><th>Line of the bill</th><th class="n">USD / month</th></tr>' +
+      r.bill.map(function (b) { return '<tr><td>' + b[0] + '</td><td class="n">' + (b[1] ? usd(b[1]) : 'included') + '</td></tr>'; }).join('') +
+      '<tr><td><b>Total</b></td><td class="n"><b>' + usd(r.total) + '</b></td></tr>';
+  }
+  draw();
+  var rows = EXAMPLES.map(function (x) { var i = exampleInput(x[1]); return [x[0], i, costModel(i, PRICES, K)]; });
+  document.getElementById('examples').innerHTML =
+    '<tr><th>Example</th><th class="n">Projects</th><th class="n">Max tasks</th><th class="n">Max lines</th><th class="n">Users</th><th class="n">Database</th><th class="n">Memory needed</th><th>Machine</th><th>Limiting factor</th><th class="n">Total / month</th><th class="n">Per user</th></tr>' +
+    rows.map(function (x) { var i = x[1], r = x[2];
+      return '<tr><td>' + x[0] + '</td><td class="n">' + num(i.projects) + '</td><td class="n">' + num(i.maxTasks) + '</td><td class="n">' + num(i.maxLines) + '</td><td class="n">' + num(i.users) +
+        '</td><td class="n">' + num(r.dbGB, 2) + ' GB</td><td class="n">' + num(r.ramGB, 1) + ' GB</td><td><b>' + r.vm.size + '</b></td><td>' + r.why + '</td><td class="n"><b>' + usd(r.total) + '</b></td><td class="n">' + usd(r.perUser) + '</td></tr>'; }).join('');
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
-// FilesStorageProviderRadio - the radio set of the setting projectFilesStorageProvider (Project settings -> Files, Organization defaults): 1. Google Drive, 2. Microsoft OneDrive.
-// Disabled while the project switch filesFunctionalityEnabled is off (the stored value is shown, nothing is lost). An item whose storage is not configured on the server is disabled
+// FilesStorageProviderRadio - the radio set of the setting organizationFilesStorageProvider (Organization edit -> Files): 1. Google Drive, 2. Microsoft OneDrive.
+// Disabled while the user cannot change the organization (the stored value is shown, nothing is lost). An item whose storage is not configured on the server is disabled
 // with its hint (the status of the function says providerConfigured).
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
@@ -19,7 +19,7 @@ export interface FilesStorageProviderRadioProps {
 
 export default function FilesStorageProviderRadio({ value, onChange, disabled = false, notConfigured = [], testID = 'files-storage-provider' }: FilesStorageProviderRadioProps) {
   const { themeColors: c } = useDesignSystem();
-  const label = pmT('Files storage (projectFilesStorageProvider)');
+  const label = pmT('Files storage (organizationFilesStorageProvider)');
   return (
     <View testID={testID} accessibilityRole="radiogroup" accessibilityLabel={label} style={styles.set}>
       <Text style={[styles.title, { color: c.text }]}>{label}</Text>

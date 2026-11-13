@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Spike W: date and time through a canvas</title>
+<style>body{font:15px/1.5 -apple-system,Segoe UI,sans-serif;margin:24px;color:#0f172a;background:#f8fafc}pre{background:#0f172a;color:#e2e8f0;padding:14px;border-radius:12px;overflow:auto}video,canvas{max-width:480px;border-radius:10px;background:#000}button{font:15px inherit;padding:8px 16px;border-radius:10px;border:1px solid #cbd5e1;background:#fff;cursor:pointer}</style></head>
+<body>
+<h1>Spike W: date and time written into the video by a canvas</h1>
+<p>No camera needed: a moving test picture plays the camera. The same steps as <code>kit8/ui/components/media/stampedStream.ts</code>:
+test picture &rarr; &lt;video&gt; &rarr; canvas (frame + text) &rarr; <code>captureStream</code> &rarr; <code>MediaRecorder</code>. Then the file is opened again and the corner is looked at.</p>
+<p><button id="run">Run (about 15 s)</button> <label><input type="checkbox" id="cam"> use the real camera</label></p>
+<video id="result" controls muted playsinline></video>
+<pre id="out">not run yet</pre>
+<script>
+const W = 1280, H = 720, SECONDS = 6;
+const pad = (n) => String(n).padStart(2, '0');
+const fmt = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const mime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4'].find((m) => MediaRecorder.isTypeSupported(m)) || '';
+
+function fakeCamera() {                       // a dark moving picture, 30 frames a second
+  const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); let n = 0;
+  const t = setInterval(() => { n++; x.fillStyle = '#1e293b'; x.fillRect(0, 0, W, H); x.fillStyle = '#0f766e'; x.fillRect((n * 7) % W, 200, 220, 220); }, 33);
+  return { stream: c.captureStream(30), stop: () => clearInterval(t) };
+}
+function record(stream, seconds) {
+  return new Promise((resolve, reject) => {
+    const chunks = []; const r = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined);
+    r.ondataavailable = (e) => e.data.size && chunks.push(e.data); r.onerror = reject;
+    r.onstop = () => resolve(new Blob(chunks, { type: (r.mimeType || 'video/webm').split(';')[0] }));
+    r.start(1000); setTimeout(() => r.stop(), seconds * 1000);
+  });
+}
+function stamped(video, source, position) {    // = createStampedStream
+  const canvas = document.createElement('canvas'); canvas.width = W; canvas.height = H; const ctx = canvas.getContext('2d');
+  const font = Math.max(10, Math.round(Math.min(W, H) * 0.04)), mx = Math.round(W * 0.03), my = Math.round(H * 0.04);
+  const right = /Right/.test(position), bottom = /bottom/.test(position);
+  const stat = { frames: 0, timerDraws: 0, drawMs: 0, texts: new Set() }; let stopped = false, last = 0;
+  const draw = () => { if (stopped) return; const t0 = performance.now(); last = Date.now();
+    ctx.drawImage(video, 0, 0, W, H); ctx.save(); ctx.font = '600 ' + font + 'px ui-monospace, Menlo, Consolas, monospace';
+    ctx.textAlign = right ? 'right' : 'left'; ctx.textBaseline = bottom ? 'bottom' : 'top'; ctx.shadowColor = '#000'; ctx.shadowBlur = Math.round(font / 5); ctx.shadowOffsetY = 1; ctx.fillStyle = '#fff';
+    const text = fmt(new Date()); stat.texts.add(text); ctx.fillText(text, right ? W - mx : mx, bottom ? H - my : my); ctx.restore(); stat.frames++; stat.drawMs += performance.now() - t0; };
+  const rvfc = typeof video.requestVideoFrameCallback === 'function';
+  const onFrame = () => { if (stopped) return; draw(); video.requestVideoFrameCallback(onFrame); };
+  draw(); if (rvfc) video.requestVideoFrameCallback(onFrame);
+  const timer = setInterval(() => { if (!rvfc || Date.now() - last >= 400) { stat.timerDraws++; draw(); } }, rvfc ? 200 : 33);
+  const out = canvas.captureStream(30); source.getAudioTracks().forEach((t) => out.addTrack(t));
+  return { stream: out, stat, rvfc, stop: () => { stopped = true; clearInterval(timer); } };
+}
+async function cornerWhite(blob, position) {   // open the file, count the bright pixels of each corner at 3 moments
+  const v = document.createElement('video'); v.muted = true; v.src = URL.createObjectURL(blob);
+  await new Promise((r, j) => { v.onloadeddata = r; v.onerror = () => j(new Error('the recorded file does not open')); });
+  if (!Number.isFinite(v.duration)) { v.currentTime = 1e6; await new Promise((r) => (v.onseeked = r)); }   // a webm of MediaRecorder has no duration in its header
+  const duration = v.duration; const c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d', { willReadFrequently: true });
+  const corners = { topLeft: [0, 0], topRight: [W / 2, 0], bottomLeft: [0, H * 0.85], bottomRight: [W / 2, H * 0.85] }; const seen = {};
+  for (const at of [0.5, duration / 2, Math.max(0.6, duration - 0.5)]) {
+    v.currentTime = at; await new Promise((r) => (v.onseeked = r)); x.drawImage(v, 0, 0, W, H);
+    for (const k in corners) { const d = x.getImageData(corners[k][0], corners[k][1], W / 2, H * 0.15).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] > 200 && d[i + 1] > 200 && d[i + 2] > 200) n++; seen[k] = Math.min(seen[k] ?? 1e9, n); }
+  }
+  return { duration: Math.round(duration * 10) / 10, width: v.videoWidth, height: v.videoHeight, brightPixelsMin: seen };
+}
+async function run() {
+  const out = document.getElementById('out'); out.textContent = 'running...';
+  const position = 'bottomRight'; const res = { browser: navigator.userAgent, container: mime, position, source: 'test picture' };
+  try {
+    let cam; if (document.getElementById('cam').checked) { const s = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: W }, height: { ideal: H } }, audio: true }); cam = { stream: s, stop: () => s.getTracks().forEach((t) => t.stop()) }; res.source = 'real camera'; } else cam = fakeCamera();
+    const video = document.createElement('video'); video.muted = true; video.playsInline = true; video.srcObject = cam.stream; await video.play(); await sleep(300);
+    const direct = await record(cam.stream, SECONDS);                       // the way of today
+    const st = stamped(video, cam.stream, position); const withStamp = await record(st.stream, SECONDS); st.stop(); cam.stop();
+    res.requestVideoFrameCallback = st.rvfc;
+    res.direct = { bytes: direct.size, ...(await cornerWhite(direct, position)) };
+    res.stamped = { bytes: withStamp.size, framesDrawn: st.stat.frames, framesPerSecond: Math.round(st.stat.frames / SECONDS * 10) / 10, drawnByTimer: st.stat.timerDraws, msPerFrame: Math.round(st.stat.drawMs / st.stat.frames * 1000) / 1000, differentTexts: st.stat.texts.size, ...(await cornerWhite(withStamp, position)) };
+    res.verdict = res.stamped.brightPixelsMin[position] > 300 && res.direct.brightPixelsMin[position] < 50 ? 'PASS: the date and time are in the recorded file, at ' + position + ' only' : 'CHECK: look at the numbers';
+    document.getElementById('result').src = URL.createObjectURL(withStamp);
+  } catch (e) { res.error = String(e && e.message || e); res.verdict = 'FAIL'; }
+  out.textContent = JSON.stringify(res, null, 2); window.__spike = res; return res;
+}
+document.getElementById('run').onclick = run;
+</script></body></html>

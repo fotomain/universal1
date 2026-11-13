@@ -25,16 +25,20 @@ export interface RadioSetAppProps<T extends string = string> {
   horizontal?: boolean;
   /** no border / background box, small icon + text, no bottom margin: a set inside a toolbar */
   compact?: boolean;
+  /** a grid: this many EQUAL options in a line (2 = two lines of two for four options); the lines wrap */
+  columns?: number;
   style?: StyleProp<ViewStyle>;
   testID?: string;
 }
 
-export default function RadioSetApp<T extends string = string>({ title, options, value, onChange, horizontal = false, compact = false, style, testID = 'radio-set-app' }: RadioSetAppProps<T>) {
+export default function RadioSetApp<T extends string = string>({ title, options, value, onChange, horizontal = false, compact = false, columns, style, testID = 'radio-set-app' }: RadioSetAppProps<T>) {
   const { themeColors: c } = useDesignSystem();
+  const grid = !!columns && columns > 0;
+  const cell: ViewStyle | null = grid ? { width: `${100 / (columns as number)}%`, marginRight: 0 } : null;
   return (
     <View style={style} testID={testID} accessibilityRole="radiogroup" accessibilityLabel={title}>
       {!!title && <Text style={[styles.title, { color: c.text }]}>{title}</Text>}
-      <View style={horizontal ? styles.horizontal : undefined}>
+      <View style={horizontal || grid ? styles.horizontal : undefined}>
         {options.map((o) => {
           const selected = o.id === value;
           return (
@@ -50,6 +54,7 @@ export default function RadioSetApp<T extends string = string>({ title, options,
                 styles.option,
                 horizontal ? styles.optionHorizontal : null,
                 compact ? styles.optionCompact : null,
+                cell,
                 compact ? { borderColor: 'transparent', backgroundColor: 'transparent', opacity: o.disabled ? 0.45 : pressed ? 0.7 : 1 } : { borderColor: selected ? c.primary : c.border, backgroundColor: selected ? `${c.primary}14` : 'transparent', opacity: o.disabled ? 0.45 : pressed ? 0.7 : 1 },
               ]}
             >

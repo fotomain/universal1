@@ -1,6 +1,6 @@
 /** @jest-environment jsdom */
-// OD5 (documentation/FILE_WITH_OneDrive_WBS.html): the storage of the files in the app - the radio set projectFilesStorageProvider, the connection block of the chosen storage, the question
-// when a project with files changes its storage, the Files panel of a OneDrive project (state, Connect, a tag per file while two storages are mixed), and the model helpers.
+// OD5 (documentation/FILE_WITH_OneDrive_WBS.html): the storage of the files in the app - the radio set organizationFilesStorageProvider (Organization edit -> Files: ONE storage for all projects), the connection block of the chosen storage, the question
+// when an organization with files changes its storage, the Files panel of a OneDrive project (state, Connect, a tag per file while two storages are mixed), and the model helpers.
 import React, { act } from 'react';
 import { mockFilesApi, mockShowError, PDF, fileRow, q, press, settle, resetFilesApi, mountPanel, unmountPanel } from './filesPanelTestKit';
 jest.mock('../../kit8/ui/components/common/SwitchApp', () => {
@@ -16,7 +16,8 @@ import { GOOGLE_STORAGE } from '../../kit8/files/google/googleStorage';
 import { MICROSOFT_STORAGE } from '../../kit8/files/microsoft/microsoftStorage';
 import { STORAGES, fileItemIdOf, storageUiOf } from '../../kit8/files/common/storageProviders';
 import PMProjectFilesTab, { filesValuesOf } from '../../kit8/pm/view/project/settings/PMProjectFilesTab';
-import { driveStateText, fileProviderOfRow, filesErrorText, filesProviderOfProject, isLinkRow, providerTitleOf } from '../../kit8/files/common/fileModel';
+import OrganizationFilesTab from '../../kit8/files/common/OrganizationFilesTab';
+import { driveStateText, fileProviderOfRow, filesErrorText, filesProviderOfOrganization, isLinkRow, providerTitleOf } from '../../kit8/files/common/fileModel';
 
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -27,19 +28,21 @@ beforeEach(() => resetFilesApi());
 afterEach(() => { unmountPanel(); if (root) act(() => root.unmount()); root = null; document.body.innerHTML = ''; });
 
 describe('the model', () => {
-  it('anything but oneDrive is Google Drive (a project / a row made before OneDrive has no value)', () => {
-    expect(filesProviderOfProject(undefined)).toBe('googleDrive');
-    expect(filesProviderOfProject({})).toBe('googleDrive');
-    expect(filesProviderOfProject({ projectFilesStorageProvider: 'nonsense' })).toBe('googleDrive');
-    expect(filesProviderOfProject({ projectFilesStorageProvider: 'oneDrive' })).toBe('oneDrive');
+  it('anything but oneDrive is Google Drive (an organization / a row made before OneDrive has no value); the old project key is not read', () => {
+    expect(filesProviderOfOrganization(undefined)).toBe('googleDrive');
+    expect(filesProviderOfOrganization({})).toBe('googleDrive');
+    expect(filesProviderOfOrganization({ organizationFilesStorageProvider: 'nonsense' })).toBe('googleDrive');
+    expect(filesProviderOfOrganization({ organizationFilesStorageProvider: 'oneDrive' })).toBe('oneDrive');
+    expect(filesProviderOfOrganization({ projectFilesStorageProvider: 'oneDrive' } as any)).toBe('googleDrive');
     expect(fileProviderOfRow({ rowJSON: {} })).toBe('googleDrive');
     expect(fileProviderOfRow({ rowJSON: { fileStorageProvider: 'oneDrive' } })).toBe('oneDrive');
     expect(providerTitleOf('oneDrive')).toBe('Microsoft OneDrive');
     expect(providerTitleOf(undefined)).toBe('Google Drive');
   });
-  it('the settings values: the switch is true and the storage googleDrive while never saved', () => {
-    expect(filesValuesOf(null)).toEqual({ filesFunctionalityEnabled: true, projectFilesStorageProvider: 'googleDrive' });
-    expect(filesValuesOf({ filesFunctionalityEnabled: false, projectFilesStorageProvider: 'oneDrive' })).toEqual({ filesFunctionalityEnabled: false, projectFilesStorageProvider: 'oneDrive' });
+  it('the project settings values: only the switch (true while never saved); the storage is not a project setting any more', () => {
+    expect(filesValuesOf(null)).toEqual({ filesFunctionalityEnabled: true });
+    expect(filesValuesOf({ filesFunctionalityEnabled: false })).toEqual({ filesFunctionalityEnabled: false });
+    expect(filesValuesOf({ filesFunctionalityEnabled: true, projectFilesStorageProvider: 'oneDrive' } as any)).toEqual({ filesFunctionalityEnabled: true });
   });
   it('the words of the state carry the storage name; the function\'s own Microsoft sentence is kept', () => {
     expect(driveStateText('ok', 'a@b.test')).toBe('Google Drive: connected as a@b.test');
@@ -131,64 +134,106 @@ describe('the radio set', () => {
 
 describe('Project settings -> Files', () => {
   const mount = (props: Record<string, any> = {}) => render(<PMProjectFilesTab values={{}} onChange={jest.fn()} {...props} />);
-  it('shows the radio under the switch with Google Drive chosen for a project saved before OneDrive; the block is the chosen storage\'s', async () => {
+  it('has the switch and says that the storage is the organization\'s: no radio, no connection block', async () => {
+    mount();
+    await settle();
+    expect(q('pm-project-files-enabled')).not.toBeNull();
+    expect(q('pm-project-files-storage-note')!.textContent).toContain('Organization edit -> Files');
+    expect(q('files-storage-provider')).toBeNull();
+    expect(q('files-drive-block-state')).toBeNull();
+    expect(mockFilesApi.fetchDriveStatus).not.toHaveBeenCalled();
+  });
+  it('the switch changes only filesFunctionalityEnabled', async () => {
+    const onChange = jest.fn();
+    mount({ values: { filesFunctionalityEnabled: true }, onChange });
+    await settle();
+    press('pm-project-files-enabled');
+    expect(onChange).toHaveBeenCalledWith({ filesFunctionalityEnabled: false });
+  });
+  it('Project files opens the files of the project in the storage of the ORGANIZATION; without a project (Organization defaults) there is no such button', async () => {
+    mockFilesApi.fetchDriveStatus.mockResolvedValue(status('oneDrive', { state: 'ok', accountEmail: 'owner@outlook.test' }));
+    mount({ projectGUID: 'p1', provider: 'oneDrive' });
+    await settle();
+    press('pm-project-files-open-project');
+    await settle(); await settle();
+    expect(mockFilesApi.fetchDriveStatus).toHaveBeenCalledWith('oneDrive');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount();
+    await settle();
+    expect(q('pm-project-files-open-project')).toBeNull();
+  });
+});
+
+describe('Organization edit -> Files', () => {
+  const mount = (props: Record<string, any> = {}) => render(<OrganizationFilesTab value="googleDrive" onChange={jest.fn()} {...props} />);
+  it('shows the radio with Google Drive chosen for an organization made before OneDrive; the block is the chosen storage\'s and the other storage says its state', async () => {
     mockFilesApi.fetchDriveStatus.mockImplementation(async (p?: string) => status(p || 'googleDrive', p === 'oneDrive' ? {} : { state: 'ok', accountEmail: 'drive@gmail.test' }));
     mount();
     await settle(); await settle();
     expect(q('files-storage-provider-googleDrive')!.getAttribute('aria-checked')).toBe('true');
     expect(q('files-drive-block-state')!.textContent).toBe('Google Drive: connected as drive@gmail.test');
-    expect(q('pm-project-files-other-state')!.textContent).toBe('Microsoft OneDrive is not connected');
+    expect(q('organization-files-other-state')!.textContent).toBe('Microsoft OneDrive is not connected');
   });
-  it('the radio is disabled while filesFunctionalityEnabled is off and enabled when it is on', async () => {
+  it('the radio is disabled for a user who cannot change the organization and enabled for the administrator', async () => {
     const onChange = jest.fn();
-    mount({ values: { filesFunctionalityEnabled: false }, onChange });
+    mount({ disabled: true, onChange });
     await settle();
     press('files-storage-provider-oneDrive');
     await settle();
     expect(onChange).not.toHaveBeenCalled();
     act(() => root.unmount()); document.body.innerHTML = '';
-    mount({ values: { filesFunctionalityEnabled: true }, onChange });
+    mount({ onChange });
     await settle();
     press('files-storage-provider-oneDrive');
     await settle();
-    expect(onChange).toHaveBeenCalledWith({ projectFilesStorageProvider: 'oneDrive' });
+    expect(onChange).toHaveBeenCalledWith('oneDrive');
   });
-  it('a project with NO files changes its storage at once (organization defaults too: no project); the block follows the choice and asks the OneDrive status', async () => {
+  it('an organization with NO files changes its storage at once; the block follows the choice and asks the OneDrive status', async () => {
     mockFilesApi.fetchDriveStatus.mockImplementation(async (p?: string) => status(p || 'googleDrive', p === 'oneDrive' ? { state: 'ok', accountEmail: 'owner@outlook.test' } : {}));
     const onChange = jest.fn();
-    mount({ values: { projectFilesStorageProvider: 'oneDrive' }, onChange, projectGUID: 'p1' });
+    mount({ value: 'oneDrive', onChange });
     await settle(); await settle();
     expect(q('files-drive-block-state')!.textContent).toBe('Microsoft OneDrive: connected as owner@outlook.test');
     expect(mockFilesApi.fetchDriveStatus).toHaveBeenCalledWith('oneDrive');
     expect(q('files-drive-block-permission-note')!.textContent).toContain('kit8root');
     press('files-storage-provider-googleDrive');
     await settle();
-    expect(mockFilesApi.countFilesForDelete).toHaveBeenCalledWith('project', 'p1');
-    expect(onChange).toHaveBeenCalledWith({ projectFilesStorageProvider: 'googleDrive' });
+    expect(mockFilesApi.countFilesForDelete).toHaveBeenCalledWith('organization');
+    expect(onChange).toHaveBeenCalledWith('googleDrive');
   });
-  it('a project WITH files asks first: "N files stay in X. New files will be stored in Y." - Cancel keeps the storage, Change takes it', async () => {
+  it('an organization WITH files asks first: "N files stay in X. New files will be stored in Y." - Cancel keeps the storage, Change takes it', async () => {
     mockFilesApi.countFilesForDelete.mockResolvedValue({ ok: true, data: 4 });
     const onChange = jest.fn();
-    mount({ onChange, projectGUID: 'p1' });
+    mount({ onChange });
     await settle();
     press('files-storage-provider-oneDrive');
     await settle(); await settle();
-    expect(q('pm-project-files-provider-ask')).not.toBeNull();
+    expect(q('organization-files-provider-ask')).not.toBeNull();
     expect(onChange).not.toHaveBeenCalled();
-    press('pm-project-files-provider-ask-no');
+    press('organization-files-provider-ask-no');
     await settle();
     expect(onChange).not.toHaveBeenCalled();
     press('files-storage-provider-oneDrive');
     await settle(); await settle();
-    press('pm-project-files-provider-ask-yes');
+    press('organization-files-provider-ask-yes');
     await settle();
-    expect(onChange).toHaveBeenCalledWith({ projectFilesStorageProvider: 'oneDrive' });
+    expect(onChange).toHaveBeenCalledWith('oneDrive');
   });
   it('a storage that is not configured on the server is disabled with its hint', async () => {
     mockFilesApi.fetchAllDriveStatus.mockResolvedValue({ ok: true, data: { googleDrive: status('googleDrive').data, oneDrive: status('oneDrive', { providerConfigured: false }).data } });
     mount();
     await settle(); await settle();
     expect(q('files-storage-provider-oneDrive-hint')).not.toBeNull();
+  });
+  it('a new, not yet saved organization: the radio only (no count, no connection block)', async () => {
+    const onChange = jest.fn();
+    mount({ saved: false, onChange });
+    await settle();
+    expect(q('files-drive-block-state')).toBeNull();
+    press('files-storage-provider-oneDrive');
+    await settle();
+    expect(mockFilesApi.countFilesForDelete).not.toHaveBeenCalled();
+    expect(onChange).toHaveBeenCalledWith('oneDrive');
   });
 });
 

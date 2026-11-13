@@ -8,7 +8,7 @@ const mockCreateOne = jest.fn((payload: any) => ({ type: 'mediaPostReusable/crea
 let mockActions: any = { createOne: mockCreateOne };
 jest.mock('react-redux', () => ({
   useDispatch: () => mockDispatch,
-  useSelector: (fn: any) => fn({ activeUserState: { activeUserGUID: 'user-42' } }),
+  useSelector: (fn: any) => fn((globalThis as any).__state || { activeUserState: { activeUserGUID: 'user-42' } }),
 }));
 jest.mock('../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: { get mediaPostReusable() { return { actions: mockActions }; } } }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'uuid-1' }));
@@ -55,4 +55,21 @@ it('a file that cannot be kept stops everything: no post', async () => {
   render(<Probe kind="audio" />);
   await expect(save([{ uri: 'file:///a.m4a', durationSec: 1, hasAudio: true }])).rejects.toThrow('no space left');
   expect(mockDispatch).not.toHaveBeenCalled();
+});
+
+it('the owner of the post is the FULL user GUID: the database refuses the one cut to 32 characters', async () => {
+  (globalThis as any).__state = { activeUserState: { activeUserGUID: '43cdefd5-4a25-4667-973b-337635fe', userGUID: '43cdefd5-4a25-4667-973b-337635fe1234' } };
+  render(<Probe kind="video" />);
+  let post: any;
+  await act(async () => { post = await save([{ uri: 'file:///cache/1.mp4', durationSec: 2, hasAudio: true }]); });
+  (globalThis as any).__state = undefined;
+  expect(post.rowOwnerGUID).toBe('43cdefd5-4a25-4667-973b-337635fe1234');
+});
+
+it('a guest cannot save a recording', async () => {
+  (globalThis as any).__state = { activeUserState: { activeUserEmail: 'user@example.com', activeUserGUID: 'x' } };
+  render(<Probe kind="audio" />);
+  await expect(save([{ uri: 'file:///a.m4a', durationSec: 1, hasAudio: true }])).rejects.toThrow('Sign in to save a recording.');
+  expect(mockCreateOne).not.toHaveBeenCalled();
+  (globalThis as any).__state = undefined;
 });

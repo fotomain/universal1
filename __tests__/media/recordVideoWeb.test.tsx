@@ -35,6 +35,7 @@ class FakeRecorder {
     this.onstop?.();
   }
 }
+const fakeRecorderStop = FakeRecorder.prototype.stop;
 const makeStream = (withAudio: boolean) => {
   const audio = withAudio ? [{ enabled: true, stop: jest.fn() }] : [];
   const video = [{ enabled: true, stop: jest.fn() }];
@@ -75,7 +76,7 @@ describe('RecordVideo (web)', () => {
     render(<RecordVideo />);
     await flush();
     expect(getUserMedia).toHaveBeenCalledWith(expect.objectContaining({ audio: true }));
-    expect(text('record-video-sound')).toBe('Record sound: on|true');
+    expect(text('record-video-sound')).toBe('Sound on|true');
 
     await pressAsync('record-video-start');
     expect(FakeRecorder.instances).toHaveLength(1);
@@ -96,7 +97,10 @@ describe('RecordVideo (web)', () => {
     await flush();
     expect(mockSave).toHaveBeenCalledTimes(1);
     const [segments] = mockSave.mock.calls[0];
-    expect(segments).toEqual([{ uri: 'blob:fake-1', durationSec: 2, hasAudio: true }]);
+    expect(segments).toEqual([{ uri: 'blob:fake-1', durationSec: 2, hasAudio: true, startedAt: expect.any(String) }]);
+    // the switch "Date and time over the video" is off: the camera stream itself is recorded, the post gets no stamp
+    expect(FakeRecorder.instances[0].stream).toBe(stream);
+    expect(mockSave.mock.calls[0][2]).toEqual({ dateTimeOver: null });
     expect(q('recording-result')).not.toBeNull();
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake-1');
   });
@@ -147,7 +151,7 @@ describe('RecordVideo (web)', () => {
     render(<RecordVideo />);
     await flush();
     expect(text('record-video-nomic')).toContain('without sound');
-    expect(text('record-video-sound')).toBe('Record sound: off|false');
+    expect(text('record-video-sound')).toBe('Sound off|false');
     await pressAsync('record-video-start');
     await pressAsync('record-video-stop');
     await flush();
@@ -180,5 +184,69 @@ describe('RecordVideo (web)', () => {
     await flush();
     expect(mockSave).not.toHaveBeenCalled();
     expect((globalThis as any).__showError).toHaveBeenCalled();
+  });
+});
+
+describe('RecordVideo (web): date and time over the video', () => {
+  let drawn: string[];
+  let canvasTrack: { stop: jest.Mock };
+  let canvasStream: any;
+  beforeEach(() => {
+    FakeRecorder.prototype.stop = fakeRecorderStop; // the test before replaces it
+    drawn = [];
+    canvasTrack = { stop: jest.fn() };
+    const added: any[] = [];
+    canvasStream = { added, addTrack: (t: any) => added.push(t), getVideoTracks: () => [canvasTrack] };
+    (stream as any).getVideoTracks = () => [{ getSettings: () => ({ width: 1280, height: 720 }) }];
+    getUserMedia.mockImplementation(async () => { (stream as any).getVideoTracks = () => [{ getSettings: () => ({ width: 1280, height: 720 }) }]; return stream; });
+    const ctx: any = { drawImage: jest.fn(), fillText: (t: string, x: number, y: number) => drawn.push(`${t}@${x},${y}`), save: jest.fn(), restore: jest.fn() };
+    jest.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(() => ctx);
+    (HTMLCanvasElement.prototype as any).captureStream = jest.fn(() => canvasStream);
+  });
+  afterEach(() => {
+    (globalThis as any).__recordVideoSettings = undefined;
+    delete (HTMLCanvasElement.prototype as any).captureStream;
+    jest.restoreAllMocks();
+  });
+
+  it('on: the recorder gets the canvas stream (frames + text) with the SAME microphone track; the post says "in the picture"', async () => {
+    (globalThis as any).__recordVideoSettings = { recordDateTimeOverEnabled: true, recordDateTimeOverPosition: 'bottomRight' };
+    render(<RecordVideo />);
+    await flush();
+    expect(q('record-video-datetime')).not.toBeNull();
+
+    await pressAsync('record-video-start');
+    expect(FakeRecorder.instances[0].stream).toBe(canvasStream);
+    expect(canvasStream.added).toEqual(stream.audio);
+    // bottom right of 1280 x 720: 3 % and 4 % from the edges
+    expect(drawn[0]).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}@1242,691$/);
+
+    const before = drawn.length;
+    await advance(1000); // no frame callback in jsdom: the timer draws
+    expect(drawn.length).toBeGreaterThan(before + 20);
+
+    await pressAsync('record-video-sound'); // the switch still acts on the microphone track
+    expect(stream.audio[0].enabled).toBe(false);
+
+    await pressAsync('record-video-stop');
+    await flush();
+    expect(canvasTrack.stop).toHaveBeenCalled();
+    expect(mockSave.mock.calls[0][2]).toEqual({ dateTimeOver: { position: 'bottomRight', burnedIn: true } });
+    const after = drawn.length;
+    await advance(1000); // stopped: nothing is drawn any more
+    expect(drawn.length).toBe(after);
+  });
+
+  it('a browser without canvas.captureStream records as before and says so', async () => {
+    delete (HTMLCanvasElement.prototype as any).captureStream;
+    (globalThis as any).__recordVideoSettings = { recordDateTimeOverEnabled: true, recordDateTimeOverPosition: 'topLeft' };
+    render(<RecordVideo />);
+    await flush();
+    await pressAsync('record-video-start');
+    expect(FakeRecorder.instances[0].stream).toBe(stream);
+    expect((globalThis as any).__showError).toHaveBeenCalled();
+    await pressAsync('record-video-stop');
+    await flush();
+    expect(mockSave.mock.calls[0][2]).toEqual({ dateTimeOver: null });
   });
 });

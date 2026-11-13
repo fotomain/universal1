@@ -185,6 +185,11 @@ export const CardFullVersion: React.FC<CardFullVersionProps> = ({
         <Text variant="titleMedium" style={[styles.titleText, { color: paperTheme.colors.onSurface }]}>
           {title}
         </Text>
+        {!!(card as any).projectName && (
+          <Text variant="labelMedium" testID={`${testID}-project`} style={{ color: themePrimary }}>
+            {`Project: ${(card as any).projectName}${(card as any).projectReadonly ? ' (read-only)' : ''}`}
+          </Text>
+        )}
         <Text variant="bodySmall" style={[styles.descriptionText, { color: paperTheme.colors.onSurfaceVariant }]}>
           {description}
         </Text>

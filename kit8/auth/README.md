@@ -9,7 +9,7 @@ Routes stay in `app/user/…` (signin, forgotpassword, userprofile, …) and imp
 | `password/` | "Forgot password": `passwordReset.ts`, `usePasswordReset.ts`, `ForgotPassword.tsx`; `email-templates/reset-password.html` |
 | `google/` | Google sign-in: `useAuth.ts` (+ `.web` / `.native` / `.android`: `useAuthWithGoogle`), `SignInWithGoogleButton.tsx`, `auto_refresh_token/loginWithGoogleTokenAutoRefresh.ts` (mobile tokens through `server/auth-server.mjs`) |
 | `microsoft/` | Microsoft sign-in (Supabase provider azure): `microsoftOAuth.ts`, `useAuthWithMicrosoft.ts`, `SignInWithMicrosoftButton.tsx`; README there has the Azure + Supabase setup |
-| `session/` | shared by all ways: `useAuthRedirectHandler.ts` (email link / recovery deep links, mounted in `app/_layout.tsx`), `oauthRedirect.ts` (session from the url an OAuth browser tab returns), `useAppSignOut.ts`, `autoRefreshTokens.ts` (idle token renewal loop), `loginWithSupabaseTokenAutoRefresh.ts` (web session renewal, used by `kit8/supabase/supabase.ts` and `WithSupabase`) |
+| `session/` | shared by all ways: `useAuthRedirectHandler.ts` (email link / recovery deep links, mounted in `app/_layout.tsx`), `oauthRedirect.ts` (session from the url an OAuth browser tab returns), `signinDeepLink.ts` (the return link `<scheme>://signin` of a sign-in is sent to the screen `/user/signin` by `app/+native-intent.ts`; without it the 404 page shows), `useAppSignOut.ts`, `autoRefreshTokens.ts` (idle token renewal loop), `loginWithSupabaseTokenAutoRefresh.ts` (web session renewal, used by `kit8/supabase/supabase.ts` and `WithSupabase`) |
 | `user/` | `userTableLogin.ts`: after sign-in the `userTable` row, the organization and the Person are made by SQL (`organization_ensure_user`, `person_ensure_user`) |
 
 Rules

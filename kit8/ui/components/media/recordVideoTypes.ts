@@ -4,7 +4,7 @@ import type { RecordingPost } from './mediaPost';
 export interface RecordVideoProps {
   /** the recording stops by itself after this time (default 1 hour) */
   maxDurationSec?: number;
-  /** the "Record sound" switch at the start (default on) */
+  /** the sound switch ("Sound on" / "Sound off") at the start (default on) */
   withAudio?: boolean;
   onSaved?: (post: RecordingPost) => void;
 }

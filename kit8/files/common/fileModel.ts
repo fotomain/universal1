@@ -13,8 +13,8 @@ export type DriveState = 'notConnected' | 'ok' | 'needsReconnect';
 export { FILE_STORAGE_PROVIDERS, fileItemIdOf, providerTitleOf, storageUiOf } from './storageProviders';
 export { providerOfValue } from './storageTypes';
 export type { FileStorageProvider } from './storageTypes';
-/** anything but 'oneDrive' is Google Drive: a project made before OneDrive has no value */
-export const filesProviderOfProject = (j: { projectFilesStorageProvider?: unknown } | null | undefined): FileStorageProvider => providerOfValue(j?.projectFilesStorageProvider);
+/** the storage of the files of the WHOLE organization (organizationTable.rowJSON.organizationFilesStorageProvider; Organization edit -> Files). Anything but 'oneDrive' is Google Drive: an organization made before OneDrive has no value */
+export const filesProviderOfOrganization = (j: { organizationFilesStorageProvider?: unknown } | null | undefined): FileStorageProvider => providerOfValue(j?.organizationFilesStorageProvider);
 
 export interface FileRowJSON {
   fileSourceKind?: FileScope;

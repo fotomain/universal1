@@ -104,4 +104,12 @@ describe('resourceCapacityStrongMode', () => {
     expect('resourceCapacityStrongMode' in normalizeOrganization({ ...base })).toBe(false);
     expect('resourceCapacityStrongMode' in normalizeOrganization({ ...base, resourceCapacityStrongMode: 'block' as any })).toBe(false);
   });
+
+  it('the storage of the files of the organization: only googleDrive / oneDrive is kept (Organization edit -> Files)', () => {
+    const base = { organizationTitle: 'Acme', createdByUser: 'a@b.test', isActive: true } as any;
+    expect(normalizeOrganization({ ...base, organizationFilesStorageProvider: 'oneDrive' }).organizationFilesStorageProvider).toBe('oneDrive');
+    expect(normalizeOrganization({ ...base, organizationFilesStorageProvider: 'googleDrive' }).organizationFilesStorageProvider).toBe('googleDrive');
+    expect('organizationFilesStorageProvider' in normalizeOrganization({ ...base, organizationFilesStorageProvider: 'dropbox' as any })).toBe(false);
+    expect('organizationFilesStorageProvider' in normalizeOrganization({ ...base })).toBe(false);
+  });
 });

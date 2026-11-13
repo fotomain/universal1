@@ -6,6 +6,9 @@ export interface CardItem {
   description: string;
   orderInList?: number;
   rawItem?: any;
+  /** a media post that belongs to a project: its name (shown under the title); projectReadonly = the project is read-only now */
+  projectName?: string;
+  projectReadonly?: boolean;
   /** Hierarchy: parent card id (or rowParentGUID) */
   parentId?: string | null;
   /** Hierarchy: nest level (0 = root, 1 = child, 2 = grandchild, etc.) */

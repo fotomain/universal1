@@ -17508,15 +17508,12 @@ $$;
 --   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document
 --   p_guid: the project / task / stage / document GUID (the organization scope needs none)          p_project: the project GUID for a stage / task
 -- Answer { allowed, reason, organizationGUID, userGUID, projectGUID, scope, guid }. reason: signIn | unknownAction | scope | project | task | switchOff | noPermission.
--- OD4: the STORAGE of a scope. A project / stage / task file follows the project setting projectFilesStorageProvider (a missing value = googleDrive: every project made before OneDrive is
--- Google's); organization and document files follow the organization default of the same key (Organization edit -> Projects -> Settings). Anything but 'oneDrive' is 'googleDrive'.
+-- OD4: the STORAGE of a scope. ONE storage for the whole organization: the key organizationFilesStorageProvider of the organization row (Organization edit -> Files) decides every scope
+-- (organization, project, stage, task, document, chat). A missing key or anything but 'oneDrive' is 'googleDrive'. A file keeps the storage it was made in (its own row says it).
+-- p_scope and p_project are kept in the signature (the callers pass them); the project key projectFilesStorageProvider of the first OneDrive version is no longer read.
 CREATE OR REPLACE FUNCTION public.files_provider_of_scope(p_scope text, p_project uuid, p_org text) RETURNS text
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
-  SELECT CASE WHEN lower(COALESCE(p_scope, '')) IN ('project', 'stage', 'task') OR (lower(COALESCE(p_scope, '')) = 'chat' AND p_project IS NOT NULL) THEN
-           CASE WHEN (SELECT p."rowJSON"->>'projectFilesStorageProvider' FROM public.project_table p WHERE p."rowGUID" = p_project) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
-         ELSE
-           CASE WHEN (SELECT o."rowJSON"->'defaultProjectSettings'->>'projectFilesStorageProvider' FROM public."organizationTable" o WHERE o."rowGUID" = p_org) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
-         END
+  SELECT CASE WHEN (SELECT o."rowJSON"->>'organizationFilesStorageProvider' FROM public."organizationTable" o WHERE o."rowGUID" = p_org) = 'oneDrive' THEN 'oneDrive' ELSE 'googleDrive' END
 $$;
 
 CREATE OR REPLACE FUNCTION public.files_authorize(p_action text, p_scope text, p_guid text DEFAULT NULL, p_project text DEFAULT NULL) RETURNS jsonb

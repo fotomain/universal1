@@ -67,7 +67,7 @@ it('record, pause, resume, stop: one mp4 with sound, saved as one part', async (
   await flush();
   expect(q('camera')).not.toBeNull();
   expect(cam.focusedProps.at(-1)).toBe(true);
-  expect(text('record-video-sound')).toBe('Record sound: on|true');
+  expect(text('record-video-sound')).toBe('Sound on|true');
 
   await pressAsync('record-video-start');
   expect(cam.start).toHaveLength(1);
@@ -89,7 +89,10 @@ it('record, pause, resume, stop: one mp4 with sound, saved as one part', async (
   await flush();
   expect(cam.stop).toBe(1);
   expect(mockSave).toHaveBeenCalledTimes(1);
-  expect(mockSave.mock.calls[0][0]).toEqual([{ uri: 'file:///cache/part1.mp4', durationSec: 3, hasAudio: true }]);
+  // the part also knows when it started and where it stood still (the date and time stamp of the player)
+  expect(mockSave.mock.calls[0][0]).toEqual([{ uri: 'file:///cache/part1.mp4', durationSec: 3, hasAudio: true, startedAt: expect.any(String), pauses: [{ atSec: 3, lengthSec: 5 }] }]);
+  // the switch "Date and time over the video" is off: the post gets no stamp
+  expect(mockSave.mock.calls[0][2]).toEqual({ dateTimeOver: null });
   expect(q('recording-result')).not.toBeNull();
 });
 
@@ -107,7 +110,7 @@ it('the sound switch DURING the recording ends the part and starts the next one 
   expect(q('record-video-hint')).not.toBeNull();
   await advance(SEGMENT_GAP_MS);
   expect(cam.start).toHaveLength(2);
-  expect(text('record-video-sound')).toBe('Record sound: off|false');
+  expect(text('record-video-sound')).toBe('Sound off|false');
 
   await pressAsync('record-video-sound'); // sound on again
   await advance(SEGMENT_GAP_MS);
@@ -144,7 +147,7 @@ it('switching the sound on asks for the microphone; refused = stays off', async 
   await pressAsync('record-video-sound');
   expect((globalThis as any).__mic.requestPermission).toHaveBeenCalled();
   expect((globalThis as any).__showError).toHaveBeenCalledWith(expect.stringContaining('microphone'), 'Record video');
-  expect(text('record-video-sound')).toBe('Record sound: off|false');
+  expect(text('record-video-sound')).toBe('Sound off|false');
 });
 
 it('no camera device (a simulator): says so and cannot start', async () => {
@@ -173,4 +176,60 @@ it('stops by itself at the time limit', async () => {
   await flush();
   expect(cam.stop).toBe(1);
   expect(mockSave).toHaveBeenCalledTimes(1);
+});
+
+describe('date and time over the video (documentation/CAMERA_DATE_TIME.html)', () => {
+  afterEach(() => { (globalThis as any).__recordVideoSettings = undefined; });
+
+  it('off by default: no stamp over the preview; the gear opens the panel with the radio disabled', async () => {
+    render(<RecordVideo />);
+    await flush();
+    expect(q('record-video-datetime')).toBeNull();
+    expect(q('record-video-settings-panel')).toBeNull();
+    await pressAsync('record-video-settings-button');
+    expect(text('record-video-datetime-switch')).toBe('Date and time over the video|false');
+    expect(text('record-video-datetime-position-bottomRight')).toBe('Bottom Right|true|off'); // chosen, disabled while the switch is off
+
+    await pressAsync('record-video-datetime-switch');
+    expect(q('record-video-datetime')).not.toBeNull();
+    expect(text('record-video-datetime')).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    expect(text('record-video-datetime-position-topLeft')).toBe('Top Left|false|on');
+    await pressAsync('record-video-datetime-position-topLeft');
+    expect(q('record-video-datetime')!.getAttribute('aria-label')).toBe('Date and time topLeft');
+
+    await pressAsync('record-video-settings-reset');
+    expect(q('record-video-datetime')).toBeNull();
+  });
+
+  it('on: the file is recorded as before, the post says "not in the picture" + the corner; locked while recording', async () => {
+    (globalThis as any).__recordVideoSettings = { recordDateTimeOverEnabled: true, recordDateTimeOverPosition: 'topRight' };
+    render(<RecordVideo />);
+    await flush();
+    expect(q('record-video-datetime')).not.toBeNull();
+    await pressAsync('record-video-settings-button');
+    await pressAsync('record-video-start');
+    expect(cam.start[0]).toMatchObject({ fileType: 'mp4', videoCodec: 'h264' });
+
+    // locked: neither the switch nor the radio changes anything while the recording runs
+    await pressAsync('record-video-datetime-switch');
+    await pressAsync('record-video-datetime-position-bottomLeft');
+    expect(text('record-video-datetime-switch')).toBe('Date and time over the video|true');
+    expect(q('record-video-datetime')!.getAttribute('aria-label')).toBe('Date and time topRight');
+
+    await advance(2000);
+    await pressAsync('record-video-stop');
+    await flush();
+    expect(mockSave.mock.calls[0][2]).toEqual({ dateTimeOver: { position: 'topRight', burnedIn: false } });
+    expect(mockSave.mock.calls[0][0][0].startedAt).toEqual(expect.any(String));
+    expect(mockSave.mock.calls[0][0][0].pauses).toBeUndefined();
+  });
+
+  it('the time badge leaves the top left corner when the stamp stands there', async () => {
+    (globalThis as any).__recordVideoSettings = { recordDateTimeOverEnabled: true, recordDateTimeOverPosition: 'topLeft' };
+    render(<RecordVideo />);
+    await flush();
+    await pressAsync('record-video-start');
+    expect(q('record-video-badge-right')).not.toBeNull();
+    expect(q('record-video-badge')).toBeNull();
+  });
 });

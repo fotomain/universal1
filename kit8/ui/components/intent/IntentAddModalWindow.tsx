@@ -23,6 +23,7 @@ import { setIntentInfo, showSnackbar, updateIntentInfo, UxuiIntentInfo, UxuiInte
 import { newEventJSON } from '../../calendar/data/userCalendarModel';
 import { useUserCalendarUiStore } from '../../calendar/userCalendarUiStore';
 import { intentLinkOf, intentMediaPostRow, intentTitleAndNotes } from './intentInfo';
+import { mediaPostOwnerGUID } from '../../../redux/mediaPostOwner';
 
 const TARGETS: RadioSetOption<UxuiIntentTarget>[] = [
   { id: 'projectTask', label: 'Project task', description: 'Choose the project and the stage on the next screen', icon: 'task_alt' },
@@ -44,7 +45,7 @@ export default function IntentAddModalWindow() {
   const router = useRouter();
   const dispatch = useDispatch();
   const info = useSelector((s: any) => (s.uxuiState?.intentInfo as UxuiIntentInfo | null) || null);
-  const postOwnerGUID = useSelector((s: any) => String(s.activeUserState?.activeUserGUID || ''));
+  const postOwnerGUID = useSelector(mediaPostOwnerGUID); // the FULL user GUID (kit8/redux/mediaPostOwner.ts)
   const [target, setTarget] = useState<UxuiIntentTarget>('projectTask');
   const [postType, setPostType] = useState<UxuiIntentPostType>('webpage');
 

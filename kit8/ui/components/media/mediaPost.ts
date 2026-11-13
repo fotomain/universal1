@@ -1,11 +1,22 @@
 // The media post (mediaPostReusable / mediaPostTable) that a finished recording becomes. Pure: no redux, no native module.
 import { extensionOf, MediaKind, mimeTypeOf } from './mediaSource';
+import type { DateTimeOverPause, MediaDateTimeOver } from './dateTimeOver';
+import type { RecordDateTimeOverPosition } from '../../../redux/recordVideoSettings';
 
 /** one file of a recording. A video recorded on a phone is cut where the user switches the sound on / off (see RecordVideo.tsx) */
 export interface RecordingSegment {
   uri: string;
   durationSec: number;
   hasAudio: boolean;
+  /** ISO date and time of the first frame + the pauses (the phone recorder notes them for the date and time stamp) */
+  startedAt?: string;
+  pauses?: DateTimeOverPause[];
+}
+
+/** the date and time over the video: its corner, and whether the picture of the file already has it (web) */
+export interface RecordingDateTimeOver {
+  position: RecordDateTimeOverPosition;
+  burnedIn: boolean;
 }
 
 export interface BuildRecordingPostInput {
@@ -17,6 +28,7 @@ export interface BuildRecordingPostInput {
   platform: string;
   now?: Date;
   title?: string;
+  dateTimeOver?: RecordingDateTimeOver | null;
 }
 
 export interface RecordingPost {
@@ -59,6 +71,15 @@ export function buildRecordingPost(input: BuildRecordingPostInput): RecordingPos
     mediaFileExtension: extensionOf(first.uri),
     mediaCreatedAt: now.toISOString(),
   };
+  if (first.startedAt) rowJSON.mediaRecordedAt = first.startedAt;
+  if (kind === 'video' && input.dateTimeOver) {
+    const over: MediaDateTimeOver = { position: input.dateTimeOver.position, burnedIn: input.dateTimeOver.burnedIn };
+    // not in the picture: the player draws it from the times of every file (documentation/CAMERA_DATE_TIME.html)
+    if (!over.burnedIn) {
+      over.parts = segments.map((s) => ({ startedAt: s.startedAt || now.toISOString(), ...(s.pauses?.length ? { pauses: s.pauses } : {}) }));
+    }
+    rowJSON.mediaDateTimeOver = over;
+  }
   // several files = one recording played one after the other; mediaPostOrigin is the first one
   if (segments.length > 1) rowJSON.mediaSegments = segments.map((s) => ({ uri: s.uri, durationSec: s.durationSec, hasAudio: s.hasAudio }));
   return { rowGUID, rowOwnerGUID: ownerGUID || 'anon', rowParentGUID: 'empty', orderInList: now.getTime(), rowJSON };

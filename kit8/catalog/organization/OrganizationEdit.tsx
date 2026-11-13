@@ -28,17 +28,20 @@ import { organizationOwnerOf } from './ensureUserOrganization';
 import { CAPACITY_MODES, CapacityMode, DEFAULT_CAPACITY_MODE, capacityModeOf } from '../../pm/view/task/plan/busyControl';
 import { pmT } from '../../pm/i18n/pmT';
 import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
+import OrganizationFilesTab from '../../files/common/OrganizationFilesTab';
+import { filesProviderOfOrganization, type FileStorageProvider } from '../../files/common/fileModel';
 import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } from '../../documents/timesheet/TabTimesheet';
 
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
 
-type OrgTab = 'main' | 'projects' | 'timesheet' | 'chat' | 'system';
+type OrgTab = 'main' | 'projects' | 'timesheet' | 'files' | 'chat' | 'system';
 type ProjectsTab = 'settings';
 const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
   { id: 'main', label: 'Main', icon: 'info' },
   { id: 'projects', label: 'Projects', icon: 'view_timeline' },
   { id: 'timesheet', label: 'Time sheet', icon: 'schedule' },
+  { id: 'files', label: 'Files', icon: 'folder' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
   { id: 'system', label: 'System', icon: 'settings_applications' },
 ];
@@ -70,6 +73,8 @@ type Form = {
   baseCurrency: string;
   /** the chat attachment limit in MB (kit8/chat): saved by the RPC of the Chat tab; kept here so the form save does not drop it */
   maximumChatAttachmentFileSize?: number;
+  /** where the files of ALL projects are stored (Files tab): googleDrive (default) | oneDrive */
+  organizationFilesStorageProvider: FileStorageProvider;
 };
 
 const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form => {
@@ -96,6 +101,7 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     numberOfVisitsFunctionalityEnabled: v.numberOfVisitsFunctionalityEnabled !== false,
     baseCurrency: v.baseCurrency || '',
     maximumChatAttachmentFileSize: v.maximumChatAttachmentFileSize,
+    organizationFilesStorageProvider: filesProviderOfOrganization(v),
   };
 };
 
@@ -116,6 +122,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     numberOfVisitsFunctionalityEnabled: f.numberOfVisitsFunctionalityEnabled,
     baseCurrency: f.baseCurrency,
     maximumChatAttachmentFileSize: f.maximumChatAttachmentFileSize,
+    organizationFilesStorageProvider: f.organizationFilesStorageProvider,
     legalData: {
       registrationNo: f.registrationNo,
       vatNo: f.vatNo,
@@ -325,6 +332,13 @@ export default function OrganizationEdit() {
             helperText={pmT('The currency the exchange rates are quoted against (EUR unless you changed EXPO_PUBLIC_CURRENCY_RATES_BASE). Empty = EUR.')}
             onChangeText={(t: string) => update('baseCurrency', t.toUpperCase())}
           />
+        </View>
+      )}
+
+      {/* Files: the storage of the files of ALL projects (Google Drive | Microsoft OneDrive) + its connection (kit8/files) */}
+      {topTab === 'files' && (
+        <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-files-tab-card">
+          <OrganizationFilesTab value={form.organizationFilesStorageProvider} onChange={(next) => update('organizationFilesStorageProvider', next)} disabled={!canEdit} saved={!isNew} />
         </View>
       )}
 

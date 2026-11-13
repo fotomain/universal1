@@ -4,8 +4,10 @@ import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import VideoControlsOverlay from './VideoControlsOverlay';
 import type { MediaPlayerViewProps } from './AudioPlayerView';
+import DateTimeOverStamp from './DateTimeOverStamp';
+import { clockTimeAt, formatDateTimeOver } from './dateTimeOver';
 
-export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError }: MediaPlayerViewProps) {
+export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError, dateTimeOver }: MediaPlayerViewProps) {
   const ref = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
@@ -39,6 +41,9 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError 
     setDuration(typeof d === 'number' && Number.isFinite(d) ? d : 0);
   };
 
+  // a recording whose file has no date and time stamp (iOS / Android): drawn here from the saved times
+  const stampAt = dateTimeOver ? clockTimeAt(dateTimeOver.part, currentTime) : null;
+
   return (
     <View style={styles.box} testID="video-player-view">
       <video
@@ -63,6 +68,7 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError 
         onError={() => onError?.('The video could not be played (check the address, the format and CORS).')}
         style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }}
       />
+      {dateTimeOver && stampAt && <DateTimeOverStamp position={dateTimeOver.position} text={formatDateTimeOver(stampAt)} testID="video-player-datetime" />}
       <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} />
     </View>
   );

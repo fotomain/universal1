@@ -6,12 +6,17 @@ import { useAudioPlayer, useAudioPlayerStatus } from 'expo-audio';
 import { setMediaAudioMode } from './audioMode';
 import { formatDuration } from './mediaSource';
 
+import type { RecordDateTimeOverPosition } from '../../../redux/recordVideoSettings';
+import type { DateTimeOverPart } from './dateTimeOver';
+
 export interface MediaPlayerViewProps {
   uri: string;
   autoPlay?: boolean;
   /** the file played to its end */
   onEnd?: () => void;
   onError?: (message: string) => void;
+  /** video only: the date and time to draw over THIS file (its corner + when the file started, its pauses) */
+  dateTimeOver?: { position: RecordDateTimeOverPosition; part: DateTimeOverPart } | null;
 }
 
 /** a source that never reports "loaded" is an error after this time */

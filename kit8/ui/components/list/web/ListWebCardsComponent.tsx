@@ -29,6 +29,9 @@ import IconApp from '../../common/IconApp';
 import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostComponent';
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../../redux/uxuiSlice";
+import {deleteFileRow} from "../../../../files/common/filesDriveApi";
+import {mediaPostProjectGUID, readonlyDeleteMessageOf} from "../../media/mediaPostProject";
+import {useMediaPostProjects} from "../../media/useMediaPostProjects";
 import {useRealtimeEntity} from "../../../../redux/reusable/useRealtimeEntity";
 import {matchRow} from "../../../../redux/reusable/realtimeRows";
 
@@ -82,6 +85,9 @@ export function ListWebCardsComponent({
   const primaryLightColor = theme.colors.primaryContainer || "#eaddff";
 
   const entityState = useSelector((state: any) => state[entityName]);
+  // media posts that belong to a project show its name (the posts of other entities have none)
+  const isMediaPosts = entityName === "mediaPostReusable";
+  const postProjects = useMediaPostProjects(isMediaPosts ? entityState?.entityDataFromServer : null);
   // Supabase Realtime: changes from other browsers / devices reach this list (ref-counted per entity)
   useRealtimeEntity(entityName, { enabled: realtime, readParams: { paginationSize: 50, originationCurrentPage: 0, ...(readParams || {}) } });
   const entityMetaData = SystemMetaData[entityName];
@@ -359,9 +365,13 @@ export function ListWebCardsComponent({
         rawItem: item,
       };
     });
-    setCards(mapped);
+    setCards(isMediaPosts ? mapped.map((c: any) => {
+      const pg = mediaPostProjectGUID(c.rawItem);
+      const pi = pg ? postProjects[pg] : undefined;
+      return pi ? {...c, projectName: pi.name, projectReadonly: pi.readonly} : c;
+    }) : mapped);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entityState?.entityDataFromServer, readParamsKey]);
+  }, [entityState?.entityDataFromServer, readParamsKey, postProjects]);
 
     // Helper to calculate new order for an item
     const calculateNewOrderInList = (currentCards: CardItem[], destIndex: number): number => {
@@ -742,8 +752,29 @@ export function ListWebCardsComponent({
     console.log(`Archived item ${id} to ${entityForArchivationName} and deleted from ${entityName}`);
   };
 
+  // A FILE row of mediaPostTable (rowJSON.fileSourceKind: Files tab, chat): the table has no delete policy for a client (a plain DELETE removes 0 rows
+  // WITHOUT an error), so it goes through the files-drive function, which deletes the row and the file in the storage. The card leaves only after the
+  // answer; no Undo (the storage file is gone and the insert policy refuses a file row).
+  const isFileCard = (id: string) => !!(cards.find((item) => item.id === id) as any)?.rawItem?.rowJSON?.fileSourceKind;
+  const deleteFileCard = async (id: string): Promise<boolean> => {
+    const r = await deleteFileRow(id);
+    if (r.ok) {
+      setCards((prev) => prev.filter((item) => item.id !== id));
+      if (actions?.deleteOneSuccess) dispatch(actions.deleteOneSuccess({rowGUID: id}));
+    } else {
+      const card: any = cards.find((item) => item.id === id);
+      const readonlyText = readonlyDeleteMessageOf(`${(r as any).code ?? ''} ${r.error}`, card?.projectName);
+      dispatch(showSnackbar({message: readonlyText ?? `${itemLabel} was not deleted: ${r.error}`}));
+    }
+    return r.ok;
+  };
+
   // Delete item execution with listOwnerGUID & undoDeleteData
   const executeDelete = (id: string) => {
+    if (isFileCard(id)) {
+      deleteFileCard(id).then((ok) => { if (ok) dispatch(showSnackbar({message: `${itemLabel} successfully deleted`})); });
+      return;
+    }
     const itemToDelete = cards.find((item) => item.id === id);
     setCards((prev) => prev.filter((item) => item.id !== id));
     if (actions?.deleteOne) {
@@ -794,11 +825,19 @@ export function ListWebCardsComponent({
   // Delete Selected Cards execution
   const executeDeleteSelected = () => {
     if (selectedIds.length === 0) return;
-    const itemsToDelete = cards.filter((item) => selectedIds.includes(item.id));
-    setCards((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+    const fileIds = selectedIds.filter(isFileCard);
+    if (fileIds.length) {
+      Promise.all(fileIds.map(deleteFileCard)).then((all) => {
+        if (all.every(Boolean)) dispatch(showSnackbar({message: `${itemLabel} successfully deleted`}));
+      });
+    }
+    const plainIds = selectedIds.filter((id) => !fileIds.includes(id));
+    if (plainIds.length === 0) { setSelectedIds([]); return; }
+    const itemsToDelete = cards.filter((item) => plainIds.includes(item.id));
+    setCards((prev) => prev.filter((item) => !plainIds.includes(item.id)));
 
     if (actions?.deleteOne) {
-      selectedIds.forEach((id) => {
+      plainIds.forEach((id) => {
         dispatch(actions.deleteOne({
           rowGUID: id,
           ...(listOwnerGUID ? { rowOwnerGUID: listOwnerGUID } : {}),

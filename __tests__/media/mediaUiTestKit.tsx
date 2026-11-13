@@ -29,7 +29,43 @@ jest.mock('../../kit8/ui/components/common', () => {
   const TextInputApp = ({ value, onChangeText, testID }: any) => R.createElement(RN.TextInput, { testID, value, onChangeText });
   const SwitchApp = ({ value, onValueChange, disabled, label, testID }: any) =>
     R.createElement(RN.Pressable, { testID, onPress: disabled ? undefined : () => onValueChange(!value) }, R.createElement(RN.Text, null, `${label}|${value}`));
-  return { ButtonPrimaryApp: button, ButtonSecondaryApp: button, TextInputApp, SwitchApp, showErrorModal: (globalThis as any).__showError = jest.fn() };
+  return { ButtonPrimaryApp: button, ButtonSecondaryApp: button, ButtonTextApp: button, TextInputApp, SwitchApp, showErrorModal: (globalThis as any).__showError = jest.fn() };
+});
+
+// uxuiState.RecordVideoSettings without a redux store: a test sets (globalThis as any).__recordVideoSettings BEFORE render
+jest.mock('../../kit8/ui/components/media/useRecordVideoSettings', () => {
+  const R = require('react');
+  const { normalizeRecordVideoSettings, RECORD_VIDEO_DEFAULTS } = require('../../kit8/redux/recordVideoSettings');
+  return {
+    useRecordVideoSettings: () => {
+      const [settings, setSettings] = R.useState(() => normalizeRecordVideoSettings((globalThis as any).__recordVideoSettings));
+      return {
+        settings,
+        change: (patch: any) => setSettings((s: any) => normalizeRecordVideoSettings({ ...s, ...patch })),
+        reset: () => setSettings({ ...RECORD_VIDEO_DEFAULTS }),
+      };
+    },
+  };
+});
+
+jest.mock('../../kit8/ui/components/RadioSetApp', () => {
+  const R = require('react');
+  const RN = require('react-native');
+  return {
+    __esModule: true,
+    default: ({ options, value, onChange, testID }: any) =>
+      R.createElement(
+        RN.View,
+        { testID },
+        options.map((o: any) =>
+          R.createElement(
+            RN.Pressable,
+            { key: o.id, testID: `${testID}-${o.id}`, onPress: o.disabled ? undefined : () => onChange(o.id), },
+            R.createElement(RN.Text, null, `${o.label}|${o.id === value}|${o.disabled ? 'off' : 'on'}`),
+          ),
+        ),
+      ),
+  };
 });
 
 jest.mock('expo-router', () => ({

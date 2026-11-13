@@ -13,6 +13,7 @@ import VideoPlayerView from './VideoPlayerView';
 import MediaSourceInput from './MediaSourceInput';
 import { resolveMediaUri } from './mediaFileStore';
 import { MediaKind, normalizeQueue } from './mediaSource';
+import type { MediaDateTimeOver } from './dateTimeOver';
 
 export interface MediaPlayerProps {
   kind: MediaKind;
@@ -25,10 +26,12 @@ export interface MediaPlayerProps {
   showSourceInput?: boolean;
   /** the whole queue was played */
   onEnded?: () => void;
+  /** video: the date and time stamp of a recording whose files do not have it (dateTimeOverOfPost(rowJSON)); it belongs to `source` */
+  dateTimeOver?: MediaDateTimeOver | null;
   testID?: string;
 }
 
-export default function MediaPlayer({ kind, source, autoPlay = true, title, showSourceInput = true, onEnded, testID = 'media-player' }: MediaPlayerProps) {
+export default function MediaPlayer({ kind, source, autoPlay = true, title, showSourceInput = true, onEnded, dateTimeOver = null, testID = 'media-player' }: MediaPlayerProps) {
   const theme = useTheme();
   const sourceKey = JSON.stringify(normalizeQueue(source));
   const [queue, setQueue] = useState<string[]>(() => normalizeQueue(source));
@@ -37,6 +40,8 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
   const [playUri, setPlayUri] = useState('');
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
+  /** false after the user typed / picked another source: the stamp belongs to the source of the props */
+  const [ownSource, setOwnSource] = useState(true);
 
   // the source prop changed (route parameter, modal opened with another file)
   useEffect(() => {
@@ -44,6 +49,7 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
     setIndex(0);
     setStartNow(autoPlay);
     setError('');
+    setOwnSource(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sourceKey, autoPlay]);
 
@@ -75,6 +81,7 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
 
   const userChose = (uri: string) => {
     setError('');
+    setOwnSource(false);
     setQueue([uri]);
     setIndex(0);
     setStartNow(true);
@@ -82,6 +89,8 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
   };
 
   const PlayerView = kind === 'audio' ? AudioPlayerView : VideoPlayerView;
+  const stampPart = kind === 'video' && ownSource && dateTimeOver && !dateTimeOver.burnedIn ? dateTimeOver.parts?.[index] : undefined;
+  const stamp = useMemo(() => (stampPart && dateTimeOver ? { position: dateTimeOver.position, part: stampPart } : null), [stampPart, dateTimeOver]);
   const heading = useMemo(() => title || (kind === 'audio' ? 'Play audio' : 'Play video'), [title, kind]);
 
   return (
@@ -98,7 +107,7 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
 
         {playUri ? (
           <View style={styles.player}>
-            <PlayerView key={`${playUri}:${nonce}`} uri={playUri} autoPlay={startNow} onEnd={handleEnd} onError={handleError} />
+            <PlayerView key={`${playUri}:${nonce}`} uri={playUri} autoPlay={startNow} onEnd={handleEnd} onError={handleError} dateTimeOver={stamp} />
           </View>
         ) : (
           !error && (

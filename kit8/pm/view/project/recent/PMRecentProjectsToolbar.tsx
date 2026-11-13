@@ -1006,7 +1006,7 @@ export default function PMRecentProjectsToolbar({
                 )}
 
                 {activeTab === 'TabFiles' && (
-                  <PMProjectFilesTab projectGUID={draft?.rowGUID} values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                  <PMProjectFilesTab projectGUID={draft?.rowGUID} provider={organization.filesProvider} values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabChat' && (

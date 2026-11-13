@@ -113,6 +113,8 @@ export interface PlayRouteOptions {
   source?: string | string[];
   autoPlay?: boolean;
   title?: string;
+  /** rowJSON.mediaDateTimeOver of the post: the player draws the date and time when the file does not have it */
+  dateTimeOver?: { burnedIn?: boolean } | null;
 }
 
 /** the route that plays something: /media/play/audio?url=...&autoPlay=true */
@@ -122,6 +124,7 @@ export function buildPlayRoute(kind: MediaKind, options: PlayRouteOptions = {}):
   if (queue.length) params.push(`url=${encodeURIComponent(queue.length === 1 ? queue[0] : JSON.stringify(queue))}`);
   if (options.autoPlay === false) params.push('autoPlay=false');
   if (options.title) params.push(`title=${encodeURIComponent(options.title)}`);
+  if (options.dateTimeOver && options.dateTimeOver.burnedIn === false) params.push(`stamp=${encodeURIComponent(JSON.stringify(options.dateTimeOver))}`);
   return `/media/play/${kind}${params.length ? `?${params.join('&')}` : ''}`;
 }
 

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Camera date and time - plan</title>
+<title>Camera date and time</title>
 <style>
   /* Light business theme, same family as the other documentation pages (works offline, no external file) */
   :root {
@@ -37,6 +37,7 @@
   .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
   .card + .card { margin-top: 14px; }
   .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .grid > *, .mock > * { min-width: 0; }
   .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
   .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
   .pill.no { background: var(--rose-soft); color: var(--rose); }
@@ -71,6 +72,7 @@
   .panel label { display: flex; align-items: center; gap: 10px; padding: 6px 0; cursor: pointer; }
   .panel fieldset { border: 1px solid var(--border); border-radius: 10px; margin: 8px 0 0; padding: 8px 12px; }
   .panel fieldset:disabled { opacity: .45; }
+  .radiogrid { display: grid; grid-template-columns: 1fr 1fr; }
   .panel legend { font-size: 12px; color: var(--muted); padding: 0 6px; }
 </style>
 </head>
@@ -80,13 +82,13 @@
   <nav><ul>
     <li><a href="#goal">Goal</a></li><li><a href="#settings">Settings</a></li><li><a href="#mock">Screen</a></li>
     <li><a href="#how">How it works</a></li><li><a href="#ways">Ways</a></li><li><a href="#data">Data</a></li>
-    <li><a href="#wbs">WBS</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li>
+    <li><a href="#wbs">WBS</a></li><li><a href="#spikes">Spikes</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li>
   </ul></nav>
 </div></header>
 
 <main>
 <section id="goal">
-  <span class="pill plan">PLAN ONLY - no code yet</span> <span class="pill key">2026-11-12</span>
+  <span class="pill yes">PHASE 1 BUILT</span> <span class="pill plan">phase 2 = plan</span> <span class="pill key">2026-11-12</span>
   <h1>Date and time over the recorded video</h1>
   <p class="lead">The video recorder (Drawer: Record &rarr; Video) gets two settings. With the switch on, the current date and time is shown over the picture in one of the four corners, the way a camcorder or a dash cam does it.</p>
   <div class="grid">
@@ -95,14 +97,15 @@
         <li><code>recordDateTimeOverEnabled</code> - a <b>switch</b></li>
         <li><code>recordDateTimeOverPosition</code> - a <b>radio</b>: Top Left, Top Right, Bottom Left, Bottom Right</li>
       </ul></div>
-    <div class="card"><h3>What exists today</h3>
+    <div class="card"><h3>What is built (phase 1)</h3>
       <ul class="tight">
-        <li>The recorder has NO settings store: only the switch "Record sound" and the camera flip button on its card.</li>
-        <li>The player has one: <code>uxuiState.PlayVideoSettings</code> (persisted, gear button, panel). The new settings are built as its twin.</li>
-        <li>Two recorders: <code>RecordVideo.tsx</code> (iOS / Android, Vision Camera 4) and <code>RecordVideo.web.tsx</code> (browser MediaRecorder).</li>
+        <li>The settings <code>uxuiState.RecordVideoSettings</code> (persisted), the twin of <code>PlayVideoSettings</code>; a gear button on the recorder card opens the panel.</li>
+        <li>Both recorders show the stamp over the preview: <code>RecordVideo.tsx</code> (iOS / Android, Vision Camera 4) and <code>RecordVideo.web.tsx</code> (browser MediaRecorder).</li>
+        <li>Web: the stamp is written into the file. iOS / Android: the player of the app draws it from the times kept in the post.</li>
+        <li>Seen on a real Android phone (Samsung A33): panel, switch, radio, stamp over the camera picture.</li>
       </ul></div>
     <div class="card"><h3>The one hard point</h3>
-      <p style="margin:0">On the <b>web</b> the stamp can be written into the file itself. On <b>iOS / Android</b> the camera writes the file in hardware and nothing can be drawn into it on the way: it needs either a second pass over the file (new native code) or a stamp that the app shows when it plays the video. See <a href="#ways">Ways</a> and question Q1.</p></div>
+      <p style="margin:0">On the <b>web</b> the stamp can be written into the file itself. On <b>iOS / Android</b> the camera writes the file in hardware and nothing can be drawn into it on the way: it needs either a second pass over the file (new native code) or a stamp that the app shows when it plays the video. Phase 1 took the second way (answer Q1); the first is phase 2. See <a href="#ways">Ways</a>.</p></div>
   </div>
 </section>
 
@@ -113,7 +116,7 @@
     <table>
       <tr><th>Key</th><th>Control</th><th>Values</th><th>Default</th><th>Rule</th></tr>
       <tr><td><code>recordDateTimeOverEnabled</code></td><td>Switch "Date and time over the video"</td><td><code>true</code> / <code>false</code></td><td><code>false</code></td><td>Off = the recorder works exactly as today.</td></tr>
-      <tr><td><code>recordDateTimeOverPosition</code></td><td>Radio "Position"</td><td><code>topLeft</code> &middot; <code>topRight</code> &middot; <code>bottomLeft</code> &middot; <code>bottomRight</code><br>shown as Top Left &middot; Top Right &middot; Bottom Left &middot; Bottom Right</td><td><code>bottomRight</code></td><td>Disabled (grey) while the switch is off; the value is kept.</td></tr>
+      <tr><td><code>recordDateTimeOverPosition</code></td><td>Radio "Position"</td><td><code>topLeft</code> &middot; <code>topRight</code> &middot; <code>bottomLeft</code> &middot; <code>bottomRight</code><br>shown as Top Left &middot; Top Right &middot; Bottom Left &middot; Bottom Right</td><td><code>bottomRight</code></td><td>Disabled (grey) while the switch is off; the value is kept. Two lines of two EQUAL items: Top Left, Top Right / Bottom Left, Bottom Right.</td></tr>
     </table>
   </div>
   <div class="grid" style="margin-top:14px">
@@ -125,9 +128,12 @@
     <div class="card"><h3>Rules of the panel</h3>
       <ul class="tight">
         <li>Opened by a new <b>gear button</b> on the recorder card, next to the camera flip button (the same idea as the gear of the player).</li>
+        <li>The row under the picture, from the left: <b>Record</b> button, switch <b>Sound on</b> / <b>Sound off</b>, camera flip, gear at the right edge - one line also on a phone. While a recording runs Record gives its place to the line Pause / Stop &amp; save under the row.</li>
+        <li>The floating "+" button of the application is not shown on this route (<code>fabRoutes.ts</code>): it covered the radio.</li>
+        <li>The card has no title "Record video" above the camera picture any more: the application bar already says it.</li>
         <li>Both controls are <b>locked while a recording runs</b> (recording, paused, switching the sound, saving): one video has one position.</li>
         <li>A state saved by an older app version has no such object: every reader goes through <code>selectRecordVideoSettings</code> (defaults, an unknown position becomes <code>bottomRight</code>).</li>
-        <li>Button <b>Reset</b> puts both back to the defaults.</li>
+        <li><b>Reset</b> (a plain text button, no border) puts both back to the defaults.</li>
       </ul></div>
   </div>
 </section>
@@ -144,10 +150,12 @@
       <h3 style="margin-top:0">Record settings</h3>
       <label><input type="checkbox" id="swEnabled"> Date and time over the video</label>
       <fieldset id="fsPosition" disabled><legend>Position</legend>
+        <div class="radiogrid">
         <label><input type="radio" name="pos" value="topLeft"> Top Left</label>
         <label><input type="radio" name="pos" value="topRight"> Top Right</label>
         <label><input type="radio" name="pos" value="bottomLeft"> Bottom Left</label>
         <label><input type="radio" name="pos" value="bottomRight" checked> Bottom Right</label>
+        </div>
       </fieldset>
       <pre id="jsonOut" style="margin-top:12px"></pre>
     </div>
@@ -158,7 +166,8 @@
       <li>Text <code>YYYY-MM-DD HH:mm:ss</code>, local time of the device, 24 hours, changes every second (question Q2).</li>
       <li>White monospace text with a dark shadow, no box: readable on a light and on a dark picture.</li>
       <li>Height of the text = 4 % of the short side of the picture; margin = 3 % of the width, 4 % of the height. One pure function gives the place for the preview, the file and the player, so the three always agree.</li>
-      <li>The red time badge of the recorder moves away when it would lie under the stamp.</li>
+      <li>The red time badge of the recorder stands top left; with the stamp at Top Left it moves to the top right.</li>
+      <li>In the player the place is counted from the player box (16 : 9), not from the picture inside it: a portrait video has the stamp in the black side bar. Known limit of phase 1.</li>
       <li>The front camera preview is mirrored; the stamp is never mirrored.</li>
     </ul>
   </div>
@@ -219,13 +228,14 @@
         <li>The canvas has the size of the camera picture (1280 &times; 720 asked today), so the quality is the same.</li>
         <li>The visible preview stays the <code>&lt;video&gt;</code> tag with a text above it (a mirrored canvas would mirror the text).</li>
         <li>Frames are taken with <code>requestVideoFrameCallback</code>, a timer where the browser has none.</li>
-        <li>The switch "Record sound", pause and the 1 hour limit keep working: they act on the same recorder.</li>
+        <li>The sound switch ("Sound on" / "Sound off"), pause and the 1 hour limit keep working: they act on the same recorder.</li>
         <li>Switch off = the old direct path, not one line changes for it.</li>
       </ul></div>
     <div class="card"><h3><span class="pill plan">iOS / Android</span> phase 1: the app shows it</h3>
       <ul class="tight">
         <li>The file is recorded as today (hardware H.264). The post keeps when each part started and every pause.</li>
         <li>The player of the app draws the same text at the same place: the time = start of the part + the position in the video, pauses and the gap of a sound switch counted in. A video of several parts stays correct.</li>
+        <li>The player gets the times from the post: the result card after a recording (Play) passes them; the play route takes them as <code>&amp;stamp=&lt;JSON&gt;</code> (<code>buildPlayRoute({ dateTimeOver })</code>).</li>
         <li>No new native library, no new development build, no waiting after Stop.</li>
         <li>Limit: a file taken out of the app (shared, uploaded and opened in another program) has no stamp.</li>
       </ul></div>
@@ -270,7 +280,7 @@
   "mediaPostMIME": "video/webm",
   "mediaDurationSec": 75,
   "mediaWithAudio": true,
-  "mediaRecordedAt": "2026-11-12T14:03:15.000+01:00",
+  "mediaRecordedAt": "2026-11-12T13:03:15.000Z",
   "mediaDateTimeOver": {
     "position": "topLeft",
     "burnedIn": true
@@ -281,23 +291,25 @@
   "mediaKind": "video",
   "mediaPostMIME": "video/mp4",
   "mediaDurationSec": 75,
-  "mediaRecordedAt": "2026-11-12T14:03:15.000+01:00",
+  "mediaRecordedAt": "2026-11-12T13:03:15.000Z",
   "mediaDateTimeOver": {
     "position": "topLeft",
-    "burnedIn": false
+    "burnedIn": false,
+    "parts": [
+      { "startedAt": "2026-11-12T13:03:15.000Z",
+        "pauses": [ { "atSec": 12, "lengthSec": 20 } ] },
+      { "startedAt": "2026-11-12T13:04:15.700Z" }
+    ]
   },
   "mediaSegments": [
-    { "uri": "...1.mp4", "durationSec": 40, "withAudio": true,
-      "startedAt": "2026-11-12T14:03:15.000+01:00",
-      "pauses": [ { "atSec": 12, "lengthSec": 20 } ] },
-    { "uri": "...2.mp4", "durationSec": 35, "withAudio": false,
-      "startedAt": "2026-11-12T14:04:15.700+01:00" }
+    { "uri": "...1.mp4", "durationSec": 40, "hasAudio": true },
+    { "uri": "...2.mp4", "durationSec": 35, "hasAudio": false }
   ]
 }</pre></div>
   </div>
   <div class="card">
     <h3 style="margin-top:0">Reading the second sample</h3>
-    <p style="margin:0">Second 30 of part 1 lies after the pause at second 12, so the player shows 14:03:15 + 30 s + 20 s = <code>2026-11-12 14:04:05</code>. Part 2 starts 0.7 s after part 1 ended (the gap of the sound switch) and shows its own <code>startedAt</code>. A post without <code>mediaDateTimeOver</code> (every post of today) is played as today.</p>
+    <p style="margin:0">The times are stored in UTC and shown in the local time of the device (here UTC+1). <code>parts</code> has one entry per file, in the order of the files. Second 30 of part 1 lies after the pause at second 12, so the player shows 14:03:15 + 30 s + 20 s = <code>2026-11-12 14:04:05</code>. Part 2 starts 0.7 s after part 1 ended (the gap of the sound switch) and shows its own <code>startedAt</code>. A web post has <code>burnedIn: true</code> and no <code>parts</code>: the player draws nothing. A post without <code>mediaDateTimeOver</code> (every post of today) is played as today.</p>
   </div>
 </section>
 
@@ -309,35 +321,79 @@
       <select data-filter-col="tblWbs" data-col="3"><option value="">All phases</option><option>1</option><option>2</option></select>
       <span class="count" data-count="tblWbs"></span></div>
     <div class="scroll"><table class="data" id="tblWbs">
-      <thead><tr><th>Id</th><th>Work</th><th>Files</th><th>Phase</th><th>Platform</th></tr></thead>
+      <thead><tr><th>Id</th><th>Work</th><th>Files</th><th>Phase</th><th>Platform</th><th>Status</th></tr></thead>
       <tbody>
-        <tr><td>W1</td><td>Settings model: type, defaults (<code>false</code>, <code>bottomRight</code>), <code>normalizeRecordVideoSettings</code>, <code>selectRecordVideoSettings</code>; reducers <code>setRecordVideoSettings</code> / <code>resetRecordVideoSettings</code></td><td><code>kit8/redux/recordVideoSettings.ts</code> (new), <code>uxuiSlice.ts</code></td><td>1</td><td>All</td></tr>
-        <tr><td>W2</td><td>Hook <code>useRecordVideoSettings</code>: settings, change, reset</td><td><code>useRecordVideoSettings.ts</code> (new)</td><td>1</td><td>All</td></tr>
-        <tr><td>W3</td><td>Settings panel: the switch, the radio of four items, Reset; gear button on the recorder card; locked while a recording runs</td><td><code>RecordVideoSettingsPanel.tsx</code> (new), both <code>RecordVideo</code> files</td><td>1</td><td>All</td></tr>
-        <tr><td>W4</td><td>Pure helper: the text of a moment, the place of the stamp for a picture size, the clock time of a second of a part (pauses)</td><td><code>dateTimeOver.ts</code> (new)</td><td>1</td><td>All</td></tr>
-        <tr><td>W5</td><td>Stamp over the preview, ticking every second; the time badge moves away from its corner</td><td><code>DateTimeOverStamp.tsx</code> (new), both <code>RecordVideo</code> files</td><td>1</td><td>All</td></tr>
-        <tr><td>W6</td><td>Web: canvas path between the camera and the MediaRecorder, only while the switch is on</td><td><code>RecordVideo.web.tsx</code>, <code>stampedStream.web.ts</code> (new)</td><td>1</td><td>Web</td></tr>
-        <tr><td>W7</td><td>Media post: <code>mediaRecordedAt</code>, <code>mediaDateTimeOver</code>, <code>startedAt</code> + <code>pauses</code> of a part; the phone recorder notes them</td><td><code>mediaPost.ts</code>, <code>RecordVideo.tsx</code></td><td>1</td><td>All</td></tr>
-        <tr><td>W8</td><td>Player draws the stamp of a post with <code>burnedIn: false</code>, following the position, a jump and the change of a part</td><td><code>VideoPlayerView.tsx</code>, <code>VideoPlayerView.web.tsx</code>, <code>MediaPlayer.tsx</code></td><td>1</td><td>All</td></tr>
-        <tr><td>W9</td><td>Texts of the panel in <code>kit8/i18n</code> (English; other languages fall back)</td><td><code>kit8/i18n/i18n.ts</code></td><td>1</td><td>All</td></tr>
-        <tr><td>W10</td><td>Jest tests (see Tests), README of the media folder, KNOW_HOW row</td><td><code>__tests__/media</code>, <code>README.md</code></td><td>1</td><td>All</td></tr>
-        <tr><td>S0</td><td>Spike on a real iPhone and a real Android phone: second pass of a 1 minute and a 10 minute video with a changing text; measure the time, the size, the quality; confirm that a Skia frame processor is not recorded</td><td>scratch project</td><td>2</td><td>iOS / Android</td></tr>
-        <tr><td>W11</td><td>Local native module "write the stamp into the file" (Swift + Kotlin), called after Stop for every part, progress shown; the post becomes <code>burnedIn: true</code>; on a failure the original file is kept with <code>burnedIn: false</code></td><td><code>modules/kit8-video-stamp</code> (new), <code>useSaveRecording.ts</code></td><td>2</td><td>iOS / Android</td></tr>
-        <tr><td>W12</td><td>New development build, test on devices, README</td><td><code>app.config.js</code></td><td>2</td><td>iOS / Android</td></tr>
+        <tr><td>W1</td><td>Settings model: type, defaults (<code>false</code>, <code>bottomRight</code>), <code>normalizeRecordVideoSettings</code>, <code>selectRecordVideoSettings</code>; reducers <code>setRecordVideoSettings</code> / <code>resetRecordVideoSettings</code></td><td><code>kit8/redux/recordVideoSettings.ts</code> (new), <code>uxuiSlice.ts</code></td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W2</td><td>Hook <code>useRecordVideoSettings</code>: settings, change, reset</td><td><code>useRecordVideoSettings.ts</code> (new)</td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W3</td><td>Settings panel: the switch, the radio of four items, Reset; gear button on the recorder card; locked while a recording runs</td><td><code>RecordVideoSettingsPanel.tsx</code> (new), both <code>RecordVideo</code> files</td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W4</td><td>Pure helper: the text of a moment, the place of the stamp for a picture size, the clock time of a second of a part (pauses)</td><td><code>dateTimeOver.ts</code> (new)</td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W5</td><td>Stamp over the preview, ticking every second; the time badge moves away from its corner</td><td><code>DateTimeOverStamp.tsx</code> (new, also <code>LiveDateTimeOverStamp</code>), both <code>RecordVideo</code> files</td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W6</td><td>Web: canvas path between the camera and the MediaRecorder, only while the switch is on</td><td><code>RecordVideo.web.tsx</code>, <code>stampedStream.ts</code> (new)</td><td>1</td><td>Web</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W7</td><td>Media post: <code>mediaRecordedAt</code>, <code>mediaDateTimeOver</code>, <code>parts</code> = <code>startedAt</code> + <code>pauses</code> of every file; the phone recorder notes them (<code>PartClock</code>)</td><td><code>mediaPost.ts</code>, <code>RecordVideo.tsx</code></td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W8</td><td>Player draws the stamp of a post with <code>burnedIn: false</code>, following the position, a jump and the change of a part</td><td><code>VideoPlayerView.tsx</code>, <code>VideoPlayerView.web.tsx</code>, <code>MediaPlayer.tsx</code>, <code>RecordingResult.tsx</code>, <code>MediaPlayerScreen.tsx</code></td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>W9</td><td>Texts of the panel in <code>kit8/i18n</code> (English; other languages fall back)</td><td><code>kit8/i18n/i18n.ts</code></td><td>1</td><td>All</td><td><span class="pill no">Not done</span> the texts are English in the code, like the rest of the recorder</td></tr>
+        <tr><td>W10</td><td>Jest tests (see Tests), README of the media folder, KNOW_HOW row</td><td><code>__tests__/media</code>, <code>README.md</code></td><td>1</td><td>All</td><td><span class="pill yes">Done</span></td></tr>
+        <tr><td>S0</td><td>Spike on a real iPhone and a real Android phone: second pass of a 1 minute and a 10 minute video with a changing text; measure the time, the size, the quality; confirm that a Skia frame processor is not recorded</td><td>scratch project</td><td>2</td><td>iOS / Android</td><td><span class="pill plan">Open</span> not run</td></tr>
+        <tr><td>W11</td><td>Local native module "write the stamp into the file" (Swift + Kotlin), called after Stop for every part, progress shown; the post becomes <code>burnedIn: true</code>; on a failure the original file is kept with <code>burnedIn: false</code></td><td><code>modules/kit8-video-stamp</code> (new), <code>useSaveRecording.ts</code></td><td>2</td><td>iOS / Android</td><td><span class="pill plan">Plan</span></td></tr>
+        <tr><td>W12</td><td>New development build, test on devices, README</td><td><code>app.config.js</code></td><td>2</td><td>iOS / Android</td><td><span class="pill plan">Plan</span></td></tr>
       </tbody></table></div>
   </div>
+</section>
+
+<section id="spikes">
+  <h2>Spikes and the run on a phone</h2>
+  <p class="sub">What was really run on 2026-11-12, and what was not.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Id</th><th>What</th><th>Where</th><th>Result</th></tr>
+      <tr><td>Spike W</td><td>Date and time through a canvas into the recorded file. Page <code>documentation/CAMERA_DATE_TIME/spike_web_canvas.html</code> (button Run; a moving test picture plays the camera, a check box takes the real camera). It records 6 s the old way and 6 s through the canvas, opens both files again and counts the bright pixels of the four corners.</td><td>Chromium 156 (the browser pane of the Claude desktop app), macOS, test picture</td><td><span class="pill yes">PASS</span> see the numbers below</td></tr>
+      <tr><td>Run A</td><td>The app with phase 1 on a real Android phone: <code>npx expo run:android</code> (development build, 991 Gradle tasks, installed), route Record &rarr; Video.</td><td>Samsung A33 (SM-A336B), USB</td><td><span class="pill yes">PASS</span> gear button, panel, switch, radio, stamp over the live camera picture at Bottom Right (screenshot of the owner). One crash at the very first start, see the note.</td></tr>
+      <tr><td>S0</td><td>Second pass that writes the stamp into the mp4 (Android Media3 Transformer / iOS AVFoundation): time, size, quality on real phones.</td><td>-</td><td><span class="pill plan">NOT RUN</span> it needs new native code (a module in Kotlin / Swift): it is the first step of phase 2</td></tr>
+      <tr><td>S0b</td><td>Is a drawing of a Vision Camera Skia frame processor recorded into the file?</td><td>-</td><td><span class="pill plan">NOT CONFIRMED</span> the documentation page read on 2026-11-12 speaks only of the preview; not tried on a device (needs two more native packages)</td></tr>
+    </table>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h3>Spike W - output</h3>
+<pre>{
+  "container": "video/webm;codecs=vp9,opus",
+  "requestVideoFrameCallback": true,
+  "direct":  { "bytes": 53542, "duration": 6, "width": 1280, "height": 720,
+               "brightPixelsMin": { "topLeft": 0, "topRight": 0,
+                                    "bottomLeft": 0, "bottomRight": 0 } },
+  "stamped": { "bytes": 74675, "duration": 6, "width": 1280, "height": 720,
+               "framesDrawn": 181, "framesPerSecond": 30.2,
+               "drawnByTimer": 0, "msPerFrame": 1.095, "differentTexts": 7,
+               "brightPixelsMin": { "topLeft": 0, "topRight": 0,
+                                    "bottomLeft": 0, "bottomRight": 2514 } },
+  "verdict": "PASS: the date and time are in the recorded file, at bottomRight only"
+}</pre></div>
+    <div class="card"><h3>Spike W - what it says</h3>
+      <svg viewBox="0 0 420 190" width="100%" role="img" aria-label="Bright pixels of the bottom right corner: 0 without the canvas, 2514 with it">
+        <text x="0" y="16" font-size="12" fill="#64748b">Bright pixels in the bottom right corner of the recorded file</text>
+        <text x="0" y="62" font-size="13" fill="#334155">old way</text><rect x="90" y="46" width="2" height="24" fill="#cbd5e1"/><text x="100" y="63" font-size="13" fill="#0f172a">0</text>
+        <text x="0" y="112" font-size="13" fill="#334155">canvas</text><rect x="90" y="96" width="270" height="24" rx="4" fill="#0891b2"/><text x="368" y="113" font-size="13" fill="#0f172a">2514</text>
+        <text x="0" y="160" font-size="12" fill="#64748b">30.2 frames a second, 1.1 ms of drawing a frame, 7 different texts in 6 s,</text>
+        <text x="0" y="178" font-size="12" fill="#64748b">same size 1280 x 720, same length; the other three corners stay 0</text>
+      </svg>
+      <ul class="tight">
+        <li>The picture keeps its size and the full frame rate; a frame costs about 1 ms of the 33 ms it has.</li>
+        <li>Not measured: a real camera, Firefox, Safari, a tab in the background, a 1 hour recording.</li>
+      </ul></div>
+  </div>
+  <div class="note"><b>Run A, the crash at the first start.</b> The first start of the fresh build closed the app once: <code>SIGSEGV</code> in <code>libreactnative.so</code>, <code>MountingCoordinator::pullTransaction</code> (React Native core, first render), while the phone screen went off and on during the 3 minute first load of the bundle. The second start worked. The recorder was not on the screen at that moment, so the new code is not the likely cause, but this is not proved.</div>
 </section>
 
 <section id="tests">
   <h2>Tests and limits</h2>
   <div class="grid">
-    <div class="card"><h3>Jest (written in the same round)</h3>
+    <div class="card"><h3>Jest: 159 tests of <code>__tests__/media</code> pass</h3>
       <ul class="tight">
         <li><code>recordVideoSettings.test.ts</code>: defaults, an old persisted state, a wrong position, reset.</li>
         <li><code>dateTimeOver.test.ts</code>: the text, the four places for landscape and portrait, the clock time with pauses and parts (the sample above is a case).</li>
-        <li><code>recordVideoSettingsPanel.test.tsx</code>: the radio is disabled while the switch is off; everything is locked while recording.</li>
+        <li>The panel is tested inside <code>recordVideoNative.test.tsx</code>: the radio is disabled while the switch is off; everything is locked while recording; Reset; the time badge moves.</li>
         <li><code>recordVideoWeb</code> / <code>recordVideoNative</code>: switch off = the path of today; switch on = canvas path (fake canvas) / the times in the post.</li>
-        <li><code>videoPlayerView</code> (+ Web): the stamp shows only for <code>burnedIn: false</code>.</li>
+        <li><code>videoPlayerViewWeb</code>, <code>mediaPlayer</code>: the stamp shows only for <code>burnedIn: false</code>, each file gets its part, an audio or another source gets none.</li>
+        <li>Not covered by a test: the stamp inside the native <code>VideoPlayerView.tsx</code> (expo-video); the whole Jest run of the project was not repeated, only the media folder.</li>
       </ul></div>
     <div class="card"><h3>What a test cannot show</h3>
       <ul class="tight">
@@ -350,12 +406,12 @@
 </section>
 
 <section id="questions">
-  <h2>Questions to the owner</h2>
-  <p class="sub">Each has a recommended answer; the work can start with them.</p>
+  <h2>Questions - answered</h2>
+  <p class="sub">The owner answered 2026-11-12: "Questions are OK" = the recommended answer of each. Phase 1 is built on them.</p>
   <div class="card">
     <div class="tools"><input type="search" placeholder="Filter the questions..." data-filter="tblQ"><span class="count" data-count="tblQ"></span></div>
     <div class="scroll"><table class="data" id="tblQ">
-      <thead><tr><th>Id</th><th>Question</th><th>Recommended</th><th>Other answer</th></tr></thead>
+      <thead><tr><th>Id</th><th>Question</th><th>Answer (taken)</th><th>Other answer (not taken)</th></tr></thead>
       <tbody>
         <tr><td>Q1</td><td>iOS / Android: is it enough at first that the app shows the stamp when it plays the video (the file itself has none)?</td><td>Yes: phase 1 now, phase 2 (into the file) after the spike</td><td>No: nothing for the phones until the stamp is in the file</td></tr>
         <tr><td>Q2</td><td>The text of the stamp</td><td><code>2026-11-12 14:03:27</code> - the same everywhere, local time</td><td>The format of the device language (12.11.2026 14:03:27, 11/12/2026 2:03:27 PM)</td></tr>
@@ -366,7 +422,7 @@
         <tr><td>Q7</td><td>A video whose stamp is only shown by the app, sent to the chat / files</td><td>Sent as it is; the receiver sees the stamp in the app player only</td><td>Refuse to send until phase 2 has written it into the file</td></tr>
       </tbody></table></div>
   </div>
-  <div class="note"><b>Not checked here:</b> nothing was run on a camera, a browser or a phone for this plan. The statement about the Skia frame processor of Vision Camera 4 (drawings are not recorded) is from memory of its documentation and is a task of spike S0. The colour file of the report requirements (Google Drive) was not opened: the page uses the palette of the other documentation pages.</div>
+  <div class="note"><b>Not checked:</b> a real recording on the phone played back with the stamp (the owner saw the preview; Stop, save and Play were not seen by Claude); pause and the sound switch on a device; iOS; Firefox and Safari; the real camera in a browser. The colour file of the report requirements (Google Drive) was not opened: the page uses the palette of the other documentation pages.</div>
 </section>
 </main>
 

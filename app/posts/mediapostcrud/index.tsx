@@ -3,11 +3,11 @@ import { useLocalSearchParams } from 'expo-router';
 import { useSelector } from 'react-redux';
 import ListWebCardsComponent, { CardFullVersion } from '../../../kit8/ui/components/list/web';
 import { CreateNewCardBasicForm } from '../../../kit8/ui/components/list/forms';
-import { ActiveUserState } from '../../../kit8/redux/activeUserSlice';
+import { mediaPostOwnerGUID } from '../../../kit8/redux/mediaPostOwner';
 
 export default function MediaPostCrudScreen() {
-  const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
-  const listOwnerGUID = activeUserState?.activeUserGUID || '';
+  // the FULL user GUID: the database shows and accepts only the posts owned by it (kit8/redux/mediaPostOwner.ts)
+  const listOwnerGUID = useSelector(mediaPostOwnerGUID);
 
   // route: /posts/mediapostcrud?scrollToGUID=<post rowGUID> - scroll to that post (a post added from a
   // share intent). The card appears a moment after the list was read, so look for it for a few seconds.

@@ -7,6 +7,7 @@ import { ButtonPrimaryApp, ButtonSecondaryApp } from '../common';
 import MediaPlayerModal from './MediaPlayerModal';
 import { playableUrisOfPost, RecordingPost } from './mediaPost';
 import { formatDuration, MediaKind } from './mediaSource';
+import { dateTimeOverOfPost } from './dateTimeOver';
 
 export interface RecordingResultProps {
   kind: MediaKind;
@@ -29,6 +30,7 @@ export default function RecordingResult({ kind, post, onRecordAgain }: Recording
         <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>
           {formatDuration(json.mediaDurationSec)} · {kind === 'video' ? (json.mediaWithAudio ? 'with sound' : 'without sound') : 'audio'}
           {parts > 1 ? ` · ${parts} parts` : ''}
+          {json.mediaDateTimeOver ? (json.mediaDateTimeOver.burnedIn ? ' · date and time in the video' : ' · date and time shown by the player') : ''}
         </Text>
         <View style={styles.buttons}>
           <ButtonPrimaryApp icon="play_arrow" onPress={() => setPlaying(true)} testID="recording-result-play">
@@ -42,7 +44,7 @@ export default function RecordingResult({ kind, post, onRecordAgain }: Recording
           </ButtonSecondaryApp>
         </View>
       </Card.Content>
-      <MediaPlayerModal visible={playing} onDismiss={() => setPlaying(false)} kind={kind} source={playableUrisOfPost(json)} title={json.mediaPostTitle} />
+      <MediaPlayerModal visible={playing} onDismiss={() => setPlaying(false)} kind={kind} source={playableUrisOfPost(json)} title={json.mediaPostTitle} dateTimeOver={dateTimeOverOfPost(json)} />
     </Card>
   );
 }
