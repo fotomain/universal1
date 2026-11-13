@@ -207,8 +207,13 @@ describe('date and time over the video (documentation/CAMERA_DATE_TIME.html)', (
     await flush();
     expect(q('record-video-datetime')).not.toBeNull();
     await pressAsync('record-video-settings-button');
+    expect(q('record-video-settings-panel')).not.toBeNull();
     await pressAsync('record-video-start');
     expect(cam.start[0]).toMatchObject({ fileType: 'mp4', videoCodec: 'h264' });
+    // the open settings fold by themselves when Record starts; the gear opens them again
+    expect(q('record-video-settings-panel')).toBeNull();
+    await pressAsync('record-video-settings-button');
+    expect(q('record-video-settings-panel')).not.toBeNull();
 
     // locked: neither the switch nor the radio changes anything while the recording runs
     await pressAsync('record-video-datetime-switch');

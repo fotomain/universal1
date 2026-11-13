@@ -117,6 +117,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   };
 
   const start = async () => {
+    setSettingsOpen(false); // the settings are locked while recording: the panel folds when Record starts
     if (!cameraPermission.hasPermission && !(await cameraPermission.requestPermission())) {
       showErrorModal('The camera is not allowed. Allow it in the settings of the device.', 'Record video');
       return;
@@ -255,13 +256,13 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
             />
             <View style={styles.rowIcons}>
               <IconButton
-                icon="camera-flip"
+                icon="camera-flip-outline"
                 onPress={() => setPosition((p) => (p === 'back' ? 'front' : 'back'))}
                 disabled={active || phase === 'saving'}
                 accessibilityLabel="Switch camera"
                 size={22} style={styles.flip} testID="record-video-flip"
               />
-              <IconButton icon="cog" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
+              <IconButton icon="cog-outline" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
             </View>
           </View>
           {settingsOpen && (

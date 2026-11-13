@@ -273,6 +273,19 @@ it('System settings opens by itself on the Routes visits page', () => {
   expect(q('drawer-subitem-system-routevisits')).not.toBeNull();
 });
 
+it('System settings has Cost calculator (route app/system/costcalculator.tsx), which opens /system/costcalculator', () => {
+  mount('/home');
+  press('drawer-item-systemsettings');
+  expect(q('drawer-subitem-system-costcalculator')!.textContent).toContain('Cost calculator');
+  press('drawer-subitem-system-costcalculator');
+  expect(mockNavigate).toHaveBeenCalledWith('/system/costcalculator');
+});
+
+it('System settings opens by itself on the Cost calculator page', () => {
+  mount('/system/costcalculator');
+  expect(q('drawer-subitem-system-costcalculator')).not.toBeNull();
+});
+
 it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, settings, the Top 5 of the visited routes, the language and the theme; a Top 5 row navigates like a menu row', () => {
   mockTopProps.length = 0;
   mount('/home');

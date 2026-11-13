@@ -15,7 +15,10 @@ jest.mock('expo-crypto', () => ({ randomUUID: () => 'uuid-1' }));
 const mockPersist = jest.fn(async (uri: string, kind: string) => `kept-${kind}:${uri}`);
 jest.mock('../../kit8/ui/components/media/mediaFileStore', () => ({ persistRecording: (u: string, k: string) => mockPersist(u, k) }));
 
-import { useSaveRecording } from '../../kit8/ui/components/media/useSaveRecording';
+let mockClient: any = null;
+jest.mock('../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: mockClient }) }));
+
+import { useSaveRecording, saveRefusalText } from '../../kit8/ui/components/media/useSaveRecording';
 
 let save: (segments: any[], title?: string) => Promise<any>;
 function Probe({ kind }: { kind: 'audio' | 'video' }) {
@@ -72,4 +75,48 @@ it('a guest cannot save a recording', async () => {
   await expect(save([{ uri: 'file:///a.m4a', durationSec: 1, hasAudio: true }])).rejects.toThrow('Sign in to save a recording.');
   expect(mockCreateOne).not.toHaveBeenCalled();
   (globalThis as any).__state = undefined;
+});
+
+function fakeClient(opts: { guid?: string | null; insertError?: any } = {}) {
+  const insert = jest.fn((row: any) => ({ select: async () => (opts.insertError ? { data: null, error: opts.insertError } : { data: [row], error: null }) }));
+  const client = { rpc: jest.fn(async () => ({ data: opts.guid ?? null, error: null })), from: jest.fn(() => ({ insert })), insert };
+  return client;
+}
+
+describe('with a database client', () => {
+  afterEach(() => { mockClient = null; (globalThis as any).__state = undefined; });
+
+  it('owns the post by what app_user_guid() answers NOW, writes it itself and waits for the database', async () => {
+    (globalThis as any).__state = { activeUserState: { activeUserGUID: 'cut', userGUID: 'stale-guid' } };
+    mockClient = fakeClient({ guid: 'db-guid-1' });
+    render(<Probe kind="video" />);
+    let post: any;
+    await act(async () => { post = await save([{ uri: 'file:///cache/1.mp4', durationSec: 2, hasAudio: true }]); });
+    expect(mockClient.rpc).toHaveBeenCalledWith('app_user_guid');
+    expect(mockClient.from).toHaveBeenCalledWith('mediaPostTable');
+    expect(mockClient.insert).toHaveBeenCalledWith(expect.objectContaining({ rowOwnerGUID: 'db-guid-1' }));
+    expect(post.rowOwnerGUID).toBe('db-guid-1');
+    expect(mockCreateOne).not.toHaveBeenCalled();
+  });
+
+  it('falls back to the GUID of the login when the database cannot be asked', async () => {
+    (globalThis as any).__state = { activeUserState: { activeUserGUID: 'cut', userGUID: 'login-guid' } };
+    mockClient = fakeClient({ guid: null });
+    render(<Probe kind="audio" />);
+    let post: any;
+    await act(async () => { post = await save([{ uri: 'file:///a.m4a', durationSec: 1, hasAudio: true }]); });
+    expect(post.rowOwnerGUID).toBe('login-guid');
+  });
+
+  it('a refused insert makes the save FAIL with a text that names both GUIDs (no "Recording saved")', async () => {
+    (globalThis as any).__state = { activeUserState: { activeUserGUID: 'cut', userGUID: 'login-guid' } };
+    mockClient = fakeClient({ guid: 'db-guid-1', insertError: { code: '42501', message: 'new row violates row-level security policy' } });
+    render(<Probe kind="video" />);
+    await expect(save([{ uri: 'file:///cache/1.mp4', durationSec: 2, hasAudio: true }])).rejects.toThrow(/db-guid-1/);
+  });
+});
+
+it('saveRefusalText: a permission refusal is worded, another error keeps its message', () => {
+  expect(saveRefusalText({ code: '42501', message: 'x' }, 'a', 'b')).toContain('no permission');
+  expect(saveRefusalText({ message: 'disk full' }, 'a', 'b')).toBe('Post was not saved: disk full');
 });

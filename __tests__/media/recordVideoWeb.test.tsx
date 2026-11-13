@@ -105,6 +105,19 @@ describe('RecordVideo (web)', () => {
     expect(URL.revokeObjectURL).toHaveBeenCalledWith('blob:fake-1');
   });
 
+  it('the open settings fold by themselves when Record starts', async () => {
+    render(<RecordVideo />);
+    await flush();
+    await pressAsync('record-video-settings-button');
+    expect(q('record-video-settings-panel')).not.toBeNull();
+    await pressAsync('record-video-start');
+    expect(q('record-video-settings-panel')).toBeNull();
+    await pressAsync('record-video-settings-button'); // the gear opens them again while recording
+    expect(q('record-video-settings-panel')).not.toBeNull();
+    await pressAsync('record-video-stop');
+    await flush();
+  });
+
   it('a recording whose sound stayed off is flagged without sound', async () => {
     render(<RecordVideo withAudio={false} />);
     await flush();

@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Build the Android app and run it on a connected Samsung phone.
 # Usage: ./run_android_samsung.command [appClothes1|appCC1|appOnTrend|appPosts]
+# Fast path: when nothing native changed since the last successful install on this phone (same
+# package.json / package-lock.json / app.config.js / patches / android Gradle files / icon / splash)
+# and the app is still installed, Gradle is skipped: only Metro starts and the app is opened.
+# FORCE_NATIVE=1 ./run_android_samsung.command   -> always do the full Gradle build + install.
 set -e
 cd "$(dirname "${BASH_SOURCE[0]}")"
 
@@ -77,17 +81,56 @@ fi
 
 # Load the app code over the USB cable instead of Wi-Fi: the development bundle is very large,
 # and over Wi-Fi the phone can show a white screen / "Reloading..." for minutes.
+REVERSE_OK=0
 if adb -s "$SERIAL" reverse tcp:8088 tcp:8088 >/dev/null 2>&1; then
   export REACT_NATIVE_PACKAGER_HOSTNAME=localhost
+  REVERSE_OK=1
 else
   echo "Warning: could not forward port 8088 over USB - the phone will load the app over Wi-Fi (slower)."
+fi
+
+# ---- Is a native build needed? -------------------------------------------------------------
+PACKAGE="$(node -e "console.log(require('./app.config.js').expo.android.package)")"
+SLUG="$(node -e "console.log(require('./app.config.js').expo.slug)")"
+STAMP_FILE=".android_native_stamp"   # last successful install: "<phone serial>:<hash of native inputs>"
+NEW_STAMP="$SERIAL:$( { echo "$APP_NAME"
+  cat package.json package-lock.json app.config.js react-native.config.js patches/* \
+      android/build.gradle android/settings.gradle android/gradle.properties android/app/build.gradle \
+      android/app/src/main/AndroidManifest.xml android/gradle/wrapper/gradle-wrapper.properties \
+      "assets/$APP_NAME/icon.png" "assets/$APP_NAME/splash.png" 2>/dev/null; } | shasum -a 256 | cut -d' ' -f1)"
+INSTALLED="$(adb -s "$SERIAL" shell pm path "$PACKAGE" 2>/dev/null | tr -d '\r')"
+
+LOG="android_build.log"
+if [ "${FORCE_NATIVE:-0}" != "1" ] && [ "$REVERSE_OK" = "1" ] && [ -n "$INSTALLED" ] \
+   && [ "$(cat "$STAMP_FILE" 2>/dev/null)" = "$NEW_STAMP" ]; then
+  echo "========================================="
+  echo "FAST START (no Gradle): $APP_NAME on $MODEL"
+  echo "Native inputs unchanged and $PACKAGE is installed. FORCE_NATIVE=1 forces a full build."
+  echo "========================================="
+  (
+    for i in $(seq 1 180); do
+      curl -s http://localhost:8088/status 2>/dev/null | grep -q running && break
+      sleep 1
+    done
+    adb -s "$SERIAL" shell "am start -a android.intent.action.VIEW -d 'exp+$SLUG://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8088' $PACKAGE" >/dev/null 2>&1
+  ) &
+  npx expo start --dev-client --port 8088
+  exit $?
 fi
 
 echo "========================================="
 echo "Building Android for: $APP_NAME"
 echo "Target device:        $MODEL"
 echo "========================================="
-LOG="android_build.log"
 echo "Full output is also saved to: $LOG"
+# Remember this state as installed only after Expo reports that it opened the app on the phone.
+rm -f "$STAMP_FILE"
+: > "$LOG"
+(
+  for i in $(seq 1 3600); do
+    if grep -aq "Opening exp+" "$LOG" 2>/dev/null; then echo "$NEW_STAMP" > "$STAMP_FILE"; exit 0; fi
+    sleep 2
+  done
+) &
 set -o pipefail
 npx expo run:android --device "$MODEL" --port 8088 2>&1 | tee "$LOG"

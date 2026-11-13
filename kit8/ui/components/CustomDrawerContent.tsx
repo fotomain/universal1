@@ -6,6 +6,7 @@ import { Drawer as PaperDrawer } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import IconApp from './common/IconApp';
+import RecordMenuIcon from './common/RecordMenuIcon';
 import { usePermissions } from '../../permissions/usePermissions';
 import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
 import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
@@ -15,6 +16,8 @@ interface MenuItem {
   id: string;
   label: string;
   icon: string;
+  /** a drawn icon (SVG) instead of the named one: gets the size and the colour of the row. `icon` stays as the name for the lists (Top 5) */
+  renderIcon?: (p: { size: number; color: string }) => React.ReactElement;
   route: string;
   /** accordion group (e.g. Catalogs): the row toggles, its children are compact sub-rows */
   children?: MenuItem[];
@@ -75,7 +78,9 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     {
       id: 'record',
       label: 'Record',
-      icon: 'fiber_manual_record',
+      icon: 'videocam',
+      // negative-space camera + microphone monogram (black / white, takes the colour of the row)
+      renderIcon: ({ size, color }) => <RecordMenuIcon size={size} color={color} />,
       route: '',
       children: [
         { id: 'record-audio', label: 'Audio', icon: 'mic', route: 'media/record/audio' },
@@ -197,7 +202,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       label: 'System settings',
       icon: 'settings_applications',
       route: '',
-      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: 'Permissions', icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: 'Application texts', icon: 'translate', route: 'catalog/organization/texts' }],
+      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: 'Permissions', icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: 'Application texts', icon: 'translate', route: 'catalog/organization/texts' }, { id: 'system-costcalculator', label: 'Cost calculator', icon: 'calculate', route: 'system/costcalculator' }],
     },
   ];
 
@@ -249,7 +254,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
           },
         ]}
       >
-        <IconApp name={item.icon} size={16} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 10 }} />
+        <IconApp name={item.renderIcon ?? item.icon} size={16} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 10 }} />
         <Text numberOfLines={1} style={{ fontSize: 13, fontWeight: active ? '700' : '400', color: active ? themeColors.primary : themeColors.text }}>
           {item.label}
         </Text>
@@ -262,7 +267,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     item.children ? (
       <View key={item.id} testID={`drawer-group-${item.id}`}>
         {renderDrawerItem(item)}
-        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.filter((ch) => (ch.id !== 'organizationmembers' || permissions.canUi('permissionOrganizationMembers', 'R')) && (ch.id !== 'system-texts' || permissions.canUi('permissionEditTexts', 'R'))).map(renderSubItem)}</View>}
+        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.filter((ch) => (ch.id !== 'organizationmembers' || permissions.canUi('permissionOrganizationMembers', 'R')) && (ch.id !== 'system-texts' || permissions.canUi('permissionEditTexts', 'R')) && (ch.id !== 'system-costcalculator' || permissions.isAdmin)).map(renderSubItem)}</View>}
       </View>
     ) : (
       renderDrawerItem(item)
@@ -280,7 +285,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         style={{ flexDirection: 'row', alignItems: 'center', minHeight: 28, marginHorizontal: wide ? 12 : 0, paddingLeft: 16, paddingRight: 12 }}
       >
         <View style={{ width: wide ? 24 : 20, alignItems: 'center' }}>
-          <IconApp name={item.icon} size={16} color={themeColors.text} />
+          <IconApp name={item.renderIcon ?? item.icon} size={16} color={themeColors.text} />
         </View>
         <Text numberOfLines={1} style={{ flex: 1, marginLeft: 12, fontSize: 13, fontWeight: '400', color: themeColors.text }}>
           {item.label}
@@ -302,7 +307,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             key={item.id}
             testID={`drawer-item-${item.id}`}
             label={item.label}
-            icon={(iconProps) => <IconApp testID="c42a9bde-7bf5-2cd4-6mr8-901234567e29" name={item.icon} size={iconProps.size} color={iconProps.color} />}
+            icon={(iconProps) => <IconApp testID="c42a9bde-7bf5-2cd4-6mr8-901234567e29" name={item.renderIcon ?? item.icon} size={iconProps.size} color={iconProps.color} />}
             active={active}
             right={item.right ? () => <>{item.right}</> : item.children ? () => groupChevron(item, themeColors.text) : undefined}
             onPress={() => pressItem(item)}
@@ -330,7 +335,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderColor: active ? themeColors.primary : themeColors.border,
             }}
           >
-            <IconApp testID="d53b0cef-8ca6-3de5-7ns9-012345678f30" name={item.icon} size={20} color={active ? '#ffffff' : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="d53b0cef-8ca6-3de5-7ns9-012345678f30" name={item.renderIcon ?? item.icon} size={20} color={active ? '#ffffff' : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '700' : '500', color: active ? '#ffffff' : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
@@ -358,7 +363,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderBottomColor: themeColors.border,
             }}
           >
-            <IconApp testID="f75d2e01-0ec8-5fg7-9pu1-234567890b32" name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="f75d2e01-0ec8-5fg7-9pu1-234567890b32" name={item.renderIcon ?? item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '600' : '400', color: active ? themeColors.primary : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
@@ -386,7 +391,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               marginHorizontal: 10,
             }}
           >
-            <IconApp testID="a86e3f12-1fd9-6gh8-0qv2-345678901c33" name={item.icon} size={20} color={active ? '#ffffff' : themeColors.primary} style={{ marginRight: 12 }} />
+            <IconApp testID="a86e3f12-1fd9-6gh8-0qv2-345678901c33" name={item.renderIcon ?? item.icon} size={20} color={active ? '#ffffff' : themeColors.primary} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: '700', color: active ? '#ffffff' : themeColors.text, flex: 1 }}>
               {item.label}
             </Text>
@@ -415,7 +420,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
               borderLeftColor: themeColors.primary,
             }}
           >
-            <IconApp testID="b97f4023-2ge0-7hi9-1rw3-456789012d34" name={item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
+            <IconApp testID="b97f4023-2ge0-7hi9-1rw3-456789012d34" name={item.renderIcon ?? item.icon} size={20} color={active ? themeColors.primary : themeColors.text} style={{ marginRight: 12 }} />
             <Text style={{ fontSize: 15, fontWeight: active ? '700' : '400', color: active ? themeColors.primary : themeColors.text }}>
               {item.label}
             </Text>

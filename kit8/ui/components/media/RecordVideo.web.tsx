@@ -141,6 +141,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   const start = () => {
     const stream = streamRef.current;
     if (!stream) return;
+    setSettingsOpen(false); // the settings are locked while recording: the panel folds when Record starts
     try {
       const mimeType = pickRecorderMimeType((m) => typeof MediaRecorder !== 'undefined' && MediaRecorder.isTypeSupported(m));
       // the date and time over the video: every frame goes through a canvas that draws the text (stampedStream.ts)
@@ -285,8 +286,8 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               testID="record-video-sound"
             />
             <View style={styles.rowIcons}>
-              <IconButton icon="camera-flip" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} disabled={active || phase === 'saving'} accessibilityLabel="Switch camera" size={22} style={styles.flip} testID="record-video-flip" />
-              <IconButton icon="cog" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
+              <IconButton icon="camera-flip-outline" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} disabled={active || phase === 'saving'} accessibilityLabel="Switch camera" size={22} style={styles.flip} testID="record-video-flip" />
+              <IconButton icon="cog-outline" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
             </View>
           </View>
           {settingsOpen && (

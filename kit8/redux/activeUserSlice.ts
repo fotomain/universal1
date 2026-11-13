@@ -14,6 +14,12 @@ export interface ActiveUserData {
    */
   userGUID?: string;
   /**
+   * The GUID the DATABASE takes this session for = the answer of app_user_guid() (the row policies compare with it).
+   * Normally equal to userGUID; it differs for an older user row whose rowGUID is not a full UUID, or when the login step failed.
+   * Only the login step passes it. '' = not known. Owner of a media post (kit8/redux/mediaPostOwner.ts).
+   */
+  databaseUserGUID?: string;
+  /**
    * The organization of the user = userTable.rowJSON.userOrganization (kit8/auth/user/userTableLogin.ts), obligatory for a real user. Only the login step passes it.
    * Resources are shared by all projects of one organization (project.rowParentGUID).
    */
@@ -69,6 +75,7 @@ export const NO_ORGANIZATION: UserOrganization = { rowGUID: "", title: "" };
 const initialState: ActiveUserState = {
   ...guestUser,
   userGUID: "",
+  databaseUserGUID: "",
   userOrganization: NO_ORGANIZATION,
   isLoggedIn: computeIsLoggedIn(guestUser.activeUserEmail), // false
 };
@@ -83,6 +90,8 @@ export const activeUserSlice = createSlice({
       // uid) must not replace it for the same user; a different email starts without one.
       if (action.payload.userGUID !== undefined) state.userGUID = action.payload.userGUID;
       else if (state.activeUserEmail !== action.payload.activeUserEmail) state.userGUID = "";
+      if (action.payload.databaseUserGUID !== undefined) state.databaseUserGUID = action.payload.databaseUserGUID;
+      else if (state.activeUserEmail !== action.payload.activeUserEmail) state.databaseUserGUID = "";
       // the organization comes only from the login step too; another user starts without one (state persisted by an older app version has none: treated as none)
       if (action.payload.userOrganization !== undefined) state.userOrganization = action.payload.userOrganization;
       else if (state.activeUserEmail !== action.payload.activeUserEmail) state.userOrganization = NO_ORGANIZATION;

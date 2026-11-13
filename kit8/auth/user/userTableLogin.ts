@@ -49,3 +49,17 @@ export async function loginUserTable(supabase: Pick<SupabaseClient, 'rpc'>, inpu
   if (!userGUID || !organizationGUID) throw new Error('organization_ensure_user returned no user or no organization');
   return { userGUID, organization: { rowGUID: organizationGUID, title: String((data as any)?.organizationTitle || '') } };
 }
+
+/**
+ * The GUID the database takes the signed-in session for: the answer of app_user_guid(), the value the row policies compare with
+ * (media posts: "rowOwnerGUID" = app_user_guid()). '' when it cannot be read - the caller then keeps the GUID of the login step.
+ */
+export async function readDatabaseUserGUID(supabase: Pick<SupabaseClient, 'rpc'>): Promise<string> {
+  try {
+    const { data, error } = await supabase.rpc('app_user_guid');
+    if (error || !data) return '';
+    return String(data);
+  } catch {
+    return '';
+  }
+}

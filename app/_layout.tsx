@@ -23,7 +23,7 @@ import BusyConflictsWindow from '../kit8/pm/view/task/plan/BusyConflictsWindow';
 import {formatTo32CharGUID, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
-import { loginUserTable } from '../kit8/auth/user/userTableLogin';
+import { loginUserTable, readDatabaseUserGUID } from '../kit8/auth/user/userTableLogin';
 import { DEFAULT_COUNTRIES } from '../kit8/catalog/country/countryModel';
 
 import {CustomDarkTheme, CustomLightTheme} from '../kit8/ui/theme/palettes';
@@ -207,6 +207,8 @@ function SupabaseAuthSync() {
         } catch (e: any) {
           console.error('userTable login step failed, using the Supabase user id:', e?.message || e);
         }
+        // the GUID the database itself takes this session for (the row policies of the media posts compare with it)
+        const databaseUserGUID = await readDatabaseUserGUID(supabase);
         if (cancelled) return;
         /* userGUID32 */
         const activeUserGUID = formatTo32CharGUID(userGUID); /* userGUID32 */
@@ -215,6 +217,7 @@ function SupabaseAuthSync() {
         dispatch(setActiveUser({
           activeUserGUID, /* userGUID32 */
           userGUID,
+          databaseUserGUID,
           userOrganization,
           activeUserEmail: userEmail,
           activeUserFirstName: userFirstName,
@@ -398,6 +401,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="user/visits/index" options={{ title: 'Routes visits', drawerLabel: 'Routes visits' }} />
               <Drawer.Screen name="user/permissions/index" options={{ title: 'Permissions', drawerLabel: 'Permissions' }} />
               <Drawer.Screen name="catalog/organization/texts/index" options={{ title: 'Application texts', drawerLabel: 'Application texts' }} />
+              <Drawer.Screen name="system/costcalculator" options={{ title: 'Cost calculator', drawerLabel: 'Cost calculator' }} />
               <Drawer.Screen name="catalog/organization/members/index" options={{ title: 'Organization members', drawerLabel: 'Organization members' }} />
               <Drawer.Screen name="catalog/money/account/index" options={{ title: 'Money accounts', drawerLabel: 'Money accounts' }} />
               <Drawer.Screen name="catalog/work/center/index" options={{ title: 'Work centers', drawerLabel: 'Work centers' }} />

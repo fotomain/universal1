@@ -1,5 +1,5 @@
 // WP A1/A4: the sign-in step calls organization_ensure_user and returns the user AND his organization; a user without an organization is never used.
-import { loginUserTable } from '../../../kit8/auth/user/userTableLogin';
+import { readDatabaseUserGUID, loginUserTable } from '../../../kit8/auth/user/userTableLogin';
 import { organizationOwnerOf } from '../../../kit8/catalog/organization/ensureUserOrganization';
 
 const rpcOk = (data: any) => ({ rpc: jest.fn().mockResolvedValue({ data, error: null }) });
@@ -38,4 +38,17 @@ describe('loginUserTable', () => {
 it('organizationOwnerOf spells the owner as the lower-cased e-mail', () => {
   expect(organizationOwnerOf('  Bob@Example.COM ')).toBe('bob@example.com');
   expect(organizationOwnerOf('')).toBe('');
+});
+
+describe('readDatabaseUserGUID (what app_user_guid() answers: the value the row policies compare with)', () => {
+  it('returns the answer of the database', async () => {
+    const supabase = { rpc: jest.fn().mockResolvedValue({ data: '0f8fad5b-d9cb-469f-a165-70867728950e', error: null }) };
+    expect(await readDatabaseUserGUID(supabase as any)).toBe('0f8fad5b-d9cb-469f-a165-70867728950e');
+    expect(supabase.rpc).toHaveBeenCalledWith('app_user_guid');
+  });
+  it("is '' when the database gives an error, nothing, or throws", async () => {
+    expect(await readDatabaseUserGUID({ rpc: jest.fn().mockResolvedValue({ data: null, error: { message: 'boom' } }) } as any)).toBe('');
+    expect(await readDatabaseUserGUID({ rpc: jest.fn().mockResolvedValue({ data: null, error: null }) } as any)).toBe('');
+    expect(await readDatabaseUserGUID({ rpc: jest.fn().mockRejectedValue(new Error('offline')) } as any)).toBe('');
+  });
 });

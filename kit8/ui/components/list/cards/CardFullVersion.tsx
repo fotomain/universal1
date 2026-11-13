@@ -282,14 +282,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 0,
     paddingVertical: 6,
     borderBottomWidth: 1,
     borderBottomColor: "#F3F4F6",
   },
   headerLeft: {
     flex: 1,
-    paddingRight: 8,
+    minWidth: 0,
+    paddingRight: 16,
   },
   uuidText: {
     fontSize: 11,
@@ -300,6 +301,7 @@ const styles = StyleSheet.create({
   headerRight: {
     flexDirection: "row",
     alignItems: "center",
+    columnGap: 14,
   },
   iconButton: {
     margin: 0,
