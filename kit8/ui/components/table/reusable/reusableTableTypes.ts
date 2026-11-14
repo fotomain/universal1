@@ -43,6 +43,8 @@ interface ColumnBase {
   fromStored?: (stored: any, row: ReusableTableRow) => any;
   /** true = the column is always FIRST (right after the drag / select-row columns), even when the user has moved the others and the column appears later */
   pinFirst?: boolean;
+  /** ReusableList only (kit8/ui/components/list/reusable): which part of a list item this column fills. Default: the first text column = title, the next = subtitle, the next two = meta */
+  listRole?: 'title' | 'subtitle' | 'meta' | 'badge' | 'hidden';
   /**
    * checked before a changed value is saved: a message = the value is refused (snackbar), null = ok.
    * `row` is the row BEFORE the change.

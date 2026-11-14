@@ -172,6 +172,15 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     if (actions?.updateOne) moved.forEach((m) => dispatch(actions.updateOne({ rowGUID: m.rowGUID, rowOwnerGUID: scopedOwner ?? m.rowOwnerGUID, field: 'orderInList', value: m.orderInList })));
     moved.forEach((m) => onRowEdit?.(m.rowGUID, 'move'));
   }, [actions, dispatch, scopedOwner, reorderEnabled, setRows, onRowEdit]);
+  /** ReusableList drag reorder: give ONE row an orderInList (the caller computed it between the neighbours of the drop place); the list is sorted again and the row saved */
+  const setOrder = useCallback((id: string, orderInList: number) => {
+    if (!reorderEnabled) return;
+    const current = rowsRef.current.find((r) => r.rowGUID === id);
+    if (!current) return;
+    setRows(sortRows(rowsRef.current.map((r) => (r.rowGUID === id ? { ...r, orderInList } : r))));
+    if (actions?.updateOne) dispatch(actions.updateOne({ rowGUID: id, rowOwnerGUID: scopedOwner ?? current.rowOwnerGUID, field: 'orderInList', value: orderInList }));
+    onRowEdit?.(id, 'move');
+  }, [actions, dispatch, scopedOwner, reorderEnabled, setRows, onRowEdit]);
   const moveUp = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i - 1); }, [moveTo]);
   const moveDown = useCallback((id: string) => { const i = indexOf(id); moveTo(i, i + 1); }, [moveTo]);
   const makeFirst = useCallback((id: string) => moveTo(indexOf(id), 0), [moveTo]);
@@ -196,7 +205,7 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   }, [archiveActions, dispatch, remove]);
 
   return { rows, loading, error: entityState?.readErrorData as any, realtimeStatus: entityState?.realtimeStatus as string | undefined, canArchive, refresh,
-    createFirst, createLast, createBefore, createAfter, duplicate, patchRow, setCell, moveTo, moveSelected, moveUp, moveDown, makeFirst, makeLast, remove, archive };
+    createFirst, createLast, createBefore, createAfter, duplicate, patchRow, setCell, moveTo, setOrder, moveSelected, moveUp, moveDown, makeFirst, makeLast, remove, archive };
 }
 
 export type ReusableTableCrud = ReturnType<typeof useReusableTableCrud>;

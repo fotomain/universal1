@@ -388,6 +388,7 @@ function RootLayoutContent() {
 
               <Drawer.Screen name="developer1/index" options={{ title: 'Developer 1' }} />
               <Drawer.Screen name="demo/foldertree/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Folder tree 200k' }} />
+              <Drawer.Screen name="demo/list/reusable/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Reusable list demo' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: 'Projects', drawerLabel: 'Projects' }} />
               <Drawer.Screen name="catalog/product/dashboard/index" options={{ title: 'Products', drawerLabel: 'Products' }} />
               <Drawer.Screen name="catalog/resourcerole/dashboard/index" options={{ title: 'Resource roles', drawerLabel: 'Resource roles' }} />
