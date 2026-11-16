@@ -3,8 +3,8 @@ import { Image, Pressable, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 
-// The Google logo is bundled with the app (assets/google), so it shows without a network request.
-const googleLogo = require('../../../assets/google/google-icon.png');
+// The Google logo is bundled with the app (assets/brands/google), so it shows without a network request.
+const googleLogo = require('../../../assets/brands/google/google-icon.png');
 
 type Props = {
   onPress: () => void;
