@@ -122,8 +122,10 @@ jest.mock('react-native-gesture-handler', () => {
   };
 });
 
+/** the push of the mocked router: a test asserts where a screen navigated to */
+export const mockRouterPush = jest.fn();
 jest.mock('expo-router', () => ({
-  useRouter: () => ({ push: jest.fn(), navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false, setParams: jest.fn() }),
+  useRouter: () => ({ push: mockRouterPush, navigate: jest.fn(), replace: jest.fn(), back: jest.fn(), canGoBack: () => false, setParams: jest.fn() }),
   useNavigation: () => ({ setOptions: jest.fn() }),
 }));
 

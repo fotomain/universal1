@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // Toolbars: Gantt bar (kit8/pm/view/gantt), tree toolbar (kit8/pm/view/tree), recent projects toolbar (kit8/pm/view/project/recent) (+ project search).
 import { act } from 'react';
-import { cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
+import { mockRouterPush, cleanupUI, expectInOrder, fakeCrud, hover, inputValue, wait, mustGet, OWNER, press, q, qa, renderUI, seedStore, textOf, toggleSwitch, typeInto } from './pmUiTestKit';
 
 // ---- the project bar talks to Supabase through these hooks: replaced by fakes ----
 const mockCreate = jest.fn();
@@ -189,6 +189,16 @@ describe('PMTreeToolbar', () => {
 });
 
 describe('PMRecentProjectsToolbar (project bar)', () => {
+  it('the icon at the left end of the bar opens the Projects catalog (wide screens; a phone has no icon)', () => {
+    seedStore();
+    // jsdom reports a 0 px window = compact: ask for a wide one
+    const spy = jest.spyOn(require('react-native'), 'useWindowDimensions').mockReturnValue({ width: 1200, height: 800, scale: 1, fontScale: 1 });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-icon');
+    expect(mockRouterPush).toHaveBeenCalledWith('/catalog/project');
+    spy.mockRestore();
+  });
+
   it('ribbon = recent projects only, sorted by name, with chevrons and + Project', () => {
     const { demo } = seedStore();
     const [p1, p2] = demo.projects;

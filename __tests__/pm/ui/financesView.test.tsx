@@ -62,6 +62,10 @@ describe('PMTaskEditView', () => {
     act(() => usePMStore.setState((s: any) => ({ tasksById: { ...s.tasksById, [task.rowGUID]: { ...s.tasksById[task.rowGUID], rowJSON: { ...s.tasksById[task.rowGUID].rowJSON, lastEditPlace: place } } }, selectedGUID: task.rowGUID })));
     renderUI(view());
     expect(q(`lines-of-${task.rowGUID}`)).not.toBeNull();
+    expectInOrder(['pm-finances-task-name-icon', 'pm-finances-task-name-input']);  // the pencil stands BEFORE the name
+    // pressing the pencil puts the cursor into the name
+    press('pm-finances-task-name-icon');
+    expect(document.activeElement).toBe(q('pm-finances-task-name-input'));
     expect(inputValue('pm-finances-task-name-input')).toBe('Task 111');          // the title is a field: the name can be typed over right there
     expect(mockLines.mock.calls[0][0]).toMatchObject({ projectGUID: 'p', taskGUID: task.rowGUID, initialPlace: place });
   });

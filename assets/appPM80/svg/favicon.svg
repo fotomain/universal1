@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 1024 1024">
+  <defs>
+    <radialGradient id="pm80FavBg" cx="30%" cy="25%" r="85%">
+      <stop offset="0%" stop-color="#2E1065" />
+      <stop offset="55%" stop-color="#1E1B4B" />
+      <stop offset="100%" stop-color="#090D16" />
+    </radialGradient>
+    <linearGradient id="pm80FavRing" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC4899" />
+      <stop offset="50%" stop-color="#8B5CF6" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+  </defs>
+  <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#pm80FavBg)" />
+  <circle
+    cx="512"
+    cy="512"
+    r="330"
+    stroke="url(#pm80FavRing)"
+    stroke-width="76"
+    stroke-dasharray="1650 2073"
+    stroke-linecap="round"
+    fill="none"
+    transform="rotate(135 512 512)"
+  />
+  <rect x="330" y="500" width="96" height="210" rx="18" fill="#FACC15" />
+  <rect x="464" y="400" width="96" height="310" rx="18" fill="#10B981" />
+  <rect x="598" y="300" width="96" height="410" rx="18" fill="#F8FAFC" />
+  <path
+    d="M 290 660 L 460 490 L 525 545 L 750 265"
+    stroke="#38BDF8"
+    stroke-width="48"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <path d="M 660 260 L 780 235 L 755 355 Z" fill="#38BDF8" />
+</svg>
+

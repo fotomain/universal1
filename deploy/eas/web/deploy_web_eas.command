@@ -5,9 +5,17 @@ set -e
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$DIR/../../.." && pwd)"
 
+# Which app to deploy: first argument (appClothes1, appPM80, ...) or APP_NAME from the environment,
+# default appClothes1 (what this script always deployed). Every app with a slug of its own has ITS OWN
+# EAS project (extra.eas.projectId in app.config.js), so a deploy never overwrites another app's site.
+APP="${1:-${APP_NAME:-appClothes1}}"
+export APP_NAME="$APP"
+EXPORT_DIR="dist/eas/$APP"
+
 echo "=========================================================="
 echo "🚀 EAS Web Deploy: Deploying to Global Expo Web Hosting"
 echo "=========================================================="
+echo "App              : $APP"
 echo "Project Directory: $PROJECT_ROOT"
 cd "$PROJECT_ROOT"
 
@@ -45,13 +53,24 @@ fi
 
 echo "Node Version : $(node -v)"
 echo "EAS CLI      : $(eas --version | head -n 1)"
-echo "Account      : $(eas whoami 2>/dev/null || echo 'Not logged in')"
+echo "Account      : $(eas whoami 2>/dev/null | head -n 1 || echo 'Not logged in')"
+
+# Read slug / EAS project of the chosen app from app.config.js (APP_NAME is exported above)
+APP_SLUG="$(node -e "console.log(require('./app.config.js').expo.slug)")"
+APP_PROJECT_ID="$(node -e "console.log(((require('./app.config.js').expo.extra||{}).eas||{}).projectId||'')")"
+if [ -z "$APP_PROJECT_ID" ]; then
+  echo "❌ Error: app '$APP' has no EAS project id in app.config.js (create one: APP_NAME=$APP eas init)."
+  read -n 1 -s -r -p "Press any key to exit..."
+  exit 1
+fi
+echo "Slug         : $APP_SLUG"
+echo "EAS project  : $APP_PROJECT_ID"
 echo "=========================================================="
 
 # Step 1: Export production web build
 echo ""
-echo "📦 Step 1/2: Exporting optimized web production bundle..."
-npx expo export -p web
+echo "📦 Step 1/2: Exporting optimized web production bundle of $APP into $EXPORT_DIR ..."
+npx expo export -p web --output-dir "$EXPORT_DIR"
 
 # Step 2: Deploy to EAS Web Hosting with auto-retry for large bundles
 echo ""
@@ -62,7 +81,7 @@ RETRY=1
 SUCCESS=0
 
 while [ $RETRY -le $MAX_RETRIES ]; do
-  if eas deploy --prod --non-interactive; then
+  if eas deploy --prod --non-interactive --export-dir "$EXPORT_DIR"; then
     SUCCESS=1
     break
   else
@@ -87,8 +106,8 @@ echo ""
 echo "=========================================================="
 echo "🎉 Deployment successfully published to Global EAS Web!"
 echo "=========================================================="
-echo "Production URL : https://my-clothes1-app.expo.app"
-echo "Dashboard      : https://expo.dev/projects/bcc76802-860a-4f85-9d51-723119055d94/hosting/deployments"
+echo "Production URL : https://$APP_SLUG.expo.app"
+echo "Dashboard      : https://expo.dev/projects/$APP_PROJECT_ID/hosting/deployments"
 echo "=========================================================="
 echo ""
 

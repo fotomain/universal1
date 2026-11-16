@@ -5,9 +5,10 @@
 //   * an EMPTY name is never saved: the old name comes back when the field is left (a task always has a name)
 //   * the name of the task changed elsewhere (realtime, the tree) shows here at once - unless the user is typing in the field now
 //   * only the name is written: the rest of the task rowJSON is kept as it is
+//   * focusToken: a number that grows each time the owner wants the field activated (the pencil before the name): web = the input is found and focused, phones = the field is mounted again with autoFocus
 //   * while the user is editing (the field is focused) a Clear (x) icon is shown at the LEFT of the field; it empties the text (an empty name is still never saved). No icon otherwise
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, View } from 'react-native';
 import IconApp from '../../../ui/components/common/IconApp';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
@@ -24,13 +25,15 @@ export function nameToSave(draft: string, current: string): string | null {
   return next;
 }
 
-export default function EditTaskDescriptionFast({ guid, crud, label, testID, textStyle }: {
+export default function EditTaskDescriptionFast({ guid, crud, label, testID, textStyle, focusToken = 0 }: {
   guid: string;
   crud: Pick<PMCrud, 'updateTask'>;
   /** the label of the field (floats above the text in the design systems that have one); none = the placeholder only */
   label?: string;
   testID?: string;
   textStyle?: any;
+  /** raise it (1, 2, 3 ...) to activate the field: the keyboard / cursor goes into the name */
+  focusToken?: number;
 }) {
   const task = usePMStore((s) => s.tasksById[guid]);
   const current: string = task?.rowJSON?.taskDescription ?? '';
@@ -63,10 +66,19 @@ export default function EditTaskDescriptionFast({ guid, crud, label, testID, tex
 
   const clear = () => { clearing.current = true; setDraft(''); };
 
+  const boxRef = useRef<View>(null);
+  useEffect(() => {
+    if (!focusToken || Platform.OS !== 'web') return;
+    // web: the design systems draw different inputs (some ignore autoFocus): focus the real one
+    const node: any = boxRef.current;
+    const input: HTMLInputElement | null = node?.querySelector ? node.querySelector('input, textarea') : null;
+    input?.focus();
+  }, [focusToken]);
+
   if (!task) return null;
   const id = testID ?? `pm-task-name-${guid}`;
   return (
-    <View style={styles.box} testID={id}>
+    <View ref={boxRef} style={styles.box} testID={id}>
       {editing && (
         <Pressable testID={`${id}-clear`} accessibilityRole="button" accessibilityLabel={pmT('Clear')} onPressIn={() => { clearing.current = true; }} onPress={clear} hitSlop={8} style={styles.clear}>
           <IconApp name="close" size={18} color={themeColors.text} />
@@ -74,6 +86,8 @@ export default function EditTaskDescriptionFast({ guid, crud, label, testID, tex
       )}
       <View style={styles.field}>
       <TextInputApp
+        key={Platform.OS === 'web' ? 'f' : `f${focusToken}`}
+        autoFocus={Platform.OS !== 'web' && focusToken > 0}
         mode="flat"
         testID={`${testID ?? `pm-task-name-${guid}`}-input`}
         label={label}

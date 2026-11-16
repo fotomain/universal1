@@ -4,14 +4,15 @@ import * as WebBrowser from 'expo-web-browser';
 import * as AuthSession from 'expo-auth-session';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../../supabase/supabase';
+import { AUTH_SCHEME } from '../session/authScheme';
 import { saveUserData, clearUserData } from '../../lib/localSecureStorage';
 
 WebBrowser.maybeCompleteAuthSession();
 
 // Google sign-in on native goes through Supabase (same account and user id as on web):
-// app -> Supabase -> Google -> Supabase -> back to the app at myapp://signin.
-// "myapp://signin" must be listed under Supabase > Authentication > URL Configuration > Redirect URLs.
-const REDIRECT_URI = AuthSession.makeRedirectUri({ scheme: 'myapp', path: 'signin' });
+// app -> Supabase -> Google -> Supabase -> back to the app at <authScheme>://signin (kit8/auth/session/authScheme.ts: 'myapp' or the app's own).
+// "<authScheme>://signin" must be listed under Supabase > Authentication > URL Configuration > Redirect URLs.
+const REDIRECT_URI = AuthSession.makeRedirectUri({ scheme: AUTH_SCHEME, path: 'signin' });
 
 // Reads both "?a=b" and "#a=b" parts of the URL Supabase redirects back to.
 const readParams = (url: string): Record<string, string> => {

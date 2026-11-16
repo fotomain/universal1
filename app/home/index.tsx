@@ -9,6 +9,7 @@ import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
 import HomeAppOnTrend from '../../apps/appOnTrend/HomeAppOnTrend';
 import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
+import HomeAppPM80 from '../../apps/appPM80/home/HomeAppPM80';
 import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
@@ -19,6 +20,7 @@ const homeComponentsMap = {
   appCC1: HomeAppCC1,
   appOnTrend: HomeAppOnTrend,
   appClothes1: HomeAppClothes1,
+  appPM80: HomeAppPM80,
 };
 export default function HomeScreen() {
   const router = useRouter();

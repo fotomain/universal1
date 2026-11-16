@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build the Android app and run it on a connected Samsung phone.
-# Usage: ./run_android_samsung.command [appClothes1|appCC1|appOnTrend|appPosts]
+# Usage: ./run_android_samsung.command [appClothes1|appCC1|appOnTrend|appPosts|appPM80]
+# Another app than the one in android/ (applicationId differs) -> android/ is regenerated first (expo prebuild --clean; android/ is generated + git-ignored).
 # Fast path: when nothing native changed since the last successful install on this phone (same
 # package.json / package-lock.json / app.config.js / patches / android Gradle files / icon / splash)
 # and the app is still installed, Gradle is skipped: only Metro starts and the app is opened.
@@ -98,6 +99,12 @@ NEW_STAMP="$SERIAL:$( { echo "$APP_NAME"
       android/build.gradle android/settings.gradle android/gradle.properties android/app/build.gradle \
       android/app/src/main/AndroidManifest.xml android/gradle/wrapper/gradle-wrapper.properties \
       "assets/$APP_NAME/icon.png" "assets/$APP_NAME/splash.png" 2>/dev/null; } | shasum -a 256 | cut -d' ' -f1)"
+CURRENT_ID="$(grep -m1 "applicationId" android/app/build.gradle 2>/dev/null | sed "s/.*['\"]\(.*\)['\"].*/\1/")"
+if [ "$CURRENT_ID" != "$PACKAGE" ]; then
+  echo "android/ is for '$CURRENT_ID', $APP_NAME needs '$PACKAGE': regenerating android/ (expo prebuild --clean) ..."
+  npx expo prebuild --platform android --clean --no-install
+  FORCE_NATIVE=1
+fi
 INSTALLED="$(adb -s "$SERIAL" shell pm path "$PACKAGE" 2>/dev/null | tr -d '\r')"
 
 LOG="android_build.log"

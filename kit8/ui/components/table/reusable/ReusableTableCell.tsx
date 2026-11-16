@@ -326,5 +326,6 @@ const styles = StyleSheet.create({
   stepper: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 8, height: 40, overflow: 'hidden' },
   stepBtn: { width: 28, alignSelf: 'stretch', alignItems: 'center', justifyContent: 'center' },
   inputInStepper: { borderWidth: 0, borderRadius: 0, paddingHorizontal: 2, height: 38 },
-  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, height: 40, fontSize: 14, ...Platform.select({ web: { outlineStyle: 'none' } as any, default: {} }) },
+  // paddingVertical 0 + textAlignVertical center + includeFontPadding false: on Android the default vertical padding of a TextInput is larger than the room in a table row and the digits were cut (Qty showed only the top of the number)
+  input: { flex: 1, minWidth: 0, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 0, height: 40, fontSize: 14, ...Platform.select({ web: { outlineStyle: 'none' } as any, android: { textAlignVertical: 'center', includeFontPadding: false } as any, default: {} }) },
 });

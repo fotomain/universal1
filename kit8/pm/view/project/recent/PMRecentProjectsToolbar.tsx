@@ -50,6 +50,7 @@ import { usePermissions } from "../../../../permissions/usePermissions";
 import AssignmentsEditor from "../../../../permissions/AssignmentsEditor";
 import { ASSIGNABLE_PROFILES } from "../../../../permissions/permissionModel";
 import { useSelector } from "react-redux";
+import { useRouter } from "expo-router";
 import { selectUserOrganizationGUID } from "../../../../redux/activeUserSlice";
 import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
@@ -137,6 +138,7 @@ export default function PMRecentProjectsToolbar({
   hidden?: boolean;
 }) {
   const { themeColors } = useDesignSystem();
+  const router = useRouter();
   /** widths for the horizontally scrollable buttons (phones: "+ Project" is always reachable) */
   const [barW, setBarW] = useState(0);
   const [buttonsW, setButtonsW] = useState(0);
@@ -574,6 +576,7 @@ export default function PMRecentProjectsToolbar({
           size={20}
           color={themeColors.primary}
           style={{ marginRight: 8 }}
+          onPress={() => router.push('/catalog/project')}
         />
       )}
       {/* a user of two or more organizations picks the ONE whose projects can be selected (organization_switch); not shown for one organization */}

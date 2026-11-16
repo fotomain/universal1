@@ -27,8 +27,8 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const JWT_SECRET = process.env.JWT_SECRET;
 const GOOGLE_REDIRECT_URI = `${BASE_URL}/api/auth/callback`;
-// App schemes the sign-in is allowed to return to.
-const APP_SCHEMES = (process.env.AUTH_APP_SCHEMES || 'myapp').split(',').map(s => s.trim()).filter(Boolean);
+// App schemes the sign-in is allowed to return to: 'myapp' = the older apps, one own scheme per newer app (extra.authScheme).
+const APP_SCHEMES = (process.env.AUTH_APP_SCHEMES || 'myapp,projectbudgetmanagement').split(',').map(s => s.trim()).filter(Boolean);
 const ACCESS_TOKEN_TTL = '15m';
 const REFRESH_TOKEN_TTL = '30d';
 

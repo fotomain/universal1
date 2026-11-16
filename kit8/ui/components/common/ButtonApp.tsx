@@ -211,8 +211,8 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
                     ? 'transparent'
                     : btnColor
                   : isOutlined
-                  ? btnColor
-                  : 'transparent',
+                    ? btnColor
+                    : 'transparent',
                 borderRadius: 20,
                 paddingVertical: size === 'small' ? 8 : 10,
                 paddingHorizontal: size === 'small' ? 14 : 18,
@@ -252,8 +252,8 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             typeof icon === 'function' || React.isValidElement(icon)
               ? (props) => (typeof icon === 'function' ? icon(props) : icon)
               : typeof icon === 'string'
-              ? (props) => <IconApp testID="a4c09d3e-1f5b-6a78-0c12-345678901c03" name={icon} size={props.size} color={props.color} />
-              : undefined
+                ? (props) => <IconApp testID="a4c09d3e-1f5b-6a78-0c12-345678901c03" name={icon} size={props.size} color={props.color} />
+                : undefined
           }
           buttonColor={variant === 'contained' ? btnColor : undefined}
           textColor={textColor || (variant === 'contained' ? '#ffffff' : btnColor)}
@@ -312,8 +312,8 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
                     color: disabled
                       ? '#9ca3af'
                       : isContained
-                      ? textColor || '#ffffff'
-                      : textColor || btnColor,
+                        ? textColor || '#ffffff'
+                        : textColor || btnColor,
                     fontSize: size === 'small' ? 13 : size === 'large' ? 17 : 15,
                     fontWeight: '700',
                     letterSpacing: 0.2,
@@ -344,10 +344,10 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
               borderColor: disabled
                 ? variant === 'text' ? 'transparent' : '#d9d9d9'
                 : isOutlined
-                ? btnColor
-                : isContained
-                ? btnColor
-                : 'transparent',
+                  ? btnColor
+                  : isContained
+                    ? btnColor
+                    : 'transparent',
               borderRadius: 6,
               paddingVertical: size === 'small' ? 6 : 10,
               paddingHorizontal: size === 'small' ? 12 : 18,
@@ -372,8 +372,8 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
                     color: disabled
                       ? '#00000040'
                       : isContained
-                      ? textColor || '#ffffff'
-                      : textColor || btnColor,
+                        ? textColor || '#ffffff'
+                        : textColor || btnColor,
                     fontSize: size === 'small' ? 13 : 15,
                     fontWeight: '500',
                     ...labelFit,

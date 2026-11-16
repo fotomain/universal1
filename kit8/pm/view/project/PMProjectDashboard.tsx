@@ -244,9 +244,9 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
 
       {!!lastError && (
         <Pressable onPress={() => usePMStore.getState().setError(null)} style={[styles.banner, { backgroundColor: `${themeColors.error}18`, borderColor: themeColors.error }]}>
-          <PMTipIcon tip={pmT('Error')} testID="pm-error-icon" name="error" size={16} color={themeColors.error} />
+          <PMTipIcon tip={pmT('Error')} testID="pm-error-icon" name="error" size={16} color={themeColors.error} onPress={() => usePMStore.getState().setError(null)} />
           <Text style={{ color: themeColors.error, marginLeft: 6, flex: 1 }}>{pmT(lastError)}</Text>
-          <PMTipIcon tip={pmT('Dismiss')} testID="pm-error-close" name="close" size={16} color={themeColors.error} />
+          <PMTipIcon tip={pmT('Dismiss')} testID="pm-error-close" name="close" size={16} color={themeColors.error} onPress={() => usePMStore.getState().setError(null)} />
         </Pressable>
       )}
       {cycleCount > 0 && (

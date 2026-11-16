@@ -6,7 +6,7 @@
 //
 // The place of the last edit (rowJSON.lastEditPlace, surface 'financesView') is activated when a task is selected: its genus tab opens
 // and its line is marked. A deep link (store.placeRequest) opens a task at the place of the link.
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
@@ -31,6 +31,8 @@ export interface PMTaskEditViewProps {
 
 export default function PMTaskEditView({ projectGUID, width, height, palette, crud }: PMTaskEditViewProps) {
   const selectedGUID = usePMStore((s) => s.selectedGUID);
+  /** the pencil before the name raises it: the name field is activated */
+  const [nameFocus, setNameFocus] = useState(0);
   // picker mode (project/pick): the toolbar answers with the selected task
   const picker = usePMPicker();
   const task = usePMStore((s) => (s.selectedGUID ? s.tasksById[s.selectedGUID] : undefined));
@@ -57,8 +59,9 @@ export default function PMTaskEditView({ projectGUID, width, height, palette, cr
         {task && selectedGUID ? (
           <>
             {/* the name of the task can be typed over right here (flat field: no box, no underline); the label of a task is its name */}
+            <PMTipIcon tip={pmT('Edit the name of the task')} testID="pm-finances-task-name-icon" name="edit" size={16} color={palette.primary} style={styles.nameIcon} onPress={() => setNameFocus((n) => n + 1)} />
             <View style={styles.titleBox} testID="pm-finances-title">
-              <EditTaskDescriptionFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" />
+              <EditTaskDescriptionFast key={selectedGUID} guid={selectedGUID} crud={crud} testID="pm-finances-task-name" focusToken={nameFocus} />
             </View>
             {/* right of the name: Start date · Finish date · Select period (the dates of the task) */}
             <TaskDatesBar key={`dates-${selectedGUID}`} guid={selectedGUID} crud={crud} testID="pm-finances-dates" />
@@ -98,8 +101,12 @@ export default function PMTaskEditView({ projectGUID, width, height, palette, cr
   );
 }
 
+const PENCIL_LEFT = 26;
+
 const styles = StyleSheet.create({
   title: { fontSize: 13, fontWeight: '600', marginHorizontal: 6, flexShrink: 1 },
+  // the pencil stands in ONE vertical line with the icon of the first tab (Time) and the first column of the lines table: body padding 12 + tab padding 14 = 26 from the left edge, minus the 6 of the toolbar
+  nameIcon: { marginLeft: PENCIL_LEFT - 6, marginRight: 4 },
   titleBox: { flex: 1, minWidth: 0, marginHorizontal: 6 },
   body: { padding: 12, paddingBottom: 32 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },

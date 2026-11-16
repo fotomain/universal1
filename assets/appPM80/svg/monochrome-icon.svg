@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!-- Android 13+ Monochrome Themed Icon Vector -->
+  <g transform="translate(512, 512) scale(0.72) translate(-512, -512)">
+    <circle
+      cx="512"
+      cy="512"
+      r="300"
+      stroke="#FFFFFF"
+      stroke-width="58"
+      stroke-dasharray="1520 1885"
+      stroke-linecap="round"
+      fill="none"
+      transform="rotate(135 512 512)"
+    />
+    <circle cx="512" cy="132" r="28" fill="#FFFFFF" />
+    <circle cx="892" cy="512" r="28" fill="#FFFFFF" />
+    <circle cx="512" cy="892" r="28" fill="#FFFFFF" />
+    <circle cx="132" cy="512" r="28" fill="#FFFFFF" />
+
+    <rect x="348" y="480" width="84" height="210" rx="14" fill="#FFFFFF" fill-opacity="0.65" />
+    <rect x="470" y="395" width="84" height="295" rx="14" fill="#FFFFFF" fill-opacity="0.82" />
+    <rect x="592" y="315" width="84" height="375" rx="14" fill="#FFFFFF" />
+
+    <path
+      d="M 300 660 L 465 490 L 520 540 L 740 275"
+      stroke="#FFFFFF"
+      stroke-width="40"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
+    <path d="M 665 270 L 765 250 L 745 350 Z" fill="#FFFFFF" />
+  </g>
+</svg>
+

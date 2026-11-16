@@ -1,6 +1,6 @@
 // "Sign in with Microsoft" (Supabase provider azure).
 //   web:    the page goes to Microsoft and comes back to <origin>/user/signin; supabase-js reads the code in the URL by itself.
-//   native: app -> Supabase -> Microsoft -> Supabase -> back to myapp://signin in a browser tab (same way and same scheme as Google on native);
+//   native: app -> Supabase -> Microsoft -> Supabase -> back to <authScheme>://signin in a browser tab (same way and same scheme as Google on native);
 //           the app makes the session from the returned url.
 // The signed-in user is NOT kept here: the session raises SIGNED_IN and the Sign in screen reacts to it (like for Google).
 import { useCallback, useState } from 'react';
@@ -8,9 +8,10 @@ import { Platform } from 'react-native';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { microsoftSignInArgs, microsoftWebRedirectTo } from './microsoftOAuth';
 import { sessionFromOAuthRedirect } from '../session/oauthRedirect';
+import { AUTH_SCHEME } from '../session/authScheme';
 
-/** The same scheme Google uses on native (app.config.js lists 'myapp'); "myapp://signin" must be a Redirect URL of Supabase. */
-const NATIVE_SCHEME = 'myapp';
+/** The same scheme Google uses on native (extra.authScheme of app.config.js); "<scheme>://signin" must be a Redirect URL of Supabase. */
+const NATIVE_SCHEME = AUTH_SCHEME;
 const NATIVE_PATH = 'signin';
 
 export function useAuthWithMicrosoft(supabase: Pick<SupabaseClient, 'auth'>) {

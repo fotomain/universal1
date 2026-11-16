@@ -18,6 +18,7 @@ import * as Linking from 'expo-linking';
 import { makeRedirectUri } from 'expo-auth-session';
 import { randomUUID } from 'expo-crypto';
 import * as jose from 'jose';
+import { AUTH_SCHEME } from '../session/authScheme';
 import { saveUserData, clearUserData } from '../../lib/localSecureStorage';
 import { useSupabase } from '../../providers/WithSupabase';
 
@@ -26,7 +27,7 @@ WebBrowser.maybeCompleteAuthSession();
 const BASE_URL = AUTH_BASE_URL;
 
 // Return to the sign-in screen, so the app lands on a real route when Android reopens it.
-const REDIRECT_URI = makeRedirectUri({ scheme: 'myapp', path: 'signin' });
+const REDIRECT_URI = makeRedirectUri({ scheme: AUTH_SCHEME, path: 'signin' });
 // The random "state" of the sign-in in progress. Kept in SecureStore so it survives an app reload,
 // and checked when the link comes back so that only a sign-in started here can finish here.
 const STATE_KEY = 'auth_pending_state';
@@ -126,7 +127,7 @@ export function useAuthWithGoogle() {
   const handleReturnUrl = useCallback(async (url: string, fromBrowser: boolean) => {
     // Log every link the app is opened with (without the secret parts), so a lost sign-in can be traced.
     console.log('Google sign-in: app opened with link', url.split('?')[0], fromBrowser ? '(from the browser tab)' : '(from Android)');
-    if (!url.startsWith('myapp://')) return;
+    if (!url.startsWith(AUTH_SCHEME + '://')) return;
     const query = url.split('?')[1]?.split('#')[0] || '';
     const params: Record<string, string> = {};
     query.split('&').forEach(pair => {
