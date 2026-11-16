@@ -209,7 +209,6 @@ type StagePairs = Array<[number, number]>;
 interface MonthInput {
   monthKey: string;
   monthLabel: string;
-  projectCount: number;
   goalNetProfit: number;
   money: RoiMoney;
   pairs: StagePairs;
@@ -233,7 +232,108 @@ const statusLowerBetter = (v: number): PM80AdvancedMetric['status'] =>
 const statusHigherBetter = (v: number): PM80AdvancedMetric['status'] =>
   v >= 90 ? 'optimal' : v >= 75 ? 'good' : v >= 50 ? 'warning' : 'critical';
 
-function buildSnapshot(m: MonthInput): PM80MonthSnapshot {
+
+/**
+ * PROJECT FILTER. The home shows the numbers of ALL projects, or of a SUBSET the user checks in the list.
+ * Demo data: every project has a share of the cost and of the revenue of the month (permille, each column sums to 1000),
+ * so the numbers of a subset are the sums of its projects and every project has a ROI of its own.
+ */
+export interface PM80Project {
+  id: string;
+  name: string;
+  subtitle: string;
+  /** share of the cost of the month, permille */
+  costPermille: number;
+  /** share of the revenue of the month, permille */
+  revPermille: number;
+}
+
+export const PM80_PROJECTS: PM80Project[] = [
+  { id: 'railway1', name: 'Railway #1', subtitle: 'Track and depot build', costPermille: 170, revPermille: 150 },
+  { id: 'budget1', name: 'BUDGET1', subtitle: 'Budgeting system roll-out', costPermille: 60, revPermille: 90 },
+  { id: 'officeMove', name: 'Office Move 2026', subtitle: 'Relocation of 3 teams', costPermille: 80, revPermille: 20 },
+  { id: 'erpUpgrade', name: 'ERP Upgrade', subtitle: 'Finance and procurement', costPermille: 120, revPermille: 110 },
+  { id: 'mobileApp', name: 'Mobile App v3', subtitle: 'iOS and Android release', costPermille: 90, revPermille: 130 },
+  { id: 'warehouse', name: 'Warehouse Automation', subtitle: 'Conveyors and sorting', costPermille: 110, revPermille: 90 },
+  { id: 'brand', name: 'Brand Refresh', subtitle: 'Identity and web site', costPermille: 40, revPermille: 50 },
+  { id: 'dataCenter', name: 'Data Center Migration', subtitle: 'Move to the cloud', costPermille: 100, revPermille: 70 },
+  { id: 'portal', name: 'Customer Portal', subtitle: 'Self service for clients', costPermille: 60, revPermille: 100 },
+  { id: 'solar', name: 'Solar Roof Pilot', subtitle: 'Energy saving pilot', costPermille: 70, revPermille: 60 },
+  { id: 'training', name: 'Training Program', subtitle: 'Skills of project managers', costPermille: 30, revPermille: 40 },
+  { id: 'audit', name: 'Compliance Audit', subtitle: 'IFRS and tax review', costPermille: 70, revPermille: 90 },
+];
+
+/** null = ALL projects, else the checked ids (never empty, never all of them) */
+export type PM80ProjectSelection = string[] | null;
+
+export function normalizeProjectSelection(ids: string[] | null | undefined): PM80ProjectSelection {
+  if (!ids) return null;
+  const known = PM80_PROJECTS.filter((pr) => ids.includes(pr.id)).map((pr) => pr.id);
+  return known.length === 0 || known.length === PM80_PROJECTS.length ? null : known;
+}
+
+/** the text of the filter button: "All projects (12)", the name of one project, "3 of 12 projects" */
+export function projectFilterLabel(selection: PM80ProjectSelection): string {
+  const sel = normalizeProjectSelection(selection);
+  if (!sel) return `All projects (${PM80_PROJECTS.length})`;
+  if (sel.length === 1) return PM80_PROJECTS.find((pr) => pr.id === sel[0])!.name;
+  return `${sel.length} of ${PM80_PROJECTS.length} projects`;
+}
+
+/** the shares (0..1) of the cost and of the revenue that the selected projects hold */
+export function projectShares(selection: PM80ProjectSelection): { cost: number; revenue: number; count: number } {
+  const sel = normalizeProjectSelection(selection);
+  if (!sel) return { cost: 1, revenue: 1, count: PM80_PROJECTS.length };
+  const chosen = PM80_PROJECTS.filter((pr) => sel.includes(pr.id));
+  return {
+    cost: chosen.reduce((a, pr) => a + pr.costPermille, 0) / 1000,
+    revenue: chosen.reduce((a, pr) => a + pr.revPermille, 0) / 1000,
+    count: chosen.length,
+  };
+}
+
+const scaleMoney = (m: RoiMoney, cost: number, revenue: number): RoiMoney => {
+  const out: any = {};
+  (Object.keys(m) as Array<keyof RoiMoney>).forEach((k) => {
+    out[k] = Math.round((m[k] as number) * (String(k).startsWith('revenue') ? revenue : cost));
+  });
+  return out as RoiMoney;
+};
+
+/** which pairs of the circles are cost (c) or revenue (r); the plan circle (0) mixes both */
+const PAIR_KIND: Array<'plan' | 'c' | 'r'> = ['plan', 'c', 'c', 'c', 'r', 'c', 'r', 'r'];
+
+/** the month input of the subset: the money, the circles and the goal scaled by the shares of the projects */
+function scaleInput(m: MonthInput, selection: PM80ProjectSelection): MonthInput {
+  const sh = projectShares(selection);
+  if (sh.cost === 1 && sh.revenue === 1) return m;
+  return scaleByFactors(m, sh.cost, sh.revenue);
+}
+
+/** the same input with the cost side times `cost` and the revenue side times `revenue` */
+function scaleByFactors(m: MonthInput, cost: number, revenue: number): MonthInput {
+  const sh = { cost, revenue };
+  const pairs = m.pairs.map((pair, i): [number, number] => {
+    const kind = PAIR_KIND[i];
+    if (kind === 'plan') {
+      const cost = Math.round(pair[0] * sh.cost);
+      const revenue = Math.round((pair[0] + pair[1]) * sh.revenue);
+      return [cost, revenue - cost];
+    }
+    const f = kind === 'c' ? sh.cost : sh.revenue;
+    return [Math.round(pair[0] * f), Math.round(pair[1] * f)];
+  });
+  return {
+    ...m,
+    money: scaleMoney(m.money, sh.cost, sh.revenue),
+    pairs,
+    goalNetProfit: Math.round(m.goalNetProfit * sh.revenue),
+  };
+}
+
+function buildSnapshot(m: MonthInput, selection: PM80ProjectSelection = null): PM80MonthSnapshot {
+  const projectsShown = projectShares(selection).count;
+  m = scaleInput(m, selection);
   const currencySymbol = '€';
   const line = roiOfMoney(m.money, { includeSaleVat: false, includePurchaseVat: false });
   const cashPair = m.pairs[7];
@@ -317,8 +417,8 @@ function buildSnapshot(m: MonthInput): PM80MonthSnapshot {
   return {
     monthKey: m.monthKey,
     monthLabel: m.monthLabel,
-    projectTitle: 'All Projects',
-    projectCount: m.projectCount,
+    projectTitle: projectFilterLabel(selection),
+    projectCount: projectsShown,
     currencySymbol,
     goalNetProfit: m.goalNetProfit,
     money: m.money,
@@ -332,11 +432,10 @@ function buildSnapshot(m: MonthInput): PM80MonthSnapshot {
  * ROI components; the circles are consistent with them: plan cost / revenue, fact input, vendor + customer invoiced.
  * Nov 2026: planned cost 290K, planned revenue 690K, fact input 510K, vendor invoiced 122K, customer invoiced 707K.
  */
-export const PM80_MONTH_SNAPSHOTS: PM80MonthSnapshot[] = [
-  buildSnapshot({
+const PM80_MONTH_INPUTS: MonthInput[] = [
+  ({
     monthKey: '2026-11',
     monthLabel: 'NOVEMBER 2026',
-    projectCount: 12,
     goalNetProfit: 580000,
     capacityPct: 91,
     money: {
@@ -367,10 +466,9 @@ export const PM80_MONTH_SNAPSHOTS: PM80MonthSnapshot[] = [
       [707000, 498000], // payments received
     ],
   }),
-  buildSnapshot({
+  ({
     monthKey: '2026-10',
     monthLabel: 'OCTOBER 2026',
-    projectCount: 11,
     goalNetProfit: 520000,
     capacityPct: 88,
     money: {
@@ -401,10 +499,9 @@ export const PM80_MONTH_SNAPSHOTS: PM80MonthSnapshot[] = [
       [632000, 540000],
     ],
   }),
-  buildSnapshot({
+  ({
     monthKey: '2026-12',
     monthLabel: 'DECEMBER 2026',
-    projectCount: 14,
     goalNetProfit: 650000,
     capacityPct: 94,
     money: {
@@ -436,6 +533,78 @@ export const PM80_MONTH_SNAPSHOTS: PM80MonthSnapshot[] = [
     ],
   }),
 ];
+
+/** The home of ALL projects, one snapshot per month. */
+export const PM80_MONTH_SNAPSHOTS: PM80MonthSnapshot[] = PM80_MONTH_INPUTS.map((m) => buildSnapshot(m));
+
+/**
+ * PERIOD: a month and a year chosen apart (two lists in the header). Oct, Nov and Dec 2026 are the three hand made
+ * months above; every other month of the years in PM80_YEARS is derived from Nov 2026 (demo): a season of the year
+ * (cost / revenue factors per month), a growth per year and a deterministic wiggle of capacity and collected money.
+ */
+export interface PM80Period {
+  /** e.g. 2026 */
+  year: number;
+  /** 1..12 */
+  month: number;
+}
+
+export const PM80_MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+export const PM80_YEARS: number[] = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030];
+
+export const PM80_DEFAULT_PERIOD: PM80Period = { year: 2026, month: 11 };
+
+const SEASON_COST = [0.78, 0.8, 0.9, 0.95, 1.0, 1.04, 0.88, 0.84, 1.0, 0.95, 1.0, 1.07];
+const SEASON_REVENUE = [0.74, 0.78, 0.88, 0.93, 1.0, 1.05, 0.86, 0.82, 0.97, 0.9, 1.0, 1.13];
+
+const periodKey = (p: PM80Period): string => `${p.year}-${String(p.month).padStart(2, '0')}`;
+
+export const periodLabel = (p: PM80Period): string => `${PM80_MONTH_NAMES[p.month - 1].toUpperCase()} ${p.year}`;
+
+/** the period one month before / after (the year changes at January / December); null at the end of PM80_YEARS */
+export function shiftPeriod(p: PM80Period, delta: number): PM80Period | null {
+  const index = p.year * 12 + (p.month - 1) + delta;
+  const year = Math.floor(index / 12);
+  const month = (index % 12) + 1;
+  if (year < PM80_YEARS[0] || year > PM80_YEARS[PM80_YEARS.length - 1]) return null;
+  return { year, month };
+}
+
+export function pm80InputFor(period: PM80Period): MonthInput {
+  const key = periodKey(period);
+  const exact = PM80_MONTH_INPUTS.find((m) => m.monthKey === key);
+  if (exact) return exact;
+  const base = PM80_MONTH_INPUTS[0]; // Nov 2026
+  const growth = Math.max(0.4, 1 + 0.08 * (period.year - 2026));
+  const scaled = scaleByFactors(
+    base,
+    SEASON_COST[period.month - 1] * growth,
+    SEASON_REVENUE[period.month - 1] * growth
+  );
+  // the money of customers comes in better or worse in different months
+  const collectBias = 0.85 + ((period.year * 3 + period.month * 7) % 9) * 0.05;
+  const pairs = scaled.pairs.map((pr, i): [number, number] =>
+    i === 7 ? [pr[0], Math.round(pr[1] * collectBias)] : pr
+  );
+  return {
+    ...scaled,
+    monthKey: key,
+    monthLabel: periodLabel(period),
+    pairs,
+    capacityPct: 82 + ((period.year * 7 + period.month * 3) % 15),
+  };
+}
+
+/** The snapshot of a period for ALL projects (selection null) or a SUBSET of them. */
+export function pm80SnapshotFor(period: PM80Period, selection: PM80ProjectSelection): PM80MonthSnapshot {
+  const exact = PM80_MONTH_SNAPSHOTS.find((m) => m.monthKey === periodKey(period));
+  if (exact && !normalizeProjectSelection(selection)) return exact;
+  return buildSnapshot(pm80InputFor(period), selection);
+}
 
 /** The circles in the business order (1..8), for the flow strip. */
 export function pm80FlowOf(snapshot: PM80MonthSnapshot): PM80SatelliteNode[] {
@@ -566,6 +735,7 @@ export const PM80_TIPS = {
   profile: 'Open the Project Dashboard: tasks, Gantt, budgets.',
   prevMonth: 'Show the previous month',
   nextMonth: 'Show the next month',
-  monthPill: 'Month of the numbers. Tap for the next month.',
+  monthPill: 'Month of the numbers. Tap to choose the month from the list.',
+  yearPill: 'Year of the numbers. Tap to choose the year from the list.',
   hub: 'Tap to switch the ROI kind: ROI4, ROI1, ROI2, ROI3. Open Monitor02 for the details per project.',
 } as const;

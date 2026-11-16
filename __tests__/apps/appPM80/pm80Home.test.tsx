@@ -7,6 +7,16 @@ import {
   PM80_MONTH_SNAPSHOTS,
   PM80_QUICK_LINKS,
   PM80_STAGES,
+  PM80_PROJECTS,
+  normalizeProjectSelection,
+  projectFilterLabel,
+  pm80SnapshotFor,
+  PM80_DEFAULT_PERIOD,
+  PM80_MONTH_NAMES,
+  PM80_YEARS,
+  shiftPeriod,
+  periodLabel,
+  pm80InputFor,
   PM80_TIPS,
   roiKindTip,
   vatBasisTip,
@@ -98,7 +108,8 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
   it('renders PM80HomePaper and allows switching months, ROI kinds, and inspecting satellites', () => {
     renderUI(<PM80HomePaper />);
     expect(textOf('pm80-home-paper-center-profit')).toBe('+€420,000');
-    expect(textOf('pm80-home-paper-month-pill')).toContain('NOVEMBER 2026');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('NOVEMBER');
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2026');
 
     // Tap satellite node to open inspector card
     press('pm80-home-paper-satellite-orders');
@@ -112,7 +123,8 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
   it('renders PM80HomeTamagui and allows switching months and inspecting advanced KPI metrics', () => {
     renderUI(<PM80HomeTamagui />);
     expect(textOf('pm80-home-tamagui-center-profit')).toBe('+€420,000');
-    expect(textOf('pm80-home-tamagui-month-pill')).toContain('NOVEMBER 2026');
+    expect(textOf('pm80-home-tamagui-month-pill')).toContain('NOVEMBER');
+    expect(textOf('pm80-home-tamagui-year-pill')).toContain('2026');
 
     // Tap advanced metric ring to open inspector
     press('pm80-home-tamagui-metric-budget');
@@ -241,7 +253,10 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     press('pm80-home-paper-layers-btn');
     expect(textOf('pm80-home-paper-chip-vat')).toContain('Gross');
     press('pm80-home-paper-month-pill');
-    expect(textOf('pm80-home-paper-month-pill')).not.toContain('NOVEMBER');
+    expect(q('pm80-home-paper-month-modal')).not.toBeNull();
+    press('pm80-home-paper-month-item-3');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('MARCH');
+    expect(q('pm80-home-paper-month-modal')).toBeNull();
   });
 
   it('the header logo has no dark square on web with a light theme', () => {
@@ -249,5 +264,151 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     expect(pm80LogoWithBackground(true, 'web')).toBe(true); // dark web: the square
     expect(pm80LogoWithBackground(false, 'ios')).toBe(true); // phones keep the square
     expect(pm80LogoWithBackground(false, 'android')).toBe(true);
+  });
+
+  it('the 12 demo projects hold exactly 100% of the cost and of the revenue', () => {
+    expect(PM80_PROJECTS).toHaveLength(12);
+    expect(PM80_PROJECTS.reduce((a, p) => a + p.costPermille, 0)).toBe(1000);
+    expect(PM80_PROJECTS.reduce((a, p) => a + p.revPermille, 0)).toBe(1000);
+  });
+
+  it('a selection is normalized: all / empty / unknown = ALL projects (null)', () => {
+    const ids = PM80_PROJECTS.map((p) => p.id);
+    expect(normalizeProjectSelection(null)).toBeNull();
+    expect(normalizeProjectSelection([])).toBeNull();
+    expect(normalizeProjectSelection(['nope'])).toBeNull();
+    expect(normalizeProjectSelection(ids)).toBeNull();
+    expect(normalizeProjectSelection(['audit', 'nope', 'solar'])).toEqual(['solar', 'audit']);
+    expect(projectFilterLabel(null)).toBe('All projects (12)');
+    expect(projectFilterLabel(['solar'])).toBe('Solar Roof Pilot');
+    expect(projectFilterLabel(['solar', 'audit', 'brand'])).toBe('3 of 12 projects');
+  });
+
+  it('a subset shows the sums of its projects; ALL gives the original numbers', () => {
+    const all = pm80SnapshotFor(PM80_DEFAULT_PERIOD, null);
+    expect(all).toBe(PM80_MONTH_SNAPSHOTS[0]);
+    const a = pm80SnapshotFor(PM80_DEFAULT_PERIOD, ['railway1', 'officeMove']);
+    const b = pm80SnapshotFor(PM80_DEFAULT_PERIOD, ['budget1', 'erpUpgrade', 'mobileApp', 'warehouse', 'brand', 'dataCenter', 'portal', 'solar', 'training', 'audit']);
+    // the two complementary subsets add up to ALL (rounding of whole euros: +-2)
+    expect(Math.abs(a.money.costPlanNet + b.money.costPlanNet - all.money.costPlanNet)).toBeLessThanOrEqual(2);
+    expect(Math.abs(a.money.revenueInvoicedNet + b.money.revenueInvoicedNet - all.money.revenueInvoicedNet)).toBeLessThanOrEqual(2);
+    expect(a.projectCount).toBe(2);
+    expect(a.projectTitle).toBe('2 of 12 projects');
+    // cost share 170 + 80 = 25%, revenue share 150 + 20 = 17%
+    expect(a.money.costPlanNet).toBe(72500);
+    expect(a.money.revenueInvoicedNet).toBe(Math.round(707000 * 0.17));
+    // the circles follow: plan cost, customer invoiced, goal
+    expect(a.satellites.find((n) => n.id === 'plan')!.planAmount).toBe(72500);
+    expect(a.satellites.find((n) => n.id === 'customerInvoices')!.factAmount).toBe(Math.round(707000 * 0.17));
+    expect(a.goalNetProfit).toBe(Math.round(580000 * 0.17));
+    // every project has a ROI of its own (Office Move: cost 8% of the book, revenue 2%)
+    const office = computePM80Center(pm80SnapshotFor(PM80_DEFAULT_PERIOD, ['officeMove']), 'roi4');
+    const railway = computePM80Center(pm80SnapshotFor(PM80_DEFAULT_PERIOD, ['railway1']), 'roi4');
+    expect(office.netProfit).toBeLessThan(0);
+    expect(railway.netProfit).toBeGreaterThan(0);
+  });
+
+  it('the Paper home: open the list, check a subset, Apply; then show all again', () => {
+    renderUI(<PM80HomePaper />);
+    expect(textOf('pm80-home-paper-project-filter-label')).toBe('All projects (12)');
+    const profitAll = textOf('pm80-home-paper-center-profit');
+
+    press('pm80-home-paper-project-filter');
+    expect(q('pm80-home-paper-project-filter-modal')).not.toBeNull();
+    // uncheck everything, check two projects
+    press('pm80-home-paper-project-filter-all');
+    press('pm80-home-paper-project-filter-item-railway1');
+    press('pm80-home-paper-project-filter-item-erpUpgrade');
+    expect(textOf('pm80-home-paper-project-filter-apply')).toContain('Apply (2)');
+    press('pm80-home-paper-project-filter-apply');
+
+    expect(textOf('pm80-home-paper-project-filter-label')).toBe('2 of 12 projects');
+    expect(textOf('pm80-home-paper-center-profit')).not.toBe(profitAll);
+
+    // back to ALL: check all, the button says so
+    press('pm80-home-paper-project-filter');
+    press('pm80-home-paper-project-filter-all');
+    expect(textOf('pm80-home-paper-project-filter-apply')).toContain('Show all projects');
+    press('pm80-home-paper-project-filter-apply');
+    expect(textOf('pm80-home-paper-project-filter-label')).toBe('All projects (12)');
+    expect(textOf('pm80-home-paper-center-profit')).toBe(profitAll);
+  });
+
+  it('Apply is disabled while no project is checked', () => {
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-project-filter');
+    press('pm80-home-tamagui-project-filter-all'); // all -> none
+    press('pm80-home-tamagui-project-filter-apply');
+    // the list stays open and the filter is unchanged
+    expect(q('pm80-home-tamagui-project-filter-modal')).not.toBeNull();
+    expect(textOf('pm80-home-tamagui-project-filter-label')).toBe('All projects (12)');
+    press('pm80-home-tamagui-project-filter-cancel');
+  });
+
+  it('shiftPeriod moves by one month and changes the year at January / December', () => {
+    expect(shiftPeriod({ year: 2026, month: 11 }, 1)).toEqual({ year: 2026, month: 12 });
+    expect(shiftPeriod({ year: 2026, month: 12 }, 1)).toEqual({ year: 2027, month: 1 });
+    expect(shiftPeriod({ year: 2026, month: 1 }, -1)).toEqual({ year: 2025, month: 12 });
+    expect(shiftPeriod({ year: PM80_YEARS[0], month: 1 }, -1)).toBeNull();
+    expect(shiftPeriod({ year: PM80_YEARS[PM80_YEARS.length - 1], month: 12 }, 1)).toBeNull();
+    expect(periodLabel({ year: 2027, month: 3 })).toBe('MARCH 2027');
+    expect(PM80_MONTH_NAMES).toHaveLength(12);
+  });
+
+  it('every month of every listed year has numbers; the hand made months stay as they were', () => {
+    PM80_YEARS.forEach((year) => {
+      for (let month = 1; month <= 12; month += 1) {
+        const snap = pm80SnapshotFor({ year, month }, null);
+        expect(snap.monthLabel).toBe(periodLabel({ year, month }));
+        expect(snap.money.costPlanNet).toBeGreaterThan(0);
+        expect(snap.satellites).toHaveLength(8);
+        expect(snap.advancedMetrics).toHaveLength(4);
+      }
+    });
+    expect(pm80SnapshotFor({ year: 2026, month: 11 }, null)).toBe(PM80_MONTH_SNAPSHOTS[0]);
+    expect(pm80SnapshotFor({ year: 2026, month: 10 }, null)).toBe(PM80_MONTH_SNAPSHOTS[1]);
+    expect(pm80SnapshotFor({ year: 2026, month: 12 }, null)).toBe(PM80_MONTH_SNAPSHOTS[2]);
+    // a derived month differs from November (season + growth) and its circles agree with its money
+    const mar27 = pm80SnapshotFor({ year: 2027, month: 3 }, null);
+    expect(mar27.money.costPlanNet).not.toBe(PM80_MONTH_SNAPSHOTS[0].money.costPlanNet);
+    expect(mar27.satellites.find((n) => n.id === 'plan')!.planAmount).toBe(mar27.money.costPlanNet);
+    expect(pm80InputFor({ year: 2027, month: 3 }).monthKey).toBe('2027-03');
+    // the project filter works on a derived month too
+    expect(pm80SnapshotFor({ year: 2027, month: 3 }, ['solar']).money.costPlanNet).toBeLessThan(mar27.money.costPlanNet);
+  });
+
+  it('month and year are two inputs: each opens its own list', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-year-pill');
+    expect(q('pm80-home-paper-year-modal')).not.toBeNull();
+    PM80_YEARS.forEach((y) => expect(q(`pm80-home-paper-year-item-${y}`)).not.toBeNull());
+    press('pm80-home-paper-year-item-2028');
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2028');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('NOVEMBER'); // the month did not change
+    expect(q('pm80-home-paper-year-modal')).toBeNull();
+
+    press('pm80-home-paper-month-pill');
+    PM80_MONTH_NAMES.forEach((_, i) => expect(q(`pm80-home-paper-month-item-${i + 1}`)).not.toBeNull());
+    press('pm80-home-paper-month-item-1');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('JANUARY');
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2028');
+
+    // the arrows walk over the year border
+    press('pm80-home-paper-prev-month');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('DECEMBER');
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2027');
+    press('pm80-home-paper-next-month');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('JANUARY');
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2028');
+  });
+
+  it('the Tamagui home has the same two lists', () => {
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-year-pill');
+    press('pm80-home-tamagui-year-item-2025');
+    press('pm80-home-tamagui-month-pill');
+    press('pm80-home-tamagui-month-item-6');
+    expect(textOf('pm80-home-tamagui-month-pill')).toContain('JUNE');
+    expect(textOf('pm80-home-tamagui-year-pill')).toContain('2025');
   });
 });

@@ -19,10 +19,16 @@ import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
 import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
+import PM80ProjectFilter from './PM80ProjectFilter';
+import PM80PeriodPicker from './PM80PeriodPicker';
 import PM80Tip from './PM80Tip';
 import { openPM80Route } from './pm80OpenRoute';
 import {
-  PM80_MONTH_SNAPSHOTS,
+  PM80_DEFAULT_PERIOD,
+  PM80Period,
+  shiftPeriod,
+  PM80ProjectSelection,
+  pm80SnapshotFor,
   PM80_QUICK_LINKS,
   PM80_TIPS,
   roiKindTip,
@@ -36,7 +42,8 @@ import {
 } from './pm80HomeModel';
 
 export interface PM80HomePaperProps {
-  initialMonthIndex?: number;
+  /** month and year shown first (default November 2026) */
+  initialPeriod?: PM80Period;
   onSwitchStyle?: () => void;
   testID?: string;
 }
@@ -44,7 +51,7 @@ export interface PM80HomePaperProps {
 const ROI_KINDS_ORDER: RoiKindKey[] = ['roi4', 'roi1', 'roi2', 'roi3'];
 
 export default function PM80HomePaper({
-  initialMonthIndex = 0,
+  initialPeriod = PM80_DEFAULT_PERIOD,
   onSwitchStyle,
   testID = 'pm80-home-paper',
 }: PM80HomePaperProps) {
@@ -60,13 +67,18 @@ export default function PM80HomePaper({
     // fallback if outside provider
   }
 
-  const [monthIdx, setMonthIdx] = useState<number>(initialMonthIndex);
+  const [period, setPeriod] = useState<PM80Period>(initialPeriod);
   const [activeRoiKind, setActiveRoiKind] = useState<RoiKindKey>('roi4');
   const [includeAllTaxes, setIncludeAllTaxes] = useState<boolean>(false);
   const [selectedNode, setSelectedNode] = useState<PM80SatelliteNode | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<PM80AdvancedMetric | null>(null);
 
-  const snapshot = PM80_MONTH_SNAPSHOTS[monthIdx] || PM80_MONTH_SNAPSHOTS[0];
+  const [projectSelection, setProjectSelection] = useState<PM80ProjectSelection>(null);
+
+  const snapshot = useMemo(
+    () => pm80SnapshotFor(period, projectSelection),
+    [period, projectSelection]
+  );
 
   const centerData = useMemo(
     () =>
@@ -78,11 +90,11 @@ export default function PM80HomePaper({
   );
 
   const handlePrevMonth = useCallback(() => {
-    setMonthIdx((prev) => (prev + 1) % PM80_MONTH_SNAPSHOTS.length);
+    setPeriod((prev) => shiftPeriod(prev, -1) ?? prev);
   }, []);
 
   const handleNextMonth = useCallback(() => {
-    setMonthIdx((prev) => (prev - 1 + PM80_MONTH_SNAPSHOTS.length) % PM80_MONTH_SNAPSHOTS.length);
+    setPeriod((prev) => shiftPeriod(prev, 1) ?? prev);
   }, []);
 
   const handleCycleRoiKind = useCallback(() => {
@@ -229,12 +241,17 @@ export default function PM80HomePaper({
             </TouchableOpacity></PM80Tip>
 
             <View style={styles.headerCenterTitle}>
-              <Text
-                variant="bodyMedium"
-                style={[styles.allProjectsLabel, { color: textSecondary }]}
-              >
-                {snapshot.projectTitle} ({snapshot.projectCount})
-              </Text>
+              <PM80ProjectFilter
+                testID={`${testID}-project-filter`}
+                selection={projectSelection}
+                onChange={setProjectSelection}
+                isDark={isDark}
+                textStrong={textPrimary}
+                textMuted={textSecondary}
+                accent={theme.colors.primary}
+                surface={bgHeader}
+                borderColor={ringTrack}
+              />
               <Text
                 testID={`${testID}-hero-header-roi`}
                 variant="headlineSmall"
@@ -273,24 +290,17 @@ export default function PM80HomePaper({
               />
             </TouchableOpacity></PM80Tip>
 
-            <PM80Tip tip={PM80_TIPS.monthPill}><TouchableOpacity
-              testID={`${testID}-month-pill`}
-              onPress={handleNextMonth}
-              activeOpacity={0.85}
-              style={[styles.monthPill, { backgroundColor: pillBg }]}
-            >
-              <Text
-                variant="labelLarge"
-                style={[styles.monthPillText, { color: textPrimary }]}
-              >
-                {snapshot.monthLabel}
-              </Text>
-              <MaterialCommunityIcons
-                name="chevron-down"
-                size={18}
-                color={textPrimary}
-              />
-            </TouchableOpacity></PM80Tip>
+            <PM80PeriodPicker
+              testID={testID}
+              period={period}
+              onChange={setPeriod}
+              isDark={isDark}
+              textStrong={textPrimary}
+              textMuted={textSecondary}
+              accent={theme.colors.primary}
+              borderColor={ringTrack}
+              pillBackground={pillBg}
+            />
 
             <PM80Tip tip={PM80_TIPS.nextMonth}><TouchableOpacity
               testID={`${testID}-next-month`}
