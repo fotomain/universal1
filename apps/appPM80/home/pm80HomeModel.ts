@@ -59,6 +59,8 @@ export interface PM80SatelliteNode {
   /** A REAL route of `app/` (a Jest test checks that the file exists) */
   route: string;
   description: string;
+  /** hover tip of the circle (one short sentence) */
+  tip: string;
 }
 
 export interface PM80MonthSnapshot {
@@ -84,17 +86,19 @@ export interface PM80QuickLink {
   icon: string;
   route: string;
   group: 'reports' | 'team';
+  /** hover tip */
+  tip: string;
 }
 
 export const PM80_QUICK_LINKS: PM80QuickLink[] = [
-  { id: 'monitor01', label: 'Plan vs fact', icon: 'view-dashboard-outline', route: '/pm/reports/monitor01', group: 'reports' },
-  { id: 'monitor02', label: 'ROI now', icon: 'chart-donut-variant', route: '/pm/reports/monitor02', group: 'reports' },
-  { id: 'monitor03', label: 'ROI history', icon: 'chart-timeline-variant', route: '/pm/reports/monitor03', group: 'reports' },
-  { id: 'balances', label: 'Balances', icon: 'scale-balance', route: '/pm/reports/monitor07/customer', group: 'reports' },
-  { id: 'chat', label: 'Chat', icon: 'message-text-outline', route: '/chat', group: 'team' },
-  { id: 'calendar', label: 'Calendar', icon: 'calendar-month-outline', route: '/user/calendar', group: 'team' },
-  { id: 'workcenters', label: 'Work centers', icon: 'account-group-outline', route: '/catalog/work/center', group: 'team' },
-  { id: 'accounts', label: 'Bank accounts', icon: 'bank-outline', route: '/catalog/money/account', group: 'team' },
+  { id: 'monitor01', label: 'Plan vs fact', icon: 'view-dashboard-outline', route: '/pm/reports/monitor01', group: 'reports', tip: 'Monitor01: plan, ordered, received, used and invoiced per task and month.' },
+  { id: 'monitor02', label: 'ROI now', icon: 'chart-donut-variant', route: '/pm/reports/monitor02', group: 'reports', tip: 'Monitor02: ROI1-ROI4 now, per project and per task.' },
+  { id: 'monitor03', label: 'ROI history', icon: 'chart-timeline-variant', route: '/pm/reports/monitor03', group: 'reports', tip: 'Monitor03: how ROI1-ROI4 changed month by month.' },
+  { id: 'balances', label: 'Balances', icon: 'scale-balance', route: '/pm/reports/monitor07/customer', group: 'reports', tip: 'Monitor07: what customers owe us (the vendor balance is on the same screen).' },
+  { id: 'chat', label: 'Chat', icon: 'message-text-outline', route: '/chat', group: 'team', tip: 'Chat: themes and the chats of your tasks.' },
+  { id: 'calendar', label: 'Calendar', icon: 'calendar-month-outline', route: '/user/calendar', group: 'team', tip: 'Your calendar with events, tasks and reminders.' },
+  { id: 'workcenters', label: 'Work centers', icon: 'account-group-outline', route: '/catalog/work/center', group: 'team', tip: 'Work centers: people, equipment and partners you can book, with their calendars.' },
+  { id: 'accounts', label: 'Bank accounts', icon: 'bank-outline', route: '/catalog/money/account', group: 'team', tip: 'Money accounts: bank accounts and their rests after each payment.' },
 ];
 
 /** The static part of a circle (the numbers come per month). */
@@ -113,6 +117,7 @@ interface StageDef {
   pastelBgDark: string;
   route: string;
   description: string;
+  tip: string;
 }
 
 export const PM80_STAGES: StageDef[] = [
@@ -124,6 +129,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#1E88E5', pastelBgLight: '#93C5FD', pastelBgDark: '#1E3A8A',
     route: '/pm/project/dashboard',
     description: 'Step 1. Project Dashboard: tasks, Gantt, task lines (Time, Material, Expense, Deliverable). Post the plan: it feeds the Plan column of Monitor01 and ROI1.',
+    tip: 'Step 1, Project plan: tasks, Gantt and budgets. Opens the Project Dashboard.',
   },
   {
     id: 'orders', step: 2, stage: 'Procure', label: 'Purchase\norders',
@@ -133,6 +139,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#7C3AED', pastelBgLight: '#C4B5FD', pastelBgDark: '#4C1D95',
     route: '/pm/purchase-order/list',
     description: 'Step 2. Purchase orders to vendors; a posted order fills the Ordered column of Monitor01.',
+    tip: 'Step 2, Purchase orders: what we order from vendors (Ordered column of Monitor01).',
   },
   {
     id: 'receipts', step: 3, stage: 'Procure', label: 'Product\nreceipts',
@@ -142,6 +149,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#D97706', pastelBgLight: '#FCD34D', pastelBgDark: '#78350F',
     route: '/pm/product-receipt/list',
     description: 'Step 3. Product receipts made from a posted purchase order; fills the Received column of Monitor01.',
+    tip: 'Step 3, Product receipts: what the vendors delivered (Received column).',
   },
   {
     id: 'timesheets', step: 4, stage: 'Execute', label: 'Time\nsheets',
@@ -151,6 +159,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#EA580C', pastelBgLight: '#FDBA74', pastelBgDark: '#7C2D12',
     route: '/pm/timesheet/list',
     description: 'Step 4. Time sheets of work centers (person, equipment, partner); the posted hours are the Used column and the own cost of ROI4.',
+    tip: 'Step 4, Time sheets: hours of people and equipment (Used column).',
   },
   {
     id: 'fact', step: 5, stage: 'Execute', label: 'Fact\ninput',
@@ -160,6 +169,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#E11D48', pastelBgLight: '#FDA4AF', pastelBgDark: '#881337',
     route: '/pm/fact/list',
     description: 'Step 5. Fact input of used quantities and of the Revenue lines: the numerator of ROI2 (plan - fact input).',
+    tip: 'Step 5, Fact input: what was really used and delivered (ROI2).',
   },
   {
     id: 'vendorInvoices', step: 6, stage: 'Invoice', label: 'Vendor\ninvoices',
@@ -169,6 +179,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#475569', pastelBgLight: '#94A3B8', pastelBgDark: '#334155',
     route: '/pm/vendor-invoice/list',
     description: 'Step 6. Vendor invoices (what suppliers bill us); the Vendor Invoice columns of Monitor01 and the cost of ROI4.',
+    tip: 'Step 6, Vendor invoices: what vendors bill us (cost of ROI4).',
   },
   {
     id: 'customerInvoices', step: 7, stage: 'Invoice', label: 'Customer\ninvoices',
@@ -178,6 +189,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#059669', pastelBgLight: '#86EFAC', pastelBgDark: '#064E3B',
     route: '/pm/customer-invoice/list',
     description: 'Step 7. Customer invoices made from the Deliverable lines; the revenue of ROI3 and ROI4.',
+    tip: 'Step 7, Customer invoices: what we bill customers (revenue of ROI3 and ROI4).',
   },
   {
     id: 'payments', step: 8, stage: 'Cash', label: 'Cash\npayments',
@@ -187,6 +199,7 @@ export const PM80_STAGES: StageDef[] = [
     accentColor: '#7E22CE', pastelBgLight: '#C084FC', pastelBgDark: '#581C87',
     route: '/pm/payment-fact/list',
     description: 'Step 8. Payment facts = one bank transaction each; they move the money account rests and the customer / vendor balance (Monitor07).',
+    tip: 'Step 8, Cash payments: money paid and received on the bank accounts.',
   },
 ];
 
@@ -297,6 +310,7 @@ function buildSnapshot(m: MonthInput): PM80MonthSnapshot {
       pastelBgDark: def.pastelBgDark,
       route: def.route,
       description: def.description,
+      tip: def.tip,
     };
   });
 
@@ -534,3 +548,24 @@ export function computePM80Center(
   };
 }
 
+
+/** Hover tip of an ROI chip: the title, what it compares and the formula. */
+export function roiKindTip(kind: RoiKindKey): string {
+  const m = ROI_KIND_META[kind];
+  return `${kind.toUpperCase()} ${m.title} (${m.subtitle.split('•')[1]?.trim() ?? ''}): ${m.formula}`;
+}
+
+/** Hover tip of the VAT basis button / chip: what is shown now and what a tap does. */
+export function vatBasisTip(includeAllTaxes: boolean): string {
+  return includeAllTaxes
+    ? 'Gross (+VAT): all VAT is added to cost and revenue. Tap to go back to IFRS cost.'
+    : 'IFRS cost: only the VAT that is cost is added (recoverable VAT is not). Tap to show Gross (+VAT).';
+}
+
+export const PM80_TIPS = {
+  profile: 'Open the Project Dashboard: tasks, Gantt, budgets.',
+  prevMonth: 'Show the previous month',
+  nextMonth: 'Show the next month',
+  monthPill: 'Month of the numbers. Tap for the next month.',
+  hub: 'Tap to switch the ROI kind: ROI4, ROI1, ROI2, ROI3. Open Monitor02 for the details per project.',
+} as const;

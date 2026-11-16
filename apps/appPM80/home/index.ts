@@ -8,3 +8,4 @@ export { default } from './HomeAppPM80';
 
 export { default as PM80FlowStrip } from './PM80FlowStrip';
 export * from './pm80OpenRoute';
+export { default as PM80Tip } from './PM80Tip';

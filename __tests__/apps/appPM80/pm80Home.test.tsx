@@ -7,6 +7,9 @@ import {
   PM80_MONTH_SNAPSHOTS,
   PM80_QUICK_LINKS,
   PM80_STAGES,
+  PM80_TIPS,
+  roiKindTip,
+  vatBasisTip,
   computePM80Center,
   pm80FlowOf,
 } from '../../../apps/appPM80/home/pm80HomeModel';
@@ -61,6 +64,12 @@ const HomeAppPM80 = require('../../../apps/appPM80/home/HomeAppPM80').default;
 const PM80HomePaper = require('../../../apps/appPM80/home/PM80HomePaper').default;
 const PM80HomeTamagui = require('../../../apps/appPM80/home/PM80HomeTamagui').default;
 const PM80BrandLogo = require('../../../apps/appPM80/home/PM80BrandLogo').default;
+const { pm80LogoWithBackground } = require('../../../apps/appPM80/home/PM80BrandLogo');
+
+beforeEach(() => {
+  // jsdom has no window.open: a blocked pop-up = the link is pushed in the app
+  jest.spyOn(window, 'open').mockReturnValue(null);
+});
 
 afterEach(() => {
   cleanupUI();
@@ -111,7 +120,13 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
   });
 
   it('toggles between Paper and Tamagui in HomeAppPM80', () => {
+    // hidden by default
     renderUI(<HomeAppPM80 />);
+    expect(q('pm80-home-paper')).not.toBeNull();
+    expect(q('pm80-home-tab-tamagui')).toBeNull();
+    cleanupUI();
+
+    renderUI(<HomeAppPM80 showVariantSwitcher />);
     expect(q('pm80-home-paper')).not.toBeNull();
 
     press('pm80-home-tab-tamagui');
@@ -190,7 +205,8 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
   it('opens a link in a NEW browser window on web, and in this app when the pop-up is blocked', () => {
     const { openPM80Route } = require('../../../apps/appPM80/home/pm80OpenRoute');
     const router = { push: jest.fn() };
-    const open = jest.spyOn(window, 'open').mockReturnValue({} as any);
+    const open = window.open as jest.Mock;
+    open.mockReturnValue({} as any);
     openPM80Route('/pm/customer-invoice/list', router);
     expect(open).toHaveBeenCalledWith('/pm/customer-invoice/list', '_blank');
     expect(router.push).not.toHaveBeenCalled();
@@ -198,6 +214,40 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     open.mockReturnValue(null);
     openPM80Route('/pm/customer-invoice/list', router);
     expect(router.push).toHaveBeenCalledWith('/pm/customer-invoice/list');
-    open.mockRestore();
+  });
+
+  it('every image / circle / ring / button has a short hover tip', () => {
+    const tips: string[] = [
+      ...Object.values(PM80_TIPS),
+      ...PM80_QUICK_LINKS.map((l) => l.tip),
+      ...PM80_STAGES.map((st) => st.tip),
+      ...PM80_MONTH_SNAPSHOTS.flatMap((m) => m.advancedMetrics.map((k) => `${k.label}: ${k.formulaTip}`)),
+      ...(['roi1', 'roi2', 'roi3', 'roi4'] as const).map(roiKindTip),
+      vatBasisTip(true),
+      vatBasisTip(false),
+    ];
+    tips.forEach((t) => {
+      expect(t.trim().length).toBeGreaterThan(10);
+      expect(t.length).toBeLessThanOrEqual(260); // the bubble is 260 px wide: 3-4 lines at most
+    });
+    expect(roiKindTip('roi4')).toContain('Customer Invoiced');
+    expect(vatBasisTip(false)).toContain('IFRS');
+  });
+
+  it('the tipped controls still react to a press (the tip wrapper does not swallow it)', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-chip-roi2');
+    expect(textOf('pm80-home-paper-center-hub')).toContain('Delivered ROI');
+    press('pm80-home-paper-layers-btn');
+    expect(textOf('pm80-home-paper-chip-vat')).toContain('Gross');
+    press('pm80-home-paper-month-pill');
+    expect(textOf('pm80-home-paper-month-pill')).not.toContain('NOVEMBER');
+  });
+
+  it('the header logo has no dark square on web with a light theme', () => {
+    expect(pm80LogoWithBackground(false, 'web')).toBe(false); // light web: transparent
+    expect(pm80LogoWithBackground(true, 'web')).toBe(true); // dark web: the square
+    expect(pm80LogoWithBackground(false, 'ios')).toBe(true); // phones keep the square
+    expect(pm80LogoWithBackground(false, 'android')).toBe(true);
   });
 });

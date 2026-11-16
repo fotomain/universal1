@@ -17,12 +17,16 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
-import PM80BrandLogo from './PM80BrandLogo';
+import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
+import PM80Tip from './PM80Tip';
 import { openPM80Route } from './pm80OpenRoute';
 import {
   PM80_MONTH_SNAPSHOTS,
   PM80_QUICK_LINKS,
+  PM80_TIPS,
+  roiKindTip,
+  vatBasisTip,
   pm80FlowOf,
   PM80SatelliteNode,
   PM80AdvancedMetric,
@@ -142,7 +146,7 @@ export default function PM80HomePaper({
     const iconColor = isDark ? '#F8FAFC' : '#1E293B';
 
     return (
-      <TouchableOpacity
+      <PM80Tip tip={node.tip}><TouchableOpacity
         key={node.id}
         testID={`${testID}-satellite-${node.id}`}
         activeOpacity={0.82}
@@ -195,7 +199,7 @@ export default function PM80HomePaper({
         >
           {node.factLabel}
         </Text>
-      </TouchableOpacity>
+      </TouchableOpacity></PM80Tip>
     );
   };
 
@@ -215,14 +219,14 @@ export default function PM80HomePaper({
           elevation={0}
         >
           <View style={styles.headerTopRow}>
-            <TouchableOpacity
+            <PM80Tip tip={PM80_TIPS.profile}><TouchableOpacity
               testID={`${testID}-profile-btn`}
               onPress={() => navigateTo('/pm/project/dashboard')}
               style={styles.iconCircleBtn}
               accessibilityLabel="Open Project Dashboard"
             >
-              <PM80BrandLogo size={36} withBackground={true} />
-            </TouchableOpacity>
+              <PM80BrandLogo size={36} withBackground={pm80LogoWithBackground(isDark)} />
+            </TouchableOpacity></PM80Tip>
 
             <View style={styles.headerCenterTitle}>
               <Text
@@ -240,7 +244,7 @@ export default function PM80HomePaper({
               </Text>
             </View>
 
-            <TouchableOpacity
+            <PM80Tip tip={vatBasisTip(includeAllTaxes)}><TouchableOpacity
               testID={`${testID}-layers-btn`}
               onPress={() => setIncludeAllTaxes((v) => !v)}
               style={styles.iconCircleBtn}
@@ -251,12 +255,12 @@ export default function PM80HomePaper({
                 size={26}
                 color={includeAllTaxes ? theme.colors.primary : textPrimary}
               />
-            </TouchableOpacity>
+            </TouchableOpacity></PM80Tip>
           </View>
 
           {/* Month Navigation Row */}
           <View style={styles.monthNavRow}>
-            <TouchableOpacity
+            <PM80Tip tip={PM80_TIPS.prevMonth}><TouchableOpacity
               testID={`${testID}-prev-month`}
               onPress={handlePrevMonth}
               style={styles.monthArrowBtn}
@@ -267,9 +271,9 @@ export default function PM80HomePaper({
                 size={24}
                 color={textSecondary}
               />
-            </TouchableOpacity>
+            </TouchableOpacity></PM80Tip>
 
-            <TouchableOpacity
+            <PM80Tip tip={PM80_TIPS.monthPill}><TouchableOpacity
               testID={`${testID}-month-pill`}
               onPress={handleNextMonth}
               activeOpacity={0.85}
@@ -286,9 +290,9 @@ export default function PM80HomePaper({
                 size={18}
                 color={textPrimary}
               />
-            </TouchableOpacity>
+            </TouchableOpacity></PM80Tip>
 
-            <TouchableOpacity
+            <PM80Tip tip={PM80_TIPS.nextMonth}><TouchableOpacity
               testID={`${testID}-next-month`}
               onPress={handleNextMonth}
               style={styles.monthArrowBtn}
@@ -299,7 +303,7 @@ export default function PM80HomePaper({
                 size={24}
                 color={textSecondary}
               />
-            </TouchableOpacity>
+            </TouchableOpacity></PM80Tip>
           </View>
         </Surface>
 
@@ -310,7 +314,7 @@ export default function PM80HomePaper({
             {snapshot.advancedMetrics.map((metric) => {
               const isMetricSelected = selectedMetric?.id === metric.id;
               return (
-                <TouchableOpacity
+                <PM80Tip tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
                   key={metric.id}
                   testID={`${testID}-metric-${metric.id}`}
                   activeOpacity={0.8}
@@ -352,7 +356,7 @@ export default function PM80HomePaper({
                       </Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </TouchableOpacity></PM80Tip>
               );
             })}
           </View>
@@ -362,7 +366,7 @@ export default function PM80HomePaper({
             {ROI_KINDS_ORDER.map((k) => {
               const active = activeRoiKind === k;
               return (
-                <Chip
+                <PM80Tip tip={roiKindTip(k)}><Chip
                   key={k}
                   testID={`${testID}-chip-${k}`}
                   selected={active}
@@ -381,10 +385,10 @@ export default function PM80HomePaper({
                   }}
                 >
                   {k.toUpperCase()}
-                </Chip>
+                </Chip></PM80Tip>
               );
             })}
-            <Chip
+            <PM80Tip tip={vatBasisTip(includeAllTaxes)}><Chip
               testID={`${testID}-chip-vat`}
               selected={includeAllTaxes}
               compact
@@ -395,7 +399,7 @@ export default function PM80HomePaper({
               textStyle={{ fontSize: 11 }}
             >
               {includeAllTaxes ? 'Gross (+VAT)' : 'IFRS Cost'}
-            </Chip>
+            </Chip></PM80Tip>
           </View>
 
           {/* ANALOGIC ORBITAL CONSTELLATION AROUND CENTRAL NET ROI */}
@@ -414,7 +418,7 @@ export default function PM80HomePaper({
               </View>
 
               {/* CENTER HUB: Net ROI Ring */}
-              <TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
                 testID={`${testID}-center-hub`}
                 activeOpacity={0.9}
                 onPress={handleCycleRoiKind}
@@ -480,7 +484,7 @@ export default function PM80HomePaper({
                     </View>
                   </View>
                 </Surface>
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
 
               {/* Right Column: 4 Time sheets & 6 Vendor invoices */}
               <View style={styles.sideSatellitesCol}>
@@ -612,7 +616,7 @@ export default function PM80HomePaper({
                 </Text>
                 <View style={styles.quickNavRow}>
                   {PM80_QUICK_LINKS.filter((l) => l.group === group).map((l) => (
-                    <TouchableOpacity
+                    <PM80Tip tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
                       key={l.id}
                       testID={`${testID}-nav-${l.id}`}
                       onPress={() => navigateTo(l.route)}
@@ -631,7 +635,7 @@ export default function PM80HomePaper({
                       >
                         {l.label}
                       </Text>
-                    </TouchableOpacity>
+                    </TouchableOpacity></PM80Tip>
                   ))}
                   {group === 'team' && onSwitchStyle && (
                     <TouchableOpacity

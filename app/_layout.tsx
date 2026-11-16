@@ -40,6 +40,7 @@ import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
 import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
 import ReminderHost from '../kit8/ui/reminder/ReminderHost';
 import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
+import PM80FaviconByTheme from '../apps/appPM80/home/pm80Favicon';
 import OrganizationTextsHost from '../kit8/catalog/organization/texts/OrganizationTextsHost';
 import WithIntent from '../kit8/providers/WithIntent';
 import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
@@ -459,6 +460,8 @@ function RootLayoutContent() {
             <ReminderHost />
             {/* counts the screens the user opens (app_route_visits_turnover) while the Organization switch numberOfVisitsFunctionalityEnabled is on */}
             <RouteVisitTracker />
+            {/* appPM80 on web: the tab icon on a transparent background while the theme is not dark */}
+            <PM80FaviconByTheme />
             {/* the texts the administrator replaced for the organization (organizationTextTable): read once after the sign in, used by pmT / t() / the column headers */}
             <OrganizationTextsHost />
             {/* share intent (uxui.intentInfo): RadioSetApp asks what to add */}

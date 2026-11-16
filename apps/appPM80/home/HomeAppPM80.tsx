@@ -8,13 +8,14 @@ import PM80HomeTamagui from './PM80HomeTamagui';
 export interface HomeAppPM80Props {
   /** Force 'paper' or 'tamagui', or leave undefined to follow WithDesignSystem & top toggle */
   variant?: 'paper' | 'tamagui';
+  /** the Paper / Tamagui tab bar: hidden by default (the home follows the design system); the demo page shows it */
   showVariantSwitcher?: boolean;
   testID?: string;
 }
 
 export default function HomeAppPM80({
   variant,
-  showVariantSwitcher = true,
+  showVariantSwitcher = false,
   testID = 'pm80-home',
 }: HomeAppPM80Props) {
   let detectedSystem: DesignSystemType = 'paper';

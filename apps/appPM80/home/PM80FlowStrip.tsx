@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { PM80SatelliteNode } from './pm80HomeModel';
+import PM80Tip from './PM80Tip';
 
 export interface PM80FlowStripProps {
   /** the circles sorted in the business order (`pm80FlowOf`) */
@@ -41,6 +42,7 @@ export default function PM80FlowStrip({
       >
         {nodes.map((n, i) => (
           <React.Fragment key={n.id}>
+            <PM80Tip tip={n.tip}>
             <TouchableOpacity
               testID={`${testID}-step-${n.step}`}
               accessibilityLabel={`Step ${n.step}: ${n.label.replace('\n', ' ')}`}
@@ -58,6 +60,7 @@ export default function PM80FlowStrip({
                 {n.label.replace('\n', ' ')}
               </Text>
             </TouchableOpacity>
+            </PM80Tip>
             {i < nodes.length - 1 && (
               <Text style={[styles.arrow, { color: textStrong }]}>›</Text>
             )}

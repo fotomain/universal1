@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -10,6 +10,13 @@ import Svg, {
   Path,
   G,
 } from 'react-native-svg';
+
+/**
+ * The header logo of the home: on WEB with a light theme the emblem has NO dark square (transparent background);
+ * with the dark theme, and on iOS / Android, it keeps the rounded square.
+ */
+export const pm80LogoWithBackground = (isDark: boolean, os: string = Platform.OS): boolean =>
+  !(os === 'web' && !isDark);
 
 export interface PM80BrandLogoProps {
   /** Icon diameter/width in px (default 64) */
@@ -105,7 +112,7 @@ export const PM80BrandLogo: React.FC<PM80BrandLogoProps> = ({
         cx="512"
         cy="512"
         r="300"
-        stroke="#1E293B"
+        stroke={withBackground ? '#1E293B' : '#CBD5E1'}
         strokeWidth="54"
         fill="none"
       />

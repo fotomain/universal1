@@ -11,12 +11,16 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
-import PM80BrandLogo from './PM80BrandLogo';
+import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
+import PM80Tip from './PM80Tip';
 import { openPM80Route } from './pm80OpenRoute';
 import {
   PM80_MONTH_SNAPSHOTS,
   PM80_QUICK_LINKS,
+  PM80_TIPS,
+  roiKindTip,
+  vatBasisTip,
   pm80FlowOf,
   PM80SatelliteNode,
   PM80AdvancedMetric,
@@ -136,7 +140,7 @@ export default function PM80HomeTamagui({
     const isSelected = selectedNode?.id === node.id;
 
     return (
-      <TouchableOpacity
+      <PM80Tip tip={node.tip}><TouchableOpacity
         key={node.id}
         testID={`${testID}-satellite-${node.id}`}
         activeOpacity={0.85}
@@ -173,7 +177,7 @@ export default function PM80HomeTamagui({
         </View>
 
         <Text style={[styles.satFact, { color: textStrong }]}>{node.factLabel}</Text>
-      </TouchableOpacity>
+      </TouchableOpacity></PM80Tip>
     );
   };
 
@@ -195,7 +199,7 @@ export default function PM80HomeTamagui({
             ]}
           >
             <View style={styles.topRow}>
-              <TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.profile}><TouchableOpacity
                 testID={`${testID}-profile-btn`}
                 onPress={() => navigateTo('/pm/project/dashboard')}
                 style={[
@@ -203,8 +207,8 @@ export default function PM80HomeTamagui({
                   { backgroundColor: pillSurface, borderColor: cardBorder },
                 ]}
               >
-                <PM80BrandLogo size={32} withBackground={true} />
-              </TouchableOpacity>
+                <PM80BrandLogo size={32} withBackground={pm80LogoWithBackground(isDark)} />
+              </TouchableOpacity></PM80Tip>
 
               <View style={styles.titleStack}>
                 <Text style={[styles.subtitleToken, { color: textMuted }]}>
@@ -218,7 +222,7 @@ export default function PM80HomeTamagui({
                 </Text>
               </View>
 
-              <TouchableOpacity
+              <PM80Tip tip={vatBasisTip(includeAllTaxes)}><TouchableOpacity
                 testID={`${testID}-layers-btn`}
                 onPress={() => setIncludeAllTaxes((v) => !v)}
                 style={[
@@ -234,12 +238,12 @@ export default function PM80HomeTamagui({
                   size={22}
                   color={includeAllTaxes ? '#FFFFFF' : textStrong}
                 />
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
             </View>
 
             {/* Month Switcher Bar */}
             <View style={styles.monthBar}>
-              <TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.prevMonth}><TouchableOpacity
                 testID={`${testID}-prev-month`}
                 onPress={handlePrevMonth}
                 style={styles.chevronBtn}
@@ -249,9 +253,9 @@ export default function PM80HomeTamagui({
                   size={22}
                   color={textMuted}
                 />
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
 
-              <TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.monthPill}><TouchableOpacity
                 testID={`${testID}-month-pill`}
                 onPress={handleNextMonth}
                 activeOpacity={0.85}
@@ -268,9 +272,9 @@ export default function PM80HomeTamagui({
                   size={16}
                   color={textMuted}
                 />
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
 
-              <TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.nextMonth}><TouchableOpacity
                 testID={`${testID}-next-month`}
                 onPress={handleNextMonth}
                 style={styles.chevronBtn}
@@ -280,7 +284,7 @@ export default function PM80HomeTamagui({
                   size={22}
                   color={textMuted}
                 />
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
             </View>
           </View>
 
@@ -305,7 +309,7 @@ export default function PM80HomeTamagui({
                 const isSelected = selectedMetric?.id === metric.id;
                 const ringColor = kpiStrokeColors[idx % kpiStrokeColors.length];
                 return (
-                  <TouchableOpacity
+                  <PM80Tip tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
                     key={metric.id}
                     testID={`${testID}-metric-${metric.id}`}
                     activeOpacity={0.8}
@@ -341,7 +345,7 @@ export default function PM80HomeTamagui({
                         </Text>
                       </View>
                     </View>
-                  </TouchableOpacity>
+                  </TouchableOpacity></PM80Tip>
                 );
               })}
             </View>
@@ -359,7 +363,7 @@ export default function PM80HomeTamagui({
               {ROI_KINDS_ORDER.map((k) => {
                 const active = activeRoiKind === k;
                 return (
-                  <TouchableOpacity
+                  <PM80Tip tip={roiKindTip(k)} style={{ flex: 1 }}><TouchableOpacity
                     key={k}
                     testID={`${testID}-chip-${k}`}
                     onPress={() => setActiveRoiKind(k)}
@@ -381,11 +385,11 @@ export default function PM80HomeTamagui({
                     >
                       {k.toUpperCase()}
                     </Text>
-                  </TouchableOpacity>
+                  </TouchableOpacity></PM80Tip>
                 );
               })}
 
-              <TouchableOpacity
+              <PM80Tip tip={vatBasisTip(includeAllTaxes)} style={{ flex: 1 }}><TouchableOpacity
                 testID={`${testID}-chip-vat`}
                 onPress={() => setIncludeAllTaxes((v) => !v)}
                 style={[
@@ -404,7 +408,7 @@ export default function PM80HomeTamagui({
                 >
                   {includeAllTaxes ? '+VAT ON' : 'NET COST'}
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity></PM80Tip>
             </View>
 
             {/* ANALOGIC ORBITAL CONSTELLATION */}
@@ -422,7 +426,7 @@ export default function PM80HomeTamagui({
                 </View>
 
                 {/* Central Net ROI Ring */}
-                <TouchableOpacity
+                <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
                   testID={`${testID}-center-hub`}
                   activeOpacity={0.9}
                   onPress={handleCycleRoiKind}
@@ -479,7 +483,7 @@ export default function PM80HomeTamagui({
                       </Text>
                     </View>
                   </View>
-                </TouchableOpacity>
+                </TouchableOpacity></PM80Tip>
 
                 <View style={styles.sideCol}>
                   {renderSatellite(midRightNode)}
@@ -597,7 +601,7 @@ export default function PM80HomeTamagui({
                   </Text>
                   <View style={styles.dockRow}>
                     {PM80_QUICK_LINKS.filter((l) => l.group === group).map((l) => (
-                      <TouchableOpacity
+                      <PM80Tip tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
                         key={l.id}
                         testID={`${testID}-nav-${l.id}`}
                         onPress={() => navigateTo(l.route)}
@@ -615,7 +619,7 @@ export default function PM80HomeTamagui({
                         >
                           {l.label}
                         </Text>
-                      </TouchableOpacity>
+                      </TouchableOpacity></PM80Tip>
                     ))}
                     {group === 'team' && onSwitchStyle && (
                       <TouchableOpacity
