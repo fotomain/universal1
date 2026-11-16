@@ -187,6 +187,57 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
 
     case 'paper': {
       const mode = variant === 'contained' ? 'contained' : variant === 'outlined' ? 'outlined' : 'text';
+      const isIconOnly = !buttonText && !children && !!icon;
+      if (isIconOnly) {
+        const fgColor = textColor || (isContained ? '#ffffff' : btnColor);
+        return (
+          <TouchableOpacity
+            {...common}
+            onPress={onPress}
+            disabled={disabled || loading}
+            activeOpacity={0.8}
+            style={[
+              {
+                backgroundColor: isContained
+                  ? disabled
+                    ? isDark
+                      ? '#374151'
+                      : '#e5e7eb'
+                    : btnColor
+                  : 'transparent',
+                borderWidth: isContained || isOutlined ? 1 : 0,
+                borderColor: isContained
+                  ? disabled
+                    ? 'transparent'
+                    : btnColor
+                  : isOutlined
+                  ? btnColor
+                  : 'transparent',
+                borderRadius: 20,
+                paddingVertical: size === 'small' ? 8 : 10,
+                paddingHorizontal: size === 'small' ? 14 : 18,
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexDirection: 'row',
+                marginVertical: 6,
+              },
+              widthStyle,
+              style,
+            ]}
+          >
+            {loading ? (
+              <ActivityIndicatorCircleApp size="small" color={fgColor} />
+            ) : (
+              <IconApp
+                testID="a4c09d3e-1f5b-6a78-0c12-345678901c03"
+                name={icon}
+                size={iconSize ?? 18}
+                color={fgColor}
+              />
+            )}
+          </TouchableOpacity>
+        );
+      }
       return (
         <PaperButton
           ref={ref as any}
@@ -199,13 +250,14 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           loading={loading}
           icon={
             typeof icon === 'function' || React.isValidElement(icon)
-              ? (icon as any)
+              ? (props) => (typeof icon === 'function' ? icon(props) : icon)
               : typeof icon === 'string'
               ? (props) => <IconApp testID="a4c09d3e-1f5b-6a78-0c12-345678901c03" name={icon} size={props.size} color={props.color} />
               : undefined
           }
           buttonColor={variant === 'contained' ? btnColor : undefined}
           textColor={textColor || (variant === 'contained' ? '#ffffff' : btnColor)}
+          contentStyle={{ justifyContent: 'center', alignItems: 'center' }}
           style={[
             { marginVertical: 6 },
             // same outer size for contained and outlined; outlined = border in the button color
@@ -252,23 +304,25 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
-              {icon && <IconApp testID="b5d10e4f-2a6c-7b89-1d23-456789012d04" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
-              <Text
-                {...labelProps}
-                style={{
-                  color: disabled
-                    ? '#9ca3af'
-                    : isContained
-                    ? textColor || '#ffffff'
-                    : textColor || btnColor,
-                  fontSize: size === 'small' ? 13 : size === 'large' ? 17 : 15,
-                  fontWeight: '700',
-                  letterSpacing: 0.2,
-                  ...labelFit,
-                }}
-              >
-                {buttonText}
-              </Text>
+              {icon && <IconApp testID="b5d10e4f-2a6c-7b89-1d23-456789012d04" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={buttonText ? { marginRight: 6 } : undefined} />}
+              {!!buttonText && (
+                <Text
+                  {...labelProps}
+                  style={{
+                    color: disabled
+                      ? '#9ca3af'
+                      : isContained
+                      ? textColor || '#ffffff'
+                      : textColor || btnColor,
+                    fontSize: size === 'small' ? 13 : size === 'large' ? 17 : 15,
+                    fontWeight: '700',
+                    letterSpacing: 0.2,
+                    ...labelFit,
+                  }}
+                >
+                  {buttonText}
+                </Text>
+              )}
             </>
           )}
         </TouchableOpacity>
@@ -307,25 +361,27 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={buttonText ? { marginRight: 6 } : undefined} />
           ) : (
             <>
-              {icon && <IconApp testID="c6e21f50-3b7d-8c90-2e34-567890123e05" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
-              <Text
-                {...labelProps}
-                style={{
-                  color: disabled
-                    ? '#00000040'
-                    : isContained
-                    ? textColor || '#ffffff'
-                    : textColor || btnColor,
-                  fontSize: size === 'small' ? 13 : 15,
-                  fontWeight: '500',
-                  ...labelFit,
-                }}
-              >
-                {buttonText}
-              </Text>
+              {icon && <IconApp testID="c6e21f50-3b7d-8c90-2e34-567890123e05" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={buttonText ? { marginRight: 6 } : undefined} />}
+              {!!buttonText && (
+                <Text
+                  {...labelProps}
+                  style={{
+                    color: disabled
+                      ? '#00000040'
+                      : isContained
+                      ? textColor || '#ffffff'
+                      : textColor || btnColor,
+                    fontSize: size === 'small' ? 13 : 15,
+                    fontWeight: '500',
+                    ...labelFit,
+                  }}
+                >
+                  {buttonText}
+                </Text>
+              )}
             </>
           )}
         </TouchableOpacity>
@@ -358,21 +414,23 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           ]}
         >
           {loading ? (
-            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={{ marginRight: 6 }} />
+            <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} style={buttonText ? { marginRight: 6 } : undefined} />
           ) : (
             <>
-              {icon && <IconApp testID="d7f32a61-4c8e-9d01-3f45-678901234f06" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
-              <Text
-                {...labelProps}
-                style={{
-                  color: isContained ? textColor || '#ffffff' : textColor || btnColor,
-                  fontSize: 16,
-                  fontWeight: '800',
-                  ...labelFit,
-                }}
-              >
-                {buttonText}
-              </Text>
+              {icon && <IconApp testID="d7f32a61-4c8e-9d01-3f45-678901234f06" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={buttonText ? { marginRight: 6 } : undefined} />}
+              {!!buttonText && (
+                <Text
+                  {...labelProps}
+                  style={{
+                    color: isContained ? textColor || '#ffffff' : textColor || btnColor,
+                    fontSize: 16,
+                    fontWeight: '800',
+                    ...labelFit,
+                  }}
+                >
+                  {buttonText}
+                </Text>
+              )}
             </>
           )}
         </TouchableOpacity>
@@ -429,18 +487,20 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
             <ActivityIndicatorCircleApp size="small" color={isContained ? '#fff' : btnColor} />
           ) : (
             <>
-              {icon && <IconApp testID="e8043b72-5d9f-0e12-4056-789012345a07" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={{ marginRight: 6 }} />}
-              <Text
-                {...labelProps}
-                style={{
-                  color: isContained ? textColor || '#ffffff' : textColor || btnColor,
-                  fontSize: 15,
-                  fontWeight: '600',
-                  ...labelFit,
-                }}
-              >
-                {buttonText}
-              </Text>
+              {icon && <IconApp testID="e8043b72-5d9f-0e12-4056-789012345a07" name={icon} size={iconSize ?? 18} color={isContained ? textColor || '#fff' : textColor || btnColor} style={buttonText ? { marginRight: 6 } : undefined} />}
+              {!!buttonText && (
+                <Text
+                  {...labelProps}
+                  style={{
+                    color: isContained ? textColor || '#ffffff' : textColor || btnColor,
+                    fontSize: 15,
+                    fontWeight: '600',
+                    ...labelFit,
+                  }}
+                >
+                  {buttonText}
+                </Text>
+              )}
             </>
           )}
         </TouchableOpacity>
@@ -450,7 +510,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
 });
 
 const toolbarStyles = StyleSheet.create({
-  btn: { flexDirection: 'row', alignItems: 'center', height: 30, paddingHorizontal: 7, borderRadius: 8, marginRight: 2 },
+  btn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', height: 30, paddingHorizontal: 7, borderRadius: 8, marginRight: 2 },
   compact: { height: 24, paddingHorizontal: 4, borderRadius: 6, marginRight: 0 },
   label: { fontSize: 12, fontWeight: '600', marginLeft: 4 },
   badge: { minWidth: 16, height: 16, borderRadius: 8, paddingHorizontal: 4, marginLeft: 4, alignItems: 'center', justifyContent: 'center' },

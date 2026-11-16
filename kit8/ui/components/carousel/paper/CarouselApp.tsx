@@ -7,7 +7,8 @@ import {
 import { Carousel, Pagination, CarouselRef } from 'react-native-reanimated-carousel';
 import { useSharedValue } from 'react-native-reanimated';
 import { Text, Surface, useTheme } from 'react-native-paper';
-import { CarouselAppProps } from '../common';
+import { SvgXml } from 'react-native-svg';
+import { CarouselAppProps, getChevronLeftSvg, getChevronRightSvg } from '../common';
 import ButtonApp from '../../common/ButtonApp';
 
 export default function CarouselApp<T = any>({
@@ -122,7 +123,7 @@ export default function CarouselApp<T = any>({
           </View>
         )}
 
-        {/* Reanimated Carousel Core + Left/Right Side Arrows */}
+        {/* Reanimated Carousel Core + Left/Right Side Chevrons */}
         {carouselWidth > 0 ? (
           <View style={[styles.carouselWrapper, { width: carouselWidth, height: effectiveHeight }]}>
             <Carousel
@@ -142,23 +143,21 @@ export default function CarouselApp<T = any>({
                 <View style={styles.sideArrowLeft}>
                   <ButtonApp
                     testID="carousel-arrow-left"
-                    icon="chevron_left"
-                    variant="outlined"
-                    size="small"
+                    icon={<SvgXml xml={getChevronLeftSvg(theme.colors.primary)} width={30} height={30} />}
+                    variant="toolbar"
                     onPress={handlePrev}
                     accessibilityLabel="Previous slide"
-                    style={{ marginVertical: 0 }}
+                    style={styles.chevronOnlyBtn}
                   />
                 </View>
                 <View style={styles.sideArrowRight}>
                   <ButtonApp
                     testID="carousel-arrow-right"
-                    icon="chevron_right"
-                    variant="outlined"
-                    size="small"
+                    icon={<SvgXml xml={getChevronRightSvg(theme.colors.primary)} width={30} height={30} />}
+                    variant="toolbar"
                     onPress={handleNext}
                     accessibilityLabel="Next slide"
-                    style={{ marginVertical: 0 }}
+                    style={styles.chevronOnlyBtn}
                   />
                 </View>
               </>
@@ -230,17 +229,25 @@ const styles = StyleSheet.create({
   },
   sideArrowLeft: {
     position: 'absolute',
-    left: 10,
+    left: 6,
     top: '50%',
-    marginTop: -19,
+    marginTop: -18,
     zIndex: 20,
   },
   sideArrowRight: {
     position: 'absolute',
-    right: 10,
+    right: 6,
     top: '50%',
-    marginTop: -19,
+    marginTop: -18,
     zIndex: 20,
+  },
+  chevronOnlyBtn: {
+    marginVertical: 0,
+    marginRight: 0,
+    paddingHorizontal: 4,
+    height: 36,
+    backgroundColor: 'transparent',
+    borderWidth: 0,
   },
   loadingPlaceholder: {
     width: '100%',

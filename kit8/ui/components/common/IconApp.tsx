@@ -248,7 +248,7 @@ export const IconApp: React.FC<IconAppProps> = ({
   const wrapWithTouchable = (children: React.ReactNode) => {
     if (!onPress && !userOnLongPress) {
       return (
-        <View style={style} testID={iconGuid} pointerEvents="none">
+        <View style={[{ alignItems: 'center', justifyContent: 'center' }, style]} testID={iconGuid} pointerEvents="none">
           {children}
         </View>
       );

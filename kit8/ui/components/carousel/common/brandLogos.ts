@@ -103,3 +103,9 @@ export const antigravityLogoSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewB
     <rect width="180" height="180" fill="url(#agyApexRed)"/>
   </g>
 </svg>`;
+
+export const getChevronLeftSvg = (color: string = '#2563eb') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"><path fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>`;
+
+export const getChevronRightSvg = (color: string = '#2563eb') =>
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28"><path fill="none" stroke="${color}" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>`;
