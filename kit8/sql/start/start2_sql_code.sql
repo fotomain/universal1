@@ -4213,7 +4213,10 @@ BEGIN
   INSERT INTO public."organizationTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
   VALUES (v_guid, v_email, 'empty', (extract(epoch FROM clock_timestamp()) * 1000)::bigint,
           jsonb_build_object('organizationTitle', v_name || '''s Organization', 'organizationLegalName', v_name || ' Organization SIA',
-                             'createdByUser', v_email, 'isActive', true, 'contactEmail', v_email, 'legalData', jsonb_build_object('country', 'LV')));
+                             'createdByUser', v_email, 'isActive', true, 'contactEmail', v_email, 'legalData', jsonb_build_object('country', 'LV'),
+                             -- the currencies of every new project of the organization (project settings show them read only; the organization changes them):
+                             -- budget USD, accounting EUR, default currency for contracts GBP
+                             'defaultProjectSettings', jsonb_build_object('currencyForBudget', 'USD', 'currencyForAccounting', 'EUR', 'currencyForContract', 'GBP')));
   RETURN v_guid;
 END;
 $$;

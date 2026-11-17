@@ -24,3 +24,12 @@ the capacity check reads the organization of a *user* - the scope is always the 
   not overwritten (the first fitting business unit stays), the "business units required" flag of a new project stays on. Existing projects, templates and imports are not touched.
 * What is a setting: `defaultProjectSettings.ts` (`defaultProjectSettingsOf`): Main + `budgetsValuesOf` + `vendorValuesOf` + `customerValuesOf` + `productValuesOf` (the Product catalog of the organization reads its ItemNumber / SearchName switches from here: `kit8/catalog/product/useProductFields.ts`) + `subprojectValuesOf` + `roiValuesOf` (the ROI tab: `kit8/pm/reports/roi`; every ROI switch is OFF while never saved). NOT: name, dates, project manager, partners, kanban, the row command modes.
 * No SQL: it is a key of `organizationTable.rowJSON` (the update policy lets only the creator write). Tests: `__tests__/catalog/organization/defaultProjectSettings.test.ts`, `organizationProjectsTab.test.tsx`, `__tests__/pm/ui/projectSettingsOrganizationDefaults.test.tsx`.
+
+## Currencies (2026-11-17)
+The three currencies of the projects - **budget** (`currencyForBudget`), **accounting** (`currencyForAccounting`) and **default for contracts** (`currencyForContract`) - are changed **only here**:
+Organization edit -> Projects -> Settings -> Budgets -> Main (the keys live in `rowJSON.defaultProjectSettings`; only the administrator edits). A **new organization** (made at the first sign in
+of its owner, SQL `organization_for_email`) starts with budget **USD**, accounting **EUR**, default **GBP**; an older organization has none until its administrator sets them.
+The Project settings window shows them **read only** with a message where to change them; a new project takes the organization's currencies when it is created, a project keeps the ones it has
+(the file import and "Save settings to organization" never change them either).
+
+**Change of a currency**: on Save, if any of the three currencies changed, an approval window asks (Yes, recalculate / Save only / Cancel). Yes = after the save every project of the organization gets the new currencies and its task lines are converted again (`currencies/recalculateOrganizationProjects.ts`; read-only projects are skipped, a failing project does not stop the others, posted tasks are posted again, the result is reported).

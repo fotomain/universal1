@@ -13,6 +13,24 @@ import { currencyRefreshConfig } from '../../../../catalog/currency/refresh/curr
 
 const PAGE = 1000;
 
+/** the rate rows of the currencies `guids` (all rate types, paged; also used without React by the recalculation of an organization's projects) */
+export async function fetchRateRows(supabase: any, guids: string[]): Promise<any[]> {
+  const out: any[] = [];
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase.from(currencyExchangeRateTable).select('rowOwnerGUID,rowParentGUID,rowJSON').in('rowOwnerGUID', guids).order('rowOwnerGUID').order('rowParentGUID').range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message || String(error));
+    out.push(...(data || []));
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
+/** the rowGUIDs of the currencies with these codes (the base currency is always added: rows quoted against another base are re-based with its rate) */
+export function rateCurrencyGuids(currencies: any[], codes: string[], base: string): string[] {
+  const wanted = new Set([...codes, base].map((c) => String(c || '').toUpperCase()).filter(Boolean));
+  return (Array.isArray(currencies) ? currencies : []).filter((c) => wanted.has(String(c?.rowJSON?.currencyCode || '').toUpperCase())).map((c) => c.rowGUID as string).sort();
+}
+
 export function useLineRateBook(codes: string[], enabled: boolean): { book: RateBook | null; loading: boolean; error: string } {
   const dispatch = useDispatch();
   const { supabase } = useSupabase();
@@ -32,16 +50,7 @@ export function useLineRateBook(codes: string[], enabled: boolean): { book: Rate
     queryKey: ['pm', 'fxRates', guids.join(',')],
     enabled: enabled && guids.length > 0,
     staleTime: 5 * 60 * 1000,
-    queryFn: async () => {
-      const out: any[] = [];
-      for (let from = 0; ; from += PAGE) {
-        const { data, error } = await supabase.from(currencyExchangeRateTable).select('rowOwnerGUID,rowParentGUID,rowJSON').in('rowOwnerGUID', guids).order('rowOwnerGUID').order('rowParentGUID').range(from, from + PAGE - 1);
-        if (error) throw new Error(error.message || String(error));
-        out.push(...(data || []));
-        if (!data || data.length < PAGE) break;
-      }
-      return out;
-    },
+    queryFn: () => fetchRateRows(supabase, guids),
   });
 
   const book = useMemo(() => {

@@ -6,6 +6,8 @@
 //   project_table.rowJSON:
 //     currencyForBudget / currencyForAccounting / currencyForContract (default currency for contracts)
 //       = ISO 4217 codes of the currency catalog (same shape as contract.contractCurrency: "EUR")
+//       CHANGED ONLY IN THE ORGANIZATION (Organization edit -> Projects -> Settings -> Budgets -> Main; the organization's defaultProjectSettings are what a NEW project
+//       starts with): the Project settings window shows them READ ONLY with a message (currenciesEditable = false, the default); the organization screen passes true
 //     exchangeRateTypeForAccounting / exchangeRateTypeForBudget = the exchange RATE TYPE (Default | Budget, as D365 FO) used to convert the sums of the
 //       task lines into the accounting / the budget currency (task lines, kit8/pm/view/task/finances/taskLineFx.ts)
 //     projectRevenueBudgetNeeded / projectExpenseBudgetNeeded = "Budgets" checkboxes; while projectExpenseBudgetNeeded is on the INPUT switches appear
@@ -94,14 +96,25 @@ export const budgetsValuesOf = (j: PMProjectBudgetsValues | undefined | null): R
   budgetScenarioForFact: j?.budgetScenarioForFact || null,
 });
 
+/** the words of the read-only currencies of a project: where they are changed */
+export const CURRENCIES_ORGANIZATION_MESSAGE =
+  'The currencies are set for the whole organization and cannot be changed in a project. To change them (the administrator of the organization): Catalogs → Organization → Projects → Settings → Budgets → Main. When the administrator changes a currency there, the application asks for approval and, if approved, recalculates all projects of the organization with the new currencies.';
+
+/** the words shown above the currencies where they CAN be changed (the organization) */
+export const CURRENCIES_ORGANIZATION_NOTE =
+  'These currencies are the currencies of every NEW project of the organization. A project shows them read only; they change only in the organization, after an approval that recalculates all its projects.';
+
 export default function PMProjectBudgetsTab({
   values,
   onChange,
   subTab,
   onSubTabChange,
+  currenciesEditable = false,
 }: {
   values: PMProjectBudgetsValues;
   onChange: (patch: PMProjectBudgetsValues) => void;
+  /** true ONLY on the organization screen: the currencies are changed there; everywhere else they are read only (default false) */
+  currenciesEditable?: boolean;
   /** controlled SubTab (the settings window jumps to TabBusinessUnits on a missing center); uncontrolled when omitted */
   subTab?: BudgetsSubTab;
   onSubTabChange?: (t: BudgetsSubTab) => void;
@@ -153,7 +166,27 @@ export default function PMProjectBudgetsTab({
 
       {active === 'TabBudgetsMain' && (
         <View testID="pm-project-budgets-main-content">
-          {PM_PROJECT_CURRENCY_FIELDS.map(({ key, label }) => {
+          {currenciesEditable ? (
+            <Text testID="pm-project-currencies-note" style={[styles.currencyNote, { color: themeColors.text }]}>{pmT(CURRENCIES_ORGANIZATION_NOTE)}</Text>
+          ) : (
+            <View testID="pm-project-currencies-readonly" style={[styles.currencyBox, { borderColor: withAlpha(themeColors.text, 0.2), backgroundColor: withAlpha(themeColors.primary, 0.06) }]}>
+              {PM_PROJECT_CURRENCY_FIELDS.map(({ key, label }) => {
+                const code = String(values[key] || '').toUpperCase();
+                const row = code ? currencies.find((r) => codeOf(r) === code) : undefined;
+                const name = row?.rowJSON?.currencyName;
+                return (
+                  <View key={key} style={styles.currencyRow}>
+                    <Text style={{ color: themeColors.text, opacity: 0.7, fontSize: 12 }}>{pmT(label)}</Text>
+                    <Text testID={`pm-project-${key}`} style={{ color: themeColors.text, fontSize: 15, fontWeight: '700' }}>
+                      {code ? [code, name].filter(Boolean).join(' — ') : pmT('Not set')}
+                    </Text>
+                  </View>
+                );
+              })}
+              <Text testID="pm-project-currencies-message" style={[styles.currencyNote, { color: themeColors.text }]}>{pmT(CURRENCIES_ORGANIZATION_MESSAGE)}</Text>
+            </View>
+          )}
+          {currenciesEditable && PM_PROJECT_CURRENCY_FIELDS.map(({ key, label }) => {
             const code = String(values[key] || '').toUpperCase();
             const row = code ? currencies.find((r) => codeOf(r) === code) : undefined;
             return (
@@ -379,6 +412,9 @@ export default function PMProjectBudgetsTab({
 }
 
 const styles = StyleSheet.create({
+  currencyBox: { borderWidth: 1, borderRadius: 12, padding: 12, marginBottom: 8, gap: 8 },
+  currencyRow: { gap: 2 },
+  currencyNote: { fontSize: 12, opacity: 0.8, marginBottom: 8, lineHeight: 17 },
   section: { fontWeight: '700', fontSize: 14, marginTop: 16, marginBottom: 8 },
   switchRow: { marginBottom: 10 },
   level1: { marginLeft: 22 },

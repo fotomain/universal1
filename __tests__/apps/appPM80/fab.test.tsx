@@ -145,3 +145,67 @@ describe('main FAB + app customization', () => {
     off();
   });
 });
+
+describe('a press on the TEXT of an FAB item does the same call as a press on its round button', () => {
+  const items: Array<{ label: string; icon: string }> = [
+    { label: 'Record Video', icon: 'video-outline' },
+    { label: 'Record Audio', icon: 'microphone-outline' },
+    { label: 'Scroll Top', icon: 'arrow-up-bold-outline' },
+    { label: 'New Project', icon: 'folder-plus-outline' },
+    { label: 'All Projects', icon: 'folder-multiple-outline' },
+    { label: 'Add Calendar event', icon: 'calendar-plus' },
+  ];
+
+  /** what a press did: the router calls, the New project request, the scroll, and whether the list is still open */
+  function pressAndRecord(how: 'label' | 'button', item: { label: string; icon: string }) {
+    mockPush.mockClear();
+    mockOpenProjectSettings.mockClear();
+    const scrollTo = jest.fn();
+    (window as any).scrollTo = scrollTo;
+    mockUserState = { userGUID: '11111111-1111-4111-8111-111111111111' };
+    mount('appPM80'); // mount() opens the FAB
+    click(how === 'label' ? `fab-action-label-${item.label}` : `fabapp-${item.icon}`);
+    const result = {
+      push: mockPush.mock.calls,
+      openProjectSettings: mockOpenProjectSettings.mock.calls,
+      scrolled: scrollTo.mock.calls.length,
+      listOpen: !!q('fab-main-actions'),
+    };
+    act(() => root.unmount());
+    host.remove();
+    return result;
+  }
+
+  items.forEach((item) => {
+    it(`${item.label}: the text and the button give the same result, and the list closes`, () => {
+      const byButton = pressAndRecord('button', item);
+      const byLabel = pressAndRecord('label', item);
+      expect(byLabel).toEqual(byButton);
+      expect(byLabel.listOpen).toBe(false);
+      // and it really did something
+      expect(byLabel.push.length + byLabel.scrolled).toBeGreaterThan(0);
+    });
+  });
+
+  it('the texts lead to the real places (New Project asks for its window, All Projects, the calendar event, the recorders)', () => {
+    expect(pressAndRecord('label', items[3])).toMatchObject({ push: [['/pm/project/dashboard']], openProjectSettings: [['new']] });
+    expect(pressAndRecord('label', items[4]).push).toEqual([['/catalog/project']]);
+    expect(pressAndRecord('label', items[5]).push).toEqual([[{ pathname: '/user/calendar', params: { new: 'event' } }]]);
+    expect(pressAndRecord('label', items[0]).push).toEqual([['/media/record/video']]);
+    expect(pressAndRecord('label', items[1]).push).toEqual([['/media/record/audio']]);
+    expect(pressAndRecord('label', items[2]).scrolled).toBe(1);
+  });
+
+  it('every item of the open list has a pressable text', () => {
+    mount('appPM80');
+    items.forEach((item) => expect(q(`fab-action-label-${item.label}`)).not.toBeNull());
+  });
+
+  it('a guest: the text of New Project sends to sign in, like the button', () => {
+    mockUserState = { userGUID: '' };
+    mount('appPM80');
+    click('fab-action-label-New Project');
+    expect(mockOpenProjectSettings).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith({ pathname: '/user/signin', params: { returnTo: '/home' } });
+  });
+});

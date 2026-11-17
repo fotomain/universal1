@@ -3,7 +3,7 @@
 //   * a NEW project starts from organization.rowJSON.defaultProjectSettings (nothing stored = as before)
 //   * the three dots menu "Save settings to organization" saves the values of the window
 import React, { act } from 'react';
-import { cleanupUI, OWNER, press, q, renderUI, seedStore, toggleSwitch } from './pmUiTestKit';
+import { cleanupUI, OWNER, press, q, renderUI, seedStore, textOf, toggleSwitch } from './pmUiTestKit';
 
 const mockCreate = jest.fn();
 jest.mock('../../../kit8/pm/crud/queries', () => ({
@@ -104,6 +104,43 @@ describe('Project settings window - organization default project settings', () =
     expect(switchChecked('pm-project-weekends')).toBe(false);
     press('pm-project-tab-TabUXUI');
     expect(switchChecked('pm-project-plan-hour')).toBe(false);
+  });
+
+  it('the currencies of a new project are the organization\'s and READ ONLY in the window, with the message where to change them', () => {
+    mockDefaults = { currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' };
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    openNewWindow();
+    press('pm-project-tab-TabBudgets');
+    expect(textOf('pm-project-currencyForBudget')).toContain('USD');
+    expect(textOf('pm-project-currencyForAccounting')).toContain('EUR');
+    expect(textOf('pm-project-currencyForContract')).toContain('GBP');
+    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).toBeNull());
+    expect(textOf('pm-project-currencies-message')).toContain('Catalogs → Organization → Projects → Settings → Budgets');
+  });
+
+  it('an organization without currencies: the window says "Not set" (and still tells where to set them)', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    openNewWindow();
+    press('pm-project-tab-TabBudgets');
+    expect(textOf('pm-project-currencyForBudget')).toBe('Not set');
+    expect(q('pm-project-currencies-message')).not.toBeNull();
+  });
+
+  it('"Save settings to organization" keeps the currencies of the organization: they are changed only on the organization screen', async () => {
+    mockDefaults = { currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' };
+    const { demo, store } = seedStore();
+    // this project has other currencies than its organization
+    act(() => store.getState().setProjects(demo.projects.map((p: any, i: number) => (i === 0 ? { ...p, rowJSON: { ...p.rowJSON, currencyForBudget: 'JPY', currencyForAccounting: 'CHF', currencyForContract: 'SEK' } } : p))));
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    press('pm-project-settings-menu');
+    await act(async () => {
+      press('pm-project-settings-save-to-organization');
+    });
+    const saved = mockSaveDefaults.mock.calls[0][0];
+    expect([saved.currencyForBudget, saved.currencyForAccounting, saved.currencyForContract]).toEqual(['USD', 'EUR', 'GBP']);
   });
 
   it('the three dots menu saves the values of the window to the organization', async () => {

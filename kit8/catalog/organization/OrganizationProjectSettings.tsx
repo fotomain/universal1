@@ -107,7 +107,7 @@ export default function OrganizationProjectSettings({
             </View>
           </View>
         )}
-        {tab === 'budgets' && <PMProjectBudgetsTab values={v} onChange={patch} subTab={budgetsSubTab} onSubTabChange={setBudgetsSubTab} />}
+        {tab === 'budgets' && <PMProjectBudgetsTab values={v} onChange={patch} subTab={budgetsSubTab} onSubTabChange={setBudgetsSubTab} currenciesEditable />}
         {tab === 'payments' && <PMProjectPaymentsTab values={v} onChange={patch} />}
         {tab === 'files' && <PMProjectFilesTab values={v} onChange={patch} />}
         {tab === 'chat' && <PMProjectChatTab values={v} onChange={patch} />}

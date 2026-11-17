@@ -212,7 +212,13 @@ export default function PMRecentProjectsToolbar({
   const saveSettingsToOrganization = async () => {
     setSettingsMenuCoords(null);
     if (!draft) return;
-    const r = await organization.saveDefaultProjectSettings(defaultProjectSettingsOf(draft));
+    // the currencies are changed ONLY on the organization screen: this command keeps the ones the organization has (a project shows them read only)
+    const r = await organization.saveDefaultProjectSettings({
+      ...defaultProjectSettingsOf(draft),
+      currencyForBudget: organization.defaults?.currencyForBudget ?? null,
+      currencyForAccounting: organization.defaults?.currencyForAccounting ?? null,
+      currencyForContract: organization.defaults?.currencyForContract ?? null,
+    });
     appDispatch(
       showSnackbar(
         r.ok
@@ -410,9 +416,10 @@ export default function PMRecentProjectsToolbar({
             mainSupplierContractGUID: json.mainSupplierContractGUID ?? d.mainSupplierContractGUID,
             mainCustomerGUID: json.mainCustomerGUID ?? d.mainCustomerGUID,
             mainCustomerContractGUID: json.mainCustomerContractGUID ?? d.mainCustomerContractGUID,
-            currencyForBudget: json.currencyForBudget ?? d.currencyForBudget,
-            currencyForAccounting: json.currencyForAccounting ?? d.currencyForAccounting,
-            currencyForContract: json.currencyForContract ?? d.currencyForContract,
+            // the currencies are not taken from a file: they are the organization's (read only in the project)
+            currencyForBudget: d.currencyForBudget,
+            currencyForAccounting: d.currencyForAccounting,
+            currencyForContract: d.currencyForContract,
             exchangeRateTypeForAccounting: json.exchangeRateTypeForAccounting ?? d.exchangeRateTypeForAccounting,
             exchangeRateTypeForBudget: json.exchangeRateTypeForBudget ?? d.exchangeRateTypeForBudget,
             projectRevenueBudgetNeeded: json.projectRevenueBudgetNeeded ?? d.projectRevenueBudgetNeeded,

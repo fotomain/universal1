@@ -11,6 +11,17 @@ SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-111
 SELECT tt.eq(:'anna2'::jsonb, :'anna'::jsonb, 'a second ensure returns the same user and organization');
 SELECT tt.eq((SELECT count(*) FROM public."organizationTable" WHERE "rowOwnerGUID" = 'anna@acme.test'), 1::bigint, 'still one organization');
 
+-- the currencies of a NEW organization (created at the first sign in of its owner): budget USD, accounting EUR, default currency for contracts GBP;
+-- they are the defaults of every new project (organizationTable.rowJSON.defaultProjectSettings) and are changed only on the organization screen
+SELECT tt.eq((SELECT "rowJSON"->'defaultProjectSettings'->>'currencyForBudget' FROM public."organizationTable" WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID'), 'USD', 'new organization: budget currency USD');
+SELECT tt.eq((SELECT "rowJSON"->'defaultProjectSettings'->>'currencyForAccounting' FROM public."organizationTable" WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID'), 'EUR', 'new organization: accounting currency EUR');
+SELECT tt.eq((SELECT "rowJSON"->'defaultProjectSettings'->>'currencyForContract' FROM public."organizationTable" WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID'), 'GBP', 'new organization: default currency GBP');
+-- the administrator changes them (the organization screen); a later ensure of the user does not bring the standard ones back
+UPDATE public."organizationTable" SET "rowJSON" = jsonb_set("rowJSON", '{defaultProjectSettings,currencyForBudget}', '"CHF"') WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID';
+SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');
+SELECT tt.eq((SELECT "rowJSON"->'defaultProjectSettings'->>'currencyForBudget' FROM public."organizationTable" WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID'), 'CHF', 'a changed currency stays changed');
+UPDATE public."organizationTable" SET "rowJSON" = jsonb_set("rowJSON", '{defaultProjectSettings,currencyForBudget}', '"USD"') WHERE "rowGUID" = :'anna'::jsonb->>'organizationGUID';
+
 -- a signed-in user can ensure only himself
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.fails($q$SELECT public.organization_ensure_user('someone@else.test')$q$, 'only ensure your own', 'ensure another e-mail');

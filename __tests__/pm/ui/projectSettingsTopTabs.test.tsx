@@ -277,8 +277,25 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectROIIncludePurchaseVAT).toBe(false);
   });
 
-  it('switches to TabBudgets and saves the 3 currencies and the budget checkboxes to rowJSON', () => {
-    seedStore();
+  it('on the ORGANIZATION screen the same Budgets tab edits the 3 currencies (the only place where they change)', () => {
+    const PMProjectBudgetsTab = require('../../../kit8/pm/view/project/settings/PMProjectBudgetsTab').default;
+    const onChange = jest.fn();
+    renderUI(<PMProjectBudgetsTab values={{}} onChange={onChange} currenciesEditable />);
+    expect(q('pm-project-currencies-readonly')).toBeNull();
+    expect(q('pm-project-currencies-message')).toBeNull();
+    expect(textOf('pm-project-currencies-note')).toContain('every NEW project');
+    press('pm-project-currencyForBudget-trigger');
+    press('pm-project-currencyForBudget-item-cur-eur');
+    expect(onChange).toHaveBeenCalledWith({ currencyForBudget: 'EUR' });
+    press('pm-project-currencyForContract-trigger');
+    press('pm-project-currencyForContract-item-cur-eur');
+    expect(onChange).toHaveBeenCalledWith({ currencyForContract: 'EUR' });
+  });
+
+  it('TabBudgets: the 3 currencies are READ ONLY (with the message where to change them); the budget checkboxes are saved, the currencies stay as stored', () => {
+    const { demo, store } = seedStore();
+    // the project has the currencies of its organization (made when it was created)
+    act(() => store.getState().setProjects(demo.projects.map((p: any, i: number) => (i === 0 ? { ...p, rowJSON: { ...p.rowJSON, currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' } } : p))));
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
 
@@ -286,20 +303,23 @@ describe('Project settings window TopTabs', () => {
     expect(q('pm-project-tab-budgets-content')).not.toBeNull();
     expect(q('pm-project-tab-main-content')).toBeNull();
 
-    press('pm-project-currencyForBudget-trigger');
-    press('pm-project-currencyForBudget-item-cur-eur');
-    press('pm-project-currencyForAccounting-trigger');
-    press('pm-project-currencyForAccounting-item-cur-usd');
-    press('pm-project-currencyForContract-trigger');
-    press('pm-project-currencyForContract-item-cur-eur');
+    // read only: the codes are shown, there is no picker, the message says where to change them
+    expect(q('pm-project-currencies-readonly')).not.toBeNull();
+    expect(textOf('pm-project-currencyForBudget')).toContain('USD');
+    expect(textOf('pm-project-currencyForAccounting')).toContain('EUR');
+    expect(textOf('pm-project-currencyForContract')).toContain('GBP');
+    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).toBeNull());
+    expect(textOf('pm-project-currencies-message')).toContain('Catalogs → Organization → Projects → Settings → Budgets');
+    expect(textOf('pm-project-currencies-message')).toContain('administrator of the organization');
+
     toggleSwitch('pm-project-revenue-budget-needed');
 
     press('pm-project-save');
     expect(mockUpdate).toHaveBeenCalledTimes(1);
     const patchRowJSON = mockUpdate.mock.calls[0][0].patch.rowJSON;
-    expect(patchRowJSON.currencyForBudget).toBe('EUR');
-    expect(patchRowJSON.currencyForAccounting).toBe('USD');
-    expect(patchRowJSON.currencyForContract).toBe('EUR');
+    expect(patchRowJSON.currencyForBudget).toBe('USD');
+    expect(patchRowJSON.currencyForAccounting).toBe('EUR');
+    expect(patchRowJSON.currencyForContract).toBe('GBP');
     expect(patchRowJSON.projectRevenueBudgetNeeded).toBe(true);
     expect(patchRowJSON.projectExpenseBudgetNeeded).toBe(false);
     // the input switches that were never touched are saved with their defaults (Equipment is off)

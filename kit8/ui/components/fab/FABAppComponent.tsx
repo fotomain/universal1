@@ -124,6 +124,13 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
     }
   };
 
+  /** a press on the round button of an item OR on its text: close the list, then run the item */
+  const runAction = (act: FABAppAction) => {
+    setIsOpen(false);
+    notifyFABClose(fabIdRef.current);
+    act.onPress();
+  };
+
   const defaultActions: FABAppAction[] = [
     {
       icon: 'video-outline',
@@ -240,17 +247,25 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
                     },
                   ]}
                 >
-                  <Surface
-                    elevation={3}
-                    style={[
-                      styles.labelBadge,
-                      { backgroundColor: paperTheme.colors.surfaceVariant || paperTheme.colors.surface },
-                    ]}
+                  {/* the text is a button too: the same call as the round button next to it */}
+                  <TouchableOpacity
+                    testID={`fab-action-label-${act.label}`}
+                    accessibilityRole="button"
+                    activeOpacity={0.7}
+                    onPress={() => runAction(act)}
                   >
-                    <Text style={[styles.labelText, { color: paperTheme.colors.onSurfaceVariant || paperTheme.colors.onSurface }]}>
-                      {act.label}
-                    </Text>
-                  </Surface>
+                  <Surface
+                      elevation={3}
+                      style={[
+                        styles.labelBadge,
+                        { backgroundColor: paperTheme.colors.surfaceVariant || paperTheme.colors.surface },
+                      ]}
+                    >
+                      <Text style={[styles.labelText, { color: paperTheme.colors.onSurfaceVariant || paperTheme.colors.onSurface }]}>
+                        {act.label}
+                      </Text>
+                    </Surface>
+                  </TouchableOpacity>
 
                   <FABApp
                     icon={act.icon}
@@ -258,11 +273,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
                     style={styles.miniFabStyle}
                     backgroundColor={miniFabColors.backgroundColor}
                     color={miniFabColors.iconColor}
-                    onPress={() => {
-                      setIsOpen(false);
-                      notifyFABClose(fabIdRef.current);
-                      act.onPress();
-                    }}
+                    onPress={() => runAction(act)}
                   />
                 </Animated.View>
               );

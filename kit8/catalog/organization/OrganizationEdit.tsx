@@ -30,6 +30,18 @@ import { pmT } from '../../pm/i18n/pmT';
 import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 import OrganizationFilesTab from '../../files/common/OrganizationFilesTab';
 import { filesProviderOfOrganization, type FileStorageProvider } from '../../files/common/fileModel';
+import PMApproveYesNoCancelModalWindow, { askPMApprove } from '../../pm/inner/PMApproveYesNoCancelModalWindow';
+import { showSnackbar } from '../../redux/uxuiSlice';
+import { showErrorModal } from '../../ui/components/common/ErrorModalWindow';
+import {
+  CURRENCY_CHANGE_MESSAGE,
+  CURRENCY_CHANGE_TITLE,
+  changedOrganizationCurrencies,
+  currencyChangeLines,
+  organizationCurrenciesOf,
+  recalcSummary,
+} from './currencies/organizationCurrenciesModel';
+import { useOrganizationCurrencyRecalc } from './currencies/useOrganizationCurrencyRecalc';
 import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } from '../../documents/timesheet/TabTimesheet';
 
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
@@ -158,6 +170,9 @@ export default function OrganizationEdit() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [topTab, setTopTab] = useState<OrgTab>('main');
   const [projectsTab, setProjectsTab] = useState<ProjectsTab>('settings');
+  /** the recalculation of the projects after a change of the currencies (kit8/catalog/organization/currencies): the words of the step it is on, null = idle */
+  const [recalcText, setRecalcText] = useState<string | null>(null);
+  const recalcProjects = useOrganizationCurrencyRecalc(!isNew && canEdit);
 
   useEffect(() => {
     if (existing?.rowJSON) {
@@ -178,8 +193,8 @@ export default function OrganizationEdit() {
     }
   };
 
-  const handleSave = () => {
-    if (!canEdit) return;
+  const handleSave = async () => {
+    if (!canEdit || recalcText !== null) return;
     const json = fromForm(form);
     const check = validateOrganization(json);
     if (!check.valid) {
@@ -191,6 +206,23 @@ export default function OrganizationEdit() {
     if (!actions) {
       setSaveError('Entity actions not found');
       return;
+    }
+
+    // a changed currency of the organization: the administrator approves; Yes = save + recalculate ALL its projects, No = save only, Cancel = save nothing
+    let recalculate = false;
+    if (!isNew) {
+      const changes = changedOrganizationCurrencies(existing?.rowJSON?.defaultProjectSettings, json.defaultProjectSettings);
+      if (changes.length) {
+        const answer = await askPMApprove({
+          title: pmT(CURRENCY_CHANGE_TITLE),
+          message: `${currencyChangeLines(changes).map((l) => pmT(l)).join('\n')}\n\n${pmT(CURRENCY_CHANGE_MESSAGE)}`,
+          yesLabel: pmT('Yes, recalculate'),
+          noLabel: pmT('Save only'),
+          icon: 'currency_exchange',
+        });
+        if (answer === 'cancel') return;
+        recalculate = answer === 'yes';
+      }
     }
 
     try {
@@ -229,6 +261,22 @@ export default function OrganizationEdit() {
           })
         );
       }
+      if (recalculate && existing) {
+        setRecalcText(pmT('Recalculating the projects ...'));
+        try {
+          const results = await recalcProjects(existing.rowGUID, organizationCurrenciesOf(json.defaultProjectSettings), (p) =>
+            setRecalcText(pmT('Recalculating the projects: {{index}} / {{total}} · {{name}}', { index: p.index, total: p.total, name: p.name })),
+          );
+          const summary = recalcSummary(results);
+          dispatch(showSnackbar({ message: summary.message, isError: summary.isError }));
+          const problems = results.flatMap((r) => [...(r.status === 'done' ? [] : [`${r.name}: ${r.reason}`]), ...r.postProblems.map((m) => `${r.name} · ${m}`)]);
+          if (problems.length) showErrorModal(problems.slice(0, 20).join('\n'), pmT('Recalculation of the projects'));
+        } catch (err: any) {
+          showErrorModal(err?.message || String(err), pmT('Recalculation of the projects'));
+        } finally {
+          setRecalcText(null);
+        }
+      }
       router.replace(ORGANIZATION_ROUTES.list as any);
     } catch (err: any) {
       setSaveError(err.message || 'Error saving organization');
@@ -261,6 +309,15 @@ export default function OrganizationEdit() {
             Read-only: You are viewing this organization. Only the creator (
             {existing?.rowJSON?.createdByUser || 'unknown'}) has permission to edit.
           </Text>
+        </View>
+      )}
+
+      <PMApproveYesNoCancelModalWindow />
+
+      {recalcText !== null && (
+        <View testID="organization-recalc-banner" style={[styles.banner, { backgroundColor: '#3b82f618', borderColor: '#3b82f6' }]}>
+          <IconApp name="currency_exchange" size={18} color="#3b82f6" />
+          <Text style={[styles.bannerText, { color: c.text }]}>{recalcText}</Text>
         </View>
       )}
 
@@ -552,7 +609,8 @@ export default function OrganizationEdit() {
           <ButtonPrimaryApp
             testID="organization-save"
             title={isNew ? 'Create Organization' : 'Save Changes'}
-            onPress={handleSave}
+            disabled={recalcText !== null}
+            onPress={() => { void handleSave(); }}
           />
           <ButtonTextApp
             testID="organization-cancel"
