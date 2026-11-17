@@ -13,6 +13,8 @@ import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
 import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
+import { usePM80Layout } from './pm80Layout';
+import { usePM80FlowScroll } from './pm80FlowScroll';
 import PM80ProjectFilter from './PM80ProjectFilter';
 import PM80PeriodPicker from './PM80PeriodPicker';
 import PM80Tip from './PM80Tip';
@@ -49,6 +51,9 @@ export default function PM80HomeTamagui({
   testID = 'pm80-home-tamagui',
 }: PM80HomeTamaguiProps) {
   const router = useRouter();
+  const L = usePM80Layout(50);
+  const flow = usePM80FlowScroll(L.isMobile);
+  const [flowActiveId, setFlowActiveId] = useState<string | null>(null);
   let isDark = false;
   let primaryToken = '#2563EB';
   try {
@@ -152,15 +157,17 @@ export default function PM80HomeTamagui({
     const isSelected = selectedNode?.id === node.id;
 
     return (
-      <PM80Tip tip={node.tip}><TouchableOpacity
-        key={node.id}
+      <PM80Tip key={node.id} tip={node.tip}><TouchableOpacity
         testID={`${testID}-satellite-${node.id}`}
         activeOpacity={0.85}
         onPress={() => {
           setSelectedMetric(null);
           setSelectedNode(isSelected ? null : node);
+          // phone: the Business order panel goes to the top and shows this step and the next one
+          setFlowActiveId(node.id);
+          flow.scrollToFlow();
         }}
-        style={styles.satWrapper}
+        style={[styles.satWrapper, { width: L.sat }]}
       >
         <Text style={[styles.satLabel, { color: textStrong }]}>{node.label}</Text>
         <Text style={[styles.satPlan, { color: textMuted }]}>{node.planLabel}</Text>
@@ -169,6 +176,9 @@ export default function PM80HomeTamagui({
           style={[
             styles.satTokenOrb,
             {
+              width: L.satCircle,
+              height: L.satCircle,
+              borderRadius: L.satCircle / 2,
               backgroundColor: isDark ? node.pastelBgDark : node.pastelBgLight,
               borderColor: isSelected ? node.accentColor : cardBorder,
               borderWidth: isSelected ? 2.5 : 1,
@@ -177,7 +187,7 @@ export default function PM80HomeTamagui({
         >
           <MaterialCommunityIcons
             name={node.icon as any}
-            size={25}
+            size={Math.round(L.satCircle * 0.43)}
             color={isDark ? '#FFFFFF' : '#0F172A'}
           />
           <View
@@ -193,24 +203,216 @@ export default function PM80HomeTamagui({
     );
   };
 
+  const kpiEl = (
+    <>
+            {/* ADVANCED CIRCLE ROW ABOVE (Tamagui Bordered Card Style) */}
+            <View
+              style={[
+                styles.advancedCardBox,
+                {
+                  backgroundColor: isDark ? '#0B1120' : '#F8FAFC',
+                  borderColor: cardBorder,
+                },
+              ]}
+            >
+              {snapshot.advancedMetrics.map((metric, idx) => {
+                const isSelected = selectedMetric?.id === metric.id;
+                const ringColor = kpiStrokeColors[idx % kpiStrokeColors.length];
+                return (
+                  <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
+                    testID={`${testID}-metric-${metric.id}`}
+                    activeOpacity={0.8}
+                    onPress={() => {
+                      setSelectedNode(null);
+                      setSelectedMetric(isSelected ? null : metric);
+                    }}
+                    style={styles.advancedCol}
+                  >
+                    <Text
+                      style={[styles.advTitle, { color: textStrong, fontSize: L.kpi < 70 ? 10.5 : 11.5, minHeight: 28, textAlign: 'center' }]}
+                      numberOfLines={2}
+                    >
+                      {metric.label}
+                    </Text>
+                    <View style={[styles.advGaugeWrap, { width: L.kpi, height: L.kpi }]}>
+                      <PM80CircularProgress
+                        size={L.kpi}
+                        strokeWidth={Math.max(4, Math.round(L.kpi / 12))}
+                        progress={metric.progress}
+                        trackColor={trackColor}
+                        strokeColor={ringColor}
+                        startAngle={-90}
+                      />
+                      <View style={styles.advCenter}>
+                        <MaterialCommunityIcons
+                          name={metric.icon as any}
+                          size={20}
+                          color={ringColor}
+                        />
+                        <Text style={[styles.advVal, { color: textStrong }]}>
+                          {metric.valueText}
+                        </Text>
+                      </View>
+                    </View>
+                  </TouchableOpacity></PM80Tip>
+                );
+              })}
+            </View>
+    </>
+  );
+
+  const chipsEl = (
+    <>
+            {/* TAMAGUI SEGMENTED PILL BAR FOR ROI1..ROI4 & VAT */}
+            <View
+              style={[
+                styles.segmentedBar,
+                {
+                  backgroundColor: isDark ? '#0B1120' : '#F1F5F9',
+                  borderColor: cardBorder,
+                },
+              ]}
+            >
+              {ROI_KINDS_ORDER.map((k) => {
+                const active = activeRoiKind === k;
+                return (
+                  <PM80Tip key={k} tip={roiKindTip(k)} style={{ flex: 1 }}><TouchableOpacity
+                    testID={`${testID}-chip-${k}`}
+                    onPress={() => setActiveRoiKind(k)}
+                    style={[
+                      styles.segmentItem,
+                      active && {
+                        backgroundColor: cardSurface,
+                        borderColor: cardBorder,
+                        borderWidth: 1,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: active ? '800' : '600',
+                        color: active ? primaryToken : textMuted,
+                      }}
+                    >
+                      {k.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity></PM80Tip>
+                );
+              })}
+
+              <PM80Tip tip={vatBasisTip(includeAllTaxes)} style={{ flex: 1 }}><TouchableOpacity
+                testID={`${testID}-chip-vat`}
+                onPress={() => setIncludeAllTaxes((v) => !v)}
+                style={[
+                  styles.segmentItem,
+                  includeAllTaxes && {
+                    backgroundColor: primaryToken,
+                  },
+                ]}
+              >
+                <Text
+                  style={{
+                    fontSize: 11,
+                    fontWeight: '700',
+                    color: includeAllTaxes ? '#FFFFFF' : textMuted,
+                  }}
+                >
+                  {includeAllTaxes ? '+VAT ON' : 'NET COST'}
+                </Text>
+              </TouchableOpacity></PM80Tip>
+            </View>
+    </>
+  );
+
+  const hubEl = (
+    <>
+                {/* Central Net ROI Ring */}
+                <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
+                  testID={`${testID}-center-hub`}
+                  activeOpacity={0.9}
+                  onPress={handleCycleRoiKind}
+                  style={[
+                    styles.centerDialOrb,
+                    {
+                      width: L.hub,
+                      height: L.hub,
+                      borderRadius: L.hub / 2,
+                      backgroundColor: cardSurface,
+                      borderColor: cardBorder,
+                    },
+                  ]}
+                >
+                  <PM80CircularProgress
+                    size={L.hub}
+                    strokeWidth={Math.round(14 * L.scale)}
+                    progress={Math.round(centerData.goalProgress * 100)}
+                    trackColor={trackColor}
+                    gradientColors={['#EC4899', '#8B5CF6', '#06B6D4']}
+                    gradientId="tamaguiCenterRoiGrad"
+                    startAngle={150}
+                  />
+                  <View style={styles.centerDialInner}>
+                    <Text style={[styles.centerTitle, { color: textStrong, fontSize: Math.round(15 * L.scale) }]}>
+                      {centerData.kindTitle}
+                    </Text>
+                    <Text
+                      testID={`${testID}-center-profit`}
+                      style={[
+                        styles.centerAmount,
+                        { color: isDark ? '#F472B6' : '#6D28D9', fontSize: Math.round(25 * L.scale) },
+                      ]}
+                    >
+                      {centerData.formattedProfit}
+                    </Text>
+                    <Text style={[styles.centerGoal, { color: textMuted, fontSize: Math.max(10, Math.round(12 * L.scale)) }]}>
+                      {centerData.formattedGoal}
+                    </Text>
+                    <View
+                      style={[
+                        styles.tamaguiRoiTag,
+                        {
+                          backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
+                          borderColor: cardBorder,
+                        },
+                      ]}
+                    >
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          fontWeight: '800',
+                          color: primaryToken,
+                        }}
+                      >
+                        {centerData.kind.toUpperCase()} {centerData.formattedRoiPct}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity></PM80Tip>
+    </>
+  );
+
   return (
-    <View testID={testID} style={[styles.root, { backgroundColor: bgCanvas }]}>
+    <View testID={testID} onLayout={L.onLayout} style={[styles.root, { backgroundColor: bgCanvas }]}>
       <ScrollView
+        ref={flow.scrollRef}
+        {...flow.scrollViewProps}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.maxContainer}>
+        <View style={[styles.maxContainer, { maxWidth: L.bodyMax }]}>
           {/* TAMAGUI HEADER CARD */}
           <View
             style={[
               styles.headerTokenBox,
+              L.isLandscape && { paddingTop: 8, paddingBottom: 8 },
               {
                 backgroundColor: isDark ? '#0F172A' : '#EEF2F8',
                 borderColor: cardBorder,
               },
             ]}
           >
-            <View style={styles.topRow}>
+            <View style={[styles.topRow, L.isLandscape && { marginBottom: 4 }]}>
               <PM80Tip tip={PM80_TIPS.profile}><TouchableOpacity
                 testID={`${testID}-profile-btn`}
                 onPress={() => navigateTo('/pm/project/dashboard')}
@@ -304,127 +506,30 @@ export default function PM80HomeTamagui({
 
           {/* TAMAGUI ELEVATED DASHBOARD SHEET */}
           <View
+            onLayout={flow.onBodyLayout}
             style={[
               styles.mainSheet,
               { backgroundColor: cardSurface, borderColor: cardBorder },
             ]}
           >
-            {/* ADVANCED CIRCLE ROW ABOVE (Tamagui Bordered Card Style) */}
-            <View
-              style={[
-                styles.advancedCardBox,
-                {
-                  backgroundColor: isDark ? '#0B1120' : '#F8FAFC',
-                  borderColor: cardBorder,
-                },
-              ]}
-            >
-              {snapshot.advancedMetrics.map((metric, idx) => {
-                const isSelected = selectedMetric?.id === metric.id;
-                const ringColor = kpiStrokeColors[idx % kpiStrokeColors.length];
-                return (
-                  <PM80Tip tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
-                    key={metric.id}
-                    testID={`${testID}-metric-${metric.id}`}
-                    activeOpacity={0.8}
-                    onPress={() => {
-                      setSelectedNode(null);
-                      setSelectedMetric(isSelected ? null : metric);
-                    }}
-                    style={styles.advancedCol}
-                  >
-                    <Text
-                      style={[styles.advTitle, { color: textStrong }]}
-                      numberOfLines={1}
-                    >
-                      {metric.label}
-                    </Text>
-                    <View style={styles.advGaugeWrap}>
-                      <PM80CircularProgress
-                        size={74}
-                        strokeWidth={6}
-                        progress={metric.progress}
-                        trackColor={trackColor}
-                        strokeColor={ringColor}
-                        startAngle={-90}
-                      />
-                      <View style={styles.advCenter}>
-                        <MaterialCommunityIcons
-                          name={metric.icon as any}
-                          size={20}
-                          color={ringColor}
-                        />
-                        <Text style={[styles.advVal, { color: textStrong }]}>
-                          {metric.valueText}
-                        </Text>
-                      </View>
-                    </View>
-                  </TouchableOpacity></PM80Tip>
-                );
-              })}
-            </View>
-
-            {/* TAMAGUI SEGMENTED PILL BAR FOR ROI1..ROI4 & VAT */}
-            <View
-              style={[
-                styles.segmentedBar,
-                {
-                  backgroundColor: isDark ? '#0B1120' : '#F1F5F9',
-                  borderColor: cardBorder,
-                },
-              ]}
-            >
-              {ROI_KINDS_ORDER.map((k) => {
-                const active = activeRoiKind === k;
-                return (
-                  <PM80Tip tip={roiKindTip(k)} style={{ flex: 1 }}><TouchableOpacity
-                    key={k}
-                    testID={`${testID}-chip-${k}`}
-                    onPress={() => setActiveRoiKind(k)}
-                    style={[
-                      styles.segmentItem,
-                      active && {
-                        backgroundColor: cardSurface,
-                        borderColor: cardBorder,
-                        borderWidth: 1,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 11,
-                        fontWeight: active ? '800' : '600',
-                        color: active ? primaryToken : textMuted,
-                      }}
-                    >
-                      {k.toUpperCase()}
-                    </Text>
-                  </TouchableOpacity></PM80Tip>
-                );
-              })}
-
-              <PM80Tip tip={vatBasisTip(includeAllTaxes)} style={{ flex: 1 }}><TouchableOpacity
-                testID={`${testID}-chip-vat`}
-                onPress={() => setIncludeAllTaxes((v) => !v)}
-                style={[
-                  styles.segmentItem,
-                  includeAllTaxes && {
-                    backgroundColor: primaryToken,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    color: includeAllTaxes ? '#FFFFFF' : textMuted,
-                  }}
-                >
-                  {includeAllTaxes ? '+VAT ON' : 'NET COST'}
-                </Text>
-              </TouchableOpacity></PM80Tip>
-            </View>
-
+            {L.isLandscape ? (
+              /* LANDSCAPE: hub + chips on the left, KPI rings + the 8 circles (4 x 2, business order) on the right */
+              <View style={styles.landRow}>
+                <View style={[styles.landLeft, { width: L.leftW }]}>
+                  {chipsEl}
+                  {hubEl}
+                </View>
+                <View style={styles.landRight}>
+                  {kpiEl}
+                  <View style={styles.landGrid}>
+                    {flowNodes.map((n) => renderSatellite(n))}
+                  </View>
+                </View>
+              </View>
+            ) : (
+              <>
+                {kpiEl}
+                {chipsEl}
             {/* ANALOGIC ORBITAL CONSTELLATION */}
             <View style={styles.orbitalArea}>
               {/* Top Pair: 1 Project plan & 2 Purchase orders */}
@@ -434,72 +539,14 @@ export default function PM80HomeTamagui({
 
               {/* Middle Band: Left Pair + Central Net ROI Ring + Right Pair */}
               <View style={styles.middleRow}>
-                <View style={styles.sideCol}>
+                <View style={[styles.sideCol, { width: L.sat + 2 }]}>
                   {renderSatellite(midLeftNode)}
                   {renderSatellite(lowerLeftNode)}
                 </View>
 
-                {/* Central Net ROI Ring */}
-                <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
-                  testID={`${testID}-center-hub`}
-                  activeOpacity={0.9}
-                  onPress={handleCycleRoiKind}
-                  style={[
-                    styles.centerDialOrb,
-                    {
-                      backgroundColor: cardSurface,
-                      borderColor: cardBorder,
-                    },
-                  ]}
-                >
-                  <PM80CircularProgress
-                    size={196}
-                    strokeWidth={14}
-                    progress={Math.round(centerData.goalProgress * 100)}
-                    trackColor={trackColor}
-                    gradientColors={['#EC4899', '#8B5CF6', '#06B6D4']}
-                    gradientId="tamaguiCenterRoiGrad"
-                    startAngle={150}
-                  />
-                  <View style={styles.centerDialInner}>
-                    <Text style={[styles.centerTitle, { color: textStrong }]}>
-                      {centerData.kindTitle}
-                    </Text>
-                    <Text
-                      testID={`${testID}-center-profit`}
-                      style={[
-                        styles.centerAmount,
-                        { color: isDark ? '#F472B6' : '#6D28D9' },
-                      ]}
-                    >
-                      {centerData.formattedProfit}
-                    </Text>
-                    <Text style={[styles.centerGoal, { color: textMuted }]}>
-                      {centerData.formattedGoal}
-                    </Text>
-                    <View
-                      style={[
-                        styles.tamaguiRoiTag,
-                        {
-                          backgroundColor: isDark ? '#1E293B' : '#F1F5F9',
-                          borderColor: cardBorder,
-                        },
-                      ]}
-                    >
-                      <Text
-                        style={{
-                          fontSize: 10,
-                          fontWeight: '800',
-                          color: primaryToken,
-                        }}
-                      >
-                        {centerData.kind.toUpperCase()} {centerData.formattedRoiPct}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity></PM80Tip>
+                {hubEl}
 
-                <View style={styles.sideCol}>
+                <View style={[styles.sideCol, { width: L.sat + 2 }]}>
                   {renderSatellite(midRightNode)}
                   {renderSatellite(lowerRightNode)}
                 </View>
@@ -510,10 +557,15 @@ export default function PM80HomeTamagui({
                 {bottomNodes.map((n) => renderSatellite(n))}
               </View>
             </View>
+              </>
+            )}
 
             {/* BUSINESS ORDER: the 8 real parts of the app as links, in the order a project is run */}
             <PM80FlowStrip
               testID={`${testID}-flow`}
+              activeId={flowActiveId}
+              onLayout={flow.onPanelLayout}
+            viewRef={flow.panelRef}
               nodes={flowNodes}
               onOpen={navigateTo}
               isDark={isDark}
@@ -615,8 +667,7 @@ export default function PM80HomeTamagui({
                   </Text>
                   <View style={styles.dockRow}>
                     {PM80_QUICK_LINKS.filter((l) => l.group === group).map((l) => (
-                      <PM80Tip tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
-                        key={l.id}
+                      <PM80Tip key={l.id} tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
                         testID={`${testID}-nav-${l.id}`}
                         onPress={() => navigateTo(l.route)}
                         style={styles.dockItem}
@@ -628,8 +679,8 @@ export default function PM80HomeTamagui({
                           color={primaryToken}
                         />
                         <Text
-                          numberOfLines={1}
-                          style={[styles.dockLabel, { color: textStrong }]}
+                          numberOfLines={2}
+                          style={[styles.dockLabel, { color: textStrong, textAlign: 'center' }]}
                         >
                           {l.label}
                         </Text>
@@ -656,6 +707,8 @@ export default function PM80HomeTamagui({
               ))}
             </View>
           </View>
+          {/* phone: room under the page so that the Business order panel can reach the top of the screen */}
+          {flow.spacerH > 0 && <View testID={`${testID}-flow-spacer`} style={{ height: flow.spacerH }} />}
         </View>
       </ScrollView>
     </View>
@@ -714,10 +767,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
   },
   chevronBtn: {
-    width: 34,
+    width: 30,
     height: 34,
     alignItems: 'center',
     justifyContent: 'center',
@@ -789,6 +842,24 @@ const styles = StyleSheet.create({
   advVal: {
     fontSize: 13,
     fontWeight: '800',
+  },
+  landRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    gap: 16,
+  },
+  landLeft: {
+    alignItems: 'center',
+  },
+  landRight: {
+    flex: 1,
+  },
+  landGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   segmentedBar: {
     flexDirection: 'row',
@@ -920,6 +991,7 @@ const styles = StyleSheet.create({
   },
   inspectorTop: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },
@@ -929,6 +1001,7 @@ const styles = StyleSheet.create({
     borderRadius: 4.5,
   },
   inspectorTitle: {
+    minWidth: 150,
     fontSize: 13,
     fontWeight: '800',
     flex: 1,

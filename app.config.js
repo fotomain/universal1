@@ -66,8 +66,6 @@ const variantConfigs = {
     scheme: 'projectbudgetmanagement',
     // its OWN EAS project (web hosting https://project-budget-management.expo.app); the other apps share DEFAULT_EAS_PROJECT_ID
     easProjectId: 'a34cc448-b374-4431-bd09-9ca3d0d8ae70',
-    // sign-in returns to <authScheme>://signin: its own scheme, so it never clashes with another app on the same phone
-    authScheme: 'projectbudgetmanagement',
   },
 };
 
@@ -103,7 +101,6 @@ const PERMISSION_TEXT = {
 const defaultVariant = 'appClothes1';
 const configurationName = process.env.APP_NAME || defaultVariant;
 const variant = variantConfigs[configurationName] || variantConfigs[defaultVariant];
-const authScheme = variant.authScheme || 'myapp';
 const easProjectId = 'easProjectId' in variant ? variant.easProjectId : DEFAULT_EAS_PROJECT_ID;
 
 const expoConfig = {
@@ -154,8 +151,6 @@ const expoConfig = {
     owner: 'foto888999',
     extra: {
       configurationName,
-      // the scheme native Google / Microsoft sign-in comes back to (kit8/auth/session/authScheme.ts); the older apps share 'myapp'
-      authScheme,
       // .env ENVIRONMENT_NAME (e.g. DEV_ENVIRONMENT): the developer helpers of the UI (kit8/ui/environment.ts)
       environmentName: process.env.ENVIRONMENT_NAME || '',
       eas: easProjectId ? { projectId: easProjectId } : undefined,
@@ -201,8 +196,8 @@ const expoConfig = {
     },
     icon: variant.icon,
     splash: variant.splash,
-    // authScheme ('myapp' for the older apps) is the scheme Google / Microsoft sign-in redirects to on native (<scheme>://signin)
-    scheme: [...new Set([variant.scheme, authScheme])],
+    // 'myapp' is the scheme Google sign-in redirects to on native (myapp://auth)
+    scheme: [variant.scheme, 'myapp'],
   },
 };
 

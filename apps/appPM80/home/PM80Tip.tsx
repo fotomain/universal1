@@ -1,5 +1,5 @@
 import React from 'react';
-import { Pressable, StyleProp, ViewStyle } from 'react-native';
+import { LayoutChangeEvent, Pressable, StyleProp, ViewStyle } from 'react-native';
 import { usePMTip } from '../../../kit8/pm/inner/tooltip/PMTooltip';
 
 /**
@@ -13,17 +13,20 @@ export default function PM80Tip({
   children,
   style,
   testID,
+  onLayout,
 }: {
   tip: string;
   children: React.ReactNode;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  onLayout?: (e: LayoutChangeEvent) => void;
 }) {
   const tipProps = usePMTip(tip, 'app');
   return (
     <Pressable
       {...tipProps}
       testID={testID}
+      onLayout={onLayout}
       accessible={false}
       focusable={false}
       style={style}

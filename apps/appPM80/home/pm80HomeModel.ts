@@ -554,7 +554,32 @@ export const PM80_MONTH_NAMES = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
+/** the years of the list under the year (a typed year may be any year of PM80_YEAR_MIN..PM80_YEAR_MAX) */
 export const PM80_YEARS: number[] = [2023, 2024, 2025, 2026, 2027, 2028, 2029, 2030];
+
+/** a typed year is realistic between these two (4 digits) */
+export const PM80_YEAR_MIN = 2000;
+export const PM80_YEAR_MAX = 2099;
+
+/** while typing: only digits, at most 4 */
+export const sanitizeYearText = (text: string): string => text.replace(/\D/g, '').slice(0, 4);
+
+export type PM80YearParse = { ok: true; year: number } | { ok: false; message: string };
+
+/** the typed year: exactly 4 digits, from PM80_YEAR_MIN to PM80_YEAR_MAX */
+export function parseYearInput(text: string): PM80YearParse {
+  const t = text.trim();
+  if (!/^\d{4}$/.test(t)) return { ok: false, message: 'Type the year with 4 digits, e.g. 2026' };
+  const year = Number(t);
+  if (year < PM80_YEAR_MIN || year > PM80_YEAR_MAX) {
+    return { ok: false, message: `The year must be from ${PM80_YEAR_MIN} to ${PM80_YEAR_MAX}` };
+  }
+  return { ok: true, year };
+}
+
+/** the years of the list: PM80_YEARS and the year in force when it was typed outside of them */
+export const pm80YearList = (current: number): number[] =>
+  PM80_YEARS.includes(current) ? PM80_YEARS : [...PM80_YEARS, current].sort((a, b) => a - b);
 
 export const PM80_DEFAULT_PERIOD: PM80Period = { year: 2026, month: 11 };
 
@@ -565,12 +590,12 @@ const periodKey = (p: PM80Period): string => `${p.year}-${String(p.month).padSta
 
 export const periodLabel = (p: PM80Period): string => `${PM80_MONTH_NAMES[p.month - 1].toUpperCase()} ${p.year}`;
 
-/** the period one month before / after (the year changes at January / December); null at the end of PM80_YEARS */
+/** the period one month before / after (the year changes at January / December); null beyond PM80_YEAR_MIN / MAX */
 export function shiftPeriod(p: PM80Period, delta: number): PM80Period | null {
   const index = p.year * 12 + (p.month - 1) + delta;
   const year = Math.floor(index / 12);
   const month = (index % 12) + 1;
-  if (year < PM80_YEARS[0] || year > PM80_YEARS[PM80_YEARS.length - 1]) return null;
+  if (year < PM80_YEAR_MIN || year > PM80_YEAR_MAX) return null;
   return { year, month };
 }
 
@@ -736,6 +761,6 @@ export const PM80_TIPS = {
   prevMonth: 'Show the previous month',
   nextMonth: 'Show the next month',
   monthPill: 'Month of the numbers. Tap to choose the month from the list.',
-  yearPill: 'Year of the numbers. Tap to choose the year from the list.',
+  yearPill: 'Year of the numbers. Tap to choose from the list, double tap to type the year (4 digits).',
   hub: 'Tap to switch the ROI kind: ROI4, ROI1, ROI2, ROI3. Open Monitor02 for the details per project.',
 } as const;

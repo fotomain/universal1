@@ -19,6 +19,8 @@ import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
 import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
+import { usePM80Layout } from './pm80Layout';
+import { usePM80FlowScroll } from './pm80FlowScroll';
 import PM80ProjectFilter from './PM80ProjectFilter';
 import PM80PeriodPicker from './PM80PeriodPicker';
 import PM80Tip from './PM80Tip';
@@ -56,6 +58,9 @@ export default function PM80HomePaper({
   testID = 'pm80-home-paper',
 }: PM80HomePaperProps) {
   const theme = useTheme();
+  const L = usePM80Layout(28);
+  const flow = usePM80FlowScroll(L.isMobile);
+  const [flowActiveId, setFlowActiveId] = useState<string | null>(null);
   const router = useRouter();
   let isDark = false;
   try {
@@ -158,15 +163,17 @@ export default function PM80HomePaper({
     const iconColor = isDark ? '#F8FAFC' : '#1E293B';
 
     return (
-      <PM80Tip tip={node.tip}><TouchableOpacity
-        key={node.id}
+      <PM80Tip key={node.id} tip={node.tip}><TouchableOpacity
         testID={`${testID}-satellite-${node.id}`}
         activeOpacity={0.82}
         onPress={() => {
           setSelectedMetric(null);
           setSelectedNode(isSelected ? null : node);
+          // phone: the Business order panel goes to the top and shows this step and the next one
+          setFlowActiveId(node.id);
+          flow.scrollToFlow();
         }}
-        style={styles.satelliteContainer}
+        style={[styles.satelliteContainer, { width: L.sat }]}
       >
         <Text
           variant="labelMedium"
@@ -186,6 +193,9 @@ export default function PM80HomePaper({
           style={[
             styles.satCircle,
             {
+              width: L.satCircle,
+              height: L.satCircle,
+              borderRadius: L.satCircle / 2,
               backgroundColor: circleBg,
               borderColor: isSelected ? node.accentColor : 'transparent',
               borderWidth: isSelected ? 2.5 : 0,
@@ -194,7 +204,7 @@ export default function PM80HomePaper({
         >
           <MaterialCommunityIcons
             name={node.icon as any}
-            size={26}
+            size={Math.round(L.satCircle * 0.45)}
             color={iconColor}
           />
           <View
@@ -215,22 +225,200 @@ export default function PM80HomePaper({
     );
   };
 
+  const kpiEl = (
+    <>
+          {/* ADVANCED CIRCLE ROW ABOVE (Efficiency, Utilization, Risk Rate, Quality) */}
+          <View style={styles.advancedRow}>
+            {snapshot.advancedMetrics.map((metric) => {
+              const isMetricSelected = selectedMetric?.id === metric.id;
+              return (
+                <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
+                  testID={`${testID}-metric-${metric.id}`}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    setSelectedNode(null);
+                    setSelectedMetric(isMetricSelected ? null : metric);
+                  }}
+                  style={styles.advancedItem}
+                >
+                  <Text
+                    variant="labelMedium"
+                    style={[styles.advancedLabel, { color: textPrimary, fontSize: L.kpi < 70 ? 11 : 12, minHeight: 30, textAlign: 'center' }]}
+                    numberOfLines={2}
+                  >
+                    {metric.label}
+                  </Text>
+                  <View style={[styles.gaugeBox, { width: L.kpi, height: L.kpi }]}>
+                    <PM80CircularProgress
+                      size={L.kpi}
+                      strokeWidth={Math.max(4, Math.round(L.kpi / 12))}
+                      progress={metric.progress}
+                      trackColor={ringTrack}
+                      strokeColor={
+                        isMetricSelected ? theme.colors.primary : kpiRingColor
+                      }
+                      startAngle={-90}
+                    />
+                    <View style={styles.gaugeInnerOverlay}>
+                      <MaterialCommunityIcons
+                        name={metric.icon as any}
+                        size={Math.round(L.kpi * 0.29)}
+                        color={textPrimary}
+                      />
+                      <Text
+                        variant="labelLarge"
+                        style={[styles.gaugePctText, { color: textPrimary }]}
+                      >
+                        {metric.valueText}
+                      </Text>
+                    </View>
+                  </View>
+                </TouchableOpacity></PM80Tip>
+              );
+            })}
+          </View>
+    </>
+  );
+
+  const chipsEl = (
+    <>
+          {/* ROI KIND SELECTOR PILLS (ROI1..ROI4 + VAT Basis from ROI_DOC.html) */}
+          <View style={styles.roiKindChipsRow}>
+            {ROI_KINDS_ORDER.map((k) => {
+              const active = activeRoiKind === k;
+              return (
+                <PM80Tip key={k} tip={roiKindTip(k)}><Chip
+                  testID={`${testID}-chip-${k}`}
+                  selected={active}
+                  compact
+                  mode={active ? 'flat' : 'outlined'}
+                  onPress={() => setActiveRoiKind(k)}
+                  style={[
+                    styles.kindChip,
+                    active && {
+                      backgroundColor: isDark ? '#4F378B' : '#EADDFF',
+                    },
+                  ]}
+                  textStyle={{
+                    fontSize: 11,
+                    fontWeight: active ? '700' : '500',
+                  }}
+                >
+                  {k.toUpperCase()}
+                </Chip></PM80Tip>
+              );
+            })}
+            <PM80Tip tip={vatBasisTip(includeAllTaxes)}><Chip
+              testID={`${testID}-chip-vat`}
+              selected={includeAllTaxes}
+              compact
+              mode={includeAllTaxes ? 'flat' : 'outlined'}
+              icon="percent-outline"
+              onPress={() => setIncludeAllTaxes((v) => !v)}
+              style={styles.kindChip}
+              textStyle={{ fontSize: 11 }}
+            >
+              {includeAllTaxes ? 'Gross (+VAT)' : 'IFRS Cost'}
+            </Chip></PM80Tip>
+          </View>
+    </>
+  );
+
+  const hubEl = (
+    <>
+              {/* CENTER HUB: Net ROI Ring */}
+              <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
+                testID={`${testID}-center-hub`}
+                activeOpacity={0.9}
+                onPress={handleCycleRoiKind}
+                style={styles.centerHubTouchable}
+              >
+                <Surface
+                  elevation={3}
+                  style={[
+                    styles.centerHubSurface,
+                    {
+                      width: L.hub,
+                      height: L.hub,
+                      borderRadius: L.hub / 2,
+                      backgroundColor: isDark ? '#1D1B20' : '#FFFFFF',
+                    },
+                  ]}
+                >
+                  <PM80CircularProgress
+                    size={L.hub}
+                    strokeWidth={Math.round(13 * L.scale)}
+                    progress={Math.round(centerData.goalProgress * 100)}
+                    trackColor={ringTrack}
+                    gradientColors={['#D946EF', '#7C3AED', '#2563EB']}
+                    gradientId="paperCenterRoiGrad"
+                    startAngle={150}
+                  />
+                  <View style={styles.centerHubTextOverlay}>
+                    <Text
+                      variant="titleMedium"
+                      style={[styles.centerNetRoiLabel, { color: textPrimary, fontSize: Math.round(15 * L.scale) }]}
+                    >
+                      {centerData.kindTitle}
+                    </Text>
+                    <Text
+                      testID={`${testID}-center-profit`}
+                      style={[
+                        styles.centerHeroAmount,
+                        { color: isDark ? '#E9D5FF' : '#7E22CE', fontSize: Math.round(25 * L.scale) },
+                      ]}
+                    >
+                      {centerData.formattedProfit}
+                    </Text>
+                    <Text
+                      variant="bodySmall"
+                      style={[styles.centerGoalLabel, { color: textSecondary, fontSize: Math.max(10, Math.round(12 * L.scale)) }]}
+                    >
+                      {centerData.formattedGoal}
+                    </Text>
+                    <View
+                      style={[
+                        styles.centerRoiBadge,
+                        {
+                          backgroundColor: isDark ? '#332D41' : '#F3EDF7',
+                        },
+                      ]}
+                    >
+                      <Text
+                        variant="labelSmall"
+                        style={{
+                          color: isDark ? '#D0BCFF' : '#6750A4',
+                          fontWeight: '700',
+                        }}
+                      >
+                        {centerData.kind.toUpperCase()}: {centerData.formattedRoiPct}
+                      </Text>
+                    </View>
+                  </View>
+                </Surface>
+              </TouchableOpacity></PM80Tip>
+    </>
+  );
+
   return (
     <Surface
       testID={testID}
+      onLayout={L.onLayout}
       style={[styles.root, { backgroundColor: bgMain }]}
       elevation={0}
     >
       <ScrollView
+        ref={flow.scrollRef}
+        {...flow.scrollViewProps}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         {/* TOP HEADER SECTION (Matches reference upper header + MD3 styling) */}
         <Surface
-          style={[styles.topHeaderArea, { backgroundColor: bgHeader }]}
+          style={[styles.topHeaderArea, { backgroundColor: bgHeader, maxWidth: L.bodyMax }, L.isLandscape && { paddingTop: 8, paddingBottom: 8 }]}
           elevation={0}
         >
-          <View style={styles.headerTopRow}>
+          <View style={[styles.headerTopRow, L.isLandscape && { marginBottom: 4 }]}>
             <PM80Tip tip={PM80_TIPS.profile}><TouchableOpacity
               testID={`${testID}-profile-btn`}
               onPress={() => navigateTo('/pm/project/dashboard')}
@@ -318,100 +506,25 @@ export default function PM80HomePaper({
         </Surface>
 
         {/* MAIN WHITE/SURFACE CARD BODY */}
-        <View style={styles.bodyWrapper}>
-          {/* ADVANCED CIRCLE ROW ABOVE (Efficiency, Utilization, Risk Rate, Quality) */}
-          <View style={styles.advancedRow}>
-            {snapshot.advancedMetrics.map((metric) => {
-              const isMetricSelected = selectedMetric?.id === metric.id;
-              return (
-                <PM80Tip tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
-                  key={metric.id}
-                  testID={`${testID}-metric-${metric.id}`}
-                  activeOpacity={0.8}
-                  onPress={() => {
-                    setSelectedNode(null);
-                    setSelectedMetric(isMetricSelected ? null : metric);
-                  }}
-                  style={styles.advancedItem}
-                >
-                  <Text
-                    variant="labelMedium"
-                    style={[styles.advancedLabel, { color: textPrimary }]}
-                    numberOfLines={1}
-                  >
-                    {metric.label}
-                  </Text>
-                  <View style={styles.gaugeBox}>
-                    <PM80CircularProgress
-                      size={76}
-                      strokeWidth={6}
-                      progress={metric.progress}
-                      trackColor={ringTrack}
-                      strokeColor={
-                        isMetricSelected ? theme.colors.primary : kpiRingColor
-                      }
-                      startAngle={-90}
-                    />
-                    <View style={styles.gaugeInnerOverlay}>
-                      <MaterialCommunityIcons
-                        name={metric.icon as any}
-                        size={22}
-                        color={textPrimary}
-                      />
-                      <Text
-                        variant="labelLarge"
-                        style={[styles.gaugePctText, { color: textPrimary }]}
-                      >
-                        {metric.valueText}
-                      </Text>
-                    </View>
-                  </View>
-                </TouchableOpacity></PM80Tip>
-              );
-            })}
-          </View>
-
-          {/* ROI KIND SELECTOR PILLS (ROI1..ROI4 + VAT Basis from ROI_DOC.html) */}
-          <View style={styles.roiKindChipsRow}>
-            {ROI_KINDS_ORDER.map((k) => {
-              const active = activeRoiKind === k;
-              return (
-                <PM80Tip tip={roiKindTip(k)}><Chip
-                  key={k}
-                  testID={`${testID}-chip-${k}`}
-                  selected={active}
-                  compact
-                  mode={active ? 'flat' : 'outlined'}
-                  onPress={() => setActiveRoiKind(k)}
-                  style={[
-                    styles.kindChip,
-                    active && {
-                      backgroundColor: isDark ? '#4F378B' : '#EADDFF',
-                    },
-                  ]}
-                  textStyle={{
-                    fontSize: 11,
-                    fontWeight: active ? '700' : '500',
-                  }}
-                >
-                  {k.toUpperCase()}
-                </Chip></PM80Tip>
-              );
-            })}
-            <PM80Tip tip={vatBasisTip(includeAllTaxes)}><Chip
-              testID={`${testID}-chip-vat`}
-              selected={includeAllTaxes}
-              compact
-              mode={includeAllTaxes ? 'flat' : 'outlined'}
-              icon="percent-outline"
-              onPress={() => setIncludeAllTaxes((v) => !v)}
-              style={styles.kindChip}
-              textStyle={{ fontSize: 11 }}
-            >
-              {includeAllTaxes ? 'Gross (+VAT)' : 'IFRS Cost'}
-            </Chip></PM80Tip>
-          </View>
-
+        <View style={[styles.bodyWrapper, { maxWidth: L.bodyMax }]} onLayout={flow.onBodyLayout}>
+          {L.isLandscape ? (
+            /* LANDSCAPE: hub + chips on the left, KPI rings + the 8 circles (4 x 2, business order) on the right */
+            <View style={styles.landRow}>
+              <View style={[styles.landLeft, { width: L.leftW }]}>
+                {chipsEl}
+                {hubEl}
+              </View>
+              <View style={styles.landRight}>
+                {kpiEl}
+                <View style={styles.landGrid}>
+                  {flowNodes.map((n) => renderSatellite(n))}
+                </View>
+              </View>
+            </View>
+          ) : (
+            <>
+              {kpiEl}
+              {chipsEl}
           {/* ANALOGIC ORBITAL CONSTELLATION AROUND CENTRAL NET ROI */}
           <View style={styles.constellationContainer}>
             {/* Top Pair: 1 Project plan & 2 Purchase orders */}
@@ -422,82 +535,15 @@ export default function PM80HomePaper({
             {/* Middle Band: Left Satellites + Central Net ROI Hub + Right Satellites */}
             <View style={styles.middleHubBand}>
               {/* Left Column: 3 Product receipts & 5 Fact input */}
-              <View style={styles.sideSatellitesCol}>
+              <View style={[styles.sideSatellitesCol, { width: L.sat + 2 }]}>
                 {renderSatellite(midLeftNode)}
                 {renderSatellite(lowerLeftNode)}
               </View>
 
-              {/* CENTER HUB: Net ROI Ring */}
-              <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
-                testID={`${testID}-center-hub`}
-                activeOpacity={0.9}
-                onPress={handleCycleRoiKind}
-                style={styles.centerHubTouchable}
-              >
-                <Surface
-                  elevation={3}
-                  style={[
-                    styles.centerHubSurface,
-                    {
-                      backgroundColor: isDark ? '#1D1B20' : '#FFFFFF',
-                    },
-                  ]}
-                >
-                  <PM80CircularProgress
-                    size={194}
-                    strokeWidth={13}
-                    progress={Math.round(centerData.goalProgress * 100)}
-                    trackColor={ringTrack}
-                    gradientColors={['#D946EF', '#7C3AED', '#2563EB']}
-                    gradientId="paperCenterRoiGrad"
-                    startAngle={150}
-                  />
-                  <View style={styles.centerHubTextOverlay}>
-                    <Text
-                      variant="titleMedium"
-                      style={[styles.centerNetRoiLabel, { color: textPrimary }]}
-                    >
-                      {centerData.kindTitle}
-                    </Text>
-                    <Text
-                      testID={`${testID}-center-profit`}
-                      style={[
-                        styles.centerHeroAmount,
-                        { color: isDark ? '#E9D5FF' : '#7E22CE' },
-                      ]}
-                    >
-                      {centerData.formattedProfit}
-                    </Text>
-                    <Text
-                      variant="bodySmall"
-                      style={[styles.centerGoalLabel, { color: textSecondary }]}
-                    >
-                      {centerData.formattedGoal}
-                    </Text>
-                    <View
-                      style={[
-                        styles.centerRoiBadge,
-                        {
-                          backgroundColor: isDark ? '#332D41' : '#F3EDF7',
-                        },
-                      ]}
-                    >
-                      <Text
-                        variant="labelSmall"
-                        style={{
-                          color: isDark ? '#D0BCFF' : '#6750A4',
-                          fontWeight: '700',
-                        }}
-                      >
-                        {centerData.kind.toUpperCase()}: {centerData.formattedRoiPct}
-                      </Text>
-                    </View>
-                  </View>
-                </Surface>
-              </TouchableOpacity></PM80Tip>
+              {hubEl}
 
               {/* Right Column: 4 Time sheets & 6 Vendor invoices */}
-              <View style={styles.sideSatellitesCol}>
+              <View style={[styles.sideSatellitesCol, { width: L.sat + 2 }]}>
                 {renderSatellite(midRightNode)}
                 {renderSatellite(lowerRightNode)}
               </View>
@@ -508,10 +554,15 @@ export default function PM80HomePaper({
               {bottomNodes.map((n) => renderSatellite(n))}
             </View>
           </View>
+            </>
+          )}
 
           {/* BUSINESS ORDER: the 8 real parts of the app as links, in the order a project is run */}
           <PM80FlowStrip
             testID={`${testID}-flow`}
+            activeId={flowActiveId}
+            onLayout={flow.onPanelLayout}
+            viewRef={flow.panelRef}
             nodes={flowNodes}
             onOpen={navigateTo}
             isDark={isDark}
@@ -545,7 +596,7 @@ export default function PM80HomePaper({
                     />
                     <Text
                       variant="titleSmall"
-                      style={{ color: textPrimary, fontWeight: '700', flex: 1 }}
+                      style={{ color: textPrimary, fontWeight: '700', flex: 1, minWidth: 150 }}
                     >
                       {selectedNode.step}. {selectedNode.label.replace('\n', ' ')} •{' '}
                       {selectedNode.genusOrDomain}
@@ -584,7 +635,7 @@ export default function PM80HomePaper({
                     />
                     <Text
                       variant="titleSmall"
-                      style={{ color: textPrimary, fontWeight: '700', flex: 1 }}
+                      style={{ color: textPrimary, fontWeight: '700', flex: 1, minWidth: 150 }}
                     >
                       {selectedMetric.label} ({selectedMetric.valueText}) •{' '}
                       {selectedMetric.sublabel}
@@ -626,8 +677,7 @@ export default function PM80HomePaper({
                 </Text>
                 <View style={styles.quickNavRow}>
                   {PM80_QUICK_LINKS.filter((l) => l.group === group).map((l) => (
-                    <PM80Tip tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
-                      key={l.id}
+                    <PM80Tip key={l.id} tip={l.tip} style={{ flex: 1 }}><TouchableOpacity
                       testID={`${testID}-nav-${l.id}`}
                       onPress={() => navigateTo(l.route)}
                       style={styles.quickNavBtn}
@@ -640,8 +690,8 @@ export default function PM80HomePaper({
                       />
                       <Text
                         variant="labelSmall"
-                        numberOfLines={1}
-                        style={{ color: textPrimary, fontWeight: '600' }}
+                        numberOfLines={2}
+                        style={{ color: textPrimary, fontWeight: '600', textAlign: 'center' }}
                       >
                         {l.label}
                       </Text>
@@ -668,6 +718,8 @@ export default function PM80HomePaper({
             ))}
           </Surface>
         </View>
+        {/* phone: room under the page so that the Business order panel can reach the top of the screen */}
+        {flow.spacerH > 0 && <View testID={`${testID}-flow-spacer`} style={{ height: flow.spacerH }} />}
       </ScrollView>
     </Surface>
   );
@@ -721,10 +773,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 8,
+    paddingHorizontal: 0,
   },
   monthArrowBtn: {
-    width: 36,
+    width: 30,
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
@@ -761,7 +813,7 @@ const styles = StyleSheet.create({
   },
   advancedLabel: {
     fontWeight: '500',
-    marginBottom: 8,
+    marginBottom: 4,
     fontSize: 12,
   },
   gaugeBox: {
@@ -780,6 +832,24 @@ const styles = StyleSheet.create({
   gaugePctText: {
     fontWeight: '700',
     fontSize: 13,
+  },
+  landRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    width: '100%',
+    gap: 16,
+  },
+  landLeft: {
+    alignItems: 'center',
+  },
+  landRight: {
+    flex: 1,
+  },
+  landGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 12,
   },
   roiKindChipsRow: {
     flexDirection: 'row',
@@ -900,6 +970,7 @@ const styles = StyleSheet.create({
   },
   inspectorHeaderRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     gap: 8,
   },

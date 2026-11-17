@@ -1,8 +1,10 @@
 /** @jest-environment jsdom */
-import React from 'react';
+import React, { act } from 'react';
 import fs from 'fs';
 import path from 'path';
-import { cleanupUI, press, q, renderUI, textOf } from '../../pm/ui/pmUiTestKit';
+import { cleanupUI, press, q, renderUI, textOf, typeInto, pressKey, inputValue } from '../../pm/ui/pmUiTestKit';
+import { computePM80Layout } from '../../../apps/appPM80/home/pm80Layout';
+import { flowScrollY, flowSpacerHeight, flowCanReach, flowTargetOffset, FLOW_TOP_GAP } from '../../../apps/appPM80/home/pm80FlowScroll';
 import {
   PM80_MONTH_SNAPSHOTS,
   PM80_QUICK_LINKS,
@@ -14,6 +16,11 @@ import {
   PM80_DEFAULT_PERIOD,
   PM80_MONTH_NAMES,
   PM80_YEARS,
+  PM80_YEAR_MIN,
+  PM80_YEAR_MAX,
+  parseYearInput,
+  sanitizeYearText,
+  pm80YearList,
   shiftPeriod,
   periodLabel,
   pm80InputFor,
@@ -86,7 +93,18 @@ afterEach(() => {
   jest.clearAllMocks();
 });
 
+/** one tap on the year: the list opens after the double tap window */
+function tapOnce(testID: string) {
+  press(testID);
+  act(() => {
+    jest.advanceTimersByTime(500);
+  });
+}
+
 describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
+  beforeEach(() => jest.useFakeTimers());
+  afterEach(() => jest.useRealTimers());
+
   it('renders PM80BrandLogo with and without wordmark', () => {
     renderUI(<PM80BrandLogo size={64} showWordmark={true} testID="pm80-logo-test" />);
     expect(q('pm80-logo-test')).not.toBeNull();
@@ -349,8 +367,8 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     expect(shiftPeriod({ year: 2026, month: 11 }, 1)).toEqual({ year: 2026, month: 12 });
     expect(shiftPeriod({ year: 2026, month: 12 }, 1)).toEqual({ year: 2027, month: 1 });
     expect(shiftPeriod({ year: 2026, month: 1 }, -1)).toEqual({ year: 2025, month: 12 });
-    expect(shiftPeriod({ year: PM80_YEARS[0], month: 1 }, -1)).toBeNull();
-    expect(shiftPeriod({ year: PM80_YEARS[PM80_YEARS.length - 1], month: 12 }, 1)).toBeNull();
+    expect(shiftPeriod({ year: PM80_YEAR_MIN, month: 1 }, -1)).toBeNull();
+    expect(shiftPeriod({ year: PM80_YEAR_MAX, month: 12 }, 1)).toBeNull();
     expect(periodLabel({ year: 2027, month: 3 })).toBe('MARCH 2027');
     expect(PM80_MONTH_NAMES).toHaveLength(12);
   });
@@ -379,7 +397,7 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
 
   it('month and year are two inputs: each opens its own list', () => {
     renderUI(<PM80HomePaper />);
-    press('pm80-home-paper-year-pill');
+    tapOnce('pm80-home-paper-year-pill');
     expect(q('pm80-home-paper-year-modal')).not.toBeNull();
     PM80_YEARS.forEach((y) => expect(q(`pm80-home-paper-year-item-${y}`)).not.toBeNull());
     press('pm80-home-paper-year-item-2028');
@@ -404,11 +422,153 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
 
   it('the Tamagui home has the same two lists', () => {
     renderUI(<PM80HomeTamagui />);
-    press('pm80-home-tamagui-year-pill');
+    tapOnce('pm80-home-tamagui-year-pill');
     press('pm80-home-tamagui-year-item-2025');
     press('pm80-home-tamagui-month-pill');
     press('pm80-home-tamagui-month-item-6');
     expect(textOf('pm80-home-tamagui-month-pill')).toContain('JUNE');
     expect(textOf('pm80-home-tamagui-year-pill')).toContain('2025');
+  });
+
+  it('the typed year: exactly 4 digits from 2000 to 2099', () => {
+    expect(sanitizeYearText('20a2-6x9')).toBe('2026');
+    expect(sanitizeYearText('')).toBe('');
+    expect(parseYearInput('2026')).toEqual({ ok: true, year: 2026 });
+    expect(parseYearInput(' 2031 ')).toEqual({ ok: true, year: 2031 });
+    ['', '26', '202', '20266', 'abcd', '1999', '2100', '0000'].forEach((t) => {
+      expect(parseYearInput(t).ok).toBe(false);
+    });
+    const bad = parseYearInput('1999');
+    expect(!bad.ok && bad.message).toContain('2000');
+    expect(pm80YearList(2026)).toEqual(PM80_YEARS);
+    expect(pm80YearList(2041)).toEqual([...PM80_YEARS, 2041]);
+    expect(pm80YearList(2010)[0]).toBe(2010);
+  });
+
+  it('double tap on the year opens an inline number input; Enter applies a valid year', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-year-pill');
+    press('pm80-home-paper-year-pill'); // the second tap inside the window
+    expect(q('pm80-home-paper-year-modal')).toBeNull(); // no list
+    expect(q('pm80-home-paper-year-input')).not.toBeNull();
+    expect(inputValue('pm80-home-paper-year-input')).toBe('2026');
+
+    // only digits, at most 4
+    typeInto('pm80-home-paper-year-input', '20x3y45');
+    expect(inputValue('pm80-home-paper-year-input')).toBe('2034');
+    pressKey('pm80-home-paper-year-input', 'Enter');
+    expect(q('pm80-home-paper-year-input')).toBeNull();
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2034');
+    expect(textOf('pm80-home-paper-month-pill')).toContain('NOVEMBER'); // the month did not change
+    // the list now shows the typed year
+    tapOnce('pm80-home-paper-year-pill');
+    expect(q('pm80-home-paper-year-item-2034')).not.toBeNull();
+  });
+
+  it('an unrealistic year is refused with a message and the old year stays', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-year-pill');
+    press('pm80-home-paper-year-pill');
+    typeInto('pm80-home-paper-year-input', '1850');
+    // said at once, at the 4th digit
+    expect(textOf('pm80-home-paper-year-error')).toContain('2000');
+    pressKey('pm80-home-paper-year-input', 'Enter');
+    expect(q('pm80-home-paper-year-input')).not.toBeNull(); // still editing
+
+    // too short: Enter says how many digits
+    typeInto('pm80-home-paper-year-input', '20');
+    pressKey('pm80-home-paper-year-input', 'Enter');
+    expect(textOf('pm80-home-paper-year-error')).toContain('4 digits');
+
+    // Escape drops the typing
+    pressKey('pm80-home-paper-year-input', 'Escape');
+    expect(q('pm80-home-paper-year-input')).toBeNull();
+    expect(textOf('pm80-home-paper-year-pill')).toContain('2026');
+  });
+
+  it('the Tamagui home has the same inline year input', () => {
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-year-pill');
+    press('pm80-home-tamagui-year-pill');
+    typeInto('pm80-home-tamagui-year-input', '2029');
+    pressKey('pm80-home-tamagui-year-input', 'Enter');
+    expect(textOf('pm80-home-tamagui-year-pill')).toContain('2029');
+  });
+
+  it('layout: portrait fits phones from 320 px, landscape puts the circles in 4 columns', () => {
+    [320, 349, 375, 390, 430].forEach((w) => {
+      const l = computePM80Layout(w, 800, 28);
+      expect(l.isLandscape).toBe(false);
+      // [circle][hub][circle] must fit in the content width
+      expect(2 * l.sat + l.hub).toBeLessThanOrEqual(l.inner);
+      expect(4 * l.kpi).toBeLessThanOrEqual(l.inner);
+      expect(l.hub).toBeLessThanOrEqual(194);
+    });
+    // Tamagui has a card around the content (50 px)
+    const t = computePM80Layout(349, 700, 50);
+    expect(2 * t.sat + t.hub).toBeLessThanOrEqual(t.inner);
+    // the design size on a wide portrait window
+    const wide = computePM80Layout(480, 900, 28);
+    expect(wide.hub).toBe(194);
+    expect(wide.sat).toBe(86);
+    // landscape phones and tablets
+    [[568, 320], [667, 375], [844, 390], [1024, 768]].forEach(([w, h]) => {
+      const l = computePM80Layout(w, h, 28);
+      expect(l.isLandscape).toBe(true);
+      const rightW = l.inner - l.leftW - 16;
+      expect(4 * l.sat).toBeLessThanOrEqual(rightW + 4);
+      expect(l.leftW).toBeGreaterThanOrEqual(200);
+      expect(l.bodyMax).toBe(960);
+    });
+    // a short wide window is landscape, a tall narrow one is not
+    expect(computePM80Layout(500, 300).isLandscape).toBe(false); // narrower than 560
+    expect(computePM80Layout(900, 1200).isLandscape).toBe(false);
+  });
+
+  it('phone scroll: the Business order panel goes to the top; the spacer makes it reachable', () => {
+    // the panel at y = 900 goes to the top with a small gap, never above the page
+    expect(flowScrollY(900)).toBe(900 - FLOW_TOP_GAP);
+    expect(flowScrollY(3)).toBe(0);
+    // screen 700 high, 400 px of page below the panel (to the end of its block): a spacer of 300 - gap
+    const spacer = flowSpacerHeight(700, 400);
+    expect(spacer).toBe(700 - 400 - FLOW_TOP_GAP);
+    // the page is 1300 long with the panel at 900: without the spacer it cannot reach the top, with it it can
+    expect(flowCanReach(700, 1300, 900)).toBe(false);
+    expect(flowCanReach(700, 1300 + spacer, 900)).toBe(true);
+    // the number does not depend on the spacer in force: asking again gives the same height (no growing loop)
+    expect(flowSpacerHeight(700, 400)).toBe(spacer);
+    // a long page below the panel needs none
+    expect(flowSpacerHeight(700, 2500)).toBe(0);
+    // not measured yet
+    expect(flowSpacerHeight(0, 400)).toBe(0);
+    expect(flowSpacerHeight(700, 0)).toBe(0);
+    expect(flowCanReach(0, 0, 900)).toBe(false);
+    // from window coordinates: the panel is 520 px below the top of the visible page, the page is scrolled by 300
+    expect(flowTargetOffset(620, 100, 300)).toBe(300 + 520 - FLOW_TOP_GAP);
+    // a panel already above the top of the page never gives a negative offset
+    expect(flowTargetOffset(50, 100, 0)).toBe(0);
+  });
+
+  it('a phone is a native app or a window narrower than 768 px', () => {
+    expect(computePM80Layout(349, 700, 28, 349, 'web').isMobile).toBe(true);
+    expect(computePM80Layout(1024, 768, 28, 1024, 'web').isMobile).toBe(false);
+    expect(computePM80Layout(1024, 768, 28, 1024, 'ios').isMobile).toBe(true);
+    expect(computePM80Layout(700, 360, 28, 700, 'web').isMobile).toBe(true); // a landscape phone
+  });
+
+  it('a tap on a circle marks that step in the Business order panel (Paper and Tamagui)', () => {
+    renderUI(<PM80HomePaper />);
+    expect(q('pm80-home-paper-flow-step-4-active')).toBeNull();
+    press('pm80-home-paper-satellite-timesheets');
+    expect(q('pm80-home-paper-flow-step-4-active')).not.toBeNull();
+    expect(q('pm80-home-paper-flow-step-5-active')).toBeNull();
+    press('pm80-home-paper-satellite-vendorInvoices');
+    expect(q('pm80-home-paper-flow-step-4-active')).toBeNull();
+    expect(q('pm80-home-paper-flow-step-6-active')).not.toBeNull();
+    cleanupUI();
+
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-satellite-payments');
+    expect(q('pm80-home-tamagui-flow-step-8-active')).not.toBeNull();
   });
 });

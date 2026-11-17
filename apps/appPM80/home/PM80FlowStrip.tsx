@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, LayoutChangeEvent } from 'react-native';
 import { PM80SatelliteNode } from './pm80HomeModel';
 import PM80Tip from './PM80Tip';
 
@@ -15,6 +15,12 @@ export interface PM80FlowStripProps {
   surface: string;
   title?: string;
   testID?: string;
+  /** the step a circle was tapped for: it gets a ring and the strip scrolls so that it AND the next step are in view */
+  activeId?: string | null;
+  /** position of the panel in its parent (the page scrolls to it) */
+  onLayout?: (e: LayoutChangeEvent) => void;
+  /** the root view (the page measures it to scroll to it) */
+  viewRef?: React.Ref<View>;
 }
 
 /**
@@ -31,26 +37,53 @@ export default function PM80FlowStrip({
   surface,
   title = 'Business order',
   testID = 'pm80-flow',
+  activeId = null,
+  onLayout,
+  viewRef,
 }: PM80FlowStripProps) {
+  const scrollRef = useRef<ScrollView>(null);
+  const chipX = useRef<Record<string, number>>({});
+
+  // show the tapped step first and the next one after it (the strip scrolls sideways)
+  useEffect(() => {
+    if (!activeId) return;
+    const go = () => {
+      const x = chipX.current[activeId];
+      if (x !== undefined) scrollRef.current?.scrollTo({ x: Math.max(0, x - 4), animated: true });
+    };
+    go();
+    const t = setTimeout(go, 120); // the chips may not have been measured yet
+    return () => clearTimeout(t);
+  }, [activeId]);
+
   return (
-    <View testID={testID} style={[styles.box, { backgroundColor: surface, borderColor }]}>
+    <View ref={viewRef} testID={testID} onLayout={onLayout} style={[styles.box, { backgroundColor: surface, borderColor }]}>
       <Text style={[styles.title, { color: textMuted }]}>{title}</Text>
       <ScrollView
+        ref={scrollRef}
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.row}
       >
         {nodes.map((n, i) => (
           <React.Fragment key={n.id}>
-            <PM80Tip tip={n.tip}>
+            <PM80Tip
+              tip={n.tip}
+              testID={n.id === activeId ? `${testID}-step-${n.step}-active` : undefined}
+              onLayout={(e) => {
+                chipX.current[n.id] = e.nativeEvent.layout.x;
+              }}
+            >
             <TouchableOpacity
               testID={`${testID}-step-${n.step}`}
+              accessibilityState={{ selected: n.id === activeId }}
               accessibilityLabel={`Step ${n.step}: ${n.label.replace('\n', ' ')}`}
               activeOpacity={0.8}
               onPress={() => onOpen(n.route)}
               style={[
                 styles.chip,
                 { backgroundColor: isDark ? n.pastelBgDark : n.pastelBgLight },
+                n.id === activeId && { borderColor: n.accentColor, borderWidth: 2 },
               ]}
             >
               <View style={[styles.num, { backgroundColor: n.accentColor }]}>
@@ -94,6 +127,8 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   chip: {
+    borderWidth: 2,
+    borderColor: 'transparent',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
