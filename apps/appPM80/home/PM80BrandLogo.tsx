@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, Platform } from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import Svg, {
   Defs,
   LinearGradient,
@@ -12,17 +12,24 @@ import Svg, {
 } from 'react-native-svg';
 
 /**
- * The header logo of the home: on WEB with a light theme the emblem has NO dark square (transparent background);
- * with the dark theme, and on iOS / Android, it keeps the rounded square.
+ * The logo on the screens of the app, on EVERY platform: a light theme = the emblem on a TRANSPARENT background; the dark theme = the emblem
+ * on a BLACK square (PM80_LOGO_DARK_BACKGROUND).
  */
-export const pm80LogoWithBackground = (isDark: boolean, os: string = Platform.OS): boolean =>
-  !(os === 'web' && !isDark);
+export const pm80LogoWithBackground = (isDark: boolean): boolean => isDark;
+
+/** the fill of the square: the given solid color, else the purple gradient of the app icon */
+export const pm80LogoBackgroundFill = (backgroundColor?: string): string => backgroundColor ?? 'url(#pm80BgGrad)';
+
+/** the background of the logo while the theme is dark */
+export const PM80_LOGO_DARK_BACKGROUND = '#000000';
 
 export interface PM80BrandLogoProps {
   /** Icon diameter/width in px (default 64) */
   size?: number;
   /** Whether to render the rounded squircle background (true for app icon, false for transparent emblem) */
   withBackground?: boolean;
+  /** a solid color for that background instead of the purple gradient of the app icon (the home uses black in the dark theme) */
+  backgroundColor?: string;
   /** Show brand title next to or below the emblem */
   showWordmark?: boolean;
   wordmarkPosition?: 'right' | 'bottom';
@@ -40,6 +47,7 @@ export interface PM80BrandLogoProps {
 export const PM80BrandLogo: React.FC<PM80BrandLogoProps> = ({
   size = 64,
   withBackground = true,
+  backgroundColor,
   showWordmark = false,
   wordmarkPosition = 'right',
   titleColor = '#0F172A',
@@ -91,7 +99,7 @@ export const PM80BrandLogo: React.FC<PM80BrandLogoProps> = ({
           width="1024"
           height="1024"
           rx="228"
-          fill="url(#pm80BgGrad)"
+          fill={pm80LogoBackgroundFill(backgroundColor)}
         />
       )}
 

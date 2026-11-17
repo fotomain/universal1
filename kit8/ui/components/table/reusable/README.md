@@ -67,7 +67,7 @@ SelectElementFromCatalog; `dependsOn` = the column whose GUID scopes this catalo
 
 Column header: right-click / long-press = **Copy header name** (every column) · **Fill all lines**.
 Rows: context menu (right-click, long-press, ⋮): add above / below, duplicate, move up / down / first / last, copy GUID,
-archive, delete (+ Undo snackbar). Web: drag the ⠿ handle to reorder (orderInList). iOS / Android: reorder from the menu.
+archive, delete (+ Undo snackbar). Web: drag the ⠿ handle to reorder (orderInList). iOS / Android: touch the ⠿ grip (`ReusableTableRowGrip`) and drag the row up / down - the row follows the finger and lands where it is let go (`rowDropIndex` in `tableRows.ts`, measured row heights); the grip is dimmed while the table is searched / filtered / sorted; the move buttons and the row menu also reorder.
 
 Files: `ReusableTable.tsx` (view) · `ReusableTableOptionPicker.tsx` (select / multiSelect picker) · `useReusableTableCrud.ts` (data + commands) · `tableRows.ts` (pure helpers) ·
 `ReusableTableCell.tsx` · `ReusableTableRowMenu.tsx` · `ReusableTableBodyWeb.tsx` (drag & drop, web only) · `ReusableTableFolderGrip.tsx` (native grip for the folders tree) ·

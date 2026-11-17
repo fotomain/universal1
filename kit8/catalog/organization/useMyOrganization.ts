@@ -71,6 +71,26 @@ export function useMyOrganization() {
     [client, organizationGUID, qc, readRow],
   );
 
+  /** merges ONE key into the CURRENT rowJSON of the organization (no other key is lost); same rules as the defaults above */
+  const saveOrganizationKey = useCallback(
+    async (key: string, value: unknown): Promise<SaveDefaultsResult> => {
+      if (!organizationGUID || !client) return { ok: false, error: 'No organization: sign in first.' };
+      try {
+        const fresh = await readRow();
+        if (!fresh) return { ok: false, error: 'Your organization was not found.' };
+        const rowJSON = { ...fresh.rowJSON, [key]: value };
+        const { data, error } = await client.from(organizationTable).update({ rowJSON }).eq('rowGUID', organizationGUID).select('rowGUID');
+        if (error) return { ok: false, error: error.message || String(error) };
+        if (!data || data.length === 0) return { ok: false, error: 'Only the administrator of the organization (its creator) can change its settings.' };
+        qc.setQueryData(orgKey(organizationGUID), { rowGUID: organizationGUID, rowJSON });
+        return { ok: true };
+      } catch (e: any) {
+        return { ok: false, error: e?.message || String(e) };
+      }
+    },
+    [client, organizationGUID, qc, readRow],
+  );
+
   const numberOfVisitsEnabled = numberOfVisitsEnabledOf(query.data?.rowJSON);
 
   /** the stored rowJSON of the row (null until it is read): the chat limit maximumChatAttachmentFileSize ... */
@@ -79,5 +99,5 @@ export function useMyOrganization() {
   /** where the files of ALL projects of the organization are stored (Organization edit -> Files) */
   const filesProvider = filesProviderOfOrganization(organizationJSON);
 
-  return { organizationGUID, organizationJSON, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, filesProvider, saveDefaultProjectSettings };
+  return { organizationGUID, organizationJSON, defaults, loaded: query.isSuccess, numberOfVisitsEnabled, filesProvider, saveDefaultProjectSettings, saveOrganizationKey };
 }

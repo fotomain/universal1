@@ -2,7 +2,13 @@
 import React, { act } from 'react';
 import fs from 'fs';
 import path from 'path';
-import { cleanupUI, press, q, renderUI, textOf, typeInto, pressKey, inputValue } from '../../pm/ui/pmUiTestKit';
+import { cleanupUI, press, q, renderUI, textOf, typeInto, pressKey, inputValue, expectInOrder } from '../../pm/ui/pmUiTestKit';
+import { saveBusinessOrderLocal, resetBusinessOrderLocal } from '../../../apps/appPM80/home/businessOrder/businessOrderLocal';
+import { BUSINESS_ORDER_ROUTE, defaultBusinessOrder, setBusinessOrderVisible, reorderBusinessOrder } from '../../../apps/appPM80/home/businessOrder/businessOrderModel';
+import { ROI_INFO, ROI_INFO_COMMON, roiInfoNumbers } from '../../../apps/appPM80/home/roiInfo/roiInfoModel';
+import { KPI_INFO, KPI_IDS, kpiBandsText, kpiInfoContent, kpiInfoNumbers } from '../../../apps/appPM80/home/kpiInfo/kpiInfoModel';
+import { KPI_BANDS, statusLowerBetter, statusHigherBetter } from '../../../apps/appPM80/home/pm80HomeModel';
+import { createDoubleTouch } from '../../../apps/appPM80/home/roiInfo/pm80DoubleTouch';
 import { computePM80Layout } from '../../../apps/appPM80/home/pm80Layout';
 import { flowScrollY, flowSpacerHeight, flowCanReach, flowTargetOffset, FLOW_TOP_GAP } from '../../../apps/appPM80/home/pm80FlowScroll';
 import {
@@ -81,7 +87,7 @@ const HomeAppPM80 = require('../../../apps/appPM80/home/HomeAppPM80').default;
 const PM80HomePaper = require('../../../apps/appPM80/home/PM80HomePaper').default;
 const PM80HomeTamagui = require('../../../apps/appPM80/home/PM80HomeTamagui').default;
 const PM80BrandLogo = require('../../../apps/appPM80/home/PM80BrandLogo').default;
-const { pm80LogoWithBackground } = require('../../../apps/appPM80/home/PM80BrandLogo');
+const { pm80LogoWithBackground, PM80_LOGO_DARK_BACKGROUND } = require('../../../apps/appPM80/home/PM80BrandLogo');
 
 beforeEach(() => {
   // jsdom has no window.open: a blocked pop-up = the link is pushed in the app
@@ -89,6 +95,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  resetBusinessOrderLocal();
   cleanupUI();
   jest.clearAllMocks();
 });
@@ -187,6 +194,7 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     const routes = new Set<string>();
     PM80_STAGES.forEach((s) => routes.add(s.route));
     PM80_QUICK_LINKS.forEach((l) => routes.add(l.route));
+    routes.add(BUSINESS_ORDER_ROUTE);
     PM80_MONTH_SNAPSHOTS.forEach((m) => m.advancedMetrics.forEach((k) => routes.add(k.route)));
     const appDir = path.resolve(__dirname, '../../../app');
     routes.forEach((r) => {
@@ -268,7 +276,7 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     renderUI(<PM80HomePaper />);
     press('pm80-home-paper-chip-roi2');
     expect(textOf('pm80-home-paper-center-hub')).toContain('Delivered ROI');
-    press('pm80-home-paper-layers-btn');
+    press('pm80-home-paper-chip-vat');
     expect(textOf('pm80-home-paper-chip-vat')).toContain('Gross');
     press('pm80-home-paper-month-pill');
     expect(q('pm80-home-paper-month-modal')).not.toBeNull();
@@ -277,11 +285,20 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     expect(q('pm80-home-paper-month-modal')).toBeNull();
   });
 
-  it('the header logo has no dark square on web with a light theme', () => {
-    expect(pm80LogoWithBackground(false, 'web')).toBe(false); // light web: transparent
-    expect(pm80LogoWithBackground(true, 'web')).toBe(true); // dark web: the square
-    expect(pm80LogoWithBackground(false, 'ios')).toBe(true); // phones keep the square
-    expect(pm80LogoWithBackground(false, 'android')).toBe(true);
+  it('the logo: a light theme = transparent background, the dark theme = a BLACK background, on every platform', () => {
+    expect(pm80LogoWithBackground(false)).toBe(false); // transparent
+    expect(pm80LogoWithBackground(true)).toBe(true); // a square ...
+    expect(PM80_LOGO_DARK_BACKGROUND).toBe('#000000'); // ... black
+    // the drawing: no square at all in the light theme; a square filled with black in the dark theme
+    const { pm80LogoBackgroundFill } = require('../../../apps/appPM80/home/PM80BrandLogo');
+    expect(pm80LogoBackgroundFill(PM80_LOGO_DARK_BACKGROUND)).toBe('#000000');
+    expect(pm80LogoBackgroundFill()).toBe('url(#pm80BgGrad)'); // the app icon keeps its gradient
+    const squares = (html: string) => (html.match(/<rnsvgrect[^>]*width="1024"/gi) || []).length;
+    renderUI(<PM80BrandLogo size={36} withBackground={false} testID="pm80-logo-light" />);
+    expect(squares(q('pm80-logo-light')!.innerHTML)).toBe(0);
+    cleanupUI();
+    renderUI(<PM80BrandLogo size={36} withBackground backgroundColor={PM80_LOGO_DARK_BACKGROUND} testID="pm80-logo-dark" />);
+    expect(squares(q('pm80-logo-dark')!.innerHTML)).toBe(1);
   });
 
   it('the 12 demo projects hold exactly 100% of the cost and of the revenue', () => {
@@ -570,5 +587,205 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     renderUI(<PM80HomeTamagui />);
     press('pm80-home-tamagui-satellite-payments');
     expect(q('pm80-home-tamagui-flow-step-8-active')).not.toBeNull();
+  });
+
+  it('the layers button opens the Business order settings route; Back goes Home (returnTo)', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-layers-btn');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: BUSINESS_ORDER_ROUTE,
+      params: { projects: 'all', returnTo: '/home' },
+    });
+    // with a project filter the selection travels with it
+    mockPush.mockClear();
+    press('pm80-home-paper-project-filter');
+    press('pm80-home-paper-project-filter-all');
+    press('pm80-home-paper-project-filter-item-solar');
+    press('pm80-home-paper-project-filter-apply');
+    press('pm80-home-paper-layers-btn');
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: BUSINESS_ORDER_ROUTE,
+      params: { projects: 'solar', returnTo: '/home' },
+    });
+    cleanupUI();
+    renderUI(<PM80HomeTamagui />);
+    mockPush.mockClear();
+    press('pm80-home-tamagui-layers-btn');
+    expect(mockPush).toHaveBeenCalledWith(expect.objectContaining({ pathname: BUSINESS_ORDER_ROUTE }));
+  });
+
+  it('the home follows the Business order setup: hidden steps are gone, the order is the user\'s, numbers are 1..n', () => {
+    // hide Product receipts, move Customer invoices to the front
+    let setup = setBusinessOrderVisible(defaultBusinessOrder(), 'receipts', false);
+    setup = reorderBusinessOrder(setup, ['customerInvoices', ...setup.items.map((i) => i.id).filter((id) => id !== 'customerInvoices')]);
+    saveBusinessOrderLocal({ organization: true, projectIds: [] }, setup);
+    renderUI(<PM80HomePaper />);
+    expect(q('pm80-home-paper-satellite-receipts')).toBeNull();
+    expect(q('pm80-home-paper-flow-step-7')).not.toBeNull();
+    expect(q('pm80-home-paper-flow-step-8')).toBeNull(); // 7 steps are shown
+    expect(textOf('pm80-home-paper-satellite-customerInvoices-step')).toBe('1');
+    expect(textOf('pm80-home-paper-satellite-plan-step')).toBe('2');
+    // a tap on step 1 of the strip opens its real screen (Customer invoices)
+    press('pm80-home-paper-flow-step-1');
+    expect(mockPush).toHaveBeenCalledWith('/pm/customer-invoice/list');
+  });
+
+  it('the VAT basis button (IFRS Cost) stands UNDER the Net ROI ring; the ROI chips stay above it', () => {
+    renderUI(<PM80HomePaper />);
+    expectInOrder(['pm80-home-paper-chip-roi4', 'pm80-home-paper-center-hub', 'pm80-home-paper-chip-vat']);
+    expect(textOf('pm80-home-paper-chip-vat')).toContain('IFRS Cost');
+    press('pm80-home-paper-chip-vat');
+    expect(textOf('pm80-home-paper-chip-vat')).toContain('Gross');
+    cleanupUI();
+    renderUI(<PM80HomeTamagui />);
+    expectInOrder(['pm80-home-tamagui-chip-roi4', 'pm80-home-tamagui-center-hub', 'pm80-home-tamagui-chip-vat']);
+  });
+
+  it('the selected ROI button has a check mark inside, at its left; every name is centered', () => {
+    renderUI(<PM80HomePaper />);
+    expect(q('pm80-home-paper-chip-roi4-check')).not.toBeNull(); // ROI4 is selected at the start
+    expect(q('pm80-home-paper-chip-roi1-check')).toBeNull();
+    press('pm80-home-paper-chip-roi2');
+    expect(q('pm80-home-paper-chip-roi2-check')).not.toBeNull();
+    expect(q('pm80-home-paper-chip-roi4-check')).toBeNull();
+    expect(textOf('pm80-home-paper-center-hub')).toContain('Delivered ROI');
+    cleanupUI();
+    renderUI(<PM80HomeTamagui />);
+    expect(q('pm80-home-tamagui-chip-roi4-check')).not.toBeNull();
+    press('pm80-home-tamagui-chip-roi3');
+    expect(q('pm80-home-tamagui-chip-roi3-check')).not.toBeNull();
+    expect(q('pm80-home-tamagui-chip-roi4-check')).toBeNull();
+  });
+
+  it('every ROI has a full CFO description: question, formula, sources, how to read, what misleads', () => {
+    (['roi1', 'roi2', 'roi3', 'roi4'] as const).forEach((k) => {
+      const i = ROI_INFO[k];
+      expect(i.heading.startsWith(k.toUpperCase())).toBe(true);
+      [i.question, i.inOneSentence, i.formula, i.revenue, i.cost].forEach((t) => expect(t.length).toBeGreaterThan(20));
+      expect(i.howToRead.length).toBeGreaterThanOrEqual(2);
+      expect(i.watchOut.length).toBeGreaterThanOrEqual(2);
+    });
+    expect(ROI_INFO.roi4.cost).toContain('vendor invoices');
+    expect(ROI_INFO.roi2.revenue).toContain('Fact input');
+    expect(ROI_INFO_COMMON.rules.join(' ')).toContain('Recoverable VAT is not a cost');
+    // the worked example is the same number as the ring
+    const nov = PM80_MONTH_SNAPSHOTS[0];
+    const tax = { includeSaleVat: false, includePurchaseVat: false };
+    (['roi1', 'roi2', 'roi3', 'roi4'] as const).forEach((k) => {
+      const n = roiInfoNumbers(nov, k, tax);
+      const c = computePM80Center(nov, k, tax);
+      expect(n.roi).toBe(c.formattedRoiPct);
+      expect(n.profit).toBe(c.formattedProfit);
+      expect(n.basisLabel).toBe('IFRS Cost');
+    });
+    expect(roiInfoNumbers(nov, 'roi4', { includeSaleVat: true, includePurchaseVat: true }).basisLabel).toBe('Gross (+VAT)');
+  });
+
+  it('a double touch is a second touch on the same thing inside the window', () => {
+    let t = 1000;
+    const d = createDoubleTouch(380, () => t);
+    expect(d.touch('a')).toBe(false);
+    t += 200;
+    expect(d.touch('a')).toBe(true);
+    t += 100;
+    expect(d.touch('a')).toBe(false); // a third touch starts again
+    t += 100;
+    expect(d.touch('b')).toBe(false); // another thing
+    t += 100;
+    expect(d.touch('a')).toBe(false);
+    t += 400;
+    expect(d.touch('a')).toBe(false); // too slow
+  });
+
+  it('a double touch on a ROI button opens its description; one touch only selects it', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-chip-roi3');
+    expect(q('pm80-home-paper-roi-info')).toBeNull();
+    expect(textOf('pm80-home-paper-center-hub')).toContain('Billed ROI');
+    press('pm80-home-paper-chip-roi3'); // the second touch
+    expect(q('pm80-home-paper-roi-info')).not.toBeNull();
+    expect(textOf('pm80-home-paper-roi-info-heading')).toBe('ROI3 - Billed ROI');
+    expect(textOf('pm80-home-paper-roi-info-formula')).toContain('Customer invoiced - Planned cost');
+    const shown = textOf('pm80-home-paper-roi-info-result');
+    expect(shown).toBe(textOf('pm80-home-paper-center-hub').match(/ROI3: [-\d.]+ %/)![0].replace('ROI3: ', ''));
+    press('pm80-home-paper-roi-info-close');
+    expect(q('pm80-home-paper-roi-info')).toBeNull();
+    // the VAT basis of the screen is the basis of the example
+    press('pm80-home-paper-chip-vat');
+    press('pm80-home-paper-chip-roi4');
+    press('pm80-home-paper-chip-roi4');
+    expect(textOf('pm80-home-paper-roi-info-numbers')).toContain('Gross (+VAT)');
+    cleanupUI();
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-chip-roi2');
+    press('pm80-home-tamagui-chip-roi2');
+    expect(textOf('pm80-home-tamagui-roi-info-heading')).toBe('ROI2 - Delivered ROI');
+  });
+
+  it('every KPI ring has a CFO description: question, formula, numerator, denominator, how to read, what misleads', () => {
+    expect(KPI_IDS).toEqual(['budget', 'capacity', 'delivered', 'collected']);
+    KPI_IDS.forEach((id) => {
+      const i = KPI_INFO[id];
+      [i.question, i.inOneSentence, i.formula, i.numerator, i.denominator].forEach((t) => expect(t.length).toBeGreaterThan(20));
+      expect(i.howToRead.length).toBeGreaterThanOrEqual(2);
+      expect(i.watchOut.length).toBeGreaterThanOrEqual(2);
+    });
+    expect(KPI_INFO.budget.direction).toBe('lower');
+    expect(KPI_INFO.budget.numerator).toContain('vendor invoices');
+    expect(KPI_INFO.delivered.numerator).toContain('Fact input');
+    expect(KPI_INFO.collected.denominator).toContain('customer invoices');
+  });
+
+  it('the ring colors in the description are the bands the ring really uses', () => {
+    expect(kpiBandsText('lower')).toBe('up to 90% optimal · up to 100% good · up to 110% warning · above 110% critical');
+    expect(kpiBandsText('higher')).toBe('90% and more optimal · from 75% good · from 50% warning · below 50% critical');
+    expect(KPI_BANDS.lowerBetter).toEqual({ optimal: 90, good: 100, warning: 110 });
+    expect(statusLowerBetter(90)).toBe('optimal');
+    expect(statusLowerBetter(91)).toBe('good');
+    expect(statusLowerBetter(111)).toBe('critical');
+    expect(statusHigherBetter(90)).toBe('optimal');
+    expect(statusHigherBetter(89)).toBe('good');
+    expect(statusHigherBetter(49)).toBe('critical');
+  });
+
+  it('the worked example of a KPI is the percent of the ring and the money behind it', () => {
+    PM80_MONTH_SNAPSHOTS.forEach((snap) => {
+      KPI_IDS.forEach((id) => {
+        const n = kpiInfoNumbers(snap, id);
+        const metric = snap.advancedMetrics.find((m) => m.id === id)!;
+        expect(n.rows[n.rows.length - 1][1]).toContain(metric.valueText); // the last row IS the ring
+        expect(n.caption).toContain(snap.monthLabel);
+      });
+    });
+    const nov = PM80_MONTH_SNAPSHOTS[0];
+    expect(kpiInfoNumbers(nov, 'budget').rows.map((r) => r[0])).toEqual(['Planned cost', 'Fact cost', 'Budget left', 'Budget used']);
+    expect(kpiInfoNumbers(nov, 'delivered').rows[2][1]).toBe('€180,000'); // 690K planned - 510K delivered
+    expect(kpiInfoNumbers(nov, 'collected').rows[0][1]).toBe('€707,000');
+    expect(kpiInfoNumbers(nov, 'collected').rows[2][1]).toBe('€209,000'); // 707K - 498K
+    expect(kpiInfoContent('budget', nov).sections.map((s) => s.title)).toContain('Watch out');
+  });
+
+  it('a double touch on the NAME of a KPI ring opens its description; one touch only shows the short card', () => {
+    renderUI(<PM80HomePaper />);
+    press('pm80-home-paper-metric-delivered');
+    expect(q('pm80-home-paper-kpi-info')).toBeNull();
+    expect(q('pm80-home-paper-inspector-card')).not.toBeNull(); // the short card of one touch stays
+    press('pm80-home-paper-metric-delivered'); // the second touch
+    expect(q('pm80-home-paper-kpi-info')).not.toBeNull();
+    expect(textOf('pm80-home-paper-kpi-info-heading')).toBe('Delivered');
+    expect(textOf('pm80-home-paper-kpi-info-formula')).toBe('Revenue fact input / Planned revenue');
+    expect(textOf('pm80-home-paper-kpi-info-result')).toContain('74%');
+    press('pm80-home-paper-kpi-info-close');
+    expect(q('pm80-home-paper-kpi-info')).toBeNull();
+    // another ring: a touch on delivered then on budget is not a double touch
+    press('pm80-home-paper-metric-delivered');
+    press('pm80-home-paper-metric-budget');
+    expect(q('pm80-home-paper-kpi-info')).toBeNull();
+    cleanupUI();
+    renderUI(<PM80HomeTamagui />);
+    press('pm80-home-tamagui-metric-collected');
+    press('pm80-home-tamagui-metric-collected');
+    expect(textOf('pm80-home-tamagui-kpi-info-heading')).toBe('Collected');
+    expect(textOf('pm80-home-tamagui-kpi-info-numbers')).toContain('Still to collect');
   });
 });

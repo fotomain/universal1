@@ -11,6 +11,8 @@ import { usePermissions } from '../../permissions/usePermissions';
 import HamburgerMenuUnmovable from './HamburgerMenuUnmovable';
 import { buildRouteLabels } from '../../catalog/user/visit/routeVisitModel';
 import { afterNextPopState, isDrawerOpenInHistory, isFirefoxWeb } from './drawerHistorySettle';
+import { useCloseFabsWhenDrawerOpens } from './useCloseFabsWhenDrawerOpens';
+import { useRegisterDrawerCloser } from './drawerCloser';
 
 interface MenuItem {
   id: string;
@@ -35,6 +37,10 @@ export const DRAWER_SUBITEM_HEIGHT = 32;
 
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
   const { navigation } = props;
+  // the hamburger (or a swipe) opened this drawer: an open floating button closes
+  useCloseFabsWhenDrawerOpens((props as any).state);
+  // ... and the other way round: the user opens the FAB while this menu is open -> the menu closes (the FAB calls closeDrawerIfOpen)
+  useRegisterDrawerCloser(navigation as any, (props as any).state);
   const router = useRouter();
   const pathname = usePathname();
   const { t } = useTranslation();

@@ -55,6 +55,7 @@ export function usePMOwnerGUID(): string {
     () => '',
   );
   useEffect(() => {
+    if (!supabase?.auth) return undefined; // a client without auth (some tests): no session
     let alive = true;
     supabase.auth.getSession().then(({ data }) => {
       if (alive) setUid(data.session?.user?.id ?? '');

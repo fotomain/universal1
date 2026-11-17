@@ -10,6 +10,10 @@ import { getFabMainColors, getFabMiniColors } from './fabColors';
 import { useHiddenDuringScreenshot } from '../../../lib/shareScreenshot';
 import { fabBottomOffset, useBottomInset } from '../navigation/bottomTabsLayout';
 import { fabHiddenOnRoute } from './fabRoutes';
+import { useAppCustomization } from '../../../providers/AppCustomizationProvider';
+import { fabExtrasForRoute, mergeFabActions } from './fabActionsMerge';
+import { closeDrawerIfOpen } from '../drawerCloser';
+import { pmT } from '../../../pm/i18n/pmT';
 
 export interface FABAppAction {
   icon: string;
@@ -41,7 +45,11 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   const bottomInset = useBottomInset();
   const hiddenForScreenshot = useHiddenDuringScreenshot();
   /** a screen whose own controls stand where the button floats (the video recorder): fabRoutes.ts */
-  const hiddenOnRoute = fabHiddenOnRoute(usePathname());
+  const pathname = usePathname();
+  const hiddenOnRoute = fabHiddenOnRoute(pathname);
+  /** what the current app (APP_NAME) adds to this button: apps/appCustomization.ts */
+  const appCustomization = useAppCustomization();
+  const signedIn = useSelector((state: any) => !!(state.activeUserState?.databaseUserGUID || state.activeUserState?.userGUID));
 
   const fabIdRef = useRef('app-global-fab');
   const [isOpen, setIsOpen] = useState(false);
@@ -107,6 +115,7 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
   const toggleOpen = () => {
     const fabId = fabIdRef.current;
     if (!isOpen) {
+      closeDrawerIfOpen(); // an open hamburger menu closes when the FAB opens
       notifyFABOpen(fabId);
       setIsOpen(true);
     } else {
@@ -119,12 +128,12 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
     {
       icon: 'video-outline',
       label: 'Record Video',
-      onPress: () => router.push('/record/recordvideoweb?withAudio=true' as any),
+      onPress: () => router.push('/media/record/video' as any),
     },
     {
       icon: 'microphone-outline',
       label: 'Record Audio',
-      onPress: () => router.push('/record/recordaudioweb' as any),
+      onPress: () => router.push('/media/record/audio' as any),
     },
     {
       icon: 'arrow-up-bold-outline',
@@ -137,7 +146,15 @@ export const FABAppComponent: React.FC<FABAppComponentProps> = ({
     },
   ];
 
-  const effectiveActions = actions || (contextActions && contextActions.length ? contextActions : defaultActions);
+  const baseActions = actions || (contextActions && contextActions.length ? contextActions : defaultActions);
+  // the app's own items (APP_NAME): added NEAREST the button, under the items the FAB has anyway; the `actions` prop still wins over everything
+  const appExtras: FABAppAction[] = fabExtrasForRoute(appCustomization.fabExtraActions, pathname).map((e) => ({
+    icon: e.icon,
+    label: pmT(e.label),
+    color: e.color,
+    onPress: () => e.run({ router: router as any, signedIn }),
+  }));
+  const effectiveActions = actions ? baseActions : mergeFabActions(baseActions, appExtras, isReanimated);
   /** long command lists (context commands on phones) scroll instead of leaving the screen */
   const manyActions = effectiveActions.length > 4;
 

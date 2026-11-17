@@ -128,8 +128,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'chart-gantt', position: 'top-left',
     accentColor: '#1E88E5', pastelBgLight: '#93C5FD', pastelBgDark: '#1E3A8A',
     route: '/pm/project/dashboard',
-    description: 'Step 1. Project Dashboard: tasks, Gantt, task lines (Time, Material, Expense, Deliverable). Post the plan: it feeds the Plan column of Monitor01 and ROI1.',
-    tip: 'Step 1, Project plan: tasks, Gantt and budgets. Opens the Project Dashboard.',
+    description: 'Project Dashboard: tasks, Gantt, task lines (Time, Material, Expense, Deliverable). Post the plan: it feeds the Plan column of Monitor01 and ROI1.',
+    tip: 'Project plan: tasks, Gantt and budgets. Opens the Project Dashboard.',
   },
   {
     id: 'orders', step: 2, stage: 'Procure', label: 'Purchase\norders',
@@ -138,8 +138,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'cart-outline', position: 'top-right',
     accentColor: '#7C3AED', pastelBgLight: '#C4B5FD', pastelBgDark: '#4C1D95',
     route: '/pm/purchase-order/list',
-    description: 'Step 2. Purchase orders to vendors; a posted order fills the Ordered column of Monitor01.',
-    tip: 'Step 2, Purchase orders: what we order from vendors (Ordered column of Monitor01).',
+    description: 'Purchase orders to vendors; a posted order fills the Ordered column of Monitor01.',
+    tip: 'Purchase orders: what we order from vendors (Ordered column of Monitor01).',
   },
   {
     id: 'receipts', step: 3, stage: 'Procure', label: 'Product\nreceipts',
@@ -148,8 +148,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'package-variant-closed', position: 'mid-left',
     accentColor: '#D97706', pastelBgLight: '#FCD34D', pastelBgDark: '#78350F',
     route: '/pm/product-receipt/list',
-    description: 'Step 3. Product receipts made from a posted purchase order; fills the Received column of Monitor01.',
-    tip: 'Step 3, Product receipts: what the vendors delivered (Received column).',
+    description: 'Product receipts made from a posted purchase order; fills the Received column of Monitor01.',
+    tip: 'Product receipts: what the vendors delivered (Received column).',
   },
   {
     id: 'timesheets', step: 4, stage: 'Execute', label: 'Time\nsheets',
@@ -158,8 +158,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'clock-time-four-outline', position: 'mid-right',
     accentColor: '#EA580C', pastelBgLight: '#FDBA74', pastelBgDark: '#7C2D12',
     route: '/pm/timesheet/list',
-    description: 'Step 4. Time sheets of work centers (person, equipment, partner); the posted hours are the Used column and the own cost of ROI4.',
-    tip: 'Step 4, Time sheets: hours of people and equipment (Used column).',
+    description: 'Time sheets of work centers (person, equipment, partner); the posted hours are the Used column and the own cost of ROI4.',
+    tip: 'Time sheets: hours of people and equipment (Used column).',
   },
   {
     id: 'fact', step: 5, stage: 'Execute', label: 'Fact\ninput',
@@ -168,8 +168,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'clipboard-check-outline', position: 'lower-left',
     accentColor: '#E11D48', pastelBgLight: '#FDA4AF', pastelBgDark: '#881337',
     route: '/pm/fact/list',
-    description: 'Step 5. Fact input of used quantities and of the Revenue lines: the numerator of ROI2 (plan - fact input).',
-    tip: 'Step 5, Fact input: what was really used and delivered (ROI2).',
+    description: 'Fact input of used quantities and of the Revenue lines: the numerator of ROI2 (plan - fact input).',
+    tip: 'Fact input: what was really used and delivered (ROI2).',
   },
   {
     id: 'vendorInvoices', step: 6, stage: 'Invoice', label: 'Vendor\ninvoices',
@@ -178,8 +178,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'file-document-outline', position: 'lower-right',
     accentColor: '#475569', pastelBgLight: '#94A3B8', pastelBgDark: '#334155',
     route: '/pm/vendor-invoice/list',
-    description: 'Step 6. Vendor invoices (what suppliers bill us); the Vendor Invoice columns of Monitor01 and the cost of ROI4.',
-    tip: 'Step 6, Vendor invoices: what vendors bill us (cost of ROI4).',
+    description: 'Vendor invoices (what suppliers bill us); the Vendor Invoice columns of Monitor01 and the cost of ROI4.',
+    tip: 'Vendor invoices: what vendors bill us (cost of ROI4).',
   },
   {
     id: 'customerInvoices', step: 7, stage: 'Invoice', label: 'Customer\ninvoices',
@@ -188,8 +188,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'receipt-text-outline', position: 'bottom-left',
     accentColor: '#059669', pastelBgLight: '#86EFAC', pastelBgDark: '#064E3B',
     route: '/pm/customer-invoice/list',
-    description: 'Step 7. Customer invoices made from the Deliverable lines; the revenue of ROI3 and ROI4.',
-    tip: 'Step 7, Customer invoices: what we bill customers (revenue of ROI3 and ROI4).',
+    description: 'Customer invoices made from the Deliverable lines; the revenue of ROI3 and ROI4.',
+    tip: 'Customer invoices: what we bill customers (revenue of ROI3 and ROI4).',
   },
   {
     id: 'payments', step: 8, stage: 'Cash', label: 'Cash\npayments',
@@ -198,8 +198,8 @@ export const PM80_STAGES: StageDef[] = [
     icon: 'bank-transfer', position: 'bottom-right',
     accentColor: '#7E22CE', pastelBgLight: '#C084FC', pastelBgDark: '#581C87',
     route: '/pm/payment-fact/list',
-    description: 'Step 8. Payment facts = one bank transaction each; they move the money account rests and the customer / vendor balance (Monitor07).',
-    tip: 'Step 8, Cash payments: money paid and received on the bank accounts.',
+    description: 'Payment facts = one bank transaction each; they move the money account rests and the customer / vendor balance (Monitor07).',
+    tip: 'Cash payments: money paid and received on the bank accounts.',
   },
 ];
 
@@ -224,13 +224,21 @@ const shortK = (amount: number, symbol = '€'): string => {
 const pct = (num: number, den: number): number =>
   den > 0 ? Math.max(0, Math.min(100, Math.round((num / den) * 100))) : 0;
 
-/** Lower is better (budget used): <= 90 optimal, <= 100 good, <= 110 warning. */
-const statusLowerBetter = (v: number): PM80AdvancedMetric['status'] =>
-  v <= 90 ? 'optimal' : v <= 100 ? 'good' : v <= 110 ? 'warning' : 'critical';
+/** the bands of the status of a KPI ring (the same numbers are in the CFO description, kpiInfo/) */
+export const KPI_BANDS = {
+  /** budget used: lower is better - up to `optimal` %, up to `good` %, up to `warning` %, above = critical */
+  lowerBetter: { optimal: 90, good: 100, warning: 110 },
+  /** capacity, delivered, collected: higher is better - from `optimal` %, from `good` %, from `warning` %, below = critical */
+  higherBetter: { optimal: 90, good: 75, warning: 50 },
+} as const;
 
-/** Higher is better: >= 90 optimal, >= 75 good, >= 50 warning. */
-const statusHigherBetter = (v: number): PM80AdvancedMetric['status'] =>
-  v >= 90 ? 'optimal' : v >= 75 ? 'good' : v >= 50 ? 'warning' : 'critical';
+/** Lower is better (budget used). */
+export const statusLowerBetter = (v: number): PM80AdvancedMetric['status'] =>
+  v <= KPI_BANDS.lowerBetter.optimal ? 'optimal' : v <= KPI_BANDS.lowerBetter.good ? 'good' : v <= KPI_BANDS.lowerBetter.warning ? 'warning' : 'critical';
+
+/** Higher is better. */
+export const statusHigherBetter = (v: number): PM80AdvancedMetric['status'] =>
+  v >= KPI_BANDS.higherBetter.optimal ? 'optimal' : v >= KPI_BANDS.higherBetter.good ? 'good' : v >= KPI_BANDS.higherBetter.warning ? 'warning' : 'critical';
 
 
 /**
@@ -266,25 +274,25 @@ export const PM80_PROJECTS: PM80Project[] = [
 /** null = ALL projects, else the checked ids (never empty, never all of them) */
 export type PM80ProjectSelection = string[] | null;
 
-export function normalizeProjectSelection(ids: string[] | null | undefined): PM80ProjectSelection {
+export function normalizeProjectSelection(ids: string[] | null | undefined, projects: PM80Project[] = PM80_PROJECTS): PM80ProjectSelection {
   if (!ids) return null;
-  const known = PM80_PROJECTS.filter((pr) => ids.includes(pr.id)).map((pr) => pr.id);
-  return known.length === 0 || known.length === PM80_PROJECTS.length ? null : known;
+  const known = projects.filter((pr) => ids.includes(pr.id)).map((pr) => pr.id);
+  return known.length === 0 || known.length === projects.length ? null : known;
 }
 
 /** the text of the filter button: "All projects (12)", the name of one project, "3 of 12 projects" */
-export function projectFilterLabel(selection: PM80ProjectSelection): string {
-  const sel = normalizeProjectSelection(selection);
-  if (!sel) return `All projects (${PM80_PROJECTS.length})`;
-  if (sel.length === 1) return PM80_PROJECTS.find((pr) => pr.id === sel[0])!.name;
-  return `${sel.length} of ${PM80_PROJECTS.length} projects`;
+export function projectFilterLabel(selection: PM80ProjectSelection, projects: PM80Project[] = PM80_PROJECTS): string {
+  const sel = normalizeProjectSelection(selection, projects);
+  if (!sel) return `All projects (${projects.length})`;
+  if (sel.length === 1) return projects.find((pr) => pr.id === sel[0])!.name;
+  return `${sel.length} of ${projects.length} projects`;
 }
 
 /** the shares (0..1) of the cost and of the revenue that the selected projects hold */
-export function projectShares(selection: PM80ProjectSelection): { cost: number; revenue: number; count: number } {
-  const sel = normalizeProjectSelection(selection);
-  if (!sel) return { cost: 1, revenue: 1, count: PM80_PROJECTS.length };
-  const chosen = PM80_PROJECTS.filter((pr) => sel.includes(pr.id));
+export function projectShares(selection: PM80ProjectSelection, projects: PM80Project[] = PM80_PROJECTS): { cost: number; revenue: number; count: number } {
+  const sel = normalizeProjectSelection(selection, projects);
+  if (!sel) return { cost: 1, revenue: 1, count: projects.length };
+  const chosen = projects.filter((pr) => sel.includes(pr.id));
   return {
     cost: chosen.reduce((a, pr) => a + pr.costPermille, 0) / 1000,
     revenue: chosen.reduce((a, pr) => a + pr.revPermille, 0) / 1000,
@@ -304,8 +312,8 @@ const scaleMoney = (m: RoiMoney, cost: number, revenue: number): RoiMoney => {
 const PAIR_KIND: Array<'plan' | 'c' | 'r'> = ['plan', 'c', 'c', 'c', 'r', 'c', 'r', 'r'];
 
 /** the month input of the subset: the money, the circles and the goal scaled by the shares of the projects */
-function scaleInput(m: MonthInput, selection: PM80ProjectSelection): MonthInput {
-  const sh = projectShares(selection);
+function scaleInput(m: MonthInput, selection: PM80ProjectSelection, projects: PM80Project[] = PM80_PROJECTS): MonthInput {
+  const sh = projectShares(selection, projects);
   if (sh.cost === 1 && sh.revenue === 1) return m;
   return scaleByFactors(m, sh.cost, sh.revenue);
 }
@@ -331,9 +339,9 @@ function scaleByFactors(m: MonthInput, cost: number, revenue: number): MonthInpu
   };
 }
 
-function buildSnapshot(m: MonthInput, selection: PM80ProjectSelection = null): PM80MonthSnapshot {
-  const projectsShown = projectShares(selection).count;
-  m = scaleInput(m, selection);
+function buildSnapshot(m: MonthInput, selection: PM80ProjectSelection = null, projects: PM80Project[] = PM80_PROJECTS): PM80MonthSnapshot {
+  const projectsShown = projectShares(selection, projects).count;
+  m = scaleInput(m, selection, projects);
   const currencySymbol = '€';
   const line = roiOfMoney(m.money, { includeSaleVat: false, includePurchaseVat: false });
   const cashPair = m.pairs[7];
@@ -417,7 +425,7 @@ function buildSnapshot(m: MonthInput, selection: PM80ProjectSelection = null): P
   return {
     monthKey: m.monthKey,
     monthLabel: m.monthLabel,
-    projectTitle: projectFilterLabel(selection),
+    projectTitle: projectFilterLabel(selection, projects),
     projectCount: projectsShown,
     currencySymbol,
     goalNetProfit: m.goalNetProfit,
@@ -625,10 +633,55 @@ export function pm80InputFor(period: PM80Period): MonthInput {
 }
 
 /** The snapshot of a period for ALL projects (selection null) or a SUBSET of them. */
-export function pm80SnapshotFor(period: PM80Period, selection: PM80ProjectSelection): PM80MonthSnapshot {
+export function pm80SnapshotFor(period: PM80Period, selection: PM80ProjectSelection, projects: PM80Project[] = PM80_PROJECTS): PM80MonthSnapshot {
   const exact = PM80_MONTH_SNAPSHOTS.find((m) => m.monthKey === periodKey(period));
-  if (exact && !normalizeProjectSelection(selection)) return exact;
-  return buildSnapshot(pm80InputFor(period), selection);
+  if (exact && projects === PM80_PROJECTS && !normalizeProjectSelection(selection, projects)) return exact;
+  return buildSnapshot(pm80InputFor(period), selection, projects);
+}
+
+/** a small stable number from a text (the shares of the real projects are made from their ids) */
+function hashOf(text: string, salt: number): number {
+  let h = 2166136261 ^ salt;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return (h >>> 0) % 1000;
+}
+
+/** weights -> permille that add up to EXACTLY 1000 (largest remainder) */
+function toPermille(weights: number[]): number[] {
+  const total = weights.reduce((a, b) => a + b, 0) || 1;
+  const raw = weights.map((w) => (w / total) * 1000);
+  const floor = raw.map((r) => Math.floor(r));
+  let left = 1000 - floor.reduce((a, b) => a + b, 0);
+  raw
+    .map((r, i) => ({ i, frac: r - Math.floor(r) }))
+    .sort((a, b) => b.frac - a.frac)
+    .forEach(({ i }) => {
+      if (left > 0) {
+        floor[i] += 1;
+        left -= 1;
+      }
+    });
+  return floor;
+}
+
+/**
+ * The REAL projects of the user as filter items. The home does not read money from the database yet, so every real project gets a
+ * stable demo share of the cost and of the revenue (made from its id): the sums of any subset still add up to the whole.
+ */
+export function pm80ProjectsFromRows(rows: Array<{ rowGUID: string; rowJSON?: { name?: string; description?: string } | null }>): PM80Project[] {
+  if (rows.length === 0) return [];
+  const cost = toPermille(rows.map((r) => 1 + hashOf(r.rowGUID, 1) % 9));
+  const rev = toPermille(rows.map((r) => 1 + hashOf(r.rowGUID, 2) % 9));
+  return rows.map((r, i) => ({
+    id: r.rowGUID,
+    name: (r.rowJSON?.name || '').trim() || 'Project',
+    subtitle: (r.rowJSON?.description || '').trim(),
+    costPermille: cost[i],
+    revPermille: rev[i],
+  }));
 }
 
 /** The circles in the business order (1..8), for the flow strip. */
@@ -746,7 +799,7 @@ export function computePM80Center(
 /** Hover tip of an ROI chip: the title, what it compares and the formula. */
 export function roiKindTip(kind: RoiKindKey): string {
   const m = ROI_KIND_META[kind];
-  return `${kind.toUpperCase()} ${m.title} (${m.subtitle.split('•')[1]?.trim() ?? ''}): ${m.formula}`;
+  return `${kind.toUpperCase()} ${m.title} (${m.subtitle.split('•')[1]?.trim() ?? ''}): ${m.formula}. Double tap for the full description.`;
 }
 
 /** Hover tip of the VAT basis button / chip: what is shown now and what a tap does. */
@@ -758,6 +811,7 @@ export function vatBasisTip(includeAllTaxes: boolean): string {
 
 export const PM80_TIPS = {
   profile: 'Open the Project Dashboard: tasks, Gantt, budgets.',
+  businessOrder: 'Business order settings: choose which steps to show and in which order. Opens its own screen; Back returns here.',
   prevMonth: 'Show the previous month',
   nextMonth: 'Show the next month',
   monthPill: 'Month of the numbers. Tap to choose the month from the list.',

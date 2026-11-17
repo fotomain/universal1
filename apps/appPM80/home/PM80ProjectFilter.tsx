@@ -12,12 +12,15 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import PM80Tip from './PM80Tip';
 import {
   PM80_PROJECTS,
+  PM80Project,
   PM80ProjectSelection,
   normalizeProjectSelection,
   projectFilterLabel,
 } from './pm80HomeModel';
 
 export interface PM80ProjectFilterProps {
+  /** the projects of the list (the user's real ones, else the demo list) */
+  projects?: PM80Project[];
   /** null = ALL projects, else the checked project ids */
   selection: PM80ProjectSelection;
   onChange: (selection: PM80ProjectSelection) => void;
@@ -31,7 +34,6 @@ export interface PM80ProjectFilterProps {
   testID?: string;
 }
 
-const allIds = PM80_PROJECTS.map((p) => p.id);
 
 /**
  * Project filter of the home: a button with the state ("All projects (12)", "3 of 12 projects", a project name)
@@ -39,6 +41,7 @@ const allIds = PM80_PROJECTS.map((p) => p.id);
  * Used by the Paper and the Tamagui home.
  */
 export default function PM80ProjectFilter({
+  projects = PM80_PROJECTS,
   selection,
   onChange,
   isDark,
@@ -50,13 +53,14 @@ export default function PM80ProjectFilter({
   testID = 'pm80-project-filter',
 }: PM80ProjectFilterProps) {
   const [open, setOpen] = useState(false);
-  const normalized = normalizeProjectSelection(selection);
+  const allIds = useMemo(() => projects.map((p) => p.id), [projects]);
+  const normalized = normalizeProjectSelection(selection, projects);
   const [draft, setDraft] = useState<string[]>(normalized ?? allIds);
 
   // every time the list opens it starts from the filter in force
   useEffect(() => {
-    if (open) setDraft(normalizeProjectSelection(selection) ?? allIds);
-  }, [open, selection]);
+    if (open) setDraft(normalizeProjectSelection(selection, projects) ?? allIds);
+  }, [open, selection, projects, allIds]);
 
   const allChecked = draft.length === allIds.length;
   const noneChecked = draft.length === 0;
@@ -68,12 +72,12 @@ export default function PM80ProjectFilter({
 
   const apply = () => {
     if (noneChecked) return;
-    onChange(normalizeProjectSelection(draft));
+    onChange(normalizeProjectSelection(draft, projects));
     setOpen(false);
   };
 
   const isFiltered = normalized !== null;
-  const buttonLabel = projectFilterLabel(selection);
+  const buttonLabel = projectFilterLabel(selection, projects);
   const tip = isFiltered
     ? 'Project filter: only the checked projects are counted. Tap to change or to show all projects.'
     : 'Project filter: all projects are counted. Tap to check a subset of the projects.';
@@ -148,20 +152,20 @@ export default function PM80ProjectFilter({
               <MaterialCommunityIcons name={masterIcon as any} size={24} color={accent} />
               <View style={styles.rowTexts}>
                 <Text style={[styles.rowTitle, { color: textStrong }]}>
-                  All projects ({PM80_PROJECTS.length})
+                  All projects ({projects.length})
                 </Text>
                 <Text style={[styles.rowSub, { color: textMuted }]}>
                   {allChecked
                     ? 'Everything is counted'
                     : noneChecked
                     ? 'Check at least one project'
-                    : `${draft.length} of ${PM80_PROJECTS.length} checked`}
+                    : `${draft.length} of ${projects.length} checked`}
                 </Text>
               </View>
             </TouchableOpacity>
 
             <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-              {PM80_PROJECTS.map((pr) => {
+              {projects.map((pr) => {
                 const checked = checkedItems.has(pr.id);
                 return (
                   <TouchableOpacity

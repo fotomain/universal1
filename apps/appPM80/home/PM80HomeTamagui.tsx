@@ -11,10 +11,17 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
-import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
+import PM80BrandLogo, { pm80LogoWithBackground, PM80_LOGO_DARK_BACKGROUND } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
 import { usePM80Layout } from './pm80Layout';
 import { usePM80FlowScroll } from './pm80FlowScroll';
+import { usePM80Projects, useBusinessOrderFor } from './businessOrder/useBusinessOrder';
+import PM80RoiInfoModal from './roiInfo/PM80RoiInfoModal';
+import { roiInfoNumbers } from './roiInfo/roiInfoModel';
+import { useDoubleTouch } from './roiInfo/pm80DoubleTouch';
+import PM80KpiInfoModal from './kpiInfo/PM80KpiInfoModal';
+import type { KpiId } from './kpiInfo/kpiInfoModel';
+import { applyBusinessOrder, BUSINESS_ORDER_ROUTE, businessOrderRouteParams } from './businessOrder/businessOrderModel';
 import PM80ProjectFilter from './PM80ProjectFilter';
 import PM80PeriodPicker from './PM80PeriodPicker';
 import PM80Tip from './PM80Tip';
@@ -25,6 +32,7 @@ import {
   shiftPeriod,
   PM80ProjectSelection,
   pm80SnapshotFor,
+  normalizeProjectSelection,
   PM80_QUICK_LINKS,
   PM80_TIPS,
   roiKindTip,
@@ -74,10 +82,39 @@ export default function PM80HomeTamagui({
 
   const [projectSelection, setProjectSelection] = useState<PM80ProjectSelection>(null);
 
-  const snapshot = useMemo(
-    () => pm80SnapshotFor(period, projectSelection),
-    [period, projectSelection]
+  // the user's REAL projects (the demo list while there are none) and the Business order set up for the selection
+  const projectsSource = usePM80Projects();
+  const baseSnapshot = useMemo(
+    () => pm80SnapshotFor(period, projectSelection, projectsSource.projects),
+    [period, projectSelection, projectsSource.projects]
   );
+  const businessOrder = useBusinessOrderFor(
+    normalizeProjectSelection(projectSelection, projectsSource.projects),
+    projectsSource.rows
+  );
+  const snapshot = useMemo(() => applyBusinessOrder(baseSnapshot, businessOrder), [baseSnapshot, businessOrder]);
+
+  // a double touch on a ROI button: the description of that ROI for a CFO (roiInfo/)
+  const doubleTouch = useDoubleTouch();
+  const [roiInfoKind, setRoiInfoKind] = useState<RoiKindKey | null>(null);
+  // a double touch / double click on the NAME of a KPI ring: its description for a CFO (kpiInfo/)
+  const [kpiInfoId, setKpiInfoId] = useState<KpiId | null>(null);
+  const onRoiButton = (k: RoiKindKey) => {
+    setActiveRoiKind(k);
+    if (doubleTouch.touch(`roi-${k}`)) setRoiInfoKind(k);
+  };
+
+  /** the layers button: the setup of the Business order (a route of its own; its Back button goes Home) */
+  const openBusinessOrderSettings = useCallback(() => {
+    try {
+      router.push({
+        pathname: BUSINESS_ORDER_ROUTE,
+        params: businessOrderRouteParams(normalizeProjectSelection(projectSelection, projectsSource.projects)),
+      } as any);
+    } catch {
+      // route unavailable (standalone test)
+    }
+  }, [router, projectSelection, projectsSource.projects]);
 
   const centerData = useMemo(
     () =>
@@ -219,12 +256,13 @@ export default function PM80HomeTamagui({
                 const isSelected = selectedMetric?.id === metric.id;
                 const ringColor = kpiStrokeColors[idx % kpiStrokeColors.length];
                 return (
-                  <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
+                  <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip} Double tap for the full description.`} style={{ flex: 1 }}><TouchableOpacity
                     testID={`${testID}-metric-${metric.id}`}
                     activeOpacity={0.8}
                     onPress={() => {
                       setSelectedNode(null);
                       setSelectedMetric(isSelected ? null : metric);
+                      if (doubleTouch.touch(`kpi-${metric.id}`)) setKpiInfoId(metric.id as KpiId);
                     }}
                     style={styles.advancedCol}
                   >
@@ -278,7 +316,7 @@ export default function PM80HomeTamagui({
                 return (
                   <PM80Tip key={k} tip={roiKindTip(k)} style={{ flex: 1 }}><TouchableOpacity
                     testID={`${testID}-chip-${k}`}
-                    onPress={() => setActiveRoiKind(k)}
+                    onPress={() => onRoiButton(k)}
                     style={[
                       styles.segmentItem,
                       active && {
@@ -288,10 +326,20 @@ export default function PM80HomeTamagui({
                       },
                     ]}
                   >
+                    {active && (
+                      <MaterialCommunityIcons
+                        testID={`${testID}-chip-${k}-check`}
+                        name="check"
+                        size={13}
+                        color={primaryToken}
+                        style={{ position: 'absolute', left: 6, top: 9 }}
+                      />
+                    )}
                     <Text
                       style={{
                         fontSize: 11,
                         fontWeight: active ? '800' : '600',
+                        textAlign: 'center',
                         color: active ? primaryToken : textMuted,
                       }}
                     >
@@ -301,32 +349,30 @@ export default function PM80HomeTamagui({
                 );
               })}
 
-              <PM80Tip tip={vatBasisTip(includeAllTaxes)} style={{ flex: 1 }}><TouchableOpacity
-                testID={`${testID}-chip-vat`}
-                onPress={() => setIncludeAllTaxes((v) => !v)}
-                style={[
-                  styles.segmentItem,
-                  includeAllTaxes && {
-                    backgroundColor: primaryToken,
-                  },
-                ]}
-              >
-                <Text
-                  style={{
-                    fontSize: 11,
-                    fontWeight: '700',
-                    color: includeAllTaxes ? '#FFFFFF' : textMuted,
-                  }}
-                >
-                  {includeAllTaxes ? '+VAT ON' : 'NET COST'}
-                </Text>
-              </TouchableOpacity></PM80Tip>
             </View>
     </>
   );
 
+  /** the VAT basis button: under the Net ROI ring */
+  const vatEl = (
+    <PM80Tip tip={vatBasisTip(includeAllTaxes)}>
+      <TouchableOpacity
+        testID={`${testID}-chip-vat`}
+        onPress={() => setIncludeAllTaxes((v) => !v)}
+        style={[
+          styles.vatPill,
+          { backgroundColor: includeAllTaxes ? primaryToken : pillSurface, borderColor: includeAllTaxes ? primaryToken : cardBorder },
+        ]}
+      >
+        <Text style={{ fontSize: 11, fontWeight: '700', color: includeAllTaxes ? '#FFFFFF' : textMuted }}>
+          {includeAllTaxes ? '+VAT ON' : 'NET COST'}
+        </Text>
+      </TouchableOpacity>
+    </PM80Tip>
+  );
+
   const hubEl = (
-    <>
+    <View style={styles.hubColumn}>
                 {/* Central Net ROI Ring */}
                 <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
                   testID={`${testID}-center-hub`}
@@ -389,7 +435,8 @@ export default function PM80HomeTamagui({
                     </View>
                   </View>
                 </TouchableOpacity></PM80Tip>
-    </>
+      {vatEl}
+    </View>
   );
 
   return (
@@ -421,11 +468,12 @@ export default function PM80HomeTamagui({
                   { backgroundColor: pillSurface, borderColor: cardBorder },
                 ]}
               >
-                <PM80BrandLogo size={32} withBackground={pm80LogoWithBackground(isDark)} />
+                <PM80BrandLogo size={32} withBackground={pm80LogoWithBackground(isDark)} backgroundColor={PM80_LOGO_DARK_BACKGROUND} />
               </TouchableOpacity></PM80Tip>
 
               <View style={styles.titleStack}>
                 <PM80ProjectFilter
+                projects={projectsSource.projects}
                   testID={`${testID}-project-filter`}
                   selection={projectSelection}
                   onChange={setProjectSelection}
@@ -444,21 +492,19 @@ export default function PM80HomeTamagui({
                 </Text>
               </View>
 
-              <PM80Tip tip={vatBasisTip(includeAllTaxes)}><TouchableOpacity
+              <PM80Tip tip={PM80_TIPS.businessOrder}><TouchableOpacity
                 testID={`${testID}-layers-btn`}
-                onPress={() => setIncludeAllTaxes((v) => !v)}
+                onPress={openBusinessOrderSettings}
+                accessibilityLabel="Business order settings"
                 style={[
                   styles.squareIconBtn,
-                  {
-                    backgroundColor: includeAllTaxes ? primaryToken : pillSurface,
-                    borderColor: includeAllTaxes ? primaryToken : cardBorder,
-                  },
+                  { backgroundColor: pillSurface, borderColor: cardBorder },
                 ]}
               >
                 <MaterialCommunityIcons
-                  name="tune-variant"
+                  name="layers-triple-outline"
                   size={22}
-                  color={includeAllTaxes ? '#FFFFFF' : textStrong}
+                  color={textStrong}
                 />
               </TouchableOpacity></PM80Tip>
             </View>
@@ -517,7 +563,8 @@ export default function PM80HomeTamagui({
               <View style={styles.landRow}>
                 <View style={[styles.landLeft, { width: L.leftW }]}>
                   {chipsEl}
-                  {hubEl}
+                <View style={styles.landHubSlot}>{hubEl}</View>
+              
                 </View>
                 <View style={styles.landRight}>
                   {kpiEl}
@@ -711,6 +758,28 @@ export default function PM80HomeTamagui({
           {flow.spacerH > 0 && <View testID={`${testID}-flow-spacer`} style={{ height: flow.spacerH }} />}
         </View>
       </ScrollView>
+      <PM80KpiInfoModal
+        testID={`${testID}-kpi-info`}
+        id={kpiInfoId}
+        snapshot={baseSnapshot}
+        onClose={() => setKpiInfoId(null)}
+        isDark={isDark}
+        textStrong={textStrong}
+        textMuted={textMuted}
+        accent={primaryToken}
+        borderColor={cardBorder}
+      />
+      <PM80RoiInfoModal
+        testID={`${testID}-roi-info`}
+        kind={roiInfoKind}
+        numbers={roiInfoKind ? roiInfoNumbers(snapshot, roiInfoKind, { includeSaleVat: includeAllTaxes, includePurchaseVat: includeAllTaxes }) : null}
+        onClose={() => setRoiInfoKind(null)}
+        isDark={isDark}
+        textStrong={textStrong}
+        textMuted={textMuted}
+        accent={primaryToken}
+        borderColor={cardBorder}
+      />
     </View>
   );
 }
@@ -845,12 +914,19 @@ const styles = StyleSheet.create({
   },
   landRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     width: '100%',
     gap: 16,
   },
+  // the left column is as tall as the right one: the buttons on top, the big ring CENTERED (both ways) in the rest
   landLeft: {
+    alignItems: 'stretch',
+  },
+  landHubSlot: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
   landRight: {
     flex: 1,
@@ -860,6 +936,16 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'space-between',
     rowGap: 12,
+  },
+  hubColumn: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  vatPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 14,
+    borderWidth: 1,
   },
   segmentedBar: {
     flexDirection: 'row',

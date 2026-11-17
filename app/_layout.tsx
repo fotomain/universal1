@@ -41,6 +41,8 @@ import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
 import ReminderHost from '../kit8/ui/reminder/ReminderHost';
 import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
 import PM80FaviconByTheme from '../apps/appPM80/home/pm80Favicon';
+import { AppCustomizationProvider } from '../kit8/providers/AppCustomizationProvider';
+import { getAppCustomization } from '../apps/appCustomization';
 import OrganizationTextsHost from '../kit8/catalog/organization/texts/OrganizationTextsHost';
 import WithIntent from '../kit8/providers/WithIntent';
 import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
@@ -375,6 +377,8 @@ function RootLayoutContent() {
                   drawerLabel: t('menu.home'),
                 }}
               />
+              {/* appPM80: the setup of the Business order of the home (opened by the layers button of the home; Back = Home) */}
+              <Drawer.Screen name="pm/business-order/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Business order' }} />
               <Drawer.Screen name="kit8/designs/index" options={{ title: 'Kit8 Designs' }} />
               <Drawer.Screen name="settings/index" options={{ title: t('menu.settings') }} />
               <Drawer.Screen name="sqlite/demo/native/index" options={{ drawerItemStyle: { display: 'none' }, title: t('menu.sqliteDemo') }} />
@@ -486,6 +490,7 @@ export default function RootLayout() {
   };
 
   return (
+    <AppCustomizationProvider value={getAppCustomization()}>
     <WithWorkPlace>
       <WithSupabase initialConfig={initialSupabaseConfig}>
         <WithSQLiteNative>
@@ -500,5 +505,6 @@ export default function RootLayout() {
         </WithSQLiteNative>
       </WithSupabase>
     </WithWorkPlace>
+    </AppCustomizationProvider>
   );
 }

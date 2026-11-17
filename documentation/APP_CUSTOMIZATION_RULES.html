@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App customization rules (APP_NAME) - the home FAB of appPM80</title>
+<style>
+  /* Light business theme, same family as ROI_DOC.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --blue: #2563eb; --blue-soft: #dbeafe;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1240px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 20px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 10px; border-radius: 999px; vertical-align: middle; white-space: nowrap; }
+  .pill.new { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.chg { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.old { background: var(--bg-subtle); color: var(--muted); }
+  .pill.gap { background: var(--rose-soft); color: var(--rose); }
+  .pill.rec { background: var(--purple-soft); color: var(--purple); }
+  .callout { border-left: 4px solid var(--purple); background: var(--purple-soft); padding: 12px 16px; border-radius: 0 var(--radius) var(--radius) 0; margin: 14px 0; }
+  .callout.warn { border-color: var(--amber); background: var(--amber-soft); }
+  .callout.bad { border-color: var(--rose); background: var(--rose-soft); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-subtle); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  tr:last-child td { border-bottom: 0; }
+  .scroll { overflow-x: auto; }
+  ol.rules { padding-left: 0; list-style: none; counter-reset: r; display: grid; gap: 12px; }
+  ol.rules li { counter-increment: r; background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px 14px 56px; position: relative; box-shadow: var(--shadow); }
+  ol.rules li::before { content: "R" counter(r); position: absolute; left: 14px; top: 12px; width: 32px; height: 32px; border-radius: 10px; background: var(--purple); color: #fff; font-weight: 700; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+  .tiers { display: grid; gap: 8px; margin: 10px 0 4px; }
+  .tier { display: flex; gap: 12px; align-items: center; background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 14px; }
+  .tier b.n { width: 28px; height: 28px; flex: none; border-radius: 50%; background: var(--blue-soft); color: var(--blue); display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .tier.new { border-color: var(--emerald); background: var(--emerald-soft); }
+  .tier.new b.n { background: var(--emerald); color: #fff; }
+  .fab { display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-end; }
+  .fab span.mini { background: var(--purple-soft); color: var(--purple); padding: 4px 12px; border-radius: 999px; font-weight: 600; font-size: 13px; }
+  .fab span.mini.old { background: var(--bg-subtle); color: var(--muted); }
+  .fab span.main { width: 46px; height: 46px; border-radius: 16px; background: var(--purple); color: #fff; font-size: 26px; display: flex; align-items: center; justify-content: center; }
+  .qa { display: grid; gap: 10px; }
+  .qa .q { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; }
+  .qa .q b { color: var(--purple); }
+  @media (max-width: 640px) { h1 { font-size: 26px; } ol.rules li { padding-left: 52px; } }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">App customization</div>
+  <nav><ul>
+    <li><a href="#verdict">Verdict</a></li>
+    <li><a href="#today">How it works today</a></li>
+    <li><a href="#rules">Rules</a></li>
+    <li><a href="#points">Extension points</a></li>
+    <li><a href="#fab">The home FAB</a></li>
+    <li><a href="#actions">The 3 actions</a></li>
+    <li><a href="#plan">File plan</a></li>
+    <li><a href="#tests">Tests</a></li>
+    <li><a href="#pitfalls">Pitfalls</a></li>
+    <li><a href="#decisions">Decisions</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+<h1>App customization rules <span class="pill new">BUILT 2026-11-17</span></h1>
+<div class="callout"><b>Built.</b> The registry <code>apps/appCustomization.ts</code>, the provider <code>kit8/providers/AppCustomizationProvider.tsx</code>, the PM80 entry <code>apps/appPM80/customization.ts</code>, the pure merge <code>kit8/ui/components/fab/fabActionsMerge.ts</code> and the change of <code>FABAppComponent</code> are in the code, with tests (<code>__tests__/apps/appCustomization.test.ts</code>, <code>__tests__/apps/appPM80/fab.test.tsx</code>, <code>__tests__/ui/fab/fabActionsMerge.test.ts</code>). <b>One change against the design below, asked by the owner:</b> the three items stand <b>under the default items, nearest the button</b> (the design had them in front). The decisions Q1-Q8 were taken with their recommended defaults, see section 10. Where the text below still says "in front", read "nearest the button, under".</div>
+<p class="lead">How one code base becomes several apps (<code>APP_NAME</code> = appPosts, appCC1, appOnTrend, appClothes1, <b>appPM80</b>) without a forest of <code>if (app === …)</code>. First case: when <code>APP_NAME=appPM80</code> the <b>FAB of the home</b> keeps its current items and gets three more: <b>New Project</b>, <b>All Projects</b>, <b>Add Calendar event</b>.</p>
+
+<section id="verdict">
+<h2>1. Verdict</h2>
+<div class="grid">
+  <div class="card"><h3 style="margin-top:0">The rule</h3>
+    <p>Shared code (<code>kit8/</code>) never knows an app by name. Every app owns ONE small <b>customization entry</b> in <code>apps/&lt;app&gt;/</code>; a <b>registry</b> picks it by <code>configurationName</code>; the shared code asks the registry through <b>named extension points</b> and falls back to its built-in behavior when the app says nothing.</p></div>
+  <div class="card"><h3 style="margin-top:0">For the FAB</h3>
+    <p>An extension point <code>fabExtraActions</code>: a list of actions + the routes where they show. <code>FABAppComponent</code> puts them <b>under</b> (nearest the button) what it shows today (the commands of the open screen, else its defaults), so "current items as is, plus three" holds on every screen that matches, and screens such as the project dashboard keep their own commands.</p></div>
+  <div class="card"><h3 style="margin-top:0">Not this</h3>
+    <p>Not <code>actions=</code> on <code>&lt;FABAppComponent/&gt;</code> in the root layout (it <b>replaces</b> the commands of every screen). Not <code>useFABContextActions</code> in the home (it <b>replaces</b> the defaults and stays published when the drawer keeps the home mounted). Not <code>process.env.APP_NAME</code> in client code (section 9).</p></div>
+</div>
+</section>
+
+<section id="today">
+<h2>2. How an app is customized today (facts read from the code)</h2>
+<div class="scroll"><table>
+<tr><th>What</th><th>Where</th><th>Mechanism</th></tr>
+<tr><td>Which app</td><td><code>.env</code> / command line <code>APP_NAME</code> → <code>app.config.js</code></td><td><code>variantConfigs[APP_NAME]</code> (name, slug, ids, icon, splash, scheme, EAS project); default variant <code>appClothes1</code>. The chosen name is exported as <code>extra.configurationName</code>.</td></tr>
+<tr><td>Which app, in the client</td><td><code>Constants.expoConfig.extra.configurationName</code></td><td>read in <code>app/home/index.tsx</code> and <code>pm80Favicon.tsx</code>.</td></tr>
+<tr><td>The home page</td><td><code>app/home/index.tsx</code> <code>homeComponentsMap</code></td><td>a <b>registry</b> already: <code>{ appPM80: HomeAppPM80, … }</code> with a fallback. This is the pattern to copy.</td></tr>
+<tr><td>App code</td><td><code>apps/&lt;app&gt;/…</code>, assets <code>assets/&lt;app&gt;/</code></td><td>the home and its parts; tests in <code>__tests__/apps/&lt;app&gt;/</code>.</td></tr>
+<tr><td>Everything else</td><td><code>kit8/…</code>, <code>app/…</code></td><td>the same for all apps (Drawer, app bar, FAB, tabs) - no per-app switch yet.</td></tr>
+</table></div>
+<p class="sub" style="margin-top:10px">So the home is already "inverted" (the app supplies the component, the screen only looks it up). Everything else is still one-size-fits-all, which is exactly what the FAB request needs to change.</p>
+</section>
+
+<section id="rules">
+<h2>3. The rules</h2>
+<ol class="rules">
+  <li><b>One switch, read one way.</b> The client reads the app from <code>Constants.expoConfig.extra.configurationName</code> (through one helper, e.g. <code>getAppName()</code>). Never <code>process.env.APP_NAME</code> in app code: the Babel plugin <code>react-native-dotenv</code> replaces that expression by the value of <code>.env</code> at build time (it also broke an assignment in a Jest test), so it is not a run-time switch.</li>
+  <li><b>Shared code does not know the apps.</b> <code>kit8/</code> must not import from <code>apps/</code> and must not compare the app name. It exposes an <b>extension point</b> (a prop, a hook or a registry lookup) and works without it.</li>
+  <li><b>Data, not branches.</b> A customization is an <b>object in a registry</b> (<code>Record&lt;AppName, AppCustomization&gt;</code>) with optional fields. No <code>if (name === 'appPM80')</code> in components. An unknown name gets the default (empty) customization.</li>
+  <li><b>Additive by default.</b> An extension point says what to <b>add</b> (extra FAB actions, extra Drawer items, extra tabs). A <b>replacement</b> is allowed only where the app really needs it (the home component) and is named <code>replace…</code>. This keeps the other screens' own behavior alive.</li>
+  <li><b>Scope every addition.</b> Each addition says <b>where</b> it shows (routes) and, if needed, <b>who</b> sees it (signed in / permission). A bare "everywhere" must be a decision, not an accident.</li>
+  <li><b>Everything an app adds points to a real thing.</b> Routes are real files of <code>app/</code> (a Jest guard checks it, as for the PM80 home), labels go through the translation function, icons exist in the icon set.</li>
+  <li><b>One file per app, one registry.</b> <code>apps/&lt;app&gt;/customization.ts</code> default-exports the app's object; <code>apps/appCustomization.ts</code> maps names to objects and offers <code>useAppCustomization()</code> / <code>getAppCustomization()</code>. Adding an app = one line in the registry.</li>
+  <li><b>Test per app and per extension point.</b> The app gets its extras, the other apps do not, the other routes do not (if scoped). Write the test in the same round; update <code>KNOW_HOW.md</code> (section 1.2 / feature index) and this page.</li>
+</ol>
+</section>
+
+<section id="points">
+<h2>4. Extension points (what an app may customize)</h2>
+<p class="sub">One object per app, every field optional. <span class="pill new">to build</span> = does not exist yet; <span class="pill old">exists</span> = already works this way.</p>
+<div class="scroll"><table>
+<tr><th>Field</th><th>Meaning</th><th>Shared code that asks</th><th>State</th></tr>
+<tr><td><code>homeComponent</code></td><td>the home page (<b>replace</b>)</td><td><code>app/home/index.tsx</code></td><td><span class="pill old">exists</span> as <code>homeComponentsMap</code>; move into the registry</td></tr>
+<tr><td><code>fabExtraActions</code></td><td>FAB actions <b>added</b> in front of the current ones, each with <code>routes</code></td><td><code>FABAppComponent</code></td><td><span class="pill new">to build</span> (this page, section 5)</td></tr>
+<tr><td><code>drawerExtraItems</code> / <code>drawerHiddenIds</code></td><td>add / hide Drawer entries</td><td><code>CustomDrawerContent</code></td><td><span class="pill new">later</span></td></tr>
+<tr><td><code>bottomTabs</code></td><td>tabs of the bottom bar (<code>tabsHome</code>)</td><td><code>ApplicationBottomTabsApp</code></td><td><span class="pill new">later</span> (today: Media, History)</td></tr>
+<tr><td><code>startRoute</code></td><td>where the app opens</td><td>root <code>index</code></td><td><span class="pill new">later</span></td></tr>
+<tr><td><code>featureFlags</code></td><td>defaults of switches that are per app, not per project</td><td>the code that reads them</td><td><span class="pill new">later</span></td></tr>
+<tr><td>brand (name, icon, colors)</td><td>stays in <code>app.config.js</code> + <code>assets/&lt;app&gt;</code>: it is build time, not run time</td><td>Expo</td><td><span class="pill old">exists</span></td></tr>
+</table></div>
+<div class="callout">Only <code>fabExtraActions</code> is needed now. The registry and the helper are created with it, so the next field is one line, not a new design.</div>
+</section>
+
+<section id="fab">
+<h2>5. The home FAB of appPM80</h2>
+
+<h3>5.1 How the FAB decides what to show today</h3>
+<p><code>FABAppComponent</code> is mounted <b>once</b> in <code>app/_layout.tsx</code> and picks the first of these that exists:</p>
+<div class="tiers">
+  <div class="tier"><b class="n">1</b><div><b>Prop <code>actions</code></b> - not used by the layout today. If set, it wins over everything (so it would hide the commands of the project dashboard).</div></div>
+  <div class="tier"><b class="n">2</b><div><b>Commands of the open screen</b> - a screen publishes them with <code>useFABContextActions(id, actions)</code> (<code>FABProvider</code>); the last publisher wins, an unmount withdraws. The project dashboard does this (New project, Add task, Delete, Undo …).</div></div>
+  <div class="tier"><b class="n">3</b><div><b>Built-in defaults</b> - Record Video, Record Audio, Scroll Top. This is what the home shows now ("current items").</div></div>
+</div>
+<div class="callout bad"><b>Found while reading:</b> the defaults open <code>/record/recordvideoweb</code> and <code>/record/recordaudioweb</code>, but <code>app/record/</code> does not exist (the real routes are <code>/media/record/video</code> and <code>/media/record/audio</code>). The two "current" recording items therefore lead to a 404 today, in every app. "As is" must not be taken literally for them - see decision Q6.</div>
+
+<h3>5.2 Three ways to add the items</h3>
+<div class="scroll"><table>
+<tr><th>Way</th><th>How</th><th>Good</th><th>Bad</th><th></th></tr>
+<tr><td><b>A</b> in the home component</td><td><code>useFABContextActions('pm80-home', [...])</code> inside <code>HomeAppPM80</code></td><td>nothing in shared code changes</td><td>tier 2 <b>replaces</b> the defaults, so the home would have to list the three old items again (a copy that drifts). The Drawer keeps the home mounted, so the actions stay on the FAB of other screens unless the hook is focus-aware (<code>useIsFocused</code>). Per-screen: nothing for other screens.</td><td><span class="pill gap">not recommended</span></td></tr>
+<tr><td><b>B</b> prop in the layout</td><td><code>&lt;FABAppComponent actions={pm80Actions}/&gt;</code></td><td>trivial</td><td>replaces the commands of <b>every</b> screen (project dashboard loses its commands) and the defaults; depends on an <code>if</code> in the layout.</td><td><span class="pill gap">no</span></td></tr>
+<tr><td><b>C</b> registry + merge</td><td>the app's customization gives <code>fabExtraActions</code>; <code>FABAppComponent</code> merges them in front of tier 2 or 3, for the matching routes</td><td>"as is plus" is exactly the rule; other apps unchanged; dashboard commands kept; one place to read; testable as a pure function</td><td>a small change in shared code (one lookup + a merge)</td><td><span class="pill rec">recommended</span></td></tr>
+</table></div>
+
+<h3>5.3 The recommended design (C)</h3>
+<div class="tiers">
+  <div class="tier new"><b class="n">+</b><div><b>App extras</b> (added AFTER the tiers below, nearest the button): <code>customization.fabExtraActions</code> filtered by the current route (<code>usePathname()</code>, already used by the FAB for <code>fabHiddenOnRoute</code>).</div></div>
+  <div class="tier"><b class="n">1</b><div>Prop <code>actions</code> (unchanged; wins over all, extras included - it is for tests / special screens).</div></div>
+  <div class="tier"><b class="n">2</b><div>Commands of the open screen (unchanged).</div></div>
+  <div class="tier"><b class="n">3</b><div>Built-in defaults (unchanged; routes to be corrected, Q6).</div></div>
+</div>
+<p><b>Merge rule</b> (a pure function, <code>mergeFabActions(base, extras, reanimated)</code>): the extras stand <b>nearest the button, under the base items</b>. Default animation (a column, first item on top, last next to the button): <code>[...base, ...extras]</code>. Reanimated animation (stacked upward, first item next to the button): <code>[...extras reversed, ...base]</code> - the eye sees the same order in both. An extra whose label is already in the base is not added twice; the list may be longer than 4, and the FAB already scrolls then (<code>manyActions</code>).</p>
+<p><b>Scope:</b> each extra carries <code>routes</code> (default for appPM80: <code>['/home']</code>, the home only, as asked). Making it app-wide later is one value (<code>'*'</code>), no code change.</p>
+
+<p>What the home FAB of appPM80 shows (checked in the browser at phone width):</p>
+<div class="fab" aria-label="FAB preview">
+  <span class="mini old">Record Video</span>
+  <span class="mini old">Record Audio</span>
+  <span class="mini old">Scroll Top</span>
+  <span class="mini">New Project</span>
+  <span class="mini">All Projects</span>
+  <span class="mini">Add Calendar event</span>
+  <span class="main">+</span>
+</div>
+<p class="sub">Grey = the current items, kept. Purple = new, only while <code>APP_NAME=appPM80</code> and only on the home.</p>
+</section>
+
+<section id="actions">
+<h2>6. The three actions - what each one must do</h2>
+<div class="scroll"><table>
+<tr><th>Item</th><th>Goes to / does</th><th>Facts it relies on</th><th>Watch out</th></tr>
+<tr><td><b>New Project</b><br><span class="pill chg">same window</span></td>
+  <td>opens the project dashboard in this window and asks it for the "New project" window</td>
+  <td>The store already has the request <code>usePMStore.getState().openProjectSettings('new')</code>; <code>PMRecentProjectsToolbar</code> (mounted by the dashboard and by the Projects catalog) consumes it and opens the New project window (comment in the code: "main FAB"). The dashboard's own FAB item "New project" uses the same call.</td>
+  <td>The request lives in <b>memory</b>: it must be made in the <b>same</b> window - a new browser window would lose it (so the "open in a new window" rule of the home circles does not apply here). Needs a signed-in user: without one the dashboard shows "Sign-in required" and the request would pop up after the next sign-in; the action should send a guest to sign in first (<code>returnTo</code>), Q5.</td></tr>
+<tr><td><b>All Projects</b></td>
+  <td><code>/catalog/project</code> (Drawer: <b>Projects</b>, <code>ProjectCatalogView</code> = the list of projects with the project bar)</td>
+  <td>A real route and a real Drawer item.</td>
+  <td>Same window (in-app navigation) is the natural choice for a FAB; Q3.</td></tr>
+<tr><td><b>Add Calendar event</b></td>
+  <td><code>/user/calendar?new=event</code></td>
+  <td>The calendar screen documents the deep links <code>?new=event|task|birthday</code>, <code>?eventGUID=</code>, <code>?date=YYYY-MM-DD</code>; <code>new=event</code> opens the event editor on a draft.</td>
+  <td>Today's date is the default; add <code>&amp;date=</code> only if the owner wants a different day. Labels and icons: <code>folder-plus-outline</code>, <code>folder-multiple-outline</code> (or <code>view-list-outline</code>), <code>calendar-plus</code> - all exist in the icon set.</td></tr>
+</table></div>
+</section>
+
+<section id="plan">
+<h2>7. File plan (nothing written yet)</h2>
+<div class="scroll"><table>
+<tr><th>File</th><th>What</th></tr>
+<tr><td><code>kit8/providers/AppCustomizationProvider.tsx</code> <span class="pill new">built</span></td><td>the TYPES (<code>AppCustomization</code>, <code>AppFabAction</code>, <code>AppActionContext</code>) and the context + <code>useAppCustomization()</code> that the shared code reads. It lives in <code>kit8/</code> so that kit8 never imports from <code>apps/</code> (rule R2): the root layout puts <code>getAppCustomization()</code> into it.</td></tr>
+<tr><td><code>apps/appCustomization.ts</code> <span class="pill new">built</span></td><td>type <code>AppCustomization</code> (all fields optional), the registry <code>Record&lt;AppName, AppCustomization&gt;</code>, <code>getAppName()</code> (reads <code>Constants.expoConfig.extra.configurationName</code>), <code>getAppCustomization()</code> / <code>useAppCustomization()</code>. Unknown name → the empty customization.</td></tr>
+<tr><td><code>apps/appPM80/customization.ts</code> <span class="pill new">built</span></td><td>the PM80 object: <code>fabExtraActions</code> = the three actions (id, label, icon, <code>routes: ['/home']</code>, <code>run(ctx)</code> where <code>ctx</code> = router + signed-in flag + the store call). No shared-code imports except types.</td></tr>
+<tr><td><code>kit8/ui/components/fab/fabActionsMerge.ts</code> <span class="pill new">built</span></td><td>pure: <code>fabExtrasForRoute(extras, pathname)</code> and <code>mergeFabActions(extras, base)</code>. Next to <code>fabRoutes.ts</code> (same style: pure, tested).</td></tr>
+<tr><td><code>kit8/ui/components/fab/FABAppComponent.tsx</code> <span class="pill chg">changed</span></td><td>reads <code>useAppCustomization().fabExtraActions</code> + <code>usePathname()</code> + the signed-in flag, appends the extras of the route after tier 2/3 (tier 1 unchanged), translates the labels with <code>pmT</code>. The two recording defaults now open <code>/media/record/video</code> and <code>/media/record/audio</code>.</td></tr>
+<tr><td><code>app/home/index.tsx</code>, <code>app/_layout.tsx</code> <span class="pill chg">changed</span></td><td><code>homeComponentsMap</code> moved into the registry (<code>homeComponent</code>); the screen looks it up. The root layout wraps the app in <code>AppCustomizationProvider</code>.</td></tr>
+<tr><td><code>__tests__/apps/appCustomization.test.ts</code>, <code>__tests__/apps/appPM80/fab.test.tsx</code>, <code>__tests__/ui/fab/fabActionsMerge.test.ts</code> <span class="pill new">built</span></td><td>section 8.</td></tr>
+<tr><td><code>KNOW_HOW.md</code>, this page <span class="pill chg">update</span></td><td>a short "App customization" paragraph pointing here; the feature index row for the FAB extension.</td></tr>
+</table></div>
+<p class="sub" style="margin-top:10px">SQL: none. <code>.env</code>: none. The customization is client code selected by the existing <code>APP_NAME</code>.</p>
+</section>
+
+<section id="tests">
+<h2>8. Tests (written in the same round as the code)</h2>
+<ul>
+  <li><b>Pure merge:</b> extras first, then the base; no double entries; a route filter (<code>/home</code> matches <code>/home</code> and <code>/home/</code>, not <code>/pm/business-order</code>, unless asked); <code>'*'</code> = every route; an empty list = the base unchanged.</li>
+  <li><b>Registry:</b> <code>appPM80</code> has the three actions; <code>appClothes1</code>, <code>appCC1</code>, <code>appOnTrend</code>, <code>appPosts</code> and an unknown name have none (so their FAB is byte-for-byte what it is now).</li>
+  <li><b>FAB component</b> (name set by mocking <code>Constants</code>): on <code>/home</code> as appPM80 the list is the three + Record Video + Record Audio + Scroll Top; on the project dashboard only the dashboard's own commands (extras are scoped to <code>/home</code>); as another app on <code>/home</code>: the old three only.</li>
+  <li><b>Real routes guard</b> (as the PM80 home already has): <code>/catalog/project</code>, <code>/user/calendar</code>, <code>/pm/project/dashboard</code> exist in <code>app/</code>; the calendar link carries <code>new=event</code>.</li>
+  <li><b>New Project:</b> pressing it requests <code>openProjectSettings('new')</code> and navigates to the dashboard (router mocked); a guest is sent to sign in with <code>returnTo</code> and no request is made (if Q5 is accepted).</li>
+</ul>
+</section>
+
+<section id="pitfalls">
+<h2>9. Pitfalls found while reading the code</h2>
+<ul>
+  <li><b>Drawer screens stay mounted.</b> Anything a screen "publishes" while mounted (<code>useFABContextActions</code>) stays published after the user leaves for another drawer screen. For per-route additions use the <b>current path</b> (<code>usePathname</code>) in the shared component, not mount/unmount of the screen. If a screen must publish anyway, make the hook focus-aware (<code>useIsFocused</code>).</li>
+  <li><b>Last publisher wins</b> in <code>FABProvider</code>: two screens publishing at once hide each other. Another reason not to put app extras there.</li>
+  <li><b>The <code>actions</code> prop replaces everything</b> (extras and the dashboard's commands). Keep it for tests and special screens.</li>
+  <li><b><code>process.env.APP_NAME</code> in client code is inlined from <code>.env</code></b> by the Babel dotenv plugin; read the name from <code>expoConfig.extra.configurationName</code>. In Jest, mock <code>expo-constants</code> to test another app.</li>
+  <li><b>A new window loses the in-memory store.</b> Actions that hand something to a screen through the store (New project) must navigate inside the same window. Pure links (All Projects, the calendar deep link) may open anywhere.</li>
+  <li><b>Bundle weight.</b> A registry that imports every app's customization pulls all of them into every bundle (as <code>homeComponentsMap</code> already does with the homes). Keep customization files small (data + handlers); heavy screens stay behind routes or <code>React.lazy(() =&gt; Promise.resolve(require(...)))</code>.</li>
+  <li><b>The long FAB list.</b> Six items scroll on phones (<code>manyActions</code> &gt; 4). That works, but it is the reason to decide the order (Q4) and maybe to shorten the old items (Q6).</li>
+</ul>
+</section>
+
+<section id="decisions">
+<h2>10. Decisions (taken with the recommended default unless it says otherwise)</h2>
+<div class="qa">
+  <div class="q"><b>Q1. Scope of the three items.</b> Only the home (as written), or on every screen of the app? <span class="pill rec">default: home only</span> - one value in the registry changes it later.</div>
+  <div class="q"><b>Q2. "Current items as is."</b> Keep all three (Record Video, Record Audio, Scroll Top) behind the new ones? <span class="pill rec">default: yes, kept</span></div>
+  <div class="q"><b>Q3. All Projects / Add Calendar event: this window or a new browser window?</b> New Project must be this window (section 6). <span class="pill rec">default: this window for all three</span> (a FAB is in-app navigation; the new-window rule stays for the circles and links of the home).</div>
+  <div class="q"><b>Q4. Order in the list. <span class="pill new">decided by the owner</span></b> The three items stand <b>under the default items, nearest the button</b>: New Project, All Projects, Add Calendar event (top to bottom). Both animation variants are handled (section 5.3).</div>
+  <div class="q"><b>Q5. Guest pressing New Project.</b> <span class="pill rec">default: go to sign in with <code>returnTo=/home</code>, no request made</span>; the alternative (open the dashboard) shows "Sign-in required".</div>
+  <div class="q"><b>Q6. The two recording items point to routes that do not exist.</b> <span class="pill rec">default: fix them in the same round</span> to <code>/media/record/video</code> and <code>/media/record/audio</code> (a one-line change each in the defaults; it also repairs the other four apps) - or leave them and accept a 404.</div>
+  <div class="q"><b>Q7. Labels.</b> English text through the translation function (<code>pmT</code> keys "New Project", "All Projects", "Add Calendar event"; other languages fall back to English until translated). <span class="pill rec">default: yes</span></div>
+  <div class="q"><b>Q8. Move <code>homeComponentsMap</code> into the registry now?</b> <span class="pill rec">default: yes, same round</span> - otherwise there are two places that map an app name to something.</div>
+</div>
+</section>
+
+<section id="next">
+<h2>11. How to add the next customization</h2>
+<ol>
+  <li>Add the optional field to <code>AppCustomization</code> (<code>kit8/providers/AppCustomizationProvider.tsx</code>) and let the shared component read it through <code>useAppCustomization()</code>; with no value it must behave exactly as before.</li>
+  <li>Fill it in <code>apps/&lt;app&gt;/customization.ts</code> and list the app in <code>apps/appCustomization.ts</code>.</li>
+  <li>Test: the app gets it, the other apps and the unknown name do not (<code>__tests__/apps/appCustomization.test.ts</code>), and the shared component shows it (<code>__tests__/apps/appPM80/fab.test.tsx</code> is the model).</li>
+  <li>Update <code>KNOW_HOW.md</code> and this page. No SQL, no <code>.env</code>.</li>
+</ol>
+</section>
+</main>
+</body>
+</html>

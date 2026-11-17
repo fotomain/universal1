@@ -34,6 +34,7 @@ import FolderTreeDragGhost from '../../tree/FolderTreeDragGhost';
 import { FolderDragPayload, measureViewRect } from '../../tree/folderTreeDnd';
 import { buildTreeIndex, countItemsByFolder, subtreeIds, TREE_ALL_ID, TREE_NONE_ID } from '../../tree/folderTreeModel';
 import ReusableTableFolderGrip from './ReusableTableFolderGrip';
+import ReusableTableRowGrip from './ReusableTableRowGrip';
 import ReusableTableCell from './ReusableTableCell';
 import ReusableTableRowMenu, { RowMenuState } from './ReusableTableRowMenu';
 import { useReusableTableCrud } from './useReusableTableCrud';
@@ -47,7 +48,7 @@ import ReusableTablePostButton, { POST_BUTTON_WIDE_FROM, ReusableTablePostState 
 import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColumn, sortRowsByColumn } from './tableFilter';
 import * as Clipboard from 'expo-clipboard';
 import { isDevEnvironment } from '../../../environment';
-import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths, columnFooterTotal } from './tableRows';
+import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths, columnFooterTotal, rowDropIndex } from './tableRows';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -152,7 +153,8 @@ export default function ReusableTable(props: ReusableTableProps) {
   const [bodyWidth, setBodyWidth] = useState(0);
   /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
   const folderDragOn = showTree && !treeHidden;
-  const showHandle = (Platform.OS === 'web' && reorderEnabled) || folderDragOn;
+  // the ⠿ column: web = drag and drop (BodyWeb); iOS / Android = the grip below drags the row up / down (a folders tree beside the table keeps its own grip)
+  const showHandle = reorderEnabled || folderDragOn;
   const fixedColsWidth = (showHandle ? HANDLE_W : 0) + (selectionEnabled ? CHECK_W : 0) + (contextMenuEnabled ? MENU_W : 0);
   const visualColumns = useMemo(
     () => stretchColumns(arrangeColumns(columnsProp, columnsOrder, columnsWidths), bodyWidth - fixedColsWidth, columnsWidths),
@@ -274,6 +276,16 @@ export default function ReusableTable(props: ReusableTableProps) {
     }
   };
   const canDrag = reorderEnabled && !viewFiltered;
+  // iOS / Android: the row being dragged by its grip (dy = how far the finger moved) and the measured height of every row
+  const [rowDrag, setRowDrag] = useState<{ guid: string; dy: number } | null>(null);
+  const rowHeights = useRef<Record<string, number>>({});
+  const endRowDrag = (guid: string, dy: number) => {
+    setRowDrag(null);
+    const from = visible.findIndex((r) => r.rowGUID === guid);
+    if (from < 0 || !canDrag) return;
+    const to = rowDropIndex(visible.map((r) => rowHeights.current[r.rowGUID] ?? rowHeight), from, dy);
+    if (to !== from) crud.moveTo(from, to);
+  };
 
   // ---- selection ----
   const selectedHere = selected.filter((id) => rows.some((r) => r.rowGUID === id));
@@ -388,10 +400,13 @@ export default function ReusableTable(props: ReusableTableProps) {
   const renderRow = (row: ReusableTableRow, index: number, opts: { dragHandle: React.ReactNode; isDragging: boolean; ghost: boolean }) => {
     const isSelected = selectedHere.includes(row.rowGUID);
     const isFocus = row.rowGUID === focusRowGUID;
-    const bg = opts.isDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : index % 2 === 1 ? c.background : c.surface;
+    const nativeDragging = rowDrag?.guid === row.rowGUID;
+    const bg = opts.isDragging || nativeDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : index % 2 === 1 ? c.background : c.surface;
     return (
       <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} aria-current={isFocus ? 'true' : undefined}
-        style={[styles.row, { minHeight: rowHeight, backgroundColor: bg, borderBottomColor: c.border, minWidth: totalWidth }]}>
+        onLayout={Platform.OS === 'web' ? undefined : (e) => { rowHeights.current[row.rowGUID] = e.nativeEvent.layout.height; }}
+        style={[styles.row, { minHeight: rowHeight, backgroundColor: bg, borderBottomColor: c.border, minWidth: totalWidth },
+          nativeDragging ? { transform: [{ translateY: rowDrag!.dy }], zIndex: 20, elevation: 8, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } } : null]}>
         {/* the row the user returned to: a marker laid OVER the row (a border would shift its cells and delimiter lines) */}
         {isFocus && <View pointerEvents="none" testID={`${testID}-focus-marker`} style={[styles.focusMarker, { backgroundColor: c.primary }]} />}
         {serviceColumns.map((kind) => (kind === 'select'
@@ -502,7 +517,10 @@ export default function ReusableTable(props: ReusableTableProps) {
               </>
             )}
             {filtered && <PMIconButton tipScope="app" testID={`${testID}-clear-filters`} icon="filter_alt_off" title="Clear search, filters and sort" color={c.primary} onPress={clearSortAndFilters} />}
-            <PMIconButton tipScope="app" testID={`${testID}-delete-selected`} icon="delete" title="Delete the selected rows" color={c.error} disabled={selectedHere.length === 0 || props.deleteEnabled === false || !!props.readOnly} badge={selectedHere.length || undefined} onPress={() => askDelete(selectedHere)} />
+            {/* deleteEnabled={false}: there is nothing to delete with - the button is not shown at all */}
+            {props.deleteEnabled !== false && (
+              <PMIconButton tipScope="app" testID={`${testID}-delete-selected`} icon="delete" title="Delete the selected rows" color={c.error} disabled={selectedHere.length === 0 || !!props.readOnly} badge={selectedHere.length || undefined} onPress={() => askDelete(selectedHere)} />
+            )}
             </>)}
           </View>
         );
@@ -571,7 +589,13 @@ export default function ReusableTable(props: ReusableTableProps) {
           ) : (
             visible.map((row, index) => (
               <Pressable key={row.rowGUID} delayLongPress={350} onLongPress={openMenu ? (e: any) => openMenu(row.rowGUID, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}>
-                {renderRow(row, index, { dragHandle: folderDragOn ? <ReusableTableFolderGrip testID={`${testID}-drag-${row.rowGUID}`} color={c.text} getPayload={() => rowsDragPayload(row)} /> : null, isDragging: false, ghost: false })}
+                {renderRow(row, index, { dragHandle: folderDragOn
+                  ? <ReusableTableFolderGrip testID={`${testID}-drag-${row.rowGUID}`} color={c.text} getPayload={() => rowsDragPayload(row)} />
+                  : reorderEnabled
+                    ? <ReusableTableRowGrip testID={`${testID}-drag-${row.rowGUID}`} color={c.text} enabled={canDrag}
+                        onStart={() => setRowDrag({ guid: row.rowGUID, dy: 0 })} onMove={(dy) => setRowDrag({ guid: row.rowGUID, dy })}
+                        onEnd={(dy) => endRowDrag(row.rowGUID, dy)} onCancel={() => setRowDrag(null)} />
+                    : null, isDragging: false, ghost: false })}
               </Pressable>
             ))
           )}

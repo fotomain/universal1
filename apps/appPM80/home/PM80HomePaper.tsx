@@ -17,10 +17,17 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../kit8/providers/WithDesignSystem';
 import PM80CircularProgress from './PM80CircularProgress';
-import PM80BrandLogo, { pm80LogoWithBackground } from './PM80BrandLogo';
+import PM80BrandLogo, { pm80LogoWithBackground, PM80_LOGO_DARK_BACKGROUND } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
 import { usePM80Layout } from './pm80Layout';
 import { usePM80FlowScroll } from './pm80FlowScroll';
+import { usePM80Projects, useBusinessOrderFor } from './businessOrder/useBusinessOrder';
+import PM80RoiInfoModal from './roiInfo/PM80RoiInfoModal';
+import { roiInfoNumbers } from './roiInfo/roiInfoModel';
+import { useDoubleTouch } from './roiInfo/pm80DoubleTouch';
+import PM80KpiInfoModal from './kpiInfo/PM80KpiInfoModal';
+import type { KpiId } from './kpiInfo/kpiInfoModel';
+import { applyBusinessOrder, BUSINESS_ORDER_ROUTE, businessOrderRouteParams } from './businessOrder/businessOrderModel';
 import PM80ProjectFilter from './PM80ProjectFilter';
 import PM80PeriodPicker from './PM80PeriodPicker';
 import PM80Tip from './PM80Tip';
@@ -31,6 +38,7 @@ import {
   shiftPeriod,
   PM80ProjectSelection,
   pm80SnapshotFor,
+  normalizeProjectSelection,
   PM80_QUICK_LINKS,
   PM80_TIPS,
   roiKindTip,
@@ -80,10 +88,39 @@ export default function PM80HomePaper({
 
   const [projectSelection, setProjectSelection] = useState<PM80ProjectSelection>(null);
 
-  const snapshot = useMemo(
-    () => pm80SnapshotFor(period, projectSelection),
-    [period, projectSelection]
+  // the user's REAL projects (the demo list while there are none) and the Business order set up for the selection
+  const projectsSource = usePM80Projects();
+  const baseSnapshot = useMemo(
+    () => pm80SnapshotFor(period, projectSelection, projectsSource.projects),
+    [period, projectSelection, projectsSource.projects]
   );
+  const businessOrder = useBusinessOrderFor(
+    normalizeProjectSelection(projectSelection, projectsSource.projects),
+    projectsSource.rows
+  );
+  const snapshot = useMemo(() => applyBusinessOrder(baseSnapshot, businessOrder), [baseSnapshot, businessOrder]);
+
+  // a double touch on a ROI button: the description of that ROI for a CFO (roiInfo/)
+  const doubleTouch = useDoubleTouch();
+  const [roiInfoKind, setRoiInfoKind] = useState<RoiKindKey | null>(null);
+  // a double touch / double click on the NAME of a KPI ring: its description for a CFO (kpiInfo/)
+  const [kpiInfoId, setKpiInfoId] = useState<KpiId | null>(null);
+  const onRoiButton = (k: RoiKindKey) => {
+    setActiveRoiKind(k);
+    if (doubleTouch.touch(`roi-${k}`)) setRoiInfoKind(k);
+  };
+
+  /** the layers button: the setup of the Business order (a route of its own; its Back button goes Home) */
+  const openBusinessOrderSettings = useCallback(() => {
+    try {
+      router.push({
+        pathname: BUSINESS_ORDER_ROUTE,
+        params: businessOrderRouteParams(normalizeProjectSelection(projectSelection, projectsSource.projects)),
+      } as any);
+    } catch {
+      // route unavailable (standalone test)
+    }
+  }, [router, projectSelection, projectsSource.projects]);
 
   const centerData = useMemo(
     () =>
@@ -232,12 +269,13 @@ export default function PM80HomePaper({
             {snapshot.advancedMetrics.map((metric) => {
               const isMetricSelected = selectedMetric?.id === metric.id;
               return (
-                <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip}`} style={{ flex: 1 }}><TouchableOpacity
+                <PM80Tip key={metric.id} tip={`${metric.label}: ${metric.formulaTip} Double tap for the full description.`} style={{ flex: 1 }}><TouchableOpacity
                   testID={`${testID}-metric-${metric.id}`}
                   activeOpacity={0.8}
                   onPress={() => {
                     setSelectedNode(null);
                     setSelectedMetric(isMetricSelected ? null : metric);
+                    if (doubleTouch.touch(`kpi-${metric.id}`)) setKpiInfoId(metric.id as KpiId);
                   }}
                   style={styles.advancedItem}
                 >
@@ -287,27 +325,50 @@ export default function PM80HomePaper({
             {ROI_KINDS_ORDER.map((k) => {
               const active = activeRoiKind === k;
               return (
-                <PM80Tip key={k} tip={roiKindTip(k)}><Chip
-                  testID={`${testID}-chip-${k}`}
-                  selected={active}
-                  compact
-                  mode={active ? 'flat' : 'outlined'}
-                  onPress={() => setActiveRoiKind(k)}
-                  style={[
-                    styles.kindChip,
-                    active && {
-                      backgroundColor: isDark ? '#4F378B' : '#EADDFF',
-                    },
-                  ]}
-                  textStyle={{
-                    fontSize: 11,
-                    fontWeight: active ? '700' : '500',
-                  }}
-                >
-                  {k.toUpperCase()}
-                </Chip></PM80Tip>
+                <PM80Tip key={k} tip={roiKindTip(k)} style={styles.kindChipCell}>
+                  {/* the name is always CENTERED; the selected button has a check mark at its left, inside */}
+                  <TouchableOpacity
+                    testID={`${testID}-chip-${k}`}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: active }}
+                    activeOpacity={0.8}
+                    onPress={() => onRoiButton(k)}
+                    style={[
+                      styles.roiBtn,
+                      {
+                        borderColor: active ? 'transparent' : isDark ? '#938F99' : '#79747E',
+                        backgroundColor: active ? (isDark ? '#4F378B' : '#EADDFF') : 'transparent',
+                      },
+                    ]}
+                  >
+                    {active && (
+                      <MaterialCommunityIcons
+                        testID={`${testID}-chip-${k}-check`}
+                        name="check"
+                        size={12}
+                        color={isDark ? '#E8DEF8' : '#1D192B'}
+                        style={styles.roiBtnCheck}
+                      />
+                    )}
+                    <Text
+                      style={[
+                        styles.roiBtnText,
+                        { color: active ? (isDark ? '#E8DEF8' : '#1D192B') : textPrimary, fontWeight: active ? '700' : '500' },
+                      ]}
+                    >
+                      {k.toUpperCase()}
+                    </Text>
+                  </TouchableOpacity>
+                </PM80Tip>
               );
             })}
+
+          </View>
+    </>
+  );
+
+  /** the VAT basis button: under the Net ROI ring */
+  const vatEl = (
             <PM80Tip tip={vatBasisTip(includeAllTaxes)}><Chip
               testID={`${testID}-chip-vat`}
               selected={includeAllTaxes}
@@ -320,12 +381,10 @@ export default function PM80HomePaper({
             >
               {includeAllTaxes ? 'Gross (+VAT)' : 'IFRS Cost'}
             </Chip></PM80Tip>
-          </View>
-    </>
   );
 
   const hubEl = (
-    <>
+    <View style={styles.hubColumn}>
               {/* CENTER HUB: Net ROI Ring */}
               <PM80Tip tip={PM80_TIPS.hub}><TouchableOpacity
                 testID={`${testID}-center-hub`}
@@ -397,7 +456,8 @@ export default function PM80HomePaper({
                   </View>
                 </Surface>
               </TouchableOpacity></PM80Tip>
-    </>
+      {vatEl}
+    </View>
   );
 
   return (
@@ -425,11 +485,12 @@ export default function PM80HomePaper({
               style={styles.iconCircleBtn}
               accessibilityLabel="Open Project Dashboard"
             >
-              <PM80BrandLogo size={36} withBackground={pm80LogoWithBackground(isDark)} />
+              <PM80BrandLogo size={36} withBackground={pm80LogoWithBackground(isDark)} backgroundColor={PM80_LOGO_DARK_BACKGROUND} />
             </TouchableOpacity></PM80Tip>
 
             <View style={styles.headerCenterTitle}>
               <PM80ProjectFilter
+                projects={projectsSource.projects}
                 testID={`${testID}-project-filter`}
                 selection={projectSelection}
                 onChange={setProjectSelection}
@@ -449,16 +510,16 @@ export default function PM80HomePaper({
               </Text>
             </View>
 
-            <PM80Tip tip={vatBasisTip(includeAllTaxes)}><TouchableOpacity
+            <PM80Tip tip={PM80_TIPS.businessOrder}><TouchableOpacity
               testID={`${testID}-layers-btn`}
-              onPress={() => setIncludeAllTaxes((v) => !v)}
+              onPress={openBusinessOrderSettings}
               style={styles.iconCircleBtn}
-              accessibilityLabel="Toggle VAT Tax Basis"
+              accessibilityLabel="Business order settings"
             >
               <MaterialCommunityIcons
                 name="layers-triple-outline"
                 size={26}
-                color={includeAllTaxes ? theme.colors.primary : textPrimary}
+                color={textPrimary}
               />
             </TouchableOpacity></PM80Tip>
           </View>
@@ -512,7 +573,8 @@ export default function PM80HomePaper({
             <View style={styles.landRow}>
               <View style={[styles.landLeft, { width: L.leftW }]}>
                 {chipsEl}
-                {hubEl}
+                <View style={styles.landHubSlot}>{hubEl}</View>
+              
               </View>
               <View style={styles.landRight}>
                 {kpiEl}
@@ -721,6 +783,28 @@ export default function PM80HomePaper({
         {/* phone: room under the page so that the Business order panel can reach the top of the screen */}
         {flow.spacerH > 0 && <View testID={`${testID}-flow-spacer`} style={{ height: flow.spacerH }} />}
       </ScrollView>
+      <PM80KpiInfoModal
+        testID={`${testID}-kpi-info`}
+        id={kpiInfoId}
+        snapshot={baseSnapshot}
+        onClose={() => setKpiInfoId(null)}
+        isDark={isDark}
+        textStrong={textPrimary}
+        textMuted={textSecondary}
+        accent={theme.colors.primary}
+        borderColor={ringTrack}
+      />
+      <PM80RoiInfoModal
+        testID={`${testID}-roi-info`}
+        kind={roiInfoKind}
+        numbers={roiInfoKind ? roiInfoNumbers(snapshot, roiInfoKind, { includeSaleVat: includeAllTaxes, includePurchaseVat: includeAllTaxes }) : null}
+        onClose={() => setRoiInfoKind(null)}
+        isDark={isDark}
+        textStrong={textPrimary}
+        textMuted={textSecondary}
+        accent={theme.colors.primary}
+        borderColor={ringTrack}
+      />
     </Surface>
   );
 }
@@ -835,12 +919,19 @@ const styles = StyleSheet.create({
   },
   landRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     width: '100%',
     gap: 16,
   },
+  // the left column is as tall as the right one: the buttons on top, the big ring CENTERED (both ways) in the rest
   landLeft: {
+    alignItems: 'stretch',
+  },
+  landHubSlot: {
+    flex: 1,
     alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
   },
   landRight: {
     flex: 1,
@@ -851,15 +942,39 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     rowGap: 12,
   },
+  hubColumn: {
+    alignItems: 'center',
+    gap: 10,
+  },
+  // the buttons panel is as wide as the circles panel above it (advancedRow): 4 equal buttons from edge to edge
   roiKindChipsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
+    width: '100%',
+    paddingHorizontal: 2,
     gap: 6,
     marginBottom: 14,
   },
+  kindChipCell: {
+    flex: 1,
+  },
   kindChip: {
     borderRadius: 16,
+  },
+  roiBtn: {
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  roiBtnCheck: {
+    position: 'absolute',
+    left: 5,
+    top: 9,
+  },
+  roiBtnText: {
+    fontSize: 11,
+    textAlign: 'center',
   },
   constellationContainer: {
     width: '100%',

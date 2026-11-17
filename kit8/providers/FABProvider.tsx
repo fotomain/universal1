@@ -113,6 +113,10 @@ export const useFAB = () => {
   return context;
 };
 
+/** closeAllFABs for components that may stand outside a FABProvider (tests): a no-op there */
+export const useCloseAllFABs = (): (() => void) => useContext(FABContext)?.closeAllFABs ?? NOOP;
+const NOOP = () => undefined;
+
 /** Context commands published by the open screen (null = none: the main FAB shows its defaults). */
 export const useFABCurrentContextActions = () => useContext(FABActionsContext);
 

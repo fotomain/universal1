@@ -400,3 +400,23 @@ export function colorToHex(color: string): string {
   const alpha = m[4] === undefined ? 1 : Number(m[4]);
   return `#${h(+m[1])}${h(+m[2])}${h(+m[3])}${alpha < 1 ? h(alpha * 255) : ''}`;
 }
+
+/**
+ * Where a row dragged by its ⠿ grip on iOS / Android lands: `from` = its index, `dy` = how far the finger moved down (+) or up (-) in px,
+ * `heights` = the height of every row (rows may be taller than the minimum). A row moves over its neighbour when the finger has passed half of it.
+ */
+export function rowDropIndex(heights: number[], from: number, dy: number): number {
+  if (from < 0 || from >= heights.length) return from;
+  const dir = dy >= 0 ? 1 : -1;
+  let to = from;
+  let rest = Math.abs(dy);
+  while (true) {
+    const next = to + dir;
+    if (next < 0 || next >= heights.length) break;
+    const h = Math.max(1, heights[next]);
+    if (rest < h / 2) break;
+    rest -= h;
+    to = next;
+  }
+  return to;
+}

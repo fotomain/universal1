@@ -1,28 +1,16 @@
 import React, {useCallback, useMemo, useRef, useState} from 'react';
 import {LayoutChangeEvent, NativeScrollEvent, NativeSyntheticEvent, ScrollView, StyleSheet, View} from 'react-native';
 import {useRouter} from 'expo-router';
-import Constants from 'expo-constants';
 import {useTranslation} from 'react-i18next';
 import {Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
-import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
-import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
-import HomeAppOnTrend from '../../apps/appOnTrend/HomeAppOnTrend';
-import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
-import HomeAppPM80 from '../../apps/appPM80/home/HomeAppPM80';
+import {DEFAULT_APP_NAME, getAppCustomization} from '../../apps/appCustomization';
 import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
 import {HomeScrollContext, HomeScrollHost} from '../../kit8/ui/home/HomeScrollContext';
 import ApplicationBottomTabsApp from '../../kit8/ui/components/app_bottom_tabs/ApplicationBottomTabsApp';
 
-const homeComponentsMap = {
-  appPosts: HomeAppPostsPage,
-  appCC1: HomeAppCC1,
-  appOnTrend: HomeAppOnTrend,
-  appClothes1: HomeAppClothes1,
-  appPM80: HomeAppPM80,
-};
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
@@ -30,8 +18,8 @@ export default function HomeScreen() {
   const { workPlaceGUID } = useWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
-  const configurationName = (Constants.expoConfig?.extra?.configurationName as keyof typeof homeComponentsMap) || 'appClothes1';
-  const HomeComponent = homeComponentsMap[configurationName] || HomeAppClothes1;
+  // the home of the app (APP_NAME): apps/appCustomization.ts; an unknown app gets the default home
+  const HomeComponent = getAppCustomization().homeComponent ?? getAppCustomization(DEFAULT_APP_NAME).homeComponent!;
 
   // the page scrolls here: a home component can ask to scroll it (HomeScrollContext), e.g. appPM80 "Business order" to the top
   const wrapRef = useRef<View>(null);

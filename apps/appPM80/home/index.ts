@@ -13,3 +13,6 @@ export { default as PM80ProjectFilter } from './PM80ProjectFilter';
 export { default as PM80PeriodPicker } from './PM80PeriodPicker';
 export * from './pm80Layout';
 export * from './pm80FlowScroll';
+export { default as PM80RoiInfoModal } from './roiInfo/PM80RoiInfoModal';
+export { default as PM80KpiInfoModal } from './kpiInfo/PM80KpiInfoModal';
+export { default as PM80InfoModal } from './infoModal/PM80InfoModal';
