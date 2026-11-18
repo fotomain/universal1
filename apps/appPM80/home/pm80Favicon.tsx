@@ -41,11 +41,12 @@ export function applyPM80Favicon(isDark: boolean): boolean {
     link.rel = 'icon';
     document.head.appendChild(link);
   }
-  if (!link.hasAttribute(ORIGINAL_ATTR)) link.setAttribute(ORIGINAL_ATTR, link.getAttribute('href') ?? '');
-  const original = link.getAttribute(ORIGINAL_ATTR) ?? '';
+  // the dev server page has no icon link at all (the browser asks /favicon.ico): the normal icon is then /favicon.ico
+  if (!link.hasAttribute(ORIGINAL_ATTR)) link.setAttribute(ORIGINAL_ATTR, link.getAttribute('href') || '/favicon.ico');
+  const original = link.getAttribute(ORIGINAL_ATTR) || '/favicon.ico';
 
   if (isDark) {
-    if (original) link.setAttribute('href', original);
+    link.setAttribute('href', original);
     link.removeAttribute('type');
     return true;
   }

@@ -38,6 +38,15 @@ describe('PM80 favicon by theme (web)', () => {
     expect(iconHref()).toBe(ORIGINAL);
   });
 
+  it('a page with no icon link (dev server): dark theme goes back to /favicon.ico', async () => {
+    document.head.innerHTML = '';
+    applyPM80Favicon(false);
+    await new Promise((r) => setTimeout(r, 5));
+    expect(iconHref()).toMatch(/^data:image\/svg\+xml/);
+    applyPM80Favicon(true);
+    expect(iconHref()).toBe('/favicon.ico');
+  });
+
   it('does nothing on iOS / Android', () => {
     (Platform as any).OS = 'ios';
     expect(applyPM80Favicon(false)).toBe(false);
