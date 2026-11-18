@@ -735,3 +735,14 @@
 735|Pakeiskite meniu pavadinimą, stulpelio antraštę ar pavadinimą visai organizacijai. Kalba: {{n}}.
 736|Tekstus keičia tik organizacijos administratorius.
 737|Tekstas
+738|Paros laikas: pradžios laikai, trukmės ir vėlavimai yra sveikos minutės; kalendoriuje yra darbo langai.
+739|Minutė
+740|Paros laikas
+741|Žingsnis (resourceSlotMinutes)
+742|Mažiausias pradžios laiko ir išlyginimo poslinkio žingsnis minutėmis. Patikros tikslios iki minutės.
+743|Laiko juosta (projectTimeZone)
+744|Dienos darbo langai (projectWorkWindows)
+745|Nuo-iki, atskirta kableliais, pavyzdžiui, 09:00-13:00, 14:00-18:00. Pertrauka yra tarpas tarp dviejų langų.
+746|Tai nėra laiko juostos pavadinimas, pavyzdžiui, Europe/Berlin.
+747|Paros laiko modelis planuoja nuo projekto pradžios; planavimas nuo pabaigos datos jame nenaudojamas.
+748|{{from}} → {{to}} ({{delay}} {{when}})

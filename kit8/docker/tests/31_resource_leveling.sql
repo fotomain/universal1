@@ -194,7 +194,7 @@ SELECT tt.eq((tt.srv(jsonb_build_array(jsonb_build_object('g', 'X', 'o', 0, 'd',
                       '[["Z","S","FS",0]]', '{}', '{"S": ["X","Y"]}'))->>'finish', '2026-10-09', 'a stage as predecessor: Z starts after the last finish of X and Y');
 
 -- a problem the function does not take is SAID, never guessed
-SELECT tt.eq((tt.srv(:'two', '[]', '{"v": 2}'))->'reasons', '["version"]'::jsonb, 'another version of the request');
+SELECT tt.eq((tt.srv(:'two', '[]', '{"v": 3}'))->'reasons', '["version"]'::jsonb, 'another version of the request (v = 2 is the time-of-day axis, tests/101)');
 SELECT tt.eq((tt.srv(:'two', '[]', '{"direction": "backward"}'))->'reasons', '["direction"]'::jsonb, 'a plan from the finish');
 SELECT tt.eq((tt.srv(:'two', '[]', '{"order": "x"}'))->'reasons', '["options"]'::jsonb, 'an order it does not know');
 SELECT tt.eq((public.project_resource_leveling_server_plan(:'p1', NULL))->'reasons', '["version"]'::jsonb, 'no problem at all');

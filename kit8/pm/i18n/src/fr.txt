@@ -735,3 +735,14 @@
 735|Remplacez un titre de menu, un en-tête de colonne ou un titre pour toute votre organisation. Langue : {{n}}.
 736|Seul l'administrateur de l'organisation modifie les textes.
 737|Texte
+738|Heure du jour : les heures de début, les durées et les retards sont des minutes entières ; le calendrier a des plages de travail.
+739|Minute
+740|Heure du jour
+741|Pas (resourceSlotMinutes)
+742|Le plus petit pas d'une heure de début et d'un déplacement de nivellement, en minutes. Les contrôles sont exacts à la minute.
+743|Fuseau horaire (projectTimeZone)
+744|Plages de travail d'une journée (projectWorkWindows)
+745|De-à, séparés par des virgules, par exemple 09:00-13:00, 14:00-18:00. Une pause est l'intervalle entre deux plages.
+746|Ce n'est pas un nom de fuseau horaire, par exemple Europe/Berlin.
+747|Le modèle de l'heure du jour planifie à partir du début du projet ; une planification depuis la date de fin n'y est pas utilisée.
+748|{{from}} → {{to}} ({{delay}} {{when}})

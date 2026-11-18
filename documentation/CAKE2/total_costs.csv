@@ -1,12 +1,12 @@
 section,item,detail,supplier,qty_needed,qty_ordered,unit,unit_price_eur,cost_needed_eur,cost_ordered_eur,po,order_date,delivery_date,note
-labour,Ingrid Ziegler,Confectioner · Early 06:00-14:00,,13.6667,,h,21.0,287.0,287.0,,,,"2 shifts, 19 operations"
-labour,Lena Tanaka,Confectioner · Early 06:00-14:00,,13.8333,,h,21.0,290.5,290.5,,,,"2 shifts, 19 operations"
-labour,Marco Marchetti,Confectioner · Early 06:00-14:00,,13.5833,,h,21.0,285.25,285.25,,,,"2 shifts, 21 operations"
+labour,Ingrid Ziegler,Confectioner · Early 06:00-14:00,,13.8333,,h,21.0,290.5,290.5,,,,"2 shifts, 20 operations"
+labour,Lena Tanaka,Confectioner · Early 06:00-14:00,,13.0833,,h,21.0,274.75,274.75,,,,"2 shifts, 17 operations"
+labour,Marco Marchetti,Confectioner · Early 06:00-14:00,,13.6667,,h,21.0,287.0,287.0,,,,"2 shifts, 22 operations"
 labour,Tomas Dubois,Confectioner · Early 06:00-14:00,,13.5833,,h,21.0,285.25,285.25,,,,"2 shifts, 18 operations"
-labour,Aiko Castillo,Confectioner · Late 14:00-22:00,,10.5,,h,21.0,220.5,220.5,,,,"2 shifts, 12 operations"
-labour,Elif Novak,Confectioner · Late 14:00-22:00,,10.0,,h,21.0,210.0,210.0,,,,"2 shifts, 11 operations"
-labour,Jonas Demir,Confectioner · Late 14:00-22:00,,10.0833,,h,21.0,211.75,211.75,,,,"2 shifts, 13 operations"
-labour,Priya Santos,Confectioner · Late 14:00-22:00,,10.0833,,h,21.0,211.75,211.75,,,,"2 shifts, 11 operations"
+labour,Aiko Castillo,Confectioner · Late 14:00-22:00,,10.1667,,h,21.0,213.5,213.5,,,,"2 shifts, 10 operations"
+labour,Elif Novak,Confectioner · Late 14:00-22:00,,9.9167,,h,21.0,208.25,208.25,,,,"2 shifts, 13 operations"
+labour,Jonas Demir,Confectioner · Late 14:00-22:00,,10.25,,h,21.0,215.25,215.25,,,,"2 shifts, 12 operations"
+labour,Priya Santos,Confectioner · Late 14:00-22:00,,10.8333,,h,21.0,227.5,227.5,,,,"2 shifts, 12 operations"
 labour,Oskar Veldt,Purchasing manager · Mon-Fri 09:00-17:00,,5.0,,h,28.0,140.0,140.0,,,,30 order lines x 10 min
 labour,Marta Lindqvist,Warehouse keeper · from 06:00,,2.3333,,h,18.0,42.0,42.0,,,,4 goods receipts
 labour,Ravi Anand,Warehouse keeper · from 06:00,,2.1667,,h,18.0,39.0,39.0,,,,4 goods receipts
@@ -16,12 +16,12 @@ packaging,"FSC recycled-paper label, plant-based ink",label,EcoPack Compostables
 material,Organic rolled oats,oats,GreenMill Organic Mills,34.0,50,kg,1.6,54.4,80.0,PO-2025-002,2025-12-29,2025-12-31,"EU organic, regional; pack 25 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
 material,Organic wholegrain spelt flour,spelt,GreenMill Organic Mills,112.0,125,kg,1.8,201.6,225.0,PO-2025-002,2025-12-29,2025-12-31,"EU organic, regional mill; pack 25 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
 material,Organic ground almonds,almonds,Nutwood Organic Nuts & Fruit,6.0,10,kg,13.0,78.0,130.0,PO-2025-003,2025-12-29,2025-12-31,EU organic; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
-material,Organic Fairtrade bananas,bananas,Nutwood Organic Nuts & Fruit,40.0,54,kg,2.2,88.0,118.8,PO-2025-003,2025-12-29,2025-12-31,"EU organic + Fairtrade, sea freight; pack 18 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
-material,Organic Fairtrade cashew nuts,cashews,Nutwood Organic Nuts & Fruit,84.0,90,kg,16.5,1386.0,1485.0,PO-2025-003,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 10 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
+material,Organic Fairtrade bananas,bananas,Nutwood Organic Nuts & Fruit,40.0,54,kg,2.2,88.0,118.8,PO-2025-003,2025-12-29,2025-12-31,"EU organic + Fairtrade, sea freight; pack 18 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01"
+material,Organic Fairtrade cashew nuts,cashews,Nutwood Organic Nuts & Fruit,84.0,90,kg,16.5,1386.0,1485.0,PO-2025-003,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 10 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,"Organic lemons (Naturland, Spain / Italy)",lemons,Nutwood Organic Nuts & Fruit,28.0,30,kg,3.2,89.6,96.0,PO-2025-003,2025-12-29,2025-12-31,"EU organic, Mediterranean; pack 10 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
 material,"Organic walnuts, shelled",walnuts,Nutwood Organic Nuts & Fruit,8.0,10,kg,13.5,108.0,135.0,PO-2025-003,2025-12-29,2025-12-31,"EU organic, regional; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01"
 material,Organic oat drink (barista),oatdrink,OatLand Plant Drinks,110.0,120,l,1.65,181.5,198.0,PO-2025-004,2025-12-29,2025-12-31,"EU organic, regional; pack 12 l; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
-material,Organic agar-agar powder,agar,Pantry Minerals & Baking Aids,0.6,1.0,kg,95.0,57.0,95.0,PO-2025-005,2025-12-29,2025-12-31,EU organic; pack 0.5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
+material,Organic agar-agar powder,agar,Pantry Minerals & Baking Aids,0.6,1.0,kg,95.0,57.0,95.0,PO-2025-005,2025-12-29,2025-12-31,EU organic; pack 0.5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,"Organic baking powder (tartrate, phosphate-free)",baking,Pantry Minerals & Baking Aids,6.2,7,kg,8.5,52.7,59.5,PO-2025-005,2025-12-29,2025-12-31,EU organic; pack 1 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,Unrefined sea salt (solar evaporated),salt,Pantry Minerals & Baking Aids,1.0,5,kg,1.2,1.2,6.0,PO-2025-005,2025-12-29,2025-12-31,natural; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,Organic apple cider vinegar,acv,Pressed & Pure Oils,3.6,5,l,3.6,12.96,18.0,PO-2025-006,2025-12-29,2025-12-31,EU organic; pack 5 l; +2 % waste; covers the use 2026-01-01 - 2026-01-01
@@ -29,11 +29,11 @@ material,Organic extra-virgin olive oil,oliveoil,Pressed & Pure Oils,12.0,15,l,1
 material,Organic cold-pressed sunflower oil,sunoil,Pressed & Pure Oils,47.0,50,l,4.4,206.8,220.0,PO-2025-006,2025-12-29,2025-12-31,"EU organic, regional; pack 10 l; +2 % waste; covers the use 2026-01-01 - 2026-01-02"
 material,"Organic Fairtrade Ceylon cinnamon, ground",cinnamon,Sweet Earth Fairtrade Trading,1.4,2,kg,19.0,26.6,38.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 1 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,Organic Fairtrade cocoa powder,cocoa,Sweet Earth Fairtrade Trading,11.4,15,kg,11.5,131.1,172.5,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
-material,Organic Fairtrade coconut cream,coconutcr,Sweet Earth Fairtrade Trading,46.0,50,kg,6.2,285.2,310.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
-material,Organic Fairtrade virgin coconut oil,coconutoil,Sweet Earth Fairtrade Trading,10.0,15,kg,9.2,92.0,138.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
+material,Organic Fairtrade coconut cream,coconutcr,Sweet Earth Fairtrade Trading,46.0,50,kg,6.2,285.2,310.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
+material,Organic Fairtrade virgin coconut oil,coconutoil,Sweet Earth Fairtrade Trading,10.0,15,kg,9.2,92.0,138.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,"Organic Fairtrade espresso coffee, ground",coffee,Sweet Earth Fairtrade Trading,2.0,3,kg,19.0,38.0,57.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 1 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
 material,Organic Fairtrade dark chocolate 70 %,darkchoc,Sweet Earth Fairtrade Trading,16.0,20,kg,14.5,232.0,290.0,PO-2025-007,2025-12-29,2025-12-31,"EU organic + Fairtrade, palm-oil free; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01"
-material,"Organic Fairtrade dates, pitted",dates,Sweet Earth Fairtrade Trading,12.0,15,kg,6.8,81.6,102.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
+material,"Organic Fairtrade dates, pitted",dates,Sweet Earth Fairtrade Trading,12.0,15,kg,6.8,81.6,102.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 5 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,Organic Fairtrade cane sugar,sugar,Sweet Earth Fairtrade Trading,114.0,125,kg,2.3,262.2,287.5,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 25 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-02
 material,Organic Fairtrade vanilla powder,vanilla,Sweet Earth Fairtrade Trading,0.2,0.3,kg,420.0,84.0,126.0,PO-2025-007,2025-12-29,2025-12-31,EU organic + Fairtrade; pack 0.1 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01
 material,"Organic apple purée, unsweetened",applepur,Valley Orchard Growers Co-op,6.0,10,kg,2.1,12.6,21.0,PO-2025-008,2025-12-29,2025-12-31,"EU organic, regional; pack 10 kg; +2 % waste; covers the use 2026-01-01 - 2026-01-01"

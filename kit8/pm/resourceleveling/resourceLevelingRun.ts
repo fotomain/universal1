@@ -2,16 +2,29 @@
 // (documentation/RESOURCE_LEVELING_WBS.html sections 7.3, 7.5, 7.7). No React / Supabase: the hook (useResourceLeveling.ts) fetches the data and calls this.
 import type { PMScheduledRow, PMTaskDependencyRow, PMTaskJSON, PMTaskRow } from '../model/types';
 import { extendedOf } from '../extended/extendedModel';
+import { scheduleOptionsOf } from '../model/scheduleOptions';
 import type { TaskLineRow } from '../view/task/finances/taskLineModel';
 import { conflictsOf, buildUsage, makeCtx } from './resourceLevelingDetect';
 import { buildLevelingTasks } from './resourceLevelingDemand';
 import { buildLevelingEnv, directionOf, resourcesOfLines, type InputRow } from './resourceLevelingEnv';
 import { levelResources } from './resourceLevelingEngine';
 import { resourceLevelingOf, type ResourceLevelingEffective } from './resourceLevelingSettings';
+import { buildHourLevelingEnv } from '../hourmodel/hourLevelingEnv';
+import type { HourCapacityRow, HourForeignRow } from '../hourmodel/hourLevelingEnv';
+import type { HourAxis } from '../hourmodel/hourAxis';
 import type { LevelingConflict, LevelingEnv, LevelingMove, LevelingResult, LevelingSchedule, LevelingTaskInput, MoveReason, UnresolvedCode } from './resourceLevelingModel';
 
 export { resourcesOfLines };
 export type { InputRow };
+
+/** the time-of-day model of a run (kit8/pm/hourmodel): the working-minute axis, the step, and the capacity / foreign rows of project_resource_leveling_inputs_hours */
+export interface HourRunArgs {
+  axis: HourAxis;
+  /** resourceSlotMinutes */
+  step: number;
+  capacityRows: HourCapacityRow[];
+  foreignRows: HourForeignRow[];
+}
 
 export interface PlanLevelingArgs {
   tasks: PMTaskRow[];
@@ -22,6 +35,8 @@ export interface PlanLevelingArgs {
   linesByTask: Record<string, TaskLineRow[]>;
   capacityRows: InputRow[];
   foreignRows: InputRow[];
+  /** the project plans by the clock: the run works in steps of minutes (capacityRows / foreignRows are then empty, the hour rows are in `hour`) */
+  hour?: HourRunArgs;
   /** UTC midnight of today */
   todayMs: number;
   /** tasks with a posted fact input (never moved) */
@@ -79,9 +94,15 @@ export interface LevelingPlan {
   conflictsAfter: number;
   /** the engine was stopped by its safety counter */
   stopped: boolean;
+  /** unit of delayBefore / delayAfter of the changes: working days (day model) or working minutes (time-of-day model) */
+  delayUnit: 'days' | 'minutes';
+  /** the step of the time-of-day model (minutes), else 0 */
+  stepMinutes: number;
 }
 
-const delayOf = (t: PMTaskRow): number => Math.max(0, Math.round(Number((t.rowJSON as PMTaskJSON)?.taskLevelingDelayDays) || 0));
+const delayOf = (t: PMTaskRow, step = 0): number => (step > 0
+  ? Math.max(0, Math.round((Number((t.rowJSON as PMTaskJSON)?.taskLevelingDelayMinutes) || 0) / step))
+  : Math.max(0, Math.round(Number((t.rowJSON as PMTaskJSON)?.taskLevelingDelayDays) || 0)));
 const nameOf = (t: PMTaskRow | undefined): string => String((t?.rowJSON as PMTaskJSON | undefined)?.taskDescription ?? t?.rowGUID ?? '');
 
 /** everything a run needs before the search: the effective settings, the scheduler of the screen, the plan as it is now and the engine input (shared by the client side run and the server problem) */
@@ -101,17 +122,24 @@ export interface PreparedRun {
 export function prepareLevelingRun(a: PlanLevelingArgs): PreparedRun {
   const effective = resourceLevelingOf(a.projectJSON);
   const ext = extendedOf(a.projectJSON as any);
-  const direction = directionOf(a.projectJSON);
-  const env = buildLevelingEnv({ tasks: a.tasks, deps: a.deps, projectJSON: a.projectJSON, projectStartMs: a.projectStartMs, externalDates: a.externalDates, capacityRows: a.capacityRows, foreignRows: a.foreignRows });
+  // the time-of-day model plans from the start only (documentation 4.4)
+  const direction = a.hour ? 'forward' : directionOf(a.projectJSON);
+  const step = a.hour ? a.hour.step : 0;
+  const env = a.hour
+    ? buildHourLevelingEnv({
+        tasks: a.tasks, deps: a.deps, options: scheduleOptionsOf(a.projectJSON), projectStartMs: a.projectStartMs, axis: a.hour.axis, step: a.hour.step,
+        capacityRows: a.hour.capacityRows, foreignRows: a.hour.foreignRows,
+      })
+    : buildLevelingEnv({ tasks: a.tasks, deps: a.deps, projectJSON: a.projectJSON, projectStartMs: a.projectStartMs, externalDates: a.externalDates, capacityRows: a.capacityRows, foreignRows: a.foreignRows });
   const byGuid = new Map(a.tasks.map((t) => [t.rowGUID, t]));
 
   const currentDelays: Record<string, number> = {};
-  for (const t of a.tasks) { const d = delayOf(t); if (d > 0) currentDelays[t.rowGUID] = d; }
+  for (const t of a.tasks) { const d = delayOf(t, step); if (d > 0) currentDelays[t.rowGUID] = d; }
   const current = env.schedule(currentDelays);
 
   const postedMayMove = a.postedMayMove ?? effective.postedTasksMovement;
   const inputs: LevelingTaskInput[] = buildLevelingTasks({
-    tasks: a.tasks, linesByTask: a.linesByTask, rows: current.rows, todayMs: a.todayMs,
+    tasks: a.tasks, linesByTask: a.linesByTask, rows: (env.present ? env.present(current) : current).rows, todayMs: a.todayMs,
     manualTasksAllowed: effective.manualTasks, priorityEnabled: ext.ganttTaskPriorityEnabled === true, manualEnabled: ext.ganttManualSchedulingEnabled === true,
     constraintsEnabled: ext.ganttConstraintsEnabled === true, postedMayMove, factTasks: a.factTasks, scope: a.scope,
   });
@@ -121,20 +149,28 @@ export function prepareLevelingRun(a: PlanLevelingArgs): PreparedRun {
 /** the run on THIS device (Client side computations); with `a.seed` it continues the proposal of the database (Server side computations) */
 export function planLevelingRun(a: PlanLevelingArgs, prepared: PreparedRun = prepareLevelingRun(a)): LevelingPlan {
   const { effective, direction, env, byGuid, currentDelays, origin, current, inputs } = prepared;
+  const stepMinutes = env.delayUnitMinutes ?? 0;
+  const show = (s: LevelingSchedule): LevelingSchedule => (env.present ? env.present(s) : s);
+  const bucketMsOf = (b: string): number => (env.serverBucketMs ? env.serverBucketMs(b) : Date.parse(String(b).slice(0, 10) + 'T00:00:00Z'));
+  const realBucket = (b: number): number => (env.bucketToReal ? env.bucketToReal(b) : b);
+  const toUnit = (n: number): number => (stepMinutes > 0 ? n * stepMinutes : n);
   const result = levelResources(inputs, env, {
-    order: effective.order, method: effective.method, direction, period: effective.grainUnit === 'week' ? 'week' : 'day',
+    order: effective.order, method: effective.method, direction, period: !a.hour && effective.grainUnit === 'week' ? 'week' : 'day',
     startDelays: a.seed ? { ...a.seed.delays } : origin, baselineDelays: a.seed ? origin : undefined,
-    failureHints: a.seed?.unresolved ? Object.fromEntries(a.seed.unresolved.map((u) => [`${u.resource}|${Date.parse(String(u.bucket).slice(0, 10) + 'T00:00:00Z')}`, u.code])) : undefined,
+    failureHints: a.seed?.unresolved ? Object.fromEntries(a.seed.unresolved.map((u) => [`${u.resource}|${bucketMsOf(u.bucket)}`, u.code])) : undefined,
   });
+  // what the user sees: the real instants (the engine works on the virtual axis of the time-of-day model)
+  const currentShown = show(current);
+  const afterShown = show(result.schedule);
 
   // the conflicts of the plan as the user sees it now
-  const ctx = makeCtx(env, effective.grainUnit === 'week' ? 'week' : 'day');
+  const ctx = makeCtx(env, !a.hour && effective.grainUnit === 'week' ? 'week' : 'day');
   const conflictsBefore = conflictsOf(ctx, buildUsage(ctx, inputs, current.rows)).length;
 
   const moveByTask = new Map<string, LevelingMove>(result.moves.map((m: LevelingMove) => [m.task, m]));
   // a move of the database proposal that the screen kept: the reason of the database
   for (const m of a.seed?.moves || []) {
-    if (!moveByTask.has(m.task)) moveByTask.set(m.task, { task: m.task, delayBefore: m.delayBefore, delayAfter: m.delayAfter, reason: m.reason, resource: m.resource, bucket: Date.parse(String(m.bucket).slice(0, 10) + 'T00:00:00Z') });
+    if (!moveByTask.has(m.task)) moveByTask.set(m.task, { task: m.task, delayBefore: m.delayBefore, delayAfter: m.delayAfter, reason: m.reason, resource: m.resource, bucket: bucketMsOf(m.bucket) });
   }
   const postedByGuid = new Map(inputs.map((t) => [t.guid, t.posted]));
   const changes: PlannedMove[] = [];
@@ -144,25 +180,28 @@ export function planLevelingRun(a: PlanLevelingArgs, prepared: PreparedRun = pre
     const after = result.delays[g] || 0;
     if (before === after) continue;
     const t = byGuid.get(g);
-    const rb: PMScheduledRow | undefined = current.rows[g];
-    const ra: PMScheduledRow | undefined = result.schedule.rows[g];
+    const rb: PMScheduledRow | undefined = currentShown.rows[g];
+    const ra: PMScheduledRow | undefined = afterShown.rows[g];
     if (!t || !rb || !ra) continue;
     const m = moveByTask.get(g);
     changes.push({
-      task: g, name: nameOf(t), posted: postedByGuid.get(g) === true, delayBefore: before, delayAfter: after,
+      task: g, name: nameOf(t), posted: postedByGuid.get(g) === true, delayBefore: toUnit(before), delayAfter: toUnit(after),
       startBeforeMs: rb.startMs, startAfterMs: ra.startMs, finishBeforeMs: rb.finishMs, finishAfterMs: ra.finishMs,
-      reason: m?.reason ?? null, resource: m?.resource ?? null, bucket: m?.bucket ?? null,
+      reason: m?.reason ?? null, resource: m?.resource ?? null, bucket: m ? realBucket(m.bucket) : null,
     });
   }
   changes.sort((x, y) => x.startAfterMs - y.startAfterMs || x.name.localeCompare(y.name));
-  const unresolved: PlannedUnresolved[] = result.unresolved.map((c) => ({ ...c, code: (c.code ?? 'noCapacityInHorizon') as UnresolvedCode, taskNames: c.tasks.map((g) => nameOf(byGuid.get(g))) }));
+  const unresolved: PlannedUnresolved[] = result.unresolved.map((c) => ({
+    ...c, bucket: realBucket(c.bucket), code: (c.code ?? 'noCapacityInHorizon') as UnresolvedCode, taskNames: c.tasks.map((g) => nameOf(byGuid.get(g))),
+  }));
 
   return {
     effective, direction, result,
-    current: { projectStartMs: current.projectStartMs, projectFinishMs: current.projectFinishMs },
-    after: { projectStartMs: result.schedule.projectStartMs, projectFinishMs: result.schedule.projectFinishMs },
+    current: { projectStartMs: currentShown.projectStartMs, projectFinishMs: currentShown.projectFinishMs },
+    after: { projectStartMs: afterShown.projectStartMs, projectFinishMs: afterShown.projectFinishMs },
     changes, postedChanges: changes.filter((c) => c.posted), unresolved,
     conflictsBefore, conflictsAfter: result.unresolved.length, stopped: result.unresolved.some((c) => c.code === 'passLimit'),
+    delayUnit: stepMinutes > 0 ? 'minutes' : 'days', stepMinutes,
   };
 }
 
@@ -181,6 +220,8 @@ export function applyPayloadOf(plan: LevelingPlan, meta: { mode: 'manual' | 'aut
     options: {
       order: plan.effective.order, grainUnit: plan.effective.grainUnit, clearBefore: plan.effective.clearBefore, includeOtherProjects: plan.effective.includeOtherProjects,
       postedTasksAction: meta.postedChoice ?? plan.effective.postedTasksAction, direction: plan.direction,
+      // the time-of-day model: the delays of the tasks are working MINUTES (a whole multiple of the step), written to taskLevelingDelayMinutes
+      ...(plan.delayUnit === 'minutes' ? { delayUnit: 'minutes', stepMinutes: plan.stepMinutes } : {}),
     },
     conflictsBefore: plan.conflictsBefore, conflictsAfter: plan.conflictsAfter, unresolved: plan.unresolved.length, tasksUnposted: unposted,
     startBefore: iso(plan.current.projectStartMs), startAfter: iso(plan.after.projectStartMs), finishBefore: iso(plan.current.projectFinishMs), finishAfter: iso(plan.after.projectFinishMs),

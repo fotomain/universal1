@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Vervang een menutitel, kolomkop of titel voor uw hele organisatie. Taal: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Alleen de beheerder van de organisatie wijzigt de teksten.",
   "Text": "Tekst",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Tijdstip van de dag: starttijden, duren en vertragingen zijn hele minuten; de kalender heeft werkvensters.",
+  "Minute": "Minuut",
+  "Time of day": "Tijdstip van de dag",
+  "Step (resourceSlotMinutes)": "Stap (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "De kleinste stap van een starttijd en van een nivelleringsverschuiving, in minuten. De controles zijn minuutnauwkeurig.",
+  "Time zone (projectTimeZone)": "Tijdzone (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Werkvensters van een dag (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "Van-tot, gescheiden door komma's, bijvoorbeeld 09:00-13:00, 14:00-18:00. Een pauze is de ruimte tussen twee vensters.",
+  "This is not a time zone name, for example Europe/Berlin.": "Dit is geen naam van een tijdzone, bijvoorbeeld Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Het tijdstipmodel plant vanaf de projectstart; een planning vanaf de einddatum wordt daarin niet gebruikt.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

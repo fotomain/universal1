@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CAKE1 / RUN1 - manufacturing plan of the "ecology supercakes": production 2026-01-01 .. 2026-01-02 (2 days), purchasing before it
-(documentation/CAKE1/INIT_STAGE.html;  the first run, 200 cakes a position in January, is archived in cake_v0_month200_optimization.py)
+CAKE2 / RUN1 - manufacturing plan of the "ecology supercakes": production 2026-01-01 .. 2026-01-02 (2 days), purchasing before it
+(documentation/CAKE2/INIT_STAGE.html;  the first run, 200 cakes a position in January, is archived in cake_v0_month200_optimization.py)
 
 What it does (one run, a few minutes):
   1. data      8 eco cakes (list of the shared chat), 5 kg size (x5 of the home cake), 20 cakes per cake position, made in
@@ -956,6 +956,8 @@ class Wbs:
         self.guid: Dict[str, str] = {}
         self.start_day: Dict[str, dt.date] = {}
         self.end_day: Dict[str, dt.date] = {}
+        self.start_dt: Dict[str, dt.datetime] = {}
+        self.end_dt: Dict[str, dt.datetime] = {}
         self.order: Dict[str, int] = collections.defaultdict(int)
         self.proj_label = label(PROJECT_GUID)
 
@@ -972,9 +974,14 @@ class Wbs:
             last_day = (last - dt.timedelta(minutes=1)).date() if (last.hour == 0 and last.minute == 0 and last > start) else last.date()
             self.start_day[key], self.end_day[key] = start.date(), last_day
             js['durationDays'] = 0 if kind == 'milestone' else (last_day - start.date()).days + 1
+            self.start_dt[key], self.end_dt[key] = start, last
+            # the time-of-day model (resourceOptimizationMode = hourByHourModel): the bar is a start TIME + a duration in whole minutes; manualStartAt pins the DAY
             js['manualStartAt'] = iso_day(start.date())
-            js['startHourStart'], js['planMinuteStart'] = start.hour, start.minute
-            js['startHourFinish'], js['planMinuteFinish'] = last.hour, last.minute
+            minute = start.hour * 60 + start.minute
+            if minute > 0:
+                js['taskStartMinute'] = minute
+            if kind != 'milestone':
+                js['taskDurationMinutes'] = max(1, int((last - start).total_seconds() // 60))
         if notes:
             js['notes'] = notes
         if cc:
@@ -986,15 +993,11 @@ class Wbs:
         return key
 
     def link(self, pred: str, succ: str):
-        """FS when the successor starts on a later day than the predecessor ends, else SS with the day difference."""
-        ps, pe, ss = self.start_day[pred], self.end_day[pred], self.start_day[succ]
-        if ss > pe:
-            typ, lag = 'FS', (ss - pe).days - 1
-        else:
-            typ, lag = 'SS', (ss - ps).days
-        assert lag >= 0, (pred, succ)
+        """The time-of-day model plans to the minute: every link is FS with lag 0 (the successor starts when the predecessor has finished or later; the start TIME of each task is pinned
+        by taskStartMinute). The optimizer's plan satisfies it exactly - the script stops when it does not."""
+        assert self.end_dt[pred] <= self.start_dt[succ], (pred, succ, self.end_dt[pred], self.start_dt[succ])
         self.deps.append({'rowGUID': self.guid[succ], 'rowDependsOnGUID': self.guid[pred], 'projectGUID': PROJECT_GUID,
-                          'rowOwnerGUID': OWNER_PLACEHOLDER, 'linkType': typ, 'lagDays': lag, 'rowJSON': {}})
+                          'rowOwnerGUID': OWNER_PLACEHOLDER, 'linkType': 'FS', 'lagDays': 0, 'rowJSON': {}})
 
 
 def fmt_q(q: float) -> str:
@@ -1138,7 +1141,25 @@ def build_wbs(batches, tasks, workers, sol, pos, lots, stats, summary, costs) ->
                     'rowJSON': project_json},
         'tasks': w.tasks, 'dependencies': w.deps,
         'uxuiSettings': {'treeColumnsOrder': order, 'showCriticalPath': False},
+        'cake2Roster': roster_of(workers),      # not read by the importer: the shifts + days off the calendars of CAKE2_CATALOG_DATA.sql are made from
     }
+
+
+def clock(m: int) -> str:
+    return f'{m // 60:02d}:{m % 60:02d}'
+
+
+def roster_of(workers: Dict[str, dict]) -> List[dict]:
+    """WHO works WHEN (the base of the resource calendars): the working windows of a day [(from, to) minutes] and the weekdays worked (Mon = 0 .. Sun = 6; the plant is closed on Sunday).
+    Confectioners: the windows of their crew (breaks outside the windows) and their weekly day off; the purchasing manager: Mon-Fri 09:00-17:00; the keepers: 06:00-14:00 and their day off."""
+    out = []
+    for nm, wk in sorted(workers.items(), key=lambda kv: (kv[1]['crew'], kv[0])):
+        out.append({'name': nm, 'role': 'Confectioner', 'crew': wk['crew'], 'windows': [list(x) for x in SHIFTS[wk['crew']]],
+                    'days': [d for d in range(6) if d != wk['off']]})
+    out.append({'name': BUYER, 'role': 'Purchasing manager', 'crew': 'B', 'windows': [[9 * 60, 17 * 60]], 'days': [0, 1, 2, 3, 4]})
+    for k in KEEPERS:
+        out.append({'name': k, 'role': 'Warehouse keeper', 'crew': 'K', 'windows': [[6 * 60, 14 * 60]], 'days': [d for d in range(6) if d != KEEPER_OFF[k]]})
+    return out
 
 
 def fmt_h(mins: int) -> str:
@@ -1239,6 +1260,35 @@ def write_catalog_sql(doc: dict, path: Path) -> None:
     def add(table, guid, owner, parent, order, js):
         rows.append((table, guid, owner, parent, order, js))
     people = people_of(doc)
+    roster = {r['name']: r for r in doc.get('cake2Roster', [])}
+    raw_after: Dict[str, List[str]] = {}            # table -> extra SQL written after its INSERT (the day rows of the calendars)
+    # --- the CALENDARS of the persons (the time-of-day model: capacity = the windows of the calendar of the person; a day row per day, the windows come from the pattern workWindows)
+    cal_ids: Dict[str, str] = {}
+    for i, pe in enumerate(people, 1):
+        r = roster.get(pe['name'])
+        if not r:
+            continue
+        cid = 'ck2-cal-' + slug(pe['name'])
+        cal_ids[pe['name']] = cid
+        mins = sum(b - a for a, b in r['windows'])
+        names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        add('managementCalendarTable', cid, 'managementCalendarCatalog', 'personCalendarFolder', 91000 + i * 10,
+            {'kind': 'resource', 'mode': 'quantity', 'title': f'CAKE2 · {pe["name"]} · {clock(r["windows"][0][0])}-{clock(r["windows"][-1][1])}',
+             'description': f'Windows {", ".join(clock(a) + "-" + clock(b) for a, b in r["windows"])} ({mins / 60:g} h); works {", ".join(names[d] for d in r["days"])} (CAKE2 demo).',
+             'hoursPerDay': mins / 60, 'weekDays': len(r['days']), 'workFrom': clock(r['windows'][0][0]), 'workTo': clock(r['windows'][-1][1]),
+             'workWindows': [{'from': clock(a), 'to': clock(b)} for a, b in r['windows']]})
+    if cal_ids:
+        vals = ',\n'.join(f"  ('{cal_ids[n]}', {sum(b - a for a, b in roster[n]['windows']) / 60:g}, ARRAY{roster[n]['days']}::int[])" for n in cal_ids)
+        raw_after['managementCalendarTable'] = [
+            '-- the day rows of those calendars: 2025-12-29 .. 2026-12-31, the hours of the calendar on its working weekdays (Mon = 1 .. Sun = 7 of isodow), 0 on the day off and on Sunday (the plant is closed)',
+            'INSERT INTO public."managementCalendarDaysTable" ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")',
+            "SELECT c.id || ':' || to_char(d, 'YYYY-MM-DD'), c.id, to_char(d, 'YYYY'), (d - DATE '1970-01-01'),",
+            "       jsonb_build_object('day', to_char(d, 'YYYY-MM-DD'), 'hours', CASE WHEN (extract(isodow FROM d)::int - 1) = ANY (c.days) THEN c.hours ELSE 0 END,",
+            "                          'reason', CASE WHEN (extract(isodow FROM d)::int - 1) = ANY (c.days) THEN 'fill' ELSE 'weekend' END,",
+            "                          'isActive', (extract(isodow FROM d)::int - 1) = ANY (c.days))",
+            f'  FROM (VALUES\n{vals}\n  ) AS c(id, hours, days)',
+            "  CROSS JOIN generate_series(DATE '2025-12-29', DATE '2026-12-31', INTERVAL '1 day') AS g(d0) CROSS JOIN LATERAL (SELECT g.d0::date AS d) x",
+            'ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON";']
     # --- folders and types
     add('resourceRoleFolderTable', 'ck2-fld-role-bakery', 'resourceRoleFolderCatalog', 'empty', 91000, {'title': 'Eco bakery'})
     add('resourceRoleFolderTable', 'ck2-fld-role-materials', 'resourceRoleFolderCatalog', 'empty', 92000, {'title': 'Eco bakery materials'})
@@ -1265,8 +1315,9 @@ def write_catalog_sql(doc: dict, path: Path) -> None:
             {'isActive': True, 'personType': 'personTypeEmployee', 'personEmail': f'{slug(first)}.{slug(last)}@ecocakes.example', 'personPhone': f'+49 555 01{i:02d}', 'personTitle': nm,
              'employeeData': {'position': ROLE_TITLE[role], 'department': DEPARTMENT[role], 'employeeNumber': f'EC-{i:03d}'}, 'personLastName': last, 'personFirstName': first, 'personIsEmployee': True})
         total = round(RATES[role] * CONTRACT_PERIOD_HOURS, 2)
+        cal = {'resourceCalendar': cal_ids[nm]} if nm in cal_ids else {}
         add('contractTable', contract_of_person(nm), person_guid(nm), 'person', -91000 - i,
-            {'notes': f'{RATES[role]:.2f} EUR per working hour = {total:,.2f} EUR per month of {CONTRACT_PERIOD_HOURS} h', 'contractVAT': 0, 'contractType': 'Employment', 'contractTitle': f'Employment Agreement - {ROLE_TITLE[role]}',
+            {**cal, 'notes': f'{RATES[role]:.2f} EUR per working hour = {total:,.2f} EUR per month of {CONTRACT_PERIOD_HOURS} h', 'contractVAT': 0, 'contractType': 'Employment', 'contractTitle': f'Employment Agreement - {ROLE_TITLE[role]}',
              'contractTotal': total, 'contractNumber': f'EC-EMP-{i:03d}', 'contractStatus': 'active', 'contractVATRate': 0, 'contractCurrency': 'EUR', 'contractPartyType': 'person',
              'contractStartDate': '2025-01-01', 'contractFinishDate': None, 'contractSignedDate': '2024-12-15', 'contractSumBeforeVAT': total, 'contractPaymentsPeriod': 'Month'})
     # --- suppliers (partners) + framework supply contracts
@@ -1307,7 +1358,7 @@ def write_catalog_sql(doc: dict, path: Path) -> None:
              'measureUnitDefault': 'unit_pcs', 'measureUnitForInventory': 'unit_pcs'})
         add('productPriceTable', f'ck2-pp-cake-{c}-w', cake_product(c), 'empty', 95000 + i, {'price': v['wholesale'], 'validFrom': '2025-01-01', 'measureUnit': 'unit_pcs', 'priceTypeGUID': 'pt_wholesale'})
         add('productPriceTable', f'ck2-pp-cake-{c}-r', cake_product(c), 'empty', 95100 + i, {'price': v['retail'], 'validFrom': '2025-01-01', 'measureUnit': 'unit_pcs', 'priceTypeGUID': 'pt_retail'})
-    out = ['-- CAKE2 demo catalogs (documentation/CAKE1, generated by cake_v1_optimization.py): the REAL persons, roles, material and deliverable products, suppliers and the customer',
+    out = ['-- CAKE2 demo catalogs (documentation/CAKE2, generated by cake_v1_optimization.py): the REAL persons, roles, material and deliverable products, suppliers and the customer',
            '-- that the task lines of cake2_plan_json.json refer to. Idempotent: run it again = the same rows. Run it BEFORE importing the json. Needs start1 + start2 + start4.',
            'DO $$ BEGIN', "  IF to_regclass('public.\"personTable\"') IS NULL OR to_regclass('public.\"rolePriceTable\"') IS NULL OR to_regclass('public.\"productPriceTable\"') IS NULL OR to_regclass('public.\"contractTable\"') IS NULL THEN",
            "    RAISE EXCEPTION 'Run start1_sql_tables.sql + start2_sql_code.sql + start4_sql_insert_missing.sql first';", '  END IF;', 'END $$;', '', 'BEGIN;']
@@ -1317,11 +1368,15 @@ def write_catalog_sql(doc: dict, path: Path) -> None:
         body = [f"  ('{g}', '{o}', '{pa}', {od}, {_sql_str(js)})" for t, g, o, pa, od, js in rows if t == table]
         out.append(',\n'.join(body))
         out.append('ON CONFLICT ("rowGUID") DO UPDATE SET "rowOwnerGUID" = EXCLUDED."rowOwnerGUID", "rowParentGUID" = EXCLUDED."rowParentGUID", "rowJSON" = EXCLUDED."rowJSON";')
+        out += raw_after.get(table, [])
         out.append('')
     out += ['COMMIT;', "NOTIFY pgrst, 'reload schema';", '']
     out += ['-- UNDO (run only after the project CAKE2 / its lines are deleted; every row of this file has an id that starts with ck2- or is a person with an @ecocakes.example e-mail):']
     for table in reversed(list(dict.fromkeys(r[0] for r in rows))):
-        if table == 'personTable':
+        if table == 'managementCalendarTable':
+            out.append('--   DELETE FROM public."managementCalendarDaysTable" WHERE "rowOwnerGUID" LIKE \'ck2-cal-%\';  -- after the contracts below no longer point to them')
+            out.append('--   DELETE FROM public."managementCalendarTable" WHERE "rowGUID" LIKE \'ck2-cal-%\';')
+        elif table == 'personTable':
             out.append('--   DELETE FROM public."personTable" WHERE "rowJSON"->>\'personEmail\' LIKE \'%@ecocakes.example\';')
         elif table == 'contractTable':
             out.append('--   DELETE FROM public."contractTable" WHERE "rowGUID" LIKE \'ck2-ct-%\';')
@@ -1345,6 +1400,27 @@ PROJECT_SETTINGS = {
     'budgetScenarioForPlan': 'planScenarioProject1', 'budgetScenarioForFact': 'factScenarioProject1', 'calendarForTaskPlan': CALENDAR_FOR_POST,
     'projectExpenseBudgetNeeded': True, 'projectTimeCostsNeeded': True, 'projectTimeOfPersonNeeded': True, 'projectMaterialCostsNeeded': True,
     'projectExpenseCostsNeeded': False, 'projectRevenueBudgetNeeded': False,
+}
+# THE TIME-OF-DAY MODEL (kit8/pm/hourmodel) + RESOURCE OPTIMIZATION, set for the most precise automatic planning (owner's request 2026-11-18):
+#   the plan is to the MINUTE (resourceSlotMinutes 1, grain 'minute'); the project day is the whole 24 h (windows 00:00-24:00) because the passive steps (chill & set) run through the night -
+#   WHO may work WHEN is the calendar of every PERSON (his shift windows + his day off, see write_catalog_sql), not the project calendar.
+HOUR_MODEL_SETTINGS = {
+    'resourceOptimizationMode': 'hourByHourModel', 'resourceGrainUnit': 'minute', 'resourceSlotMinutes': 1,
+    'projectWorkWindows': [{'from': '00:00', 'to': '24:00'}], 'projectTimeZone': 'UTC',
+}
+RESOURCE_LEVELING_SETTINGS = {
+    'resourceLevelingFunctionalityEnabled': True,                 # master
+    'resourceLevelingMode': 'automatic',                          # the plan is optimized after every edit
+    'resourceLevelingWithinSlackOnly': False,                     # Leveling (the finish may move), not Smoothing
+    'resourceLevelingComputationSide': 'resourceLevelingClientSideComputations',   # the engine of the device decides (exact); the server only proposes
+    'resourceLevelingFunctionalityFastModeEnabled': False,        # no in-place shortcuts: every change goes through the full engine
+    'resourceLevelingPostedTasksMovementEnabled': True,           # posted tasks are candidates, but the user is ASKED (never silently unposted)
+    'resourceLevelingPostedTasksAction': 'ask',
+    'resourceLevelingOrder': 'priorityStandard',                  # priority, then slack, later start, higher row (the finest order)
+    'resourceLevelingClearBeforeLeveling': True,                  # always level from the unleveled plan
+    'resourceLevelingCanSplit': False, 'resourceLevelingManualTasks': False,   # both need an Extended function that is off
+    'resourceLevelingIncludeOtherProjects': True,                 # the posted hours of the other projects are obstacles
+    'resourceLevelingShowDelayBar': True, 'resourceLevelingShowOverallocation': True, 'resourceLevelingKeepHistory': True,
 }
 
 
@@ -1383,7 +1459,7 @@ def add_task_lines(doc: dict) -> dict:
         mins = cols['cc_min']
         who, role = cols['cc_worker'], cols['cc_role']
         n += 1
-        lines.append(make_line(t['rowGUID'], key, n, 'timeGenus', 'unit_hour', round(mins / 60, 4), RATES[role], ITEM_WAGES, f'{role} · {who} · {cols["cc_from"]}-{cols["cc_to"]}',
+        lines.append(make_line(t['rowGUID'], key, n, 'timeGenus', 'unit_hour', mins * 1_000_000 // 60 / 1_000_000, RATES[role], ITEM_WAGES, f'{role} · {who} · {cols["cc_from"]}-{cols["cc_to"]}',
                                {'resourceRoleItem': ROLE_OF[role], 'taskResourceKind': 'person', 'taskResourceItem': person_guid(who), 'taskResourceContract': contract_of_person(who),
                                 'priceSourceTaskLine': 'contract', 'priceAutoTaskLine': RATES[role], 'raciItem': 'raciResponsibleGUID'}))
         cake = cake_of.get(t['treePath'].split('.')[1])
@@ -1412,7 +1488,38 @@ def add_task_lines(doc: dict) -> dict:
                                     'taskLinePartnerItem': CUSTOMER[0], 'taskLinePartnerContract': CUSTOMER_CONTRACT}))
     doc['taskLines'] = lines
     doc['project']['rowJSON'].update(PROJECT_SETTINGS)
+    doc['project']['rowJSON'].update(HOUR_MODEL_SETTINGS)
+    doc['project']['rowJSON'].update(RESOURCE_LEVELING_SETTINGS)
     return doc
+
+
+def assert_calendar_fit(doc: dict) -> int:
+    """The capacity check of Post in the time-of-day model, done here: every Time line of a person lies INSIDE one working window of the calendar of that person on a day he works, and no two
+    lines of one person overlap. Returns the number of lines checked; raises when one is outside."""
+    roster = {person_guid(r['name']): r for r in doc['cake2Roster']}
+    task = {t['rowGUID']: t['rowJSON'] for t in doc['tasks']}
+    booked: Dict[str, List[Tuple[dt.datetime, dt.datetime]]] = collections.defaultdict(list)
+    n = 0
+    for l in doc['taskLines']:
+        j = l['rowJSON']
+        if l['rowParentGUID'] != 'timeGenus':
+            continue
+        r = roster[j['taskResourceItem']]
+        tj = task[l['rowOwnerGUID']]
+        a = dt.datetime.fromisoformat(tj['manualStartAt'][:10]) + dt.timedelta(minutes=tj.get('taskStartMinute', 0))
+        b = a + dt.timedelta(minutes=tj['taskDurationMinutes'])
+        m0 = a.hour * 60 + a.minute
+        m1 = m0 + tj['taskDurationMinutes']
+        assert a.weekday() in r['days'], (r['name'], 'works on', r['days'], 'not on', a.date(), tj['taskDescription'])
+        assert any(w0 <= m0 and m1 <= w1 for w0, w1 in r['windows']), (r['name'], 'window', r['windows'], 'task', clock(m0), clock(m1), tj['taskDescription'])
+        assert abs(j['qtyTaskLine'] - tj['taskDurationMinutes'] / 60) < 1e-5 and j['qtyTaskLine'] <= tj['taskDurationMinutes'] / 60, (j['qtyTaskLine'], tj['taskDurationMinutes'])
+        booked[r['name']].append((a, b))
+        n += 1
+    for nm, lst in booked.items():
+        lst.sort()
+        for (a0, b0), (a1, b1) in zip(lst, lst[1:]):
+            assert b0 <= a1, (nm, 'two lines overlap', a0, b0, a1, b1)
+    return n
 
 
 # =====================================================================================================================
@@ -1443,7 +1550,7 @@ def find_crew(batches: List[Batch], t_search: float, t_final: float, threads: in
 
 
 def main():
-    ap = argparse.ArgumentParser(description='CAKE1 / RUN1 plan: OR-Tools CP-SAT + total_costs.csv + WBS json for appPM80')
+    ap = argparse.ArgumentParser(description='CAKE2 / RUN1 plan: OR-Tools CP-SAT + total_costs.csv + WBS json for appPM80')
     ap.add_argument('--out', default=str(OUT_JSON), help='the json file to write')
     ap.add_argument('--max-time-search', type=float, default=90, help='seconds for every crew size that is tried')
     ap.add_argument('--max-time-final', type=float, default=240, help='seconds for the final improvement run')
@@ -1486,8 +1593,9 @@ def main():
     summary['project_notes'] = (
         f'CAKE2: 8 eco cakes × 20 × 5 kg (160 cakes, 800 kg), production Thu 1 - Fri 2 January 2026. {summary["workers"]} confectioners found by OR-Tools CP-SAT '
         f'(Early {sol["nE"]} + Late {sol["nL"]}), {len(pos)} purchase orders ({total_eur:,.0f} EUR), orders 2+ days before delivery, last cake packed {finish:%a %d %b %H:%M}. '
-        'Documentation: documentation/CAKE1/INIT_STAGE.html, costs: total_costs.csv. Times are the local plant time (hours and minutes are in the columns Hour S / Min S / Hour F / Min F and in From / To).')
+        'Documentation: documentation/CAKE2/INIT_STAGE.html, costs: total_costs.csv. Time-of-day model (hour by hour, planned to the minute): every task has a start time and a duration in minutes, every person a calendar with his shift windows and day off. Times are the local plant time (columns From / To).')
     doc = add_task_lines(build_wbs(batches, tasks, workers, sol, pos, lots, stats, summary, costs))
+    print(f'calendar fit: {assert_calendar_fit(doc)} Time lines lie inside the working windows of their persons (the minute check of Post)')
     lines_eur = sum(l['rowJSON']['sumForBudget'] for l in doc['taskLines'] if l['rowParentGUID'] != 'revenueGenus')
     rev_eur = sum(l['rowJSON']['sumForBudget'] for l in doc['taskLines'] if l['rowParentGUID'] == 'revenueGenus')
     assert abs(lines_eur - costs['needed_total']) < 1.0, (lines_eur, costs['needed_total'])      # the cost lines (Time + Material) = total_costs.csv

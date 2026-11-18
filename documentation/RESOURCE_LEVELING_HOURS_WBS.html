@@ -233,7 +233,7 @@
 <h2>7. Acceptance criteria</h2>
 <ul>
   <li><b>A1.</b> With <code>dayByDayModel</code> every existing Jest, Docker and golden test gives the same result as before this phase; no new column, field or table row appears.</li>
-  <li><b>A2.</b> A calendar with windows 09:00–13:00 and 14:00–18:00: a 6-hour task starting at 11:00 on a working day finishes at 16:00 (it paused over the break); the bar is drawn in two pieces.</li>
+  <li><b>A2.</b> A calendar with windows 09:00–13:00 and 14:00–18:00: a 6-hour task starting at 11:00 on a working day finishes at 18:00 (2 h before the break + 4 h after it; it paused over the break); the bar is drawn in two pieces.</li>
   <li><b>A3.</b> The same project in both models: tasks whose durations are whole working days get the same start and finish days.</li>
   <li><b>A4.</b> Post in the hour model: the hour rows of a line add up to its day rows and to the line; the day rows equal what the day model would write for the same days; Monitor01 shows the same numbers.</li>
   <li><b>A5.</b> Two 4-hour tasks booking one person 09:00–13:00 at once are over-allocated (Warn / Block follow <code>resourceCapacityStrongMode</code>); one at 09:00–13:00 and one at 14:00–18:00 are not.</li>
@@ -275,7 +275,14 @@
 </div>
 
 <h2>10. Decisions of the owner</h2>
-<p>None yet for H6 – H12 and O1 – O7 of this document. H1 – H5 and Q11 come from the first document (decided 2026-10-27). Write the answers here, with the date.</p>
+<p>H1 – H5 and Q11 come from the first document (decided 2026-10-27).</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Answer</th><th>Date</th></tr>
+  <tr><td class="id">O7</td><td><b>Server side computation is also needed</b> in the time-of-day model. It uses the radio set that exists (<code>resourceLevelingComputationSide</code>): no new project setting was needed. Built as the problem <code>v = 2</code> of <code>project_resource_leveling_server_plan</code> on the virtual axis of the steps (section 12).</td><td>2026-11-18</td></tr>
+  <tr><td class="id">O1 – O6, O8</td><td>Not answered: the defaults of section 8 were built (one project time zone, working hours, a night shift = two windows on two days, derived intensity, no splits / recurring tasks in the model, step 15 minutes).</td><td>2026-11-18</td></tr>
+</table>
+</div>
 
 <h2>11. Update steps when it is built (preview)</h2>
 <ol>
@@ -284,8 +291,31 @@
   <li>Not needed: <code>start3</code> (no pg_cron job), <code>.env</code> lines.</li>
 </ol>
 
-<h2>12. Implementation status</h2>
-<p>2026-11-18: <b>planning only</b>, no code. The choice “Hour by hour” stays disabled (<code>HOUR_BY_HOUR_MODEL_AVAILABLE = false</code>) until WP15.7 is done.</p>
+<h2>12. Implementation status (2026-11-18)</h2>
+<p><b>Built</b> (code in <code>kit8/pm/hourmodel</code>, README there; SQL <b>PART 53</b>; the choice “Hour by hour” is selectable, <code>HOUR_BY_HOUR_MODEL_AVAILABLE = true</code>):</p>
+<div class="tbl">
+<table>
+  <tr><th>Work package</th><th>Status</th></tr>
+  <tr><td>15.2 settings</td><td><span class="tag have">Built</span> radio enabled, section “Time of day” (step, time zone, working windows), grain value Minute, the 11 new texts in 14 languages; <code>projectWorkWindows</code> is the daily window list of the project calendar (a deviation from H10: the project calendar has no windows of its own, so the windows are a project setting)</td></tr>
+  <tr><td>15.3 calendar windows</td><td><span class="tag have">Built</span> day row <code>windows</code> (trigger: hours = sum, validation, hand-typed hours drop the windows), the calendar pattern <code>workWindows</code> + <code>workFrom</code> (Fill window “Working windows”), <code>organization_resource_capacity_windows</code>. <span class="tag no">Not built</span>: a per-day windows editor, the calendar-lock rule for windows</td></tr>
+  <tr><td>15.4 axis</td><td><span class="tag have">Built</span> <code>hourAxis.ts</code> (breaks, weekends, days off, extra days)</td></tr>
+  <tr><td>15.5 task keys</td><td><span class="tag have">Built</span> <code>taskStartMinute</code> / <code>taskDurationMinutes</code> / <code>taskLevelingDelayMinutes</code>, trigger, template strip; inline duration cell “1h 30m”, task window start hour / minute</td></tr>
+  <tr><td>15.6 scheduler</td><td><span class="tag have">Built</span> <code>scheduleProjectHours</code> = the day scheduler on the virtual axis (golden test: whole-day plans equal the day model); wired in <code>storeDerive</code>. <span class="tag no">Not built</span>: the Gantt hour / minute zoom (a bar is drawn by its instants on the day scale)</td></tr>
+  <tr><td>15.8 / 15.9 Post and check</td><td><span class="tag have">Built</span> slices in <code>task_line_plan_hour_movements</code> (written by <code>create_task_line_plan</code>), the minute-exact <code>organization_resource_busy_check_hours</code> (replaces the day check in this model; Off / Warn / Block), unpost on a changed start MINUTE, the posted slices are the foreign load of other projects</td></tr>
+  <tr><td>15.10 leveling</td><td><span class="tag have">Built</span> the engine on the step axis (client side), delays in minutes, apply / clear / undo in minutes, preview with clock times. <span class="tag have">Server side (O7)</span> built: <code>v = 2</code></td></tr>
+  <tr><td>15.11 load views</td><td><span class="tag no">Not built</span> (the day versions of the Load graph / Usage grid do not exist yet)</td></tr>
+  <tr><td>15.12 – 15.14</td><td>Tests: Jest <code>__tests__/pm/hourmodel</code> (+ <code>__tests__/sql/timeOfDaySql.test.ts</code>), Docker <code>101_time_of_day.sql</code> (69 checks) and <code>102_time_of_day_post.sql</code> (35 checks); README of <code>kit8/pm/hourmodel</code>; KNOW_HOW. <span class="tag no">Not done</span>: bench of the hour scheduler / hour Post (2 000 lines), import / export of the new keys in the project file</td></tr>
+</table>
+</div>
+
+<h2>13. Server side computations in the time-of-day model (O7)</h2>
+<ul>
+  <li><b>Same switch, no new setting</b>: Project settings → Resources → Resource optimization → Server side computations. The database proposes, the device checks and continues from the proposal with its own scheduler (<code>seed</code>), exactly as in the day model.</li>
+  <li><b>Problem <code>v = 2</code></b> (<code>hourServerProblem.ts</code>): the calendar is already inside the virtual axis, so the database works on a plain axis: a “day” is a step of <code>resourceSlotMinutes</code> of working time, every day is worked, dates are 2000-01-01 + the number of the step. Durations, lags and delays are in steps; capacity and foreign load come with the problem as runs of steps (<code>cap</code> / <code>for</code>), <code>lastSlot</code> = the last step the capacity is known for, <code>maxSearch</code> = the longest search. The answer has the shape of the day answer (delays in steps, buckets as virtual dates).</li>
+  <li><b>What it does not take</b> (the run is calculated on the device and says why): a start time or a Start No Earlier Than date, a manual task, a subproject, an inactive task, other distributions than uniform, a cycle, more than 30 000 steps or 400 000 resource-steps.</li>
+  <li><b>Exactness</b>: durations are rounded UP to whole steps for the database; the device continues from the proposal on the exact minutes, so a proposal that is off by a fraction of a step costs time, never a wrong plan.</li>
+  <li><b>Tests</b>: Docker <code>101_time_of_day.sql</code> (section 5) and <code>__tests__/pm/hourmodel/hourServer.test.ts</code>.</li>
+</ul>
 
 </main>
 </body>

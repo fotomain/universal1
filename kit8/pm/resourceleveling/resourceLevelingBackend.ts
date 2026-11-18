@@ -9,10 +9,11 @@ import type { ComputationOutcome } from './resourceLevelingComputation';
 import { isServerPlanMissing, type ServerPlanAnswer } from './resourceLevelingApi';
 import { planLevelingRun, prepareLevelingRun, type LevelingPlan, type PlanLevelingArgs } from './resourceLevelingRun';
 import { serverProblemOf, type ServerProblem } from './resourceLevelingServerProblem';
+import { serverProblemHoursOf, type HourServerProblem } from '../hourmodel/hourServerProblem';
 
 export interface CalculatedPlan { plan: LevelingPlan; outcome: ComputationOutcome }
 
-export type FetchServerPlan = (problem: ServerProblem) => Promise<ServerPlanAnswer>;
+export type FetchServerPlan = (problem: ServerProblem | HourServerProblem) => Promise<ServerPlanAnswer>;
 
 export async function calculateLevelingPlan(args: PlanLevelingArgs, fetchPlan: FetchServerPlan): Promise<CalculatedPlan> {
   const prepared = prepareLevelingRun(args);
@@ -23,7 +24,8 @@ export async function calculateLevelingPlan(args: PlanLevelingArgs, fetchPlan: F
   const client = (fallback: NonNullable<ComputationOutcome['fallback']>, reasons?: string[]): CalculatedPlan => ({
     plan: planLevelingRun(args, prepared), outcome: { asked, used: 'client', fallback, ...(reasons?.length ? { reasons } : {}) },
   });
-  const built = serverProblemOf(args, prepared);
+  // the time-of-day model sends its problem on the virtual axis of the steps (SQL problem v = 2)
+  const built = args.hour ? serverProblemHoursOf(args, prepared) : serverProblemOf(args, prepared);
   if (!built.problem) return client('planNotSupported', built.reasons);
   try {
     const answer = await fetchPlan(built.problem);

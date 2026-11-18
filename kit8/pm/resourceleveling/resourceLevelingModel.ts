@@ -105,6 +105,17 @@ export interface LevelingEnv {
   foreign: (resource: ResourceKey, dayMs: number) => number;
   /** the last day the capacity is known for (the search never goes beyond it) and, backward, the first */
   horizon: { firstDayMs: number; lastDayMs: number };
+  /** the longest search of a position, in the unit of `place` (default 800 working days); the time-of-day model searches in steps */
+  maxSearch?: number;
+  /**
+   * The time-of-day model (kit8/pm/hourmodel): the engine works on a VIRTUAL axis (one virtual day = one step of resourceSlotMinutes); these three give the REAL values back:
+   * the plan with real instants (for the dates the user sees), a bucket (virtual) as a real instant, and the bucket of a server answer ('YYYY-MM-DD' of the virtual axis) as a virtual ms.
+   */
+  present?: (s: LevelingSchedule) => LevelingSchedule;
+  bucketToReal?: (bucketMs: number) => number;
+  serverBucketMs?: (bucket: string) => number;
+  /** minutes of one unit of a delay (the step); absent = the delay is in working days */
+  delayUnitMinutes?: number;
 }
 
 export interface LevelingOptions {

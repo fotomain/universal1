@@ -1,7 +1,7 @@
 // Management calendar - the two calls the screens and the task plan need that are not a ReusableTable: Fill (one RPC) and the days of a range.
 // the Supabase client is loaded when a call is made, so importing this file (a screen, a test) never creates the client
 const client = async () => (await import('../../../supabase/supabase')).supabase;
-import { MANAGEMENT_CALENDAR_DAYS_TABLE, CalendarFillMode, CalendarLockDay, dayMs } from './managementCalendarModel';
+import { MANAGEMENT_CALENDAR_DAYS_TABLE, MANAGEMENT_CALENDAR_TABLE, CalendarFillMode, CalendarLockDay, dayMs } from './managementCalendarModel';
 
 export const rpcFillManagementCalendar = 'fill_management_calendar';
 const PAGE = 1000;
@@ -72,4 +72,18 @@ export async function copyManagementCalendar(sourceCalendarGUID: string, title: 
   const { data, error } = await supabase.rpc('organization_copy_calendar', { p_source: sourceCalendarGUID, p_title: title ?? null, p_folder: folderGUID });
   if (error) throw new Error(error.message || String(error));
   return String(data);
+}
+
+/**
+ * The daily working windows of a RESOURCE calendar (the time-of-day model, SQL PART 53): rowJSON.workWindows = [{ from: '09:00', to: '13:00' }, ...] and workFrom = the first start.
+ * A day of the calendar without windows of its own takes this pattern when the hours of the day equal its minutes (organization_calendar_day_windows); the Fill writes the hours.
+ */
+export async function saveCalendarWorkWindows(calendarGUID: string, windows: { from: string; to: string }[]): Promise<void> {
+  const supabase = await client();
+  const table = MANAGEMENT_CALENDAR_TABLE.table;
+  const { data, error } = await supabase.from(table).select('rowJSON').eq('rowGUID', calendarGUID).single();
+  if (error) throw new Error(error.message || String(error));
+  const rowJSON = { ...(data?.rowJSON || {}), workWindows: windows, workFrom: windows[0]?.from, workTo: windows[windows.length - 1]?.to };
+  const res = await supabase.from(table).update({ rowJSON }).eq('rowGUID', calendarGUID);
+  if (res.error) throw new Error(res.error.message || String(res.error));
 }

@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000000000000000000. delete_time_of_day_model.sql - PART 53: drops task_line_plan_hour_movements (data included: the hour rows of ALL posted Time lines; the day rows stay), the hm_* / organization_calendar_day_windows* / organization_resource_capacity_windows / organization_resource_busy_check_hours / task_line_plan_hours_write / project_resource_leveling_inputs_hours functions and the triggers of the day windows and of the minute keys (runs very first: it is the newest)
 --  1a-0000000000000000000. delete_consolidation.sql - PART 52: drops consolidation_dirty + consolidation_gap_table (data included), the consolidation_* / fx_consolidation_* functions, the triggers on the organization row, project_table, the exchange rates and the four movement tables, and the sumForConsolidation columns; the organization keys (currencyForConsolidation ...) stay as inert JSON (runs very first: it is the newest)
 --  1a-000000000000000000. delete_project_readonly.sql - PART 51: drops the read-only guard triggers of the project tables and the project_readonly_* / project_set_readonly / project_is_readonly functions; the key projectIsReadonly stays on the projects as inert JSON (runs very first: it is the newest)
 --  1a-00000000000000000. delete_chat.sql - PART 50: drops chatObjectTable + chatThemeTable + chatMembersTable + chatMessagesTable (data included: ALL chats, members and messages of ALL organizations), the chat_ functions and triggers (the Time line trigger of the RACI members, the task / organization delete triggers); the file rows of the chats stay in mediaPostTable until PART 49 is deleted (runs very first: it is the newest)
@@ -44,6 +45,31 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-00000000000000000000: delete_time_of_day_model.sql  (PART 53 of the structure file: THE TIME-OF-DAY MODEL - runs before everything else, it is the newest)
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public."managementCalendarDaysTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_management_calendar_day_windows ON public."managementCalendarDaysTable";
+  END IF;
+  IF to_regclass('public.project_task_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_project_task_hour_keys_chk ON public.project_task_table;
+  END IF;
+  DROP FUNCTION IF EXISTS public.project_task_hour_keys_check() CASCADE;
+  DROP FUNCTION IF EXISTS public.organization_calendar_day_windows_check() CASCADE;
+  DROP FUNCTION IF EXISTS public.project_resource_leveling_inputs_hours(uuid, date, date, jsonb) CASCADE;
+  DROP FUNCTION IF EXISTS public.organization_resource_capacity_windows(text, text, date) CASCADE;
+  DROP FUNCTION IF EXISTS public.organization_calendar_day_windows(text, date) CASCADE;
+  DROP FUNCTION IF EXISTS public.hm_clock_minutes(text) CASCADE;
+  DROP FUNCTION IF EXISTS public.organization_resource_busy_check_hours(uuid, text) CASCADE;
+  DROP FUNCTION IF EXISTS public.task_line_plan_hours_write(uuid, uuid, uuid, text, jsonb, numeric, numeric, jsonb, boolean) CASCADE;
+  DROP TABLE IF EXISTS public.task_line_plan_hour_movements CASCADE;
+END $$;
+NOTIFY pgrst, 'reload schema';
 
 
 

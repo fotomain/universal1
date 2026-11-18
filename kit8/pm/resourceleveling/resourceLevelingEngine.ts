@@ -210,7 +210,8 @@ function placeTask(
   for (const e of nowEntries) { const k = keyOf(e.resource, bucketOf(ctx, e.dayMs)); mine.set(k, (mine.get(k) || 0) + e.hours); }
   let lastCode: UnresolvedCode = 'noCapacityInHorizon';
   let exceeds = false;
-  for (let extra = 1; extra <= MAX_SEARCH_DAYS; extra++) {
+  const maxSearch = env.maxSearch ?? MAX_SEARCH_DAYS;
+  for (let extra = 1; extra <= maxSearch; extra++) {
     if (opt.method === 'smoothing' && extra > slack + EPS) return { ok: false, code: 'slackLimit' };
     const p = env.place(x.guid, curRow, extra);
     if (forward ? p.finishMs - DAY_MS > env.horizon.lastDayMs : p.startMs < env.horizon.firstDayMs) return { ok: false, code: exceeds ? 'taskExceedsCapacity' : lastCode };

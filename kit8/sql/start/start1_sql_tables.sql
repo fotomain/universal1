@@ -58,6 +58,7 @@
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): chatObjectTable, chatThemeTable, chatMembersTable, chatMessagesTable
 --   51. create_project_readonly.sql - READ-ONLY PROJECT: no table (the switch is the key projectIsReadonly of project_table.rowJSON); the guard triggers are in start2_sql_code.sql
 --   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the twin columns sumForConsolidation of the four movement tables, the queue consolidation_dirty and the gap table consolidation_gap_table; the code is in start2_sql_code.sql
+--   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): task_line_plan_hour_movements = the hour rows (window slices) of a posted Time line, derived next to the day rows
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3989,6 +3990,45 @@ CREATE TABLE IF NOT EXISTS public.consolidation_gap_table (
 CREATE INDEX IF NOT EXISTS idx_consolidation_gap_project ON public.consolidation_gap_table ("rowProjectGUID");
 
 CREATE INDEX IF NOT EXISTS idx_consolidation_gap_org ON public.consolidation_gap_table ("rowOrganizationGUID");
+
+-- ===============================================================================================
+-- PART 53: create_time_of_day_model.sql
+-- THE TIME-OF-DAY MODEL (project setting resourceOptimizationMode = hourByHourModel; documentation/RESOURCE_LEVELING_HOURS_WBS.html). Planning, Post and the busy check to the MINUTE.
+--   task_line_plan_hour_movements   the hour rows of a posted Time line: one row per task line and WINDOW SLICE (a piece of a working window of the day; any whole number of minutes).
+--                                   DERIVED data: written only by create_task_line_plan in the same transaction as the day rows (task_line_plan_movements stay the truth of every report),
+--                                   deleted with them (unpost, a line / task / project delete). The wall clock of the slice is kept as minuteFrom / minuteTo of periodDay (no zone arithmetic
+--                                   is needed to compare two slices); periodStart / periodEnd are the same instants as timestamptz in the zone of the post.
+-- The day windows of a resource calendar, the new task keys (taskStartMinute / taskDurationMinutes / taskLevelingDelayMinutes) and the functions are in start2.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.task_line_plan_hour_movements (
+  "rowGUID"            UUID          NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"     UUID          NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowOwnerGUID"       UUID          NOT NULL REFERENCES public.project_task_table("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID"      UUID          NOT NULL REFERENCES public.task_line_table("rowGUID") ON DELETE CASCADE,
+  "periodDay"          DATE          NOT NULL,
+  "minuteFrom"         INTEGER       NOT NULL,
+  "minuteTo"           INTEGER       NOT NULL,
+  "periodStart"        TIMESTAMPTZ   NOT NULL,
+  "periodEnd"          TIMESTAMPTZ   NOT NULL,
+  "minutes"            INTEGER       NOT NULL,
+  "rowCoefficient"     NUMERIC(14,10) NOT NULL,
+  "qtyTaskLine"        NUMERIC(18,6),
+  "resourceKind"       TEXT,
+  "resourceGUID"       TEXT,
+  "planMovementStatus" BOOLEAN       NOT NULL DEFAULT true,
+  "created_at"         TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT task_line_plan_hour_movements_minutes_chk CHECK ("minuteFrom" >= 0 AND "minuteTo" <= 1440 AND "minuteTo" > "minuteFrom" AND "minutes" = "minuteTo" - "minuteFrom"),
+  CONSTRAINT task_line_plan_hour_movements_coefficient_chk CHECK ("rowCoefficient" >= 0),
+  CONSTRAINT task_line_plan_hour_movements_slice_uq UNIQUE ("rowParentGUID", "periodDay", "minuteFrom")
+);
+
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_task ON public.task_line_plan_hour_movements ("rowOwnerGUID", "periodDay");
+
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_project ON public.task_line_plan_hour_movements ("rowProjectGUID", "periodDay");
+
+CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_resource ON public.task_line_plan_hour_movements ("resourceKind", "resourceGUID", "periodDay") WHERE "resourceGUID" IS NOT NULL;
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

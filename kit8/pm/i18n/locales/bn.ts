@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "পুরো প্রতিষ্ঠানের জন্য একটি মেনুর নাম, কলামের শিরোনাম বা শিরোনাম বদলান। ভাষা: {{n}}।",
   "Only the administrator of the organization edits the texts.": "শুধু প্রতিষ্ঠানের প্রশাসক লেখাগুলো সম্পাদনা করেন।",
   "Text": "লেখা",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "দিনের সময়: শুরুর সময়, সময়কাল ও বিলম্ব পূর্ণ মিনিট; ক্যালেন্ডারে কাজের জানালা আছে।",
+  "Minute": "মিনিট",
+  "Time of day": "দিনের সময়",
+  "Step (resourceSlotMinutes)": "ধাপ (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "শুরুর সময় ও সমতলীকরণ সরানোর ক্ষুদ্রতম ধাপ, মিনিটে। যাচাই মিনিট পর্যন্ত নির্ভুল।",
+  "Time zone (projectTimeZone)": "সময় অঞ্চল (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "দিনের কাজের জানালা (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "থেকে-পর্যন্ত, কমা দিয়ে আলাদা, যেমন 09:00-13:00, 14:00-18:00। বিরতি হলো দুটি জানালার মাঝের ফাঁক।",
+  "This is not a time zone name, for example Europe/Berlin.": "এটি কোনো সময় অঞ্চলের নাম নয়, যেমন Europe/Berlin।",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "দিনের-সময় মডেল প্রকল্পের শুরু থেকে পরিকল্পনা করে; শেষ তারিখ থেকে পরিকল্পনা এতে ব্যবহৃত হয় না।",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

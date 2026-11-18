@@ -42,6 +42,8 @@ export interface TaskLinePlanLineJSON {
   /** the sum in the accounting currency of the project (null stays null) */
   sumForAccounting?: number | null;
   days: { d: string; c: number }[];
+  /** the time-of-day model (kit8/pm/hourmodel/hourPostPlan.ts): the slices of a Time line, minutes of the day; the days above are the sums of its slices */
+  hours?: { d: string; f: number; t: number; c: number }[];
 }
 export interface TaskLinePlanJSON {
   taskGUID: string;

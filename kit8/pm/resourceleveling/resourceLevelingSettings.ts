@@ -4,8 +4,8 @@
 //   EVERY key is OFF / at its default while never saved; the sub switches work only while the MASTER is on (resourceLevelingValuesOf applies this, the SQL reads the same keys).
 //
 //   part "Resources" (always editable, they are not optimization switches)
-//     resourceOptimizationMode     'dayByDayModel' (default: the plan has days, as it is today) | 'hourByHourModel' (the time-of-day model, phase 2: not selectable yet)
-//     resourceGrainUnit            'hour' (default) | 'day' | 'week': the unit shown and the period in which load is compared with capacity (section 7.9)
+//     resourceOptimizationMode     'dayByDayModel' (default: the plan has days, as it is today) | 'hourByHourModel' (the time-of-day model, planned to the minute: kit8/pm/hourmodel)
+//     resourceGrainUnit            'hour' (default) | 'minute' | 'day' | 'week': the unit shown and the period in which load is compared with capacity (section 7.9)
 //   section "Resource optimization"
 //     resourceLevelingFunctionalityEnabled                MASTER
 //     resourceLevelingMode                                'manual' (default) | 'automatic'
@@ -24,7 +24,7 @@
 import { extendedOf } from '../extended/extendedModel';
 
 export type ResourceOptimizationMode = 'dayByDayModel' | 'hourByHourModel';
-export type ResourceGrainUnit = 'hour' | 'day' | 'week';
+export type ResourceGrainUnit = 'minute' | 'hour' | 'day' | 'week';
 export type ResourceLevelingMode = 'manual' | 'automatic';
 /** WHERE a run is calculated (the radio set of the section "Resource optimization"; the values are the names of the two variants) */
 export type ResourceLevelingComputation = 'resourceLevelingClientSideComputations' | 'resourceLevelingServerSideComputations';
@@ -34,15 +34,15 @@ export type ResourceLevelingPostedAction = 'ask' | 'unpostAndMove' | 'moveAndPos
 export type ResourceOptimizationMethod = 'leveling' | 'smoothing';
 
 export const RESOURCE_OPTIMIZATION_MODES: readonly ResourceOptimizationMode[] = ['dayByDayModel', 'hourByHourModel'];
-export const RESOURCE_GRAIN_UNITS: readonly ResourceGrainUnit[] = ['hour', 'day', 'week'];
+export const RESOURCE_GRAIN_UNITS: readonly ResourceGrainUnit[] = ['minute', 'hour', 'day', 'week'];
 export const RESOURCE_LEVELING_MODES: readonly ResourceLevelingMode[] = ['manual', 'automatic'];
 export const RESOURCE_LEVELING_COMPUTATIONS: readonly ResourceLevelingComputation[] = ['resourceLevelingClientSideComputations', 'resourceLevelingServerSideComputations'];
 export const DEFAULT_RESOURCE_LEVELING_COMPUTATION: ResourceLevelingComputation = 'resourceLevelingClientSideComputations';
 export const RESOURCE_LEVELING_ORDERS: readonly ResourceLevelingOrder[] = ['idOnly', 'standard', 'priorityStandard'];
 export const RESOURCE_LEVELING_POSTED_ACTIONS: readonly ResourceLevelingPostedAction[] = ['ask', 'unpostAndMove', 'moveAndPostAgain', 'keep'];
 
-/** the hour-by-hour model is built in phase 2 (WP15): the choice is shown but cannot be made yet */
-export const HOUR_BY_HOUR_MODEL_AVAILABLE = false;
+/** the time-of-day model (hourByHourModel, planned to the minute: documentation/RESOURCE_LEVELING_HOURS_WBS.html; code in kit8/pm/hourmodel) can be chosen */
+export const HOUR_BY_HOUR_MODEL_AVAILABLE = true;
 
 export interface PMResourceLevelingValues {
   resourceOptimizationMode?: ResourceOptimizationMode;
@@ -147,7 +147,7 @@ export function resourceLevelingOf(j: Json): ResourceLevelingEffective {
     showOverallocation: on && v.resourceLevelingShowOverallocation,
     keepHistory: v.resourceLevelingKeepHistory,
     grainUnit: v.resourceGrainUnit,
-    // until the time-of-day model exists the project plans by day whatever is stored
+    // the day model unless the project chose the time-of-day model
     optimizationMode: HOUR_BY_HOUR_MODEL_AVAILABLE ? v.resourceOptimizationMode : 'dayByDayModel',
   };
 }

@@ -14,7 +14,9 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
 import { showSnackbar } from '../../../redux/uxuiSlice';
 import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
-import { fetchCalendarConsistency, fillManagementCalendar } from './managementCalendarApi';
+import { fetchCalendarConsistency, fillManagementCalendar, saveCalendarWorkWindows } from './managementCalendarApi';
+import { parseWindowsText, windowsToJson } from '../../../pm/hourmodel/hourModelSettings';
+import { windowMinutes } from '../../../pm/hourmodel/hourAxis';
 import { CALENDAR_FILL_MODES, CALENDAR_PATTERN_FILL_MODE, CalendarFillMode, calendarHoursPerDay, hasWeekPattern, isResourceCalendar } from './managementCalendarModel';
 import type { DefRow } from '../../product/productModel';
 
@@ -48,6 +50,10 @@ export default function CalendarFillMenu({ calendarGUID, onFilled, testID = 'cal
   const [busy, setBusy] = useState(false);
   const resource = isResourceCalendar(calendar);
   const [hoursText, setHoursText] = useState('');
+  // the time-of-day model (SQL PART 53): the daily working windows of the calendar, e.g. 09:00-13:00, 14:00-18:00 (empty = leave them as they are)
+  const [windowsText, setWindowsText] = useState('');
+  const windowsValue = parseWindowsText(windowsText);
+  const windowsBad = windowsText.trim() !== '' && windowsValue === null;
   const [follow, setFollow] = useState(true);
   const [helpOpen, setHelpOpen] = useState(false);
   const modes = resource && hasWeekPattern(calendar) ? [...CALENDAR_FILL_MODES, CALENDAR_PATTERN_FILL_MODE] : CALENDAR_FILL_MODES;
@@ -66,7 +72,11 @@ export default function CalendarFillMenu({ calendarGUID, onFilled, testID = 'cal
     if (!calendarGUID || busy) return;
     setBusy(true);
     try {
-      const n = await fillManagementCalendar(calendarGUID, year, mode, overwrite, resource ? { hours: hoursValue(), followProjectHolidays: follow } : {});
+      if (resource && windowsText.trim() !== '' && windowsValue === null) throw new Error('The working windows must be like 09:00-13:00, 14:00-18:00');
+      // working windows typed: they are saved on the calendar; the hours of a day then default to their sum
+      if (resource && windowsValue) await saveCalendarWorkWindows(calendarGUID, windowsToJson(windowsValue));
+      const hours = resource ? (hoursValue() ?? (windowsValue ? Math.round((windowMinutes(windowsValue) / 60) * 100) / 100 : null)) : null;
+      const n = await fillManagementCalendar(calendarGUID, year, mode, overwrite, resource ? { hours, followProjectHolidays: follow } : {});
       // a resource calendar: tell where it differs from the project calendars of the organization (information, nothing is refused for that)
       let note = '';
       if (resource) {
@@ -103,6 +113,11 @@ export default function CalendarFillMenu({ calendarGUID, onFilled, testID = 'cal
                   style={[styles.help, { borderColor: c.primary }]}>
                   <Text style={{ color: c.primary, fontWeight: '800' }}>!</Text>
                 </Pressable>
+              </View>
+              <View style={styles.row}>
+                <Text style={{ color: windowsBad ? c.error : c.text, fontSize: 13, flex: 1 }}>Working windows (optional)</Text>
+                <TextInput testID={`${testID}-windows`} value={windowsText} onChangeText={setWindowsText} placeholder="09:00-13:00, 14:00-18:00" placeholderTextColor={c.text + '80'}
+                  style={[styles.windows, { color: c.text, borderColor: windowsBad ? c.error : c.border }]} />
               </View>
               <Pressable testID={`${testID}-follow`} accessibilityRole="checkbox" aria-checked={follow} onPress={() => setFollow((v) => !v)} style={styles.row}>
                 <IconApp name={follow ? 'check_box' : 'check_box_outline_blank'} size={18} color={c.text} />
@@ -142,5 +157,6 @@ const styles = StyleSheet.create({
   sub: { paddingLeft: 32 },
   resourceBox: { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: '#cbd5e1', marginBottom: 4 },
   hours: { width: 56, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, textAlign: 'right' },
+  windows: { width: 190, borderWidth: 1, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   help: { width: 22, height: 22, borderRadius: 11, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
 });

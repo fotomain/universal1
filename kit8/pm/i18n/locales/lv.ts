@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Aizstājiet izvēlnes nosaukumu, kolonnas virsrakstu vai virsrakstu visai organizācijai. Valoda: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Tekstus maina tikai organizācijas administrators.",
   "Text": "Teksts",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Diennakts laiks: sākuma laiki, ilgumi un aizkaves ir veselas minūtes; kalendārā ir darba logi.",
+  "Minute": "Minūte",
+  "Time of day": "Diennakts laiks",
+  "Step (resourceSlotMinutes)": "Solis (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Mazākais sākuma laika un izlīdzināšanas nobīdes solis minūtēs. Pārbaudes ir precīzas līdz minūtei.",
+  "Time zone (projectTimeZone)": "Laika josla (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Dienas darba logi (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "No-līdz, atdalīti ar komatiem, piemēram, 09:00-13:00, 14:00-18:00. Pārtraukums ir sprauga starp diviem logiem.",
+  "This is not a time zone name, for example Europe/Berlin.": "Tas nav laika joslas nosaukums, piemēram, Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Diennakts laika modelis plāno no projekta sākuma; plānošana no beigu datuma tajā netiek izmantota.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

@@ -735,3 +735,14 @@
 735|Vervang een menutitel, kolomkop of titel voor uw hele organisatie. Taal: {{n}}.
 736|Alleen de beheerder van de organisatie wijzigt de teksten.
 737|Tekst
+738|Tijdstip van de dag: starttijden, duren en vertragingen zijn hele minuten; de kalender heeft werkvensters.
+739|Minuut
+740|Tijdstip van de dag
+741|Stap (resourceSlotMinutes)
+742|De kleinste stap van een starttijd en van een nivelleringsverschuiving, in minuten. De controles zijn minuutnauwkeurig.
+743|Tijdzone (projectTimeZone)
+744|Werkvensters van een dag (projectWorkWindows)
+745|Van-tot, gescheiden door komma's, bijvoorbeeld 09:00-13:00, 14:00-18:00. Een pauze is de ruimte tussen twee vensters.
+746|Dit is geen naam van een tijdzone, bijvoorbeeld Europe/Berlin.
+747|Het tijdstipmodel plant vanaf de projectstart; een planning vanaf de einddatum wordt daarin niet gebruikt.
+748|{{from}} → {{to}} ({{delay}} {{when}})

@@ -1,4 +1,4 @@
-// documentation/CAKE1 RUN1: the plan file cake2_plan_json.json + total_costs.csv (made by cake_v1_optimization.py) goes through the REAL importer and scheduler of the app:
+// documentation/CAKE2 RUN1: the plan file cake2_plan_json.json + total_costs.csv (made by cake_v1_optimization.py) goes through the REAL importer and scheduler of the app:
 //   parse (projectExchangeFormat) -> plan the import into the target project (planProjectImport) -> schedule (scheduleProject)
 // and the business rules of the task are checked on the result: 20 cakes per position (2 production days from 2026-01-01), <= 10 worker operations per cake, orders >= 2 days before the delivery,
 // every pinned day / link survives the CPM pass, the hour and minute fields are valid, the custom columns are all defined.
@@ -8,11 +8,15 @@ import * as path from 'path';
 import { parseProjectExchangeFile } from '../../../../kit8/pm/crud/exchange/project/projectExchangeFormat';
 import { planProjectImport } from '../../../../kit8/pm/crud/exchange/project/import/planProjectImport';
 import { scheduleProject, parseDateISO, projectTreePath } from '../../../../kit8/pm/view/project/scheduling';
+import { buildHourAxis, MINUTE_MS } from '../../../../kit8/pm/hourmodel/hourAxis';
+import { hourModelOf } from '../../../../kit8/pm/hourmodel/hourModelSettings';
+import { resourceLevelingOf } from '../../../../kit8/pm/resourceleveling/resourceLevelingSettings';
+import { scheduleProjectHours } from '../../../../kit8/pm/hourmodel/scheduleHours';
 import { normalizeTreeColumnsOrder } from '../../../../kit8/pm/view/tree/columns/treeColumns';
 import { projectCustomColumnsOf, taskCustomValuesOf } from '../../../../kit8/pm/view/tree/columns/customColumns';
 import type { PMProjectRow } from '../../../../kit8/pm/model/types';
 
-const FILE = process.env.CAKE2_JSON || path.resolve(__dirname, '../../../../documentation/CAKE1/cake2_plan_json.json')
+const FILE = process.env.CAKE2_JSON || path.resolve(__dirname, '../../../../documentation/CAKE2/cake2_plan_json.json')
 const CSV = path.resolve(path.dirname(FILE), 'total_costs.csv');
 const PROJECT = 'c79ba49f-5795-470f-899d-ed412eeb7cb5';
 const OWNER = '11111111-1111-4111-8111-111111111111';
@@ -20,7 +24,7 @@ const DAY = 86400000;
 const has = fs.existsSync(FILE);
 const d = has ? describe : describe.skip;
 
-d('CAKE1 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
+d('CAKE2 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
   const text = has ? fs.readFileSync(FILE, 'utf8') : '{}';
   const file = has ? parseProjectExchangeFile(text) : (null as any);
   const target: PMProjectRow = {
@@ -65,8 +69,11 @@ d('CAKE1 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
       for (const k of Object.keys(taskCustomValuesOf(j))) expect(defs.has(k as any)).toBe(true);
       if (j.rowKind === 'stage') continue;
       expect(j.durationDays).toBeGreaterThanOrEqual(1);
-      for (const k of ['startHourStart', 'startHourFinish']) expect(Number.isInteger(j[k]) && j[k] >= 0 && j[k] <= 23).toBe(true);
-      for (const k of ['planMinuteStart', 'planMinuteFinish']) expect(Number.isInteger(j[k]) && j[k] >= 0 && j[k] <= 59).toBe(true);
+      // the time-of-day model: a start TIME (0 = absent) and a duration, both whole minutes; the old hour / minute fields are gone (the tree derives them)
+      if (j.rowKind === 'task') expect(Number.isInteger(j.taskDurationMinutes) && j.taskDurationMinutes >= 1).toBe(true);
+      expect(j.taskStartMinute === undefined || (Number.isInteger(j.taskStartMinute) && j.taskStartMinute >= 1 && j.taskStartMinute <= 1439)).toBe(true);
+      expect(j.startHourStart).toBeUndefined();
+      expect(j.planMinuteStart).toBeUndefined();
       expect(parseDateISO(String(j.manualStartAt).slice(0, 10))).not.toBeNull();
     }
     // the saved column order is accepted by the tree (every key known)
@@ -74,8 +81,21 @@ d('CAKE1 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
     for (const k of file.uxuiSettings.treeColumnsOrder) expect(order).toContain(k);
   });
 
-  it('the app scheduler puts every operation on the day the optimizer chose (pins + links, no cycle)', () => {
-    const res = scheduleProject({ tasks: plan.tasks, deps: plan.dependencies, projectStartMs: Date.UTC(2025, 11, 29), calendar: { skipWeekends: false } });
+  it('the project is set to the hour by hour model, grain minute, with Resource optimization ON in Automatic mode', () => {
+    const rj = plan.projectRowJSON as any;
+    const hm = hourModelOf(rj);
+    expect(hm.active).toBe(true);
+    expect(hm.slotMinutes).toBe(1);
+    expect(hm.windows).toEqual([{ from: 0, to: 1440 }]);
+    expect(rj.resourceGrainUnit).toBe('minute');
+    const rl = resourceLevelingOf(rj);
+    expect(rl).toMatchObject({ enabled: true, mode: 'automatic', method: 'leveling', serverSide: false, order: 'priorityStandard', clearBefore: true, includeOtherProjects: true, keepHistory: true, grainUnit: 'minute', optimizationMode: 'hourByHourModel' });
+  });
+
+  it('the app scheduler of the time-of-day model puts every task on the minute the optimizer chose (pinned start + minute duration, FS links, no cycle)', () => {
+    const calendar = { skipWeekends: false, workWeek: [false, true, true, true, true, true, true] }; // sixDayWeekCalendar: Mon-Sat
+    const axis = buildHourAxis({ windows: hourModelOf(plan.projectRowJSON as any).windows, calendar, originMs: Date.UTC(2025, 11, 29) });
+    const res = scheduleProjectHours({ tasks: plan.tasks, deps: plan.dependencies, projectStartMs: Date.UTC(2025, 11, 29), axis });
     expect(res.cycleGUIDs).toEqual([]);
     let leaves = 0;
     for (const t of plan.tasks) {
@@ -83,13 +103,25 @@ d('CAKE1 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
       if (j.rowKind === 'stage') continue;
       leaves++;
       const row = res.rows[t.rowGUID];
-      const want = parseDateISO(String(j.manualStartAt).slice(0, 10))!;
-      expect(`${j.taskDescription}: ${new Date(row.startMs).toISOString().slice(0, 10)}`).toBe(`${j.taskDescription}: ${new Date(want).toISOString().slice(0, 10)}`);
-      expect(row.finishMs).toBe(want + j.durationDays * DAY);
+      const want = parseDateISO(String(j.manualStartAt).slice(0, 10))! + (j.taskStartMinute ?? 0) * MINUTE_MS;
+      expect(`${j.taskDescription}: ${new Date(row.startMs).toISOString()}`).toBe(`${j.taskDescription}: ${new Date(want).toISOString()}`);
+      expect(`${j.taskDescription}: ${row.durationMinutes}`).toBe(`${j.taskDescription}: ${j.taskDurationMinutes}`);
     }
     expect(leaves).toBeGreaterThan(150);
     expect(new Date(res.projectStartMs).toISOString().slice(0, 10)).toBe('2025-12-29');
-    expect(new Date(res.projectFinishMs - DAY).getTime()).toBeLessThanOrEqual(Date.UTC(2026, 0, 2));
+    expect(res.projectFinishMs).toBeLessThanOrEqual(Date.UTC(2026, 0, 3));
+  });
+
+  it('every link is FS with no lag and no task starts before its predecessor has finished', () => {
+    const byId = new Map(plan.tasks.map((t: any) => [t.rowGUID, t]));
+    const startOf = (t: any) => parseDateISO(String(t.rowJSON.manualStartAt).slice(0, 10))! + (t.rowJSON.taskStartMinute ?? 0) * MINUTE_MS;
+    for (const dep of plan.dependencies) {
+      expect(dep.linkType).toBe('FS');
+      expect(dep.lagDays).toBe(0);
+      const p: any = byId.get(dep.rowDependsOnGUID);
+      const s: any = byId.get(dep.rowGUID);
+      expect(startOf(s)).toBeGreaterThanOrEqual(startOf(p) + p.rowJSON.taskDurationMinutes * MINUTE_MS);
+    }
   });
 
   describe('the business rules of the task', () => {
@@ -195,6 +227,38 @@ d('CAKE1 / RUN1 plan file (cake2_plan_json.json) -> appPM80 import', () => {
       const names = staff.map((t: any) => t.rowJSON.customColumns.cc_worker);
       expect(new Set(names).size).toBe(names.length);
       for (const t of staff) expect(t.rowJSON.taskDescription).toMatch(/day off (Mon|Tue|Wed|Thu|Fri|Sat|Sun)/);
+    });
+
+    it('every Time line lies inside a working window of the calendar of its person on a day he works (what the minute check of Post sees), never above the capacity of its minutes', () => {
+      const roster = new Map<string, any>();
+      for (const r of file.cake2Roster) roster.set(r.name, r);
+      const byGuid = new Map<string, any>(file.tasks.map((t: any) => [t.rowGUID, t]));
+      const persons = new Map<string, string>(); // person GUID -> name, from the Time lines' description 'role · name · from-to'
+      let checked = 0;
+      for (const l of file.taskLines.filter((x: any) => x.rowParentGUID === 'timeGenus')) {
+        const t = byGuid.get(l.rowOwnerGUID);
+        const name = String(t.rowJSON.customColumns.cc_worker);
+        persons.set(l.rowJSON.taskResourceItem, name);
+        const r = roster.get(name);
+        const day = new Date(Date.parse(String(t.rowJSON.manualStartAt).slice(0, 10)));
+        const m0 = t.rowJSON.taskStartMinute ?? 0;
+        const m1 = m0 + t.rowJSON.taskDurationMinutes;
+        expect(r.days).toContain((day.getUTCDay() + 6) % 7);
+        expect(r.windows.some(([a, b]: number[]) => a <= m0 && m1 <= b)).toBe(true);
+        expect(l.rowJSON.qtyTaskLine).toBeLessThanOrEqual(t.rowJSON.taskDurationMinutes / 60);
+        expect(t.rowJSON.taskDurationMinutes / 60 - l.rowJSON.qtyTaskLine).toBeLessThan(1e-5);
+        checked++;
+      }
+      expect(checked).toBeGreaterThan(100);
+      expect(persons.size).toBe(11);
+      expect(roster.size).toBe(11);
+    });
+
+    it('the calendars of the persons are in CAKE2_CATALOG_DATA.sql and the contracts point to them', () => {
+      const sql = fs.readFileSync(path.resolve(path.dirname(FILE), 'CAKE2_CATALOG_DATA.sql'), 'utf8');
+      expect((sql.match(/"resourceCalendar": "ck2-cal-/g) ?? []).length).toBe(11);
+      expect(sql).toContain('"managementCalendarDaysTable"');
+      expect(sql).toContain("'managementCalendarCatalog'");
     });
 
     it('no operation of a person overlaps another one of the same person (day, from, to)', () => {

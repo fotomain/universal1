@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "为整个组织替换菜单标题、列标题或标题。语言：{{n}}。",
   "Only the administrator of the organization edits the texts.": "只有组织管理员可以编辑文本。",
   "Text": "文本",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "一天中的时间：开始时间、工期和延迟均为整分钟；日历有工作时段。",
+  "Minute": "分钟",
+  "Time of day": "一天中的时间",
+  "Step (resourceSlotMinutes)": "步长 (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "开始时间和平衡移动的最小步长，单位为分钟。检查精确到分钟。",
+  "Time zone (projectTimeZone)": "时区 (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "每天的工作时段 (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "起止时间，用逗号分隔，例如 09:00-13:00, 14:00-18:00。休息是两个时段之间的空隙。",
+  "This is not a time zone name, for example Europe/Berlin.": "这不是时区名称，例如 Europe/Berlin。",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "一天中时间模型从项目开始日期起排程；其中不使用从完成日期倒排。",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Ersetzen Sie einen Menütitel, eine Spaltenüberschrift oder einen Titel für Ihre ganze Organisation. Sprache: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Nur der Administrator der Organisation ändert die Texte.",
   "Text": "Text",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Tageszeit: Startzeiten, Dauern und Verzögerungen sind ganze Minuten; der Kalender hat Arbeitsfenster.",
+  "Minute": "Minute",
+  "Time of day": "Tageszeit",
+  "Step (resourceSlotMinutes)": "Schritt (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Der kleinste Schritt einer Startzeit und einer Ausgleichsverschiebung, in Minuten. Die Prüfungen sind minutengenau.",
+  "Time zone (projectTimeZone)": "Zeitzone (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Arbeitsfenster eines Tages (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "Von-bis, durch Kommas getrennt, zum Beispiel 09:00-13:00, 14:00-18:00. Eine Pause ist die Lücke zwischen zwei Fenstern.",
+  "This is not a time zone name, for example Europe/Berlin.": "Das ist kein Zeitzonenname, zum Beispiel Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Das Tageszeitmodell plant ab dem Projektstart; eine Planung ab dem Endtermin wird darin nicht verwendet.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

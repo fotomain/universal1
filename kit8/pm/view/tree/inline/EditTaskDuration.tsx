@@ -8,6 +8,9 @@ import { usePMStore } from '../../../store/store_pm';
 import { formatPlanDuration, parsePlanDuration } from '../../../model/planDateFormats';
 import { PMCrud } from '../../../crud/usePMCrud';
 import PMInlineCellInput from './PMInlineCellInput';
+import { hourModelOf } from '../../../hourmodel/hourModelSettings';
+import { windowMinutes } from '../../../hourmodel/hourAxis';
+import { formatMinutes, parseMinutes } from '../../../hourmodel/minutes';
 
 export default function EditTaskDuration(props: {
   guid: string;
@@ -29,7 +32,12 @@ export default function EditTaskDuration(props: {
   const durationDays = usePMStore(
     (s) => s.schedule[guid]?.durationDays ?? s.tasksById[guid]?.rowJSON.durationDays ?? 1
   );
-  const initial = formatPlanDuration(durationDays, units);
+  // the time-of-day model: the duration is whole working minutes ("1h 30m"); a number without a unit uses the planning unit of the project
+  const projectJSON = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : undefined));
+  const hourModel = React.useMemo(() => hourModelOf(projectJSON), [projectJSON]);
+  const dayMinutes = windowMinutes(hourModel.windows);
+  const minutes = usePMStore((s) => (s.schedule[guid] as { durationMinutes?: number } | undefined)?.durationMinutes ?? Math.round(durationDays * dayMinutes));
+  const initial = hourModel.active ? formatMinutes(minutes) : formatPlanDuration(durationDays, units);
   const close = () => usePMStore.getState().setCellEdit(null);
 
   return (
@@ -38,11 +46,20 @@ export default function EditTaskDuration(props: {
       testID={testID ?? `pm-tree-edit-taskDuration-${guid}`}
       initial={initial}
       sanitize={(t) =>
-        planHour || planMinute || planSecond
+        hourModel.active
+          ? t.replace(/[^0-9a-zA-Z., ]/g, '').slice(0, 14)
+          : planHour || planMinute || planSecond
           ? t.replace(/[^0-9a-zA-Z.: ]/g, '').slice(0, 10)
           : t.replace(/[^0-9]/g, '').slice(0, 6)
       }
       onCommit={(text) => {
+        if (hourModel.active) {
+          const parsed = parseMinutes(text, planMinute ? 'minute' : planHour ? 'hour' : 'day', dayMinutes);
+          if (!parsed || parsed.minutes <= 0) return 'Must be > 0';
+          crud.setDurationMinutes(guid, parsed.minutes, dayMinutes);
+          close();
+          return null;
+        }
         const days = parsePlanDuration(text, units);
         if (days === null || !Number.isFinite(days) || days <= 0) return 'Must be > 0';
         crud.setDurationDays(guid, days);

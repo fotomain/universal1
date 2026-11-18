@@ -735,3 +735,14 @@
 735|Substitua um título de menu, um cabeçalho de coluna ou um título para toda a organização. Idioma: {{n}}.
 736|Só o administrador da organização edita os textos.
 737|Texto
+738|Hora do dia: as horas de início, as durações e os atrasos são minutos inteiros; o calendário tem janelas de trabalho.
+739|Minuto
+740|Hora do dia
+741|Passo (resourceSlotMinutes)
+742|O menor passo de uma hora de início e de um movimento de nivelamento, em minutos. As verificações são exatas ao minuto.
+743|Fuso horário (projectTimeZone)
+744|Janelas de trabalho de um dia (projectWorkWindows)
+745|De-até, separados por vírgulas, por exemplo 09:00-13:00, 14:00-18:00. Uma pausa é o intervalo entre duas janelas.
+746|Este não é o nome de um fuso horário, por exemplo Europe/Berlin.
+747|O modelo da hora do dia planeia a partir do início do projeto; um planeamento a partir da data de fim não é usado nele.
+748|{{from}} → {{to}} ({{delay}} {{when}})

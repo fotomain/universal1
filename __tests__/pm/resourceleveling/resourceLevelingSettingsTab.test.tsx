@@ -30,12 +30,27 @@ describe('the tab', () => {
     expect(onChange).toHaveBeenLastCalledWith({ resourceGrainUnit: 'week' });
   });
 
-  it('the hour by hour model cannot be chosen yet (phase 2) and says so', () => {
+  it('the hour by hour model can be chosen: the patch carries the zone, the step and the windows', () => {
     const onChange = jest.fn();
     renderUI(<PMResourceLevelingSettingsTab values={{}} onChange={onChange} />);
+    expect(q('pm-resource-leveling-time-of-day')).toBeNull();
     press('pm-resource-leveling-model-hourByHourModel');
-    expect(onChange).not.toHaveBeenCalled();
-    expect(q('pm-project-tab-resources-content')!.textContent).toContain('Phase 2');
+    const patch = onChange.mock.calls[0][0];
+    expect(patch).toMatchObject({ resourceOptimizationMode: 'hourByHourModel', resourceSlotMinutes: 15, projectWorkWindows: [{ from: '08:00', to: '16:00' }] });
+    expect(typeof patch.projectTimeZone).toBe('string');
+  });
+
+  it('in the hour model the section Time of day shows the step, the zone and the windows', () => {
+    const onChange = jest.fn();
+    renderUI(<PMResourceLevelingSettingsTab values={{ resourceOptimizationMode: 'hourByHourModel', projectTimeZone: 'Europe/Berlin', resourceSlotMinutes: 30, projectWorkWindows: [{ from: '09:00', to: '13:00' }, { from: '14:00', to: '18:00' }] }} onChange={onChange} />);
+    expect(q('pm-resource-leveling-time-of-day')).not.toBeNull();
+    expect(q('pm-resource-leveling-slot-30')!.getAttribute('aria-checked')).toBe('true');
+    press('pm-resource-leveling-slot-5');
+    expect(onChange).toHaveBeenLastCalledWith({ resourceSlotMinutes: 5 });
+    press('pm-resource-leveling-grain-minute');
+    expect(onChange).toHaveBeenLastCalledWith({ resourceGrainUnit: 'minute' });
+    press('pm-resource-leveling-model-dayByDayModel');
+    expect(onChange).toHaveBeenLastCalledWith({ resourceOptimizationMode: 'dayByDayModel' });
   });
 
   it('with the master on: the mode, the method and the posted tasks action write their own keys', () => {

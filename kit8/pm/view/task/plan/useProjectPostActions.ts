@@ -19,6 +19,8 @@ import { approvePM } from '../../../inner/PMApproveYesNoCancelModalWindow';
 import { usePMStore } from '../../../store/store_pm';
 import { pmT } from '../../../i18n/pmT';
 import { runTaskPost } from './runTaskPost';
+import { hourModelOf } from '../../../hourmodel/hourModelSettings';
+import type { AxisPiece } from '../../../hourmodel/hourAxis';
 import { useBusinessUnitPostCheck } from './useBusinessUnitPostCheck';
 import { projectTaskLinesKey, tasksToPost, useProjectTaskLines } from './useProjectTaskLines';
 
@@ -70,6 +72,7 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
       ensureCalculated();                                   // Manual calculation (Extended A2) with edits pending: the dates of the tasks are the calculated ones
       const state = usePMStore.getState();
       const calendarForTaskPlan = state.projectsById[projectGUID]?.rowJSON?.calendarForTaskPlan;
+      const hourModel = hourModelOf(state.projectsById[projectGUID]?.rowJSON);
       let posted = 0, rows = 0;
       const failed: string[] = [];
       for (const taskGUID of ids) {
@@ -79,6 +82,8 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
         const result = await runTaskPost({
           taskGUID, lines: L.byTask[taskGUID] || [], distributions: L.distributions, calendars: L.calendars, calendarForTaskPlan,
           startMs: sched?.startMs, finishMs: sched?.finishMs, lineCheck: L.lineCheck,
+          // the time-of-day model: the pieces of the bar and the zone of the project (Time lines of resources are posted with slices)
+          ...(hourModel.active ? { pieces: (sched as { pieces?: AxisPiece[] } | undefined)?.pieces, timeZone: hourModel.timeZone } : {}),
         });
         if (result.status === 'posted') {
           posted += 1; rows += result.rows;

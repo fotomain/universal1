@@ -81,9 +81,10 @@ echo "run $(date '+%Y-%m-%d %H:%M:%S') on project ${REF}: ${#FILES[@]} files" > 
 run_sql() { supabase db query --linked --project-ref "$REF" "$@" 2>&1 | grep -v "new version of Supabase CLI\|We recommend updating regularly"; return "${pipestatus[1]}"; }
 
 # the Monitor01 worker (pg_cron, every 2 s) writes the same tables the install changes: a trigger swap of start2 can end in "deadlock detected" (40P01).
+# (2026-11-18: also consolidation_tick / cash_ledger_tick (10 s) - they read organizationTable while start2 locks consolidation_gap_table: the same deadlock; so ALL jobs are paused.)
 # So the jobs are PAUSED here (nothing happens when pg_cron is not enabled) and start3_sql_pg_cron.sql switches them on again as the last file.
-echo; echo ">> pause the Monitor01 worker (start3 resumes it)"
-PAUSE="do \$\$ begin if to_regnamespace('cron') is not null then perform cron.alter_job(j.jobid, active := false) from cron.job j where j.jobname in ('monitor01_tick', 'monitor01_housekeeping'); end if; end \$\$"
+echo; echo ">> pause the pg_cron workers (start3 resumes them)"
+PAUSE="do \$\$ begin if to_regnamespace('cron') is not null then perform cron.alter_job(j.jobid, active := false) from cron.job j ; end if; end \$\$"
 if pout="$(run_sql "$PAUSE")"; then echo "   OK"; else echo "   (could not pause it: the install goes on - see $ERRLOG)"; log_error "pause the Monitor01 worker" "$pout"; fi
 
 for f in "${FILES[@]}"; do

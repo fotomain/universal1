@@ -44,6 +44,10 @@ export function taskInputsOf(t: PMTaskRow): string {
     JSON.stringify(j.taskSplits ?? ''),
     JSON.stringify(j.externalPredecessors ?? ''),
     j.taskLevelingDelayDays ?? '',
+    // the time-of-day model (kit8/pm/hourmodel): whole minutes
+    j.taskStartMinute ?? '',
+    j.taskDurationMinutes ?? '',
+    j.taskLevelingDelayMinutes ?? '',
   ].join('|');
 }
 
@@ -62,6 +66,8 @@ export function projectInputsOf(project: PMProjectRow | undefined | null): strin
     o.projectFinishDayMs ?? '',
     o.levelingEnabled ? 1 : 0,
     o.levelingManualTasks ? 1 : 0,
+    // the time-of-day model plans by the clock: its windows are inputs
+    j.resourceOptimizationMode === 'hourByHourModel' ? JSON.stringify(j.projectWorkWindows ?? '') : '',
   ].join('|');
 }
 

@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Remplacez un titre de menu, un en-tête de colonne ou un titre pour toute votre organisation. Langue : {{n}}.",
   "Only the administrator of the organization edits the texts.": "Seul l'administrateur de l'organisation modifie les textes.",
   "Text": "Texte",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Heure du jour : les heures de début, les durées et les retards sont des minutes entières ; le calendrier a des plages de travail.",
+  "Minute": "Minute",
+  "Time of day": "Heure du jour",
+  "Step (resourceSlotMinutes)": "Pas (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Le plus petit pas d'une heure de début et d'un déplacement de nivellement, en minutes. Les contrôles sont exacts à la minute.",
+  "Time zone (projectTimeZone)": "Fuseau horaire (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Plages de travail d'une journée (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "De-à, séparés par des virgules, par exemple 09:00-13:00, 14:00-18:00. Une pause est l'intervalle entre deux plages.",
+  "This is not a time zone name, for example Europe/Berlin.": "Ce n'est pas un nom de fuseau horaire, par exemple Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Le modèle de l'heure du jour planifie à partir du début du projet ; une planification depuis la date de fin n'y est pas utilisée.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

@@ -39,6 +39,7 @@ import { scheduleMarksOf } from '../project/scheduleMarks';
 import { formatWbsMask } from '../../extended/wbsMask';
 import { extContextOf } from '../../store/storeDerive';
 import { formatPlanDate, formatPlanDuration } from '../../model/planDateFormats';
+import { formatMinutes } from '../../hourmodel/minutes';
 import { ellipsize, PMPalette, withAlpha } from '../theme';
 import { makeMeasure, usePMFonts } from '../../skia/usePMFonts';
 import { clampValue, maxScrollY, PMViewport } from '../gantt/useGanttViewport';
@@ -359,7 +360,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         : 0;
       const startText = r ? ellipsize(formatPlanDate(r.startMs, planDateInputFormat), (startCol?.w ?? 0) - 10, measureSmall) : '';
       const finishText = r ? ellipsize(formatPlanDate(finishInstant, planDateInputFormat), (finishCol?.w ?? 0) - 10, measureSmall) : '';
-      const durationText = r ? (r.isMilestone ? '◆' : formatPlanDuration(r.durationDays, { planDay, planHour, planMinute, planSecond })) : '';
+      const durationText = r ? (r.isMilestone ? '◆' : (r as { durationMinutes?: number }).durationMinutes !== undefined ? formatMinutes((r as { durationMinutes?: number }).durationMinutes!) : formatPlanDuration(r.durationDays, { planDay, planHour, planMinute, planSecond })) : '';
       const prog = r ? `${Math.round(r.progress)}%` : '';
       const costText = costCol ? formatCost(costTotals.get(guid)) : '';
       const costVatText = costVatCol ? formatCost(costTotalsWithVat.get(guid)) : '';

@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Pakeiskite meniu pavadinimą, stulpelio antraštę ar pavadinimą visai organizacijai. Kalba: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Tekstus keičia tik organizacijos administratorius.",
   "Text": "Tekstas",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Paros laikas: pradžios laikai, trukmės ir vėlavimai yra sveikos minutės; kalendoriuje yra darbo langai.",
+  "Minute": "Minutė",
+  "Time of day": "Paros laikas",
+  "Step (resourceSlotMinutes)": "Žingsnis (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Mažiausias pradžios laiko ir išlyginimo poslinkio žingsnis minutėmis. Patikros tikslios iki minutės.",
+  "Time zone (projectTimeZone)": "Laiko juosta (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Dienos darbo langai (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "Nuo-iki, atskirta kableliais, pavyzdžiui, 09:00-13:00, 14:00-18:00. Pertrauka yra tarpas tarp dviejų langų.",
+  "This is not a time zone name, for example Europe/Berlin.": "Tai nėra laiko juostos pavadinimas, pavyzdžiui, Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Paros laiko modelis planuoja nuo projekto pradžios; planavimas nuo pabaigos datos jame nenaudojamas.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

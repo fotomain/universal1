@@ -735,3 +735,14 @@
 735|Asendage menüü pealkiri, veeru päis või pealkiri kogu organisatsiooni jaoks. Keel: {{n}}.
 736|Tekste muudab ainult organisatsiooni administraator.
 737|Tekst
+738|Kellaaeg: algusajad, kestused ja viivitused on täisminutid; kalendris on tööaknad.
+739|Minut
+740|Kellaaeg
+741|Samm (resourceSlotMinutes)
+742|Alguskellaaja ja tasandusnihke väikseim samm minutites. Kontrollid on minutitäpsed.
+743|Ajavöönd (projectTimeZone)
+744|Päeva tööaknad (projectWorkWindows)
+745|Alates-kuni, komadega eraldatud, näiteks 09:00-13:00, 14:00-18:00. Paus on lõhe kahe akna vahel.
+746|See ei ole ajavööndi nimi, näiteks Europe/Berlin.
+747|Kellaaja mudel planeerib projekti algusest; lõppkuupäevast planeerimist selles ei kasutata.
+748|{{from}} → {{to}} ({{delay}} {{when}})

@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Asendage menüü pealkiri, veeru päis või pealkiri kogu organisatsiooni jaoks. Keel: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Tekste muudab ainult organisatsiooni administraator.",
   "Text": "Tekst",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Kellaaeg: algusajad, kestused ja viivitused on täisminutid; kalendris on tööaknad.",
+  "Minute": "Minut",
+  "Time of day": "Kellaaeg",
+  "Step (resourceSlotMinutes)": "Samm (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Alguskellaaja ja tasandusnihke väikseim samm minutites. Kontrollid on minutitäpsed.",
+  "Time zone (projectTimeZone)": "Ajavöönd (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Päeva tööaknad (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "Alates-kuni, komadega eraldatud, näiteks 09:00-13:00, 14:00-18:00. Paus on lõhe kahe akna vahel.",
+  "This is not a time zone name, for example Europe/Berlin.": "See ei ole ajavööndi nimi, näiteks Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Kellaaja mudel planeerib projekti algusest; lõppkuupäevast planeerimist selles ei kasutata.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

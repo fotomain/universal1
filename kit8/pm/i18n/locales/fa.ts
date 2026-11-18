@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "عنوان یک منو، سرستون یا عنوان را برای کل سازمان جایگزین کنید. زبان: {{n}}.",
   "Only the administrator of the organization edits the texts.": "فقط مدیر سازمان متن‌ها را ویرایش می‌کند.",
   "Text": "متن",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "زمان روز: زمان‌های شروع، مدت‌ها و تأخیرها دقیقه‌های کامل هستند؛ تقویم پنجره‌های کاری دارد.",
+  "Minute": "دقیقه",
+  "Time of day": "زمان روز",
+  "Step (resourceSlotMinutes)": "گام (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "کوچک‌ترین گام زمان شروع و جابه‌جایی تراز، به دقیقه. بررسی‌ها تا دقیقه دقیق‌اند.",
+  "Time zone (projectTimeZone)": "منطقه زمانی (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "پنجره‌های کاری یک روز (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "از-تا، جداشده با ویرگول، مثلاً 09:00-13:00, 14:00-18:00. استراحت فاصله میان دو پنجره است.",
+  "This is not a time zone name, for example Europe/Berlin.": "این نام یک منطقه زمانی نیست، مثلاً Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "مدل زمان روز از آغاز پروژه برنامه‌ریزی می‌کند؛ برنامه‌ریزی از تاریخ پایان در آن استفاده نمی‌شود.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

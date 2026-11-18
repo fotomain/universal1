@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-CAKE1 / RUN1: an independent re-calculation of cake2_plan_json.json + total_costs.csv. It reads ONLY the two files (what the app imports and what the plan
+CAKE2 / RUN1: an independent re-calculation of cake2_plan_json.json + total_costs.csv. It reads ONLY the two files (what the app imports and what the plan
 costs) and the recipe / price tables of cake_v1_optimization.py, and checks every number again: cakes, kilograms, worker time, breaks, rests, machines,
 links, purchase quantities, money, the order delays, the task lines, and that the csv and the json tell the same story.
 
@@ -42,6 +42,15 @@ def ok(cond, what, detail=''):
 
 def day(t):
     return dt.date.fromisoformat(t['rowJSON']['manualStartAt'][:10])
+
+
+def sdt(t):
+    """the start of a task in the time-of-day model: the pinned day + taskStartMinute"""
+    return dt.datetime.combine(day(t), dt.time(0)) + dt.timedelta(minutes=t['rowJSON'].get('taskStartMinute', 0))
+
+
+def edt(t):
+    return sdt(t) + dt.timedelta(minutes=t['rowJSON'].get('taskDurationMinutes', 0))
 
 
 def hm(s):
@@ -129,15 +138,13 @@ for u, v in by_unit.items():
             over += 1
 ok(over == 0, f'{len(by_unit)} machine units, {sum(len(v) for v in by_unit.values())} bookings, {over} overlaps', ', '.join(sorted(by_unit)))
 
-print('5. links: no successor starts before its link allows')
+print('5. links (time-of-day model: all FS, no lag): no successor starts before its predecessor has finished, to the minute')
 bad = 0
 for d in doc['dependencies']:
-    s, p = tasks[d['rowGUID']], tasks[d['rowDependsOnGUID']]
-    ps, pe = day(p), day(p) + dt.timedelta(days=p['rowJSON']['durationDays'] - 1)
-    want = pe + dt.timedelta(days=1 + d['lagDays']) if d['linkType'] == 'FS' else ps + dt.timedelta(days=d['lagDays'])
-    if day(s) < want:
+    s_, p_ = tasks[d['rowGUID']], tasks[d['rowDependsOnGUID']]
+    if sdt(s_) < edt(p_):
         bad += 1
-ok(bad == 0, f'{len(doc["dependencies"])} links, {bad} successors earlier than their link allows')
+ok(bad == 0 and all(d['linkType'] == 'FS' and d['lagDays'] == 0 for d in doc['dependencies']), f'{len(doc["dependencies"])} links (FS, lag 0), {bad} successors that start before their predecessor ends')
 
 print('6. purchase plan: quantities, money, the 2-day order delay')
 name2code = {v[0]: k for k, v in opt.ING.items()}
@@ -230,6 +237,35 @@ ok(abs(rev_got - rev_expect) < 0.01, f'deliverables {rev_got:,.2f} EUR = 160 cak
 pj = doc['project']['rowJSON']
 ok(pj.get('calendarForTaskPlan') == 'sixDayWeekCalendar' and pj.get('currencyForBudget') == 'EUR', 'the project posts with the six day calendar in EUR')
 ok(not any(day(t).weekday() == 6 for t in worker_tasks), 'no task of a person on a Sunday')
+
+print('8b. the time-of-day model: settings, minutes, calendars of the persons (what the minute check of Post sees)')
+pj = doc['project']['rowJSON']
+ok(pj.get('resourceOptimizationMode') == 'hourByHourModel' and pj.get('resourceGrainUnit') == 'minute' and pj.get('resourceSlotMinutes') == 1, 'hour by hour model, grain = minute, step 1 minute')
+ok(pj.get('projectWorkWindows') == [{'from': '00:00', 'to': '24:00'}], 'project day = 00:00-24:00 (the chill steps run through the night; WHO works WHEN is the calendar of each person)')
+RL = opt.RESOURCE_LEVELING_SETTINGS
+ok(all(pj.get(k) == v for k, v in RL.items()) and pj['resourceLevelingFunctionalityEnabled'] is True and pj['resourceLevelingMode'] == 'automatic', f'{len(RL)} resource leveling settings written, master ON, Automatic, Leveling (not Smoothing)')
+tk = [t for t in doc['tasks'] if t['rowJSON']['rowKind'] == 'task']
+ok(all(t['rowJSON'].get('taskDurationMinutes', 0) >= 1 and 0 <= t['rowJSON'].get('taskStartMinute', 0) <= 1439 and not any(k in t['rowJSON'] for k in ('startHourStart', 'planMinuteStart')) for t in tk), f'{len(tk)} tasks have taskStartMinute + taskDurationMinutes (whole minutes), no old hour / minute fields')
+ok(all(t['rowJSON']['taskDurationMinutes'] == cc(t)['cc_min'] for t in tk if 'cc_from' in cc(t)), 'duration in minutes = the Minutes column of every operation / order / receipt (rows with From / To)')
+ok(all(f'{sdt(t):%H:%M}' == cc(t)['cc_from'] for t in tk if 'cc_from' in cc(t)), 'start time = the From column')
+roster = {opt.person_guid(r['name']): r for r in doc['cake2Roster']}
+ok(len(roster) == 11, f'{len(roster)} persons with a calendar: 8 confectioners + 1 buyer + 2 keepers')
+fit, ovl = 0, collections.defaultdict(list)
+for l in time_l:
+    r = roster[l['rowJSON']['taskResourceItem']]
+    t = tasks[l['rowOwnerGUID']]
+    a, b = sdt(t), edt(t)
+    m0, m1 = a.hour * 60 + a.minute, a.hour * 60 + a.minute + t['rowJSON']['taskDurationMinutes']
+    if a.weekday() in r['days'] and any(w0 <= m0 and m1 <= w1 for w0, w1 in r['windows']) and l['rowJSON']['qtyTaskLine'] <= t['rowJSON']['taskDurationMinutes'] / 60:
+        fit += 1
+    ovl[r['name']].append((a, b))
+ok(fit == len(time_l), f'{fit} of {len(time_l)} Time lines lie inside a working window of the calendar of their person, on a day he works, never above the capacity of their minutes')
+ok(all(b0 <= a1 for v in ovl.values() for (a0, b0), (a1, b1) in zip(sorted(v), sorted(v)[1:])), 'no person has two lines at the same time')
+cat_sql = (path.parent / 'CAKE2_CATALOG_DATA.sql').read_text(encoding='utf-8') if (path.parent / 'CAKE2_CATALOG_DATA.sql').exists() else ''
+ok(all(f"'ck2-cal-{opt.slug(r['name'])}'" in cat_sql and f'"resourceCalendar": "ck2-cal-{opt.slug(r["name"])}"' in cat_sql for r in roster.values()), 'every person has a calendar in CAKE2_CATALOG_DATA.sql and his contract points to it (resourceCalendar)')
+ok(all(l['rowJSON']['taskResourceItem'] and l['rowJSON']['priceTaskLine'] > 0 and l['rowJSON']['sumForBudget'] > 0 for l in time_l), f'Time: {len(time_l)} lines carry the person and his cost')
+ok(all(l['rowJSON']['taskResourceItem'] and l['rowJSON']['priceTaskLine'] > 0 and l['rowJSON']['sumForBudget'] > 0 for l in mat_l), f'Material: {len(mat_l)} lines carry the product, the supplier and the cost')
+ok(all(l['rowJSON']['taskResourceItem'] and l['rowJSON']['priceTaskLine'] > 0 and l['rowJSON']['sumForBudget'] > 0 for l in rev_l), f'Deliverable: {len(rev_l)} lines carry the cake product, the customer and the price')
 
 print('9. total_costs.csv tells the same story as the json')
 sec = collections.defaultdict(list)

@@ -1,21 +1,29 @@
-// documentation/CAKE1 RUN1 (cake2_plan_json.json): the Post of EVERY task of the plan, with the app's own calculation (calculateTaskLinePlan) on the dates the app's scheduler gives and the days of the
+// documentation/CAKE2 RUN1 (cake2_plan_json.json): the Post of EVERY task of the plan, with the app's own calculation (calculateTaskLinePlan) on the dates the app's scheduler gives and the days of the
 // calendar the project posts with (sixDayWeekCalendar = Mon-Sat, no holidays). Checks: nothing is refused, every line gets its days, the coefficients add up to 1, the money of the
 // days (Correct033, as the SQL procedure rounds it) adds up to the line. CAKE2_POST_OUT=<file> writes the payloads of create_task_line_plan for the Docker check.
 import * as fs from 'fs';
 import * as path from 'path';
 import { parseProjectExchangeFile } from '../../../../kit8/pm/crud/exchange/project/projectExchangeFormat';
-import { scheduleProject, formatDateISO } from '../../../../kit8/pm/view/project/scheduling';
+import { formatDateISO } from '../../../../kit8/pm/view/project/scheduling';
+import { buildHourAxis } from '../../../../kit8/pm/hourmodel/hourAxis';
+import { hourModelOf } from '../../../../kit8/pm/hourmodel/hourModelSettings';
+import { scheduleProjectHours } from '../../../../kit8/pm/hourmodel/scheduleHours';
+import { withHourSlices } from '../../../../kit8/pm/hourmodel/hourPostPlan';
 import { calculateTaskLinePlan, distributeCorrect033 } from '../../../../kit8/pm/view/task/plan/calculateTaskLinePlan';
 import { postableLines } from '../../../../kit8/pm/view/task/plan/taskLinePlanModel';
 
-const FILE = process.env.CAKE2_JSON || path.resolve(__dirname, '../../../../documentation/CAKE1/cake2_plan_json.json');
+const FILE = process.env.CAKE2_JSON || path.resolve(__dirname, '../../../../documentation/CAKE2/cake2_plan_json.json');
 const has = fs.existsSync(FILE);
 const d = has ? describe : describe.skip;
 const DAY = 86400000;
 
-d('CAKE1 / RUN1 plan: Post of every task', () => {
+d('CAKE2 / RUN1 plan: Post of every task', () => {
   const file = has ? parseProjectExchangeFile(fs.readFileSync(FILE, 'utf8')) : (null as any);
-  const sched = has ? scheduleProject({ tasks: file.tasks, deps: file.dependencies, projectStartMs: Date.UTC(2025, 11, 29), calendar: { skipWeekends: false } }) : (null as any);
+  // the time-of-day model: the plan of the app's own scheduler on the working-minute axis (project day 00:00-24:00, Mon-Sat) = the pieces of every bar, the slices of Post
+  const sched = has ? scheduleProjectHours({
+    tasks: file.tasks, deps: file.dependencies, projectStartMs: Date.UTC(2025, 11, 29),
+    axis: buildHourAxis({ windows: hourModelOf(file.project.rowJSON).windows, calendar: { skipWeekends: false, workWeek: [false, true, true, true, true, true, true] }, originMs: Date.UTC(2025, 11, 29) }),
+  }) : (null as any);
   // the days the project posts with: sixDayWeekCalendar as seeded in start4 (every day but Sunday, 2025-2027)
   const calendarDays = (from: string, to: string) => {
     const out: { rowJSON: { day: string; isActive: boolean } }[] = [];
@@ -52,6 +60,18 @@ d('CAKE1 / RUN1 plan: Post of every task', () => {
       const plan = calculateTaskLinePlan({ taskGUID, fromDay: from, toDay: to, lines: ls as any, calendarDays: calendarDays(from, to), distributions, calendarTitle: '6-day week', timeZone: 'UTC' });
       expect(plan.errors).toEqual([]);
       expect(plan.taskLinePlanJSON).not.toBeNull();
+      // the SLICES of every Time line of a person over the pieces of the bar (what create_task_line_plan checks to the minute): they add up to 1 and to the day rows
+      const withSlices = withHourSlices(plan.taskLinePlanJSON, ls as any, row.pieces)!;
+      for (const pl of withSlices.lines) {
+        const src = ls.find((x: any) => x.rowGUID === pl.lineGUID)!;
+        if (src.rowParentGUID !== 'timeGenus') { expect((pl as any).hours).toBeUndefined(); continue; }
+        const hours = (pl as any).hours as { d: string; f: number; t: number; c: number }[];
+        expect(hours.length).toBeGreaterThanOrEqual(1);
+        expect(hours.reduce((a, x) => a + x.c, 0)).toBeCloseTo(1, 9);
+        for (const x of hours) { expect(x.f).toBeGreaterThanOrEqual(0); expect(x.t).toBeLessThanOrEqual(1440); expect(x.t).toBeGreaterThan(x.f); }
+        for (const dd of pl.days) expect(hours.filter((x) => x.d === dd.d).reduce((a, x) => a + x.c, 0)).toBeCloseTo(dd.c, 9);
+        expect(hours.reduce((a, x) => a + (x.t - x.f), 0)).toBe(row.durationMinutes);
+      }
       expect(plan.postedLines).toHaveLength(postableLines(ls as any).length);
       for (const pl of plan.taskLinePlanJSON!.lines) {
         const src = ls.find((x: any) => x.rowGUID === pl.lineGUID)!;
@@ -63,7 +83,7 @@ d('CAKE1 / RUN1 plan: Post of every task', () => {
         lines++;
       }
       tasks++;
-      payloads.push(plan.taskLinePlanJSON);
+      payloads.push(withSlices);
     }
     expect(lines).toBe(file.taskLines.length);
     expect(tasks).toBe(byTask.size); // every operation of a person + every order line + every goods receipt

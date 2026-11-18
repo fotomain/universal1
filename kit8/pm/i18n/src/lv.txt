@@ -735,3 +735,14 @@
 735|Aizstājiet izvēlnes nosaukumu, kolonnas virsrakstu vai virsrakstu visai organizācijai. Valoda: {{n}}.
 736|Tekstus maina tikai organizācijas administrators.
 737|Teksts
+738|Diennakts laiks: sākuma laiki, ilgumi un aizkaves ir veselas minūtes; kalendārā ir darba logi.
+739|Minūte
+740|Diennakts laiks
+741|Solis (resourceSlotMinutes)
+742|Mazākais sākuma laika un izlīdzināšanas nobīdes solis minūtēs. Pārbaudes ir precīzas līdz minūtei.
+743|Laika josla (projectTimeZone)
+744|Dienas darba logi (projectWorkWindows)
+745|No-līdz, atdalīti ar komatiem, piemēram, 09:00-13:00, 14:00-18:00. Pārtraukums ir sprauga starp diviem logiem.
+746|Tas nav laika joslas nosaukums, piemēram, Europe/Berlin.
+747|Diennakts laika modelis plāno no projekta sākuma; plānošana no beigu datuma tajā netiek izmantota.
+748|{{from}} → {{to}} ({{delay}} {{when}})

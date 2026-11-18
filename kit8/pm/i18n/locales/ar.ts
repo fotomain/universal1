@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "استبدل عنوان قائمة أو عنوان عمود أو عنوانًا لمؤسستك كلها. اللغة: {{n}}.",
   "Only the administrator of the organization edits the texts.": "مسؤول المؤسسة وحده يعدّل النصوص.",
   "Text": "نص",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "وقت اليوم: أوقات البدء والمدد والتأخيرات دقائق كاملة؛ وللتقويم نوافذ عمل.",
+  "Minute": "دقيقة",
+  "Time of day": "وقت اليوم",
+  "Step (resourceSlotMinutes)": "الخطوة (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "أصغر خطوة لوقت البدء ولإزاحة الموازنة، بالدقائق. الفحوصات دقيقة حتى الدقيقة.",
+  "Time zone (projectTimeZone)": "المنطقة الزمنية (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "نوافذ العمل في اليوم (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "من-إلى، مفصولة بفواصل، مثل 09:00-13:00, 14:00-18:00. الاستراحة هي الفجوة بين نافذتين.",
+  "This is not a time zone name, for example Europe/Berlin.": "هذا ليس اسم منطقة زمنية، مثل Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "نموذج وقت اليوم يخطط من بداية المشروع؛ ولا يُستخدم فيه التخطيط من تاريخ النهاية.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

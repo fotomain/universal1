@@ -737,5 +737,16 @@ const texts: Record<string, string> = {
   "Replace a menu title, a column header or a title for your whole organization. Language: {{n}}.": "Замените название меню, заголовок колонки или заголовок для всей организации. Язык: {{n}}.",
   "Only the administrator of the organization edits the texts.": "Тексты меняет только администратор организации.",
   "Text": "Текст",
+  "Time of day: start times, durations and delays are whole minutes; the calendar has working windows.": "Время суток: время начала, длительности и задержки — целые минуты; в календаре есть рабочие окна.",
+  "Minute": "Минута",
+  "Time of day": "Время суток",
+  "Step (resourceSlotMinutes)": "Шаг (resourceSlotMinutes)",
+  "The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.": "Наименьший шаг времени начала и сдвига при выравнивании, в минутах. Проверки точны до минуты.",
+  "Time zone (projectTimeZone)": "Часовой пояс (projectTimeZone)",
+  "Working windows of a day (projectWorkWindows)": "Рабочие окна дня (projectWorkWindows)",
+  "From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.": "От-до через запятую, например 09:00-13:00, 14:00-18:00. Перерыв — промежуток между двумя окнами.",
+  "This is not a time zone name, for example Europe/Berlin.": "Это не название часового пояса, например Europe/Berlin.",
+  "The time-of-day model plans from the project start; a plan from the finish date is not used in it.": "Модель времени суток планирует от начала проекта; планирование от даты окончания в ней не используется.",
+  "{{from}} → {{to}} ({{delay}} {{when}})": "{{from}} → {{to}} ({{delay}} {{when}})",
 };
 export default texts;

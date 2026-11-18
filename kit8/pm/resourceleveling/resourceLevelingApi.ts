@@ -3,6 +3,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type { InputRow } from './resourceLevelingEnv';
 import type { ServerMove, ServerUnresolved } from './resourceLevelingRun';
 import type { ServerProblem } from './resourceLevelingServerProblem';
+import type { HourServerProblem } from '../hourmodel/hourServerProblem';
+import type { HourCapacityRow, HourForeignRow } from '../hourmodel/hourLevelingEnv';
 
 export interface LevelingInputs { capacity: InputRow[]; foreign: InputRow[] }
 
@@ -34,6 +36,15 @@ export async function fetchLevelingInputs(supabase: SupabaseClient, projectGUID:
   const { data, error } = await supabase.rpc('project_resource_leveling_inputs', { p_project: projectGUID, p_from: dayIso(fromMs), p_to: dayIso(toMs), p_resources: resources });
   if (error) fail('project_resource_leveling_inputs', error);
   return { capacity: (data?.capacity ?? []) as InputRow[], foreign: (data?.foreign ?? []) as InputRow[] };
+}
+
+/** the inputs of an hour leveling run (SQL PART 53): the windows of the calendars of the resources and the posted slices of the other projects */
+export interface HourLevelingInputs { capacity: HourCapacityRow[]; foreign: HourForeignRow[] }
+
+export async function fetchHourLevelingInputs(supabase: SupabaseClient, projectGUID: string, fromMs: number, toMs: number, resources: { k: string; g: string }[]): Promise<HourLevelingInputs> {
+  const { data, error } = await supabase.rpc('project_resource_leveling_inputs_hours', { p_project: projectGUID, p_from: dayIso(fromMs), p_to: dayIso(toMs), p_resources: resources });
+  if (error) fail('project_resource_leveling_inputs_hours', error);
+  return { capacity: (data?.capacity ?? []) as HourCapacityRow[], foreign: (data?.foreign ?? []) as HourForeignRow[] };
 }
 
 export async function applyLevelingRun(supabase: SupabaseClient, projectGUID: string, run: Record<string, unknown>): Promise<string | null> {
@@ -89,7 +100,7 @@ export const isServerPlanMissing = (e: unknown): boolean => {
   return code === 'PGRST202' || code === '42883' || /could not find the function|does not exist/i.test(msg);
 };
 
-export async function fetchServerPlan(supabase: SupabaseClient, projectGUID: string, problem: ServerProblem): Promise<ServerPlanAnswer> {
+export async function fetchServerPlan(supabase: SupabaseClient, projectGUID: string, problem: ServerProblem | HourServerProblem): Promise<ServerPlanAnswer> {
   const { data, error } = await supabase.rpc('project_resource_leveling_server_plan', { p_project: projectGUID, p_problem: problem });
   if (error) throw new ServerPlanError(`project_resource_leveling_server_plan: ${error.message ?? 'failed'}`, (error as { code?: string }).code);
   return data as ServerPlanAnswer;

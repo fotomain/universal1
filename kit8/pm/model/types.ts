@@ -89,6 +89,15 @@ export interface PMRowJSON {
    * the project switch resourceLevelingFunctionalityEnabled is on; stripped by task templates (task_template_clean_task); written only by project_resource_leveling_apply.
    */
   taskLevelingDelayDays?: number | null;
+  /**
+   * The time-of-day model (resourceOptimizationMode = hourByHourModel; kit8/pm/hourmodel, documentation/RESOURCE_LEVELING_HOURS_WBS.html): all WHOLE MINUTES.
+   *  taskStartMinute            the earliest start time of the task on its start day, minutes from 00:00 (0..1439); absent = the start of the first window
+   *  taskDurationMinutes        the duration in working minutes of the project calendar (>= 1; absent = durationDays x the working minutes of a day)
+   *  taskLevelingDelayMinutes   the leveling delay in working minutes (a whole multiple of the step resourceSlotMinutes)
+   */
+  taskStartMinute?: number | null;
+  taskDurationMinutes?: number | null;
+  taskLevelingDelayMinutes?: number | null;
   /** Resource optimization: the engine may interrupt this task (default true; used only with resourceLevelingCanSplit and Extended A12) */
   taskLevelingCanSplit?: boolean;
   /** G2 draw a milestone diamond at the finish of a task that has a duration. */
@@ -246,7 +255,7 @@ export interface PMRowJSON {
   autoUpdateTaskProgressPercentFromKanban?: boolean;
   resourceLevelingFunctionalityEnabled?: boolean;
   resourceOptimizationMode?: 'dayByDayModel' | 'hourByHourModel';
-  resourceGrainUnit?: 'hour' | 'day' | 'week';
+  resourceGrainUnit?: 'minute' | 'hour' | 'day' | 'week';
   /** project_task_table only: the task stands for a whole project (a task of a project with subprojectsFunctionalityEnabled) */
   taskIsSubproject?: boolean;
   /** project_task_table only: the project (project_table.rowGUID) the task stands for */

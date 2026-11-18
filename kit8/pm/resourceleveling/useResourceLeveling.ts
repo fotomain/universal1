@@ -17,7 +17,10 @@ import { usePMStore } from '../store/store_pm';
 import { useProjectTaskLines } from '../view/task/plan/useProjectTaskLines';
 import { useProjectPostActions } from '../view/task/plan/useProjectPostActions';
 import { taskPostState } from '../view/task/plan/taskLinePlanModel';
-import { applyLevelingRun, clearLeveling, fetchFactTasks, fetchLevelingInputs, fetchLevelingRuns, fetchServerPlan, undoLevelingRun } from './resourceLevelingApi';
+import { applyLevelingRun, clearLeveling, fetchFactTasks, fetchHourLevelingInputs, fetchLevelingInputs, fetchLevelingRuns, fetchServerPlan, undoLevelingRun } from './resourceLevelingApi';
+import { hourAxisOfProject } from '../hourmodel/hourAxisOfProject';
+import { hourModelOf } from '../hourmodel/hourModelSettings';
+import { scheduleOptionsOf } from '../model/scheduleOptions';
 import { calculateLevelingPlan } from './resourceLevelingBackend';
 import { applyPayloadOf, needsPostedDecision, resourcesOfLines, type PlanLevelingArgs, type PlannedMove, type PostedChoice } from './resourceLevelingRun';
 import { resourceLevelingOf } from './resourceLevelingSettings';
@@ -56,8 +59,13 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
     if (first === Infinity) { first = projectStartMs; last = projectStartMs; }
     const fromMs = Math.floor(Math.min(first, projectStartMs) / DAY_MS) * DAY_MS - 7 * DAY_MS;
     const toMs = Math.min(fromMs + MAX_RANGE_DAYS * DAY_MS, Math.floor(last / DAY_MS) * DAY_MS + 366 * DAY_MS);
-    const [inputs, factTasks] = await Promise.all([
-      fetchLevelingInputs(supabase, projectGUID, fromMs, toMs, resources),
+    // the time-of-day model (resourceOptimizationMode = hourByHourModel): the windows of the calendars and the posted slices of the other projects, the run works in steps of minutes
+    const hm = hourModelOf(project.rowJSON);
+    const options = scheduleOptionsOf(project.rowJSON);
+    const axis = hm.active ? hourAxisOfProject(project.rowJSON, projectStartMs, options.projectCalendar ?? { skipWeekends: !!project.rowJSON?.skipWeekends }) : null;
+    const [inputs, hourInputs, factTasks] = await Promise.all([
+      axis ? Promise.resolve({ capacity: [], foreign: [] }) : fetchLevelingInputs(supabase, projectGUID, fromMs, toMs, resources),
+      axis ? fetchHourLevelingInputs(supabase, projectGUID, fromMs, toMs, resources) : Promise.resolve(null),
       fetchFactTasks(supabase, projectGUID).catch(() => new Set<string>()),
     ]);
     const effective = resourceLevelingOf(project.rowJSON);
@@ -67,7 +75,8 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
       stamps,
       args: {
         tasks: s.tasks, deps: s.deps, projectJSON: project.rowJSON, projectStartMs, externalDates: s.externalDates, linesByTask: byTask as any,
-        capacityRows: inputs.capacity, foreignRows: inputs.foreign, todayMs: todayUTC(), factTasks, scope,
+        capacityRows: inputs.capacity as any, foreignRows: inputs.foreign as any, todayMs: todayUTC(), factTasks, scope,
+        ...(axis && hourInputs ? { hour: { axis, step: hm.slotMinutes, capacityRows: hourInputs.capacity, foreignRows: hourInputs.foreign } } : {}),
         postedMayMove: effective.postedTasksMovement && effective.postedTasksAction !== 'keep',
       },
     };
@@ -159,7 +168,8 @@ export function useResourceLeveling(projectGUID: string | null | undefined) {
     if (!projectGUID || ui.getState().busy) return;
     const s = usePMStore.getState();
     const project = s.projectsById[projectGUID];
-    const withDelay = s.tasks.filter((t) => Number((t.rowJSON as any)?.taskLevelingDelayDays) > 0).map((t) => t.rowGUID);
+    // the delay of a task is in working days (day model) or in working minutes (time-of-day model)
+    const withDelay = s.tasks.filter((t) => Number((t.rowJSON as any)?.taskLevelingDelayDays) > 0 || Number((t.rowJSON as any)?.taskLevelingDelayMinutes) > 0).map((t) => t.rowGUID);
     if (withDelay.length === 0) { say(pmT('No task has a leveling delay')); return; }
     const posted = postedAmong(withDelay);
     const ok = await approvePM({

@@ -1,10 +1,13 @@
 // PMResourceLevelingSettingsTab - the tab "Resources" of the Project settings window (TabResources, after ROI) and of Organization edit -> Projects -> Settings.
 // Part "Resources" (resourceOptimizationMode, resourceGrainUnit) and the section "Resource optimization" (everything else). documentation/RESOURCE_LEVELING_WBS.html 7.1, 9.
 // The values and the rules are in resourceLevelingSettings.ts (pure); this file is only the form. The sub switches are edited only while the master is on.
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import SwitchApp from '../../ui/components/common/SwitchApp';
+import TextInputApp from '../../ui/components/common/TextInputApp';
+import { hourModelOf, hourModelSwitchPatch, parseWindowsText, timeZoneIsValid, windowsToText, windowsToJson, type HourModelValues } from '../hourmodel/hourModelSettings';
+import { SLOT_MINUTE_CHOICES } from '../hourmodel/minutes';
 import { pmT } from '../i18n/pmT';
 import { withAlpha } from '../view/theme';
 import PMResourceLevelingComputationRadio from './PMResourceLevelingComputationRadio';
@@ -22,10 +25,10 @@ interface Choice<T extends string> { value: T; label: string; hint?: string; dis
 // the labels are looked up at render time (pmT follows a language change)
 const MODES = (): Choice<ResourceOptimizationMode>[] => [
   { value: 'dayByDayModel', label: pmT('Day by day'), hint: pmT('The plan counts working days, as it does today.') },
-  { value: 'hourByHourModel', label: pmT('Hour by hour'), hint: pmT('Phase 2: the time-of-day model is not available yet.'), disabled: !HOUR_BY_HOUR_MODEL_AVAILABLE },
+  { value: 'hourByHourModel', label: pmT('Hour by hour'), hint: pmT('Time of day: start times, durations and delays are whole minutes; the calendar has working windows.'), disabled: !HOUR_BY_HOUR_MODEL_AVAILABLE },
 ];
 const GRAINS = (): Choice<ResourceGrainUnit>[] => [
-  { value: 'hour', label: pmT('Hour') }, { value: 'day', label: pmT('Day') }, { value: 'week', label: pmT('Week') },
+  { value: 'minute', label: pmT('Minute') }, { value: 'hour', label: pmT('Hour') }, { value: 'day', label: pmT('Day') }, { value: 'week', label: pmT('Week') },
 ];
 const RUN_MODES = (): Choice<ResourceLevelingMode>[] => [
   { value: 'manual', label: pmT('Manual'), hint: pmT('Optimize on command, with a preview.') },
@@ -43,9 +46,20 @@ const POSTED = (): Choice<ResourceLevelingPostedAction>[] => [
   { value: 'moveAndPostAgain', label: pmT('Move and post again') }, { value: 'keep', label: pmT('Keep their dates') },
 ];
 
-export default function PMResourceLevelingSettingsTab({ values, onChange }: { values: PMResourceLevelingValues; onChange: (patch: PMResourceLevelingValues) => void }) {
+const SLOTS = (): Choice<string>[] => SLOT_MINUTE_CHOICES.map((n) => ({ value: String(n), label: String(n) }));
+const deviceTimeZone = (): string | undefined => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone; } catch { return undefined; } };
+
+type TabValues = PMResourceLevelingValues & HourModelValues;
+
+export default function PMResourceLevelingSettingsTab({ values, onChange }: { values: TabValues; onChange: (patch: TabValues) => void }) {
   const { themeColors } = useDesignSystem();
   const v = resourceLevelingValuesOf(values);
+  const hourModel = v.resourceOptimizationMode === 'hourByHourModel';
+  const hm = hourModelOf({ ...(values as Record<string, any>), resourceOptimizationMode: 'hourByHourModel' });
+  const [zoneText, setZoneText] = useState<string>(hm.timeZone);
+  const [windowsText, setWindowsText] = useState<string>(windowsToText(hm.windows));
+  const zoneBad = zoneText.trim() !== '' && !timeZoneIsValid(zoneText.trim());
+  const windowsBad = parseWindowsText(windowsText) === null;
   const on = v.resourceLevelingFunctionalityEnabled;
   /** Fast mode answers from the memory of this device: it works on the client side only */
   const serverSide = on && v.resourceLevelingComputationSide === 'resourceLevelingServerSideComputations';
@@ -99,7 +113,30 @@ export default function PMResourceLevelingSettingsTab({ values, onChange }: { va
     <View testID="pm-project-tab-resources-content">
       <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Resources')}</Text>
       <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Planning model (resourceOptimizationMode)')}</Text>
-      <Chips id="model" items={MODES()} value={v.resourceOptimizationMode} onPick={(m) => onChange({ resourceOptimizationMode: m })} />
+      <Chips id="model" items={MODES()} value={v.resourceOptimizationMode} onPick={(m) => onChange(hourModelSwitchPatch(m, values as Record<string, any>, deviceTimeZone()))} />
+      {hourModel && (
+        <View testID="pm-resource-leveling-time-of-day">
+          <Text style={[styles.section, { color: themeColors.text }]}>{pmT('Time of day')}</Text>
+          <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Step (resourceSlotMinutes)')}</Text>
+          <Chips id="slot" items={SLOTS()} value={String(hm.slotMinutes)} onPick={(n) => onChange({ resourceSlotMinutes: Number(n) })} />
+          <Text style={styles.hint}>{pmT('The smallest step of a start time and of a leveling move, in minutes. The checks are exact to the minute.')}</Text>
+          <TextInputApp
+            testID="pm-resource-leveling-time-zone"
+            label={pmT('Time zone (projectTimeZone)')}
+            value={zoneText}
+            onChangeText={(t: string) => { setZoneText(t); if (t.trim() && timeZoneIsValid(t.trim())) onChange({ projectTimeZone: t.trim() }); }}
+          />
+          {zoneBad && <Text style={[styles.hint, { color: themeColors.error }]}>{pmT('This is not a time zone name, for example Europe/Berlin.')}</Text>}
+          <TextInputApp
+            testID="pm-resource-leveling-windows"
+            label={pmT('Working windows of a day (projectWorkWindows)')}
+            value={windowsText}
+            onChangeText={(t: string) => { setWindowsText(t); const w = parseWindowsText(t); if (w) onChange({ projectWorkWindows: windowsToJson(w) }); }}
+          />
+          <Text style={[styles.hint, windowsBad ? { color: themeColors.error } : null]}>{pmT('From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.')}</Text>
+          <Text style={styles.hint}>{pmT('The time-of-day model plans from the project start; a plan from the finish date is not used in it.')}</Text>
+        </View>
+      )}
       <Text style={[styles.label, { color: themeColors.text }]}>{pmT('Unit of resource load (resourceGrainUnit)')}</Text>
       <Chips id="grain" items={GRAINS()} value={v.resourceGrainUnit} onPick={(g) => onChange({ resourceGrainUnit: g })} />
       <Text style={styles.hint}>{pmT('The unit shown for the hours of a resource and the period in which the load is compared with the calendar. In the day by day model one working day is the finest period.')}</Text>

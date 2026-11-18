@@ -735,3 +735,14 @@
 735|Ersetzen Sie einen Menütitel, eine Spaltenüberschrift oder einen Titel für Ihre ganze Organisation. Sprache: {{n}}.
 736|Nur der Administrator der Organisation ändert die Texte.
 737|Text
+738|Tageszeit: Startzeiten, Dauern und Verzögerungen sind ganze Minuten; der Kalender hat Arbeitsfenster.
+739|Minute
+740|Tageszeit
+741|Schritt (resourceSlotMinutes)
+742|Der kleinste Schritt einer Startzeit und einer Ausgleichsverschiebung, in Minuten. Die Prüfungen sind minutengenau.
+743|Zeitzone (projectTimeZone)
+744|Arbeitsfenster eines Tages (projectWorkWindows)
+745|Von-bis, durch Kommas getrennt, zum Beispiel 09:00-13:00, 14:00-18:00. Eine Pause ist die Lücke zwischen zwei Fenstern.
+746|Das ist kein Zeitzonenname, zum Beispiel Europe/Berlin.
+747|Das Tageszeitmodell plant ab dem Projektstart; eine Planung ab dem Endtermin wird darin nicht verwendet.
+748|{{from}} → {{to}} ({{delay}} {{when}})

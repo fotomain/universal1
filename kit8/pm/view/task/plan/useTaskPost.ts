@@ -13,6 +13,8 @@ import { MANAGEMENT_CALENDAR_TABLE, DEFAULT_CALENDAR_FOR_TASK_PLAN } from '../..
 import type { DefRow } from '../../../../catalog/product/productModel';
 import type { TaskLineRow } from '../finances/taskLineModel';
 import { runTaskPost, taskDaysOf } from './runTaskPost';
+import { hourModelOf } from '../../../hourmodel/hourModelSettings';
+import type { AxisPiece } from '../../../hourmodel/hourAxis';
 import { useBusinessUnitPostCheck } from './useBusinessUnitPostCheck';
 import { taskPostState, TaskPostState } from './taskLinePlanModel';
 import { pmT } from '../../../i18n/pmT';
@@ -48,7 +50,11 @@ export function useTaskPost({ projectGUID, taskGUID, lines, distributions }: Use
     // Manual calculation mode (Extended A2) with edits pending: calculate first, Post reads the dates of the plan
     const calculated = ensureCalculated();
     const sch = calculated ? usePMStore.getState().schedule[taskGUID] : undefined;
-    const result = await runTaskPost({ taskGUID, ...live.current, ...(sch ? { startMs: sch.startMs, finishMs: sch.finishMs } : {}) });
+    // the time-of-day model: the pieces of the bar of the task and the zone of the project go with the Post (the Time lines of resources are posted with slices)
+    const state0 = usePMStore.getState();
+    const hm = hourModelOf(state0.projectsById[projectGUID]?.rowJSON);
+    const row = (sch ?? state0.schedule[taskGUID]) as { pieces?: AxisPiece[] } | undefined;
+    const result = await runTaskPost({ taskGUID, ...live.current, ...(sch ? { startMs: sch.startMs, finishMs: sch.finishMs } : {}), ...(hm.active ? { pieces: row?.pieces, timeZone: hm.timeZone } : {}) });
     if (result.status === 'error') {
       say(`${pmT('The task could not be posted')}: ${result.message}`, true);
     } else if (result.status === 'nothing') {

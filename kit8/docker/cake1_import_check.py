@@ -36,7 +36,8 @@ if has_catalog:
 org = json.loads(psql(f"SELECT public.organization_ensure_user('cake@acme.test', '{USER}', 'Cake', 'C')::text")[0])['organizationGUID']
 # the organization of the app (Supabase) works with capacityModeBlock: a person booked above his calendar loses the rows of the line - so the test runs in that mode
 psql(f"""UPDATE public."organizationTable" SET "rowJSON" = "rowJSON" || '{{"resourceCapacityStrongMode": "capacityModeBlock"}}' WHERE "rowGUID" = '{org}';
-INSERT INTO public.project_table ("rowGUID", "treePath", "rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES ('{pg}', public.pm_ltree_label('{pg}'), '{USER}', '{org}', '{{"name":"CAKE1 target","rowKind":"project"}}');""")
+INSERT INTO public.project_table ("rowGUID", "treePath", "rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES ('{pg}', public.pm_ltree_label('{pg}'), '{USER}', '{org}', $j${json.dumps({**doc['project']['rowJSON'], 'name': 'CAKE target', 'rowKind': 'project'})}$j$::jsonb);""")
+HOUR = doc['project']['rowJSON'].get('resourceOptimizationMode') == 'hourByHourModel'   # the time-of-day model: Post writes the slices + checks the MINUTES
 AS = f"""SET ROLE authenticated; select set_config('request.jwt.claims','{{"email":"cake@acme.test","sub":"{USER}","role":"authenticated"}}',false), set_config('request.jwt.claim.sub','{USER}',false); SET statement_timeout = '8s';\n"""
 worst = 0.0
 
@@ -98,16 +99,27 @@ for i in range(0, len(payloads), 100):
 n_owner = len({l['rowOwnerGUID'] for l in lines})
 ok(posted == len(payloads) == n_owner, f'{posted} tasks posted, {rows} plan rows')
 ok(modes == {'capacityModeBlock'} or not has_catalog, f'the capacity check ran in the mode of the organization: {sorted(m for m in modes if m)}')
-ok(busy == 0, f'no person is over his calendar (capacityModeBlock reported {busy} busy lines) - no resource leveling is needed')
+ok(busy == 0, f'no person is over his calendar{" (to the MINUTE: his shift windows)" if HOUR else ""} (capacityModeBlock reported {busy} busy lines) - no resource leveling is needed')
+if HOUR:
+    sl = q('select count(*), sum("minutes"), round(sum("qtyTaskLine"),2) from public.task_line_plan_hour_movements').split('|')
+    tl = [l for l in lines if l['rowParentGUID'] == 'timeGenus']
+    ok(int(sl[0]) == len(tl), f'hour slices: {sl[0]} rows = one per Time line of a person ({len(tl)}), the bars lie inside one day')
+    tmin = {t['rowGUID']: t['rowJSON']['taskDurationMinutes'] for t in doc['tasks'] if t['rowJSON']['rowKind'] == 'task'}
+    ok(int(sl[1]) == sum(tmin[l['rowOwnerGUID']] for l in tl), f'the slices add up to the minutes of the tasks: {sl[1]} min')
+    ok(float(sl[2]) == round(sum(l['rowJSON']['qtyTaskLine'] for l in tl), 2), f'the slices add up to the hours of the Time lines: {sl[2]} h')
 want = round(sum(l['rowJSON']['sumForBudget'] for l in lines), 2)
 mv = q('select count(*), round(sum("sumForBudget"),2), round(sum("qtyTaskLine"),2) from public.task_line_plan_movements').split('|')
 ok(int(mv[0]) == len(lines) and float(mv[1]) == want, f'plan movements {mv[0]} rows = {mv[1]} EUR = the lines {want}')
 ok(q("select count(*) from public.task_line_table where (\"rowJSON\"->>'taskIsPosted') is distinct from 'true'") == '0', 'every line is marked posted')
 for genus in ('timeGenus', 'materialGenus', 'revenueGenus'):
+    if not any(l['rowParentGUID'] == genus for l in lines):
+        continue                                   # the first run (CAKE1) has no Deliverable lines
     w = round(sum(l['rowJSON']['sumForBudget'] for l in lines if l['rowParentGUID'] == genus), 2)
     g = q(f"select round(sum(\"sumForBudget\"),2) from public.task_line_plan_movements where \"rowJSON\"->>'taskManagementGenusLine' = '{genus}'")
     ok(float(g) == w, f'{genus}: plan {g} EUR = lines {w}')
 for item in ('employeeWagesBudgetItem', 'rawMaterialsBudgetItem', 'consumablesBudgetItem', 'saleOfGoodsBudgetItem'):
+    if not any(l['rowJSON']['budgetItemTaskLine'] == item for l in lines):
+        continue
     w = round(sum(l['rowJSON']['sumForBudget'] for l in lines if l['rowJSON']['budgetItemTaskLine'] == item), 2)
     g = q(f"select round(sum(\"sumForBudget\"),2) from public.task_line_plan_movements where \"rowJSON\"->>'budgetItemTaskLine' = '{item}'")
     ok(float(g) == w, f'{item}: plan {g} EUR = lines {w}')

@@ -14,8 +14,9 @@ describe('Resource optimization settings', () => {
   });
 
   it('a wrong stored value reads as the default', () => {
-    expect(resourceLevelingValuesOf({ resourceLevelingMode: 'x' as any, resourceGrainUnit: 'minute' as any, resourceLevelingOrder: 1 as any }).resourceLevelingMode).toBe('manual');
-    expect(resourceLevelingValuesOf({ resourceGrainUnit: 'minute' as any }).resourceGrainUnit).toBe('hour');
+    expect(resourceLevelingValuesOf({ resourceLevelingMode: 'x' as any, resourceGrainUnit: 'second' as any, resourceLevelingOrder: 1 as any }).resourceLevelingMode).toBe('manual');
+    expect(resourceLevelingValuesOf({ resourceGrainUnit: 'second' as any }).resourceGrainUnit).toBe('hour');
+    expect(resourceLevelingValuesOf({ resourceGrainUnit: 'minute' }).resourceGrainUnit).toBe('minute');
     expect(resourceLevelingValuesOf({ resourceLevelingPostedTasksAction: 'delete' as any }).resourceLevelingPostedTasksAction).toBe('ask');
   });
 
@@ -51,9 +52,9 @@ describe('Resource optimization settings', () => {
     expect(resourceLevelingOf({ resourceLevelingFunctionalityEnabled: true, resourceLevelingWithinSlackOnly: true }).method).toBe('smoothing');
   });
 
-  it('the hour-by-hour model is not available yet: the project plans by day whatever is stored', () => {
-    expect(HOUR_BY_HOUR_MODEL_AVAILABLE).toBe(false);
-    expect(resourceLevelingValuesOf({ resourceOptimizationMode: 'hourByHourModel' }).resourceOptimizationMode).toBe('hourByHourModel');
-    expect(resourceLevelingOf({ resourceOptimizationMode: 'hourByHourModel' }).optimizationMode).toBe('dayByDayModel');
+  it('the time-of-day model can be chosen; the day model stays the default', () => {
+    expect(HOUR_BY_HOUR_MODEL_AVAILABLE).toBe(true);
+    expect(resourceLevelingOf({}).optimizationMode).toBe('dayByDayModel');
+    expect(resourceLevelingOf({ resourceOptimizationMode: 'hourByHourModel' }).optimizationMode).toBe('hourByHourModel');
   });
 });

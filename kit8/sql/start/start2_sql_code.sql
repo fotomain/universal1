@@ -57,6 +57,7 @@
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): membership helpers + read only policies of chatObjectTable / chatThemeTable / chatMembersTable / chatMessagesTable, the chat_ RPCs, the RACI synchronisation of the members of a task chat (trigger on task_line_table), the delete triggers, realtime; the scope chat of the file attachments (PART 49 functions changed in place)
 --   51. create_project_readonly.sql - READ-ONLY PROJECT (project_table.rowJSON.projectIsReadonly, Project settings -> Main): the guard triggers that refuse every change of the data of a read-only project made by a signed-in user, project_set_readonly
 --   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the obligatory organization currency + the two VAT switches (guard trigger), consolidation_apply (the twin sums of the movements, set-based), the queue + worker consolidation_process_dirty (pg_cron consolidation_tick), the gaps, consolidation_report / _status / _refresh_now / _verify, the project currency guard
+--   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): the windows of a calendar day, the capacity windows of a resource, the minute keys of a task, the inputs of an hour leveling run; PART 42 (apply / clear / undo / server plan) also takes minutes
 -- ===============================================================================================
 
 DO $$
@@ -3348,6 +3349,7 @@ DECLARE
   v_check    boolean;
   v_busy     jsonb := '[]'::jsonb;
   v_busy_lines uuid[] := ARRAY[]::uuid[];
+  v_hourmodel boolean := false;   -- the project plans by the clock (PART 53): the slices are written and the MINUTES are checked
   r          record;
 BEGIN
   IF "taskLinePlanJSON" IS NULL OR jsonb_typeof("taskLinePlanJSON") <> 'object' THEN
@@ -3362,6 +3364,7 @@ BEGIN
     RAISE EXCEPTION 'create_task_line_plan: task % does not exist or is not yours', v_task USING ERRCODE = '42501';
   END IF;
   PERFORM public.project_readonly_check(v_project, 'task_line_plan');      -- (read-only project, PART 51) nothing is posted
+  SELECT COALESCE(p."rowJSON"->>'resourceOptimizationMode', '') = 'hourByHourModel' INTO v_hourmodel FROM public.project_table p WHERE p."rowGUID" = v_project;
   PERFORM public.subproject_assert_no_cycle(v_project);      -- PART 29: a project in a cycle of subprojects cannot be posted
   IF jsonb_typeof("taskLinePlanJSON"->'lines') <> 'array' THEN
     RAISE EXCEPTION 'create_task_line_plan: "lines" must be an array';
@@ -3393,6 +3396,7 @@ BEGIN
 
   -- the earlier days of the task are replaced
   DELETE FROM public.task_line_plan_movements WHERE "rowOwnerGUID" = v_task;
+  DELETE FROM public.task_line_plan_hour_movements WHERE "rowOwnerGUID" = v_task;      -- (PART 53) the slices of the earlier post
   DELETE FROM public.task_line_plan_timeline WHERE "rowOwnerGUID" = v_task;
 
   FOR v_line IN SELECT value FROM jsonb_array_elements("taskLinePlanJSON"->'lines') LOOP
@@ -3504,21 +3508,37 @@ BEGIN
       RAISE EXCEPTION 'create_task_line_plan: the coefficients of line % add up to %, not to %', v_guid, v_sum, v_base;
     END IF;
 
+    -- PART 53: a project in the time-of-day model sends the slices of the line; they are written with the day rows and must add up to them
+    IF v_hourmodel AND jsonb_typeof(v_line->'hours') = 'array' AND jsonb_array_length(v_line->'hours') > 0 THEN
+      PERFORM public.task_line_plan_hours_write(v_task, v_project, v_guid, v_tz, v_ljson, CASE WHEN jsonb_typeof(v_line->'qtyTaskLine') = 'number' THEN (v_line->>'qtyTaskLine')::numeric END, v_base, v_line->'hours',
+               NOT (v_check AND v_genus = 'timeGenus' AND COALESCE(v_ljson->>'taskResourceItem', '') <> ''));
+    END IF;
+
     v_ids := v_ids || v_guid;
   END LOOP;
 
   -- the capacity check (after Correct033, so it sees the final hours): every busy line is REPORTED. capacityModeBlock also deletes its rows and leaves it unposted ("Post needed");
   -- capacityModeWarn keeps them. A conflict is an answer, not an exception: an exception would roll the deletion back too.
   IF v_check THEN
-    FOR r IN SELECT * FROM public.organization_resource_busy_check(v_task, v_org) LOOP
-      v_busy := v_busy || jsonb_build_array(r.conflict);
-      v_busy_lines := v_busy_lines || r.line_guids;
-    END LOOP;
+    IF v_hourmodel THEN
+      -- PART 53: to the minute (a day over its hours is over in some minutes too, so this replaces the day check)
+      FOR r IN SELECT * FROM public.organization_resource_busy_check_hours(v_task, v_org) LOOP
+        v_busy := v_busy || jsonb_build_array(r.conflict);
+        v_busy_lines := v_busy_lines || r.line_guids;
+      END LOOP;
+    ELSE
+      FOR r IN SELECT * FROM public.organization_resource_busy_check(v_task, v_org) LOOP
+        v_busy := v_busy || jsonb_build_array(r.conflict);
+        v_busy_lines := v_busy_lines || r.line_guids;
+      END LOOP;
+    END IF;
     IF v_mode = 'capacityModeBlock' AND COALESCE(array_length(v_busy_lines, 1), 0) > 0 THEN
       DELETE FROM public.task_line_plan_movements WHERE "rowParentGUID" = ANY (v_busy_lines);
+      DELETE FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = ANY (v_busy_lines);
       v_ids := ARRAY(SELECT x FROM unnest(v_ids) AS x WHERE NOT (x = ANY (v_busy_lines)));
     END IF;
     UPDATE public.task_line_plan_movements SET "planMovementStatus" = true WHERE "rowOwnerGUID" = v_task AND NOT "planMovementStatus";
+    UPDATE public.task_line_plan_hour_movements SET "planMovementStatus" = true WHERE "rowOwnerGUID" = v_task AND NOT "planMovementStatus";
   END IF;
 
   -- the timeline: the movements of the task grouped by line and DAY (the start of the day in the zone of the post)
@@ -3556,8 +3576,11 @@ GRANT EXECUTE ON FUNCTION public.create_task_line_plan(jsonb) TO authenticated;
 CREATE OR REPLACE FUNCTION public.task_line_plan_unpost_on_dates() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
+  -- the day model: a new start or finish DAY. The time-of-day model (PART 53, resourceOptimizationMode = hourByHourModel): a new start or finish MINUTE too.
   IF (NEW."rowDuration")::date IS DISTINCT FROM (OLD."rowDuration")::date
-     OR NULLIF(NEW."rowJSON"->>'startAt', '')::timestamptz::date IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'startAt', '')::timestamptz::date THEN
+     OR NULLIF(NEW."rowJSON"->>'startAt', '')::timestamptz::date IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'startAt', '')::timestamptz::date
+     OR (NEW."rowDuration" IS DISTINCT FROM OLD."rowDuration" OR NULLIF(NEW."rowJSON"->>'startAt', '')::timestamptz IS DISTINCT FROM NULLIF(OLD."rowJSON"->>'startAt', '')::timestamptz)
+        AND EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = NEW."projectGUID" AND p."rowJSON"->>'resourceOptimizationMode' = 'hourByHourModel') THEN
     UPDATE public.task_line_table l
        SET "rowJSON" = l."rowJSON" || '{"taskIsPosted": false}'::jsonb
      WHERE l."rowOwnerGUID" = NEW."rowGUID" AND l."rowJSON" @> '{"taskIsPosted": true}'::jsonb;
@@ -14596,7 +14619,7 @@ GRANT EXECUTE ON FUNCTION public.task_template_visible(uuid) TO authenticated;
 -- the keys of a task / a line that belong to ONE project and are not copied (see the header of this part)
 CREATE OR REPLACE FUNCTION public.task_template_clean_task(p_json jsonb) RETURNS jsonb
 LANGUAGE sql IMMUTABLE SET search_path = public, extensions AS $$
-  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'taskManualStartAt' - 'taskLevelingDelayDays' - 'taskConstraintDate' - 'taskDeadline' - 'actualStartAt' - 'actualFinishAt' - 'baselines' - 'externalPredecessors' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
+  SELECT COALESCE(p_json, '{}'::jsonb) - 'startAt' - 'manualStartAt' - 'taskManualStartAt' - 'taskLevelingDelayDays' - 'taskLevelingDelayMinutes' - 'taskConstraintDate' - 'taskDeadline' - 'actualStartAt' - 'actualFinishAt' - 'baselines' - 'externalPredecessors' - 'lastEditPlace' - 'intent' - 'customColumns' - 'taskIsSubproject' - 'taskSubprojectGUID'
 $$;
 
 CREATE OR REPLACE FUNCTION public.task_template_clean_line(p_json jsonb) RETURNS jsonb
@@ -15171,6 +15194,8 @@ DECLARE
   v_keep  boolean := COALESCE((p_run->>'keepHistory')::boolean, true);
   v_bad   integer;
   v_stale integer;
+  -- the time-of-day model (PART 53): the delays of the run are working MINUTES (options.delayUnit = 'minutes')
+  v_key   text := CASE WHEN p_run->'options'->>'delayUnit' = 'minutes' THEN 'taskLevelingDelayMinutes' ELSE 'taskLevelingDelayDays' END;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_apply: sign in first' USING ERRCODE = '28000'; END IF;
   IF NOT public.perm_can_in('project_resource_leveling_run', 'C', p_project) THEN
@@ -15194,8 +15219,8 @@ BEGIN
 
   PERFORM set_config('app.task_bulk', 'on', true);
   UPDATE public.project_task_table t
-     SET "rowJSON" = CASE WHEN COALESCE(r."delayAfter", 0) > 0 THEN jsonb_set(t."rowJSON", '{taskLevelingDelayDays}', to_jsonb(r."delayAfter"))
-                          ELSE t."rowJSON" - 'taskLevelingDelayDays' END
+     SET "rowJSON" = CASE WHEN COALESCE(r."delayAfter", 0) > 0 THEN jsonb_set(t."rowJSON", ARRAY[v_key], to_jsonb(r."delayAfter"))
+                          ELSE t."rowJSON" - v_key END
     FROM jsonb_to_recordset(COALESCE(p_run->'tasks', '[]'::jsonb)) AS r(task uuid, "delayAfter" integer)
    WHERE t."rowGUID" = r.task AND t."projectGUID" = p_project;
   PERFORM set_config('app.task_bulk', 'off', true);
@@ -15239,24 +15264,28 @@ BEGIN
   END IF;
   PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = p_project FOR UPDATE;
 
-  CREATE TEMP TABLE IF NOT EXISTS pg_temp.prl_clear (task uuid, delay integer) ON COMMIT DROP;
+  CREATE TEMP TABLE IF NOT EXISTS pg_temp.prl_clear (task uuid, delay integer, minutes boolean) ON COMMIT DROP;
   TRUNCATE pg_temp.prl_clear;
+  -- the delay of a task is in days (taskLevelingDelayDays) or, in the time-of-day model (PART 53), in minutes (taskLevelingDelayMinutes)
   INSERT INTO pg_temp.prl_clear
-  SELECT t."rowGUID", (t."rowJSON"->>'taskLevelingDelayDays')::integer
+  SELECT t."rowGUID", COALESCE(NULLIF((t."rowJSON"->>'taskLevelingDelayMinutes')::numeric, 0), (t."rowJSON"->>'taskLevelingDelayDays')::numeric)::integer,
+         COALESCE((t."rowJSON"->>'taskLevelingDelayMinutes')::numeric, 0) > 0
     FROM public.project_task_table t
-   WHERE t."projectGUID" = p_project AND COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::numeric, 0) > 0
+   WHERE t."projectGUID" = p_project
+     AND (COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::numeric, 0) > 0 OR COALESCE((t."rowJSON"->>'taskLevelingDelayMinutes')::numeric, 0) > 0)
      AND (p_tasks IS NULL OR t."rowGUID" = ANY (p_tasks));
   SELECT count(*) INTO v_n FROM pg_temp.prl_clear;
   IF v_n = 0 THEN RETURN NULL; END IF;
 
   PERFORM set_config('app.task_bulk', 'on', true);
-  UPDATE public.project_task_table t SET "rowJSON" = t."rowJSON" - 'taskLevelingDelayDays' FROM pg_temp.prl_clear c WHERE t."rowGUID" = c.task;
+  UPDATE public.project_task_table t SET "rowJSON" = t."rowJSON" - 'taskLevelingDelayDays' - 'taskLevelingDelayMinutes' FROM pg_temp.prl_clear c WHERE t."rowGUID" = c.task;
   PERFORM set_config('app.task_bulk', 'off', true);
 
   IF NOT COALESCE(p_keep_history, true) THEN RETURN NULL; END IF;
-  INSERT INTO public.project_resource_leveling_run ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "runKind", "runMode", "runScope", "tasksMoved")
+  INSERT INTO public.project_resource_leveling_run ("rowGUID", "rowProjectGUID", "rowOwnerGUID", "runKind", "runMode", "runScope", "runOptions", "tasksMoved")
   VALUES (v_run, p_project, v_user, 'clear', CASE WHEN p_mode IN ('manual', 'automatic', 'fast') THEN p_mode ELSE 'manual' END,
-          CASE WHEN p_tasks IS NULL THEN '{"scope": "project"}'::jsonb ELSE jsonb_build_object('scope', 'tasks', 'tasks', to_jsonb(p_tasks)) END, v_n);
+          CASE WHEN p_tasks IS NULL THEN '{"scope": "project"}'::jsonb ELSE jsonb_build_object('scope', 'tasks', 'tasks', to_jsonb(p_tasks)) END,
+          CASE WHEN EXISTS (SELECT 1 FROM pg_temp.prl_clear WHERE minutes) THEN '{"delayUnit": "minutes"}'::jsonb ELSE '{}'::jsonb END, v_n);
   INSERT INTO public.project_resource_leveling_task ("rowRunGUID", "rowProjectGUID", "rowTaskGUID", "delayBefore", "delayAfter")
   SELECT v_run, p_project, c.task, c.delay, 0 FROM pg_temp.prl_clear c;
   RETURN v_run;
@@ -15279,6 +15308,7 @@ DECLARE
   v_done    uuid;
   v_ok      integer;
   v_skipped uuid[];
+  v_key     text;
 BEGIN
   IF v_user IS NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: sign in first' USING ERRCODE = '28000'; END IF;
   SELECT r."rowProjectGUID", r."runKind", r."undoneByGUID" INTO v_project, v_kind, v_done FROM public.project_resource_leveling_run r WHERE r."rowGUID" = p_run;
@@ -15289,12 +15319,14 @@ BEGIN
   IF v_kind = 'undo' THEN RAISE EXCEPTION 'project_resource_leveling_undo: an undo cannot be undone: level again'; END IF;
   IF v_done IS NOT NULL THEN RAISE EXCEPTION 'project_resource_leveling_undo: the run is undone already'; END IF;
   PERFORM 1 FROM public.project_table p WHERE p."rowGUID" = v_project FOR UPDATE;
+  -- the time-of-day model (PART 53): a run whose delays are minutes says so in its options
+  SELECT CASE WHEN r."runOptions"->>'delayUnit' = 'minutes' THEN 'taskLevelingDelayMinutes' ELSE 'taskLevelingDelayDays' END INTO v_key FROM public.project_resource_leveling_run r WHERE r."rowGUID" = p_run;
 
   CREATE TEMP TABLE IF NOT EXISTS pg_temp.prl_undo (task uuid, was integer, restore integer, ok boolean) ON COMMIT DROP;
   TRUNCATE pg_temp.prl_undo;
   INSERT INTO pg_temp.prl_undo
-  SELECT x."rowTaskGUID", COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::integer, 0), x."delayBefore",
-         t."rowGUID" IS NOT NULL AND COALESCE((t."rowJSON"->>'taskLevelingDelayDays')::integer, 0) = x."delayAfter"
+  SELECT x."rowTaskGUID", COALESCE((t."rowJSON"->>v_key)::integer, 0), x."delayBefore",
+         t."rowGUID" IS NOT NULL AND COALESCE((t."rowJSON"->>v_key)::integer, 0) = x."delayAfter"
     FROM public.project_resource_leveling_task x
     LEFT JOIN public.project_task_table t ON t."rowGUID" = x."rowTaskGUID"
    WHERE x."rowRunGUID" = p_run;
@@ -15303,7 +15335,7 @@ BEGIN
 
   PERFORM set_config('app.task_bulk', 'on', true);
   UPDATE public.project_task_table t
-     SET "rowJSON" = CASE WHEN u.restore > 0 THEN jsonb_set(t."rowJSON", '{taskLevelingDelayDays}', to_jsonb(u.restore)) ELSE t."rowJSON" - 'taskLevelingDelayDays' END
+     SET "rowJSON" = CASE WHEN u.restore > 0 THEN jsonb_set(t."rowJSON", ARRAY[v_key], to_jsonb(u.restore)) ELSE t."rowJSON" - v_key END
     FROM pg_temp.prl_undo u WHERE u.ok AND t."rowGUID" = u.task;
   PERFORM set_config('app.task_bulk', 'off', true);
 
@@ -15478,6 +15510,8 @@ DECLARE
   v_e_slack integer; v_e_hz integer; v_limit integer;
   v_e1 integer := 1; v_e2 integer; v_chunk integer := 8;
   v_fit integer; v_ex boolean; v_unk boolean; v_n integer;
+  -- the longest search of a position: 800 days; a problem on the virtual axis of the time-of-day model (v = 2) sets its own (app.prl_max_search)
+  v_maxs integer := COALESCE(NULLIF(current_setting('app.prl_max_search', true), '')::integer, 800);
 BEGIN
   SELECT s INTO v_s0 FROM pg_temp.prl_pos WHERE g = p_g;
   SELECT dur, flt INTO v_dur, v_slack FROM pg_temp.prl_leaf WHERE g = p_g;
@@ -15488,7 +15522,7 @@ BEGIN
   -- the search stops at the first extra that is refused: beyond the slack (Smoothing), or whose position ends after the last day the capacity is known for
   v_e_slack := CASE WHEN p_smoothing THEN COALESCE(v_slack, 0) + 1 ELSE 2147483647 END;
   v_e_hz := CASE WHEN v_i0 IS NULL OR v_ilast IS NULL THEN 1 ELSE v_ilast - v_i0 - v_dur + 2 END;
-  v_limit := least(v_e_slack - 1, v_e_hz - 1, 800);
+  v_limit := least(v_e_slack - 1, v_e_hz - 1, v_maxs);
   WHILE v_e1 <= v_limit LOOP
     v_e2 := least(v_limit, v_e1 + v_chunk - 1);
     WITH cand AS (SELECT e FROM generate_series(v_e1, v_e2) e),
@@ -15528,7 +15562,7 @@ BEGIN
     v_chunk := v_chunk * 2;
   END LOOP;
   o_ok := false;
-  o_code := CASE WHEN v_e_slack <= 800 AND v_e_slack <= v_e_hz THEN 'slackLimit' WHEN v_exceeds THEN 'taskExceedsCapacity' ELSE v_last END;
+  o_code := CASE WHEN v_e_slack <= v_maxs AND v_e_slack <= v_e_hz THEN 'slackLimit' WHEN v_exceeds THEN 'taskExceedsCapacity' ELSE v_last END;
 END $$;
 
 REVOKE ALL ON FUNCTION public.pm_leveling_srv_schedule(boolean, date, boolean), public.pm_leveling_srv_need(text, date, date, boolean, boolean), public.pm_leveling_srv_usage(boolean, boolean),
@@ -15547,6 +15581,7 @@ DECLARE
   v_eps     constant float8 := 1e-9;
   v_skip    boolean; v_week boolean; v_smooth boolean; v_float boolean;
   v_order   text; v_start date; v_from date; v_to date; v_last date;
+  v_slots   boolean := false; v_nres integer;
   v_max     integer; v_passes integer := 0; v_batch boolean := true; v_maxmoves integer; v_cnt integer; v_before integer; v_after integer;
   v_base_fin date; v_next date; v_in jsonb; v_resources jsonb;
   c record; pl record; o record; w record; x2 record;
@@ -15557,9 +15592,13 @@ BEGIN
   IF NOT public.perm_can_in('project_resource_leveling_run', 'R', p_project) THEN
     RAISE EXCEPTION 'project_resource_leveling_server_plan: the project is not yours' USING ERRCODE = '42501';
   END IF;
-  IF p_problem IS NULL OR jsonb_typeof(p_problem) <> 'object' OR p_problem->>'v' IS DISTINCT FROM '1' THEN
+  IF p_problem IS NULL OR jsonb_typeof(p_problem) <> 'object' OR COALESCE(p_problem->>'v', '') NOT IN ('1', '2') THEN
     RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('version'));
   END IF;
+  -- v = 2: the VIRTUAL AXIS of the time-of-day model: a day of the problem is one STEP of working time (resourceSlotMinutes), every day is worked (skipWeekends false), the dates are
+  -- 2000-01-01 + the number of the step, the capacity and the foreign load come WITH the problem as runs of steps (cap / for: [[resource, firstStep, lastStep, hours], ...], lastStep = the
+  -- last step the capacity is known for, maxSearch = the longest search in steps); durations, lags and delays are in steps. The answer has the same shape (delays in steps, buckets as dates).
+  v_slots := p_problem->>'v' = '2';
   IF COALESCE(p_problem->>'direction', '') <> 'forward' THEN RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('direction')); END IF;
   v_order := p_problem->>'order'; v_smooth := (p_problem->>'method') = 'smoothing'; v_week := (p_problem->>'period') = 'week';
   IF v_order NOT IN ('idOnly', 'standard', 'priorityStandard') OR (p_problem->>'method') NOT IN ('leveling', 'smoothing') OR (p_problem->>'period') NOT IN ('day', 'week') THEN
@@ -15569,7 +15608,18 @@ BEGIN
     RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('size'));
   END IF;
   v_skip := COALESCE((p_problem->>'skipWeekends')::boolean, false);
+  IF v_slots AND (v_skip OR v_week) THEN RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('options')); END IF;
   v_start := (p_problem->>'projectStart')::date; v_from := (p_problem->>'from')::date; v_to := (p_problem->>'to')::date;
+  IF v_slots THEN
+    SELECT count(DISTINCT x->>0) INTO v_nres FROM jsonb_array_elements(COALESCE(p_problem->'cap', '[]'::jsonb)) x;
+    IF (p_problem->>'lastSlot') IS NULL OR (p_problem->>'lastSlot')::integer - (v_start - DATE '2000-01-01') > 30000
+       OR (((p_problem->>'lastSlot')::integer - (v_start - DATE '2000-01-01') + 1) * GREATEST(1, v_nres)) > 400000 THEN
+      RETURN jsonb_build_object('supported', false, 'reasons', jsonb_build_array('size'));
+    END IF;
+    PERFORM set_config('app.prl_max_search', LEAST(30000, GREATEST(1, COALESCE((p_problem->>'maxSearch')::integer, 800)))::text, true);
+  ELSE
+    PERFORM set_config('app.prl_max_search', '800', true);
+  END IF;
   v_max := least(400, greatest(1, COALESCE((p_problem->>'maxPasses')::integer, 400)));
   v_float := NOT (v_order = 'idOnly' AND NOT v_smooth);
 
@@ -15615,15 +15665,26 @@ BEGIN
   CREATE INDEX IF NOT EXISTS prl_mem_leaf ON pg_temp.prl_mem (leaf);
 
   -- the capacity of the calendar and the posted hours of the other projects, per bucket (the same rows the screen reads: project_resource_leveling_inputs)
-  SELECT COALESCE(jsonb_agg(DISTINCT jsonb_build_object('k', split_part(res, ':', 1), 'g', substr(res, position(':' IN res) + 1))), '[]') INTO v_resources FROM (SELECT DISTINCT res FROM pg_temp.prl_line) r;
-  v_in := public.project_resource_leveling_inputs(p_project, v_from, v_to, v_resources);
-  INSERT INTO pg_temp.prl_capb (res, b, cap)
-  SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
-    FROM jsonb_to_recordset(v_in->'capacity') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
-  INSERT INTO pg_temp.prl_forb (res, b, h)
-  SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
-    FROM jsonb_to_recordset(v_in->'foreign') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
-  SELECT max((x.d)::date) INTO v_last FROM jsonb_to_recordset(v_in->'capacity') AS x(d date);
+  IF v_slots THEN
+    -- the virtual axis: the runs of the problem become one row per step
+    INSERT INTO pg_temp.prl_capb (res, b, cap)
+    SELECT x->>0, DATE '2000-01-01' + g, sum((x->>3)::float8)
+      FROM jsonb_array_elements(COALESCE(p_problem->'cap', '[]'::jsonb)) x CROSS JOIN LATERAL generate_series((x->>1)::integer, (x->>2)::integer) g GROUP BY 1, 2;
+    INSERT INTO pg_temp.prl_forb (res, b, h)
+    SELECT x->>0, DATE '2000-01-01' + g, sum((x->>3)::float8)
+      FROM jsonb_array_elements(COALESCE(p_problem->'for', '[]'::jsonb)) x CROSS JOIN LATERAL generate_series((x->>1)::integer, (x->>2)::integer) g GROUP BY 1, 2;
+    v_last := DATE '2000-01-01' + (p_problem->>'lastSlot')::integer;
+  ELSE
+    SELECT COALESCE(jsonb_agg(DISTINCT jsonb_build_object('k', split_part(res, ':', 1), 'g', substr(res, position(':' IN res) + 1))), '[]') INTO v_resources FROM (SELECT DISTINCT res FROM pg_temp.prl_line) r;
+    v_in := public.project_resource_leveling_inputs(p_project, v_from, v_to, v_resources);
+    INSERT INTO pg_temp.prl_capb (res, b, cap)
+    SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
+      FROM jsonb_to_recordset(v_in->'capacity') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
+    INSERT INTO pg_temp.prl_forb (res, b, h)
+    SELECT x.k || ':' || x.g, CASE WHEN v_week THEN date_trunc('week', x.d)::date ELSE x.d END, sum(x.h)::float8
+      FROM jsonb_to_recordset(v_in->'foreign') AS x(k text, g text, d date, h float8) GROUP BY 1, 2;
+    SELECT max((x.d)::date) INTO v_last FROM jsonb_to_recordset(v_in->'capacity') AS x(d date);
+  END IF;
   v_last := COALESCE(v_last, v_start);
   -- the working days from the start of the project to the last day the capacity is known for (a position is a run of them)
   INSERT INTO pg_temp.prl_wd (i, d)
@@ -19784,6 +19845,390 @@ GRANT EXECUTE ON FUNCTION public.consolidation_gap_list(integer) TO authenticate
 
 -- Q12: an organization that exists already gets its currency now (the guard trigger fills it and queues its projects; the worker does the rest)
 UPDATE public."organizationTable" o SET "rowJSON" = o."rowJSON" WHERE NOT (o."rowJSON" ? 'currencyForConsolidation');
+
+-- ===============================================================================================
+-- PART 53: create_time_of_day_model.sql
+-- THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): the project setting resourceOptimizationMode = hourByHourModel plans, posts and checks TO THE MINUTE. With
+-- dayByDayModel (the default and every existing project) NOTHING here is read or written: the day rows, the day check and every report are exactly as before.
+--   day row of a RESOURCE calendar   rowJSON.windows = [{"from": "09:00", "to": "13:00"}, ...]  sorted, inside one day, no overlap; hours = the sum of the windows (trigger). A day without
+--                                    windows = ONE window that starts at the calendar's workFrom (default 08:00) and lasts its hours (organization_calendar_day_windows).
+--   organization_resource_capacity_windows(kind, resource, day)   the windows [[from, to], ...] (minutes of the day) of the calendar that applies; NULL = no day row (unknown, never guessed)
+--   project_resource_leveling_inputs_hours(project, from, to, resources)   the inputs of an hour leveling run: capacity [{k, g, d, w}] and foreign [{k, g, s, e, h}]
+--   task keys (project_task_table.rowJSON): taskStartMinute 0..1439 · taskDurationMinutes >= 1 · taskLevelingDelayMinutes >= 0 (whole minutes; trigger project_task_hour_keys_check)
+--   project_resource_leveling_apply / _clear / _undo (PART 42, changed in place) write taskLevelingDelayMinutes when the run says options.delayUnit = 'minutes'
+--   project_resource_leveling_server_plan (PART 42, changed in place) also takes a problem v = 2 on the virtual axis of the steps (see there)
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_plan_hour_movements') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 53 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+-- access: the owner of the project READS; nobody writes directly - only create_task_line_plan does (like task_line_plan_movements)
+ALTER TABLE public.task_line_plan_hour_movements ENABLE ROW LEVEL SECURITY;
+
+REVOKE ALL ON public.task_line_plan_hour_movements FROM anon, authenticated;
+
+GRANT SELECT ON public.task_line_plan_hour_movements TO authenticated;
+
+DROP POLICY IF EXISTS task_line_plan_hour_movements_select ON public.task_line_plan_hour_movements;
+
+CREATE POLICY task_line_plan_hour_movements_select ON public.task_line_plan_hour_movements FOR SELECT TO authenticated
+  USING (public.pm_owns_project("rowProjectGUID"));
+
+-- 'HH:MM' -> minutes of the day ('24:00' = 1440); NULL = not a clock time (seconds are not allowed)
+CREATE OR REPLACE FUNCTION public.hm_clock_minutes(p_text text) RETURNS integer
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN p_text ~ '^\d{1,2}:\d{2}$' AND (split_part(p_text, ':', 1)::integer < 24 OR p_text = '24:00') AND split_part(p_text, ':', 2)::integer <= 59
+              THEN split_part(p_text, ':', 1)::integer * 60 + split_part(p_text, ':', 2)::integer END
+$$;
+
+-- the windows [[from, to], ...] (minutes of the day) of ONE day of ONE calendar; NULL = no day row (not filled)
+CREATE OR REPLACE FUNCTION public.organization_calendar_day_windows(p_calendar text, p_day date) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_day   jsonb;
+  v_cal   jsonb;
+  v_hours numeric;
+  v_from  integer;
+  v_pattern jsonb;
+  v_pmin  numeric;
+BEGIN
+  SELECT d."rowJSON", c."rowJSON" INTO v_day, v_cal
+    FROM public."managementCalendarDaysTable" d JOIN public."managementCalendarTable" c ON c."rowGUID" = d."rowOwnerGUID"
+   WHERE d."rowGUID" = p_calendar || ':' || to_char(p_day, 'YYYY-MM-DD');
+  IF NOT FOUND THEN RETURN NULL; END IF;
+  IF jsonb_typeof(v_day->'windows') = 'array' THEN
+    RETURN COALESCE((SELECT jsonb_agg(jsonb_build_array(public.hm_clock_minutes(w->>'from'), public.hm_clock_minutes(w->>'to')) ORDER BY public.hm_clock_minutes(w->>'from'))
+                       FROM jsonb_array_elements(v_day->'windows') w), '[]'::jsonb);
+  END IF;
+  v_hours := public.organization_calendar_day_hours(p_calendar, p_day);
+  IF COALESCE(v_hours, 0) <= 0 THEN RETURN '[]'::jsonb; END IF;
+  -- the daily pattern of the CALENDAR (rowJSON.workWindows, the same shape as the windows of a day; set in the Fill window of a resource calendar) when it adds up to the hours of the day
+  IF jsonb_typeof(v_cal->'workWindows') = 'array' AND jsonb_array_length(v_cal->'workWindows') > 0 THEN
+    SELECT COALESCE(jsonb_agg(jsonb_build_array(public.hm_clock_minutes(w->>'from'), public.hm_clock_minutes(w->>'to')) ORDER BY public.hm_clock_minutes(w->>'from')), '[]'::jsonb),
+           COALESCE(sum(public.hm_clock_minutes(w->>'to') - public.hm_clock_minutes(w->>'from')), 0)
+      INTO v_pattern, v_pmin FROM jsonb_array_elements(v_cal->'workWindows') w;
+    IF v_pmin = round(v_hours * 60) THEN RETURN v_pattern; END IF;
+  END IF;
+  v_from := COALESCE(public.hm_clock_minutes(v_cal->>'workFrom'), 480);
+  RETURN jsonb_build_array(jsonb_build_array(v_from, least(1440, v_from + round(v_hours * 60)::integer)));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_calendar_day_windows(text, date) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_calendar_day_windows(text, date) TO authenticated;
+
+-- the windows of a resource on a day = the windows of the calendar that applies to it that day (contract in force, resource calendar, Standard week: organization_resource_capacity_info)
+CREATE OR REPLACE FUNCTION public.organization_resource_capacity_windows(p_kind text, p_resource text, p_day date) RETURNS jsonb
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.organization_calendar_day_windows(i.calendar, p_day) FROM public.organization_resource_capacity_info(p_kind, p_resource, p_day) i
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_resource_capacity_windows(text, text, date) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_resource_capacity_windows(text, text, date) TO authenticated;
+
+-- a day row WITH windows: they are valid (HH:MM, to after from, sorted, no overlap) and the hours of the day are their sum. A hand-typed change of the hours that leaves the windows as they were
+-- DROPS the windows (a vacation day, a manual day: the hours win), as the row then is a day without windows.
+CREATE OR REPLACE FUNCTION public.organization_calendar_day_windows_check() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_w    jsonb := NEW."rowJSON"->'windows';
+  v_prev integer := -1;
+  v_sum  integer := 0;
+  v_old_h numeric;
+  v_new_h numeric;
+  w      jsonb;
+  f      integer;
+  t      integer;
+BEGIN
+  IF v_w IS NULL OR jsonb_typeof(v_w) = 'null' THEN RETURN NEW; END IF;
+  IF jsonb_typeof(v_w) <> 'array' THEN RAISE EXCEPTION 'the windows of a calendar day must be a list of {from, to}'; END IF;
+  IF TG_OP = 'UPDATE' AND OLD."rowJSON"->'windows' IS NOT DISTINCT FROM v_w THEN
+    v_old_h := CASE WHEN jsonb_typeof(OLD."rowJSON"->'hours') = 'number' THEN (OLD."rowJSON"->>'hours')::numeric END;
+    v_new_h := CASE WHEN jsonb_typeof(NEW."rowJSON"->'hours') = 'number' THEN (NEW."rowJSON"->>'hours')::numeric END;
+    IF v_new_h IS DISTINCT FROM v_old_h OR (NEW."rowJSON"->>'isActive') IS DISTINCT FROM (OLD."rowJSON"->>'isActive') THEN
+      NEW."rowJSON" := NEW."rowJSON" - 'windows';
+      RETURN NEW;
+    END IF;
+  END IF;
+  FOR w IN SELECT x FROM jsonb_array_elements(v_w) x LOOP
+    f := public.hm_clock_minutes(w->>'from');
+    t := public.hm_clock_minutes(w->>'to');
+    IF f IS NULL OR t IS NULL OR t <= f THEN RAISE EXCEPTION 'a window of a calendar day needs "from" and "to" as HH:MM, "to" after "from"'; END IF;
+    IF f < v_prev THEN RAISE EXCEPTION 'the windows of a calendar day must be in order and must not overlap'; END IF;
+    v_prev := t;
+    v_sum := v_sum + (t - f);
+  END LOOP;
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('hours', trim_scale(round(v_sum / 60.0, 4)), 'isActive', v_sum > 0);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_management_calendar_day_windows ON public."managementCalendarDaysTable";
+
+CREATE TRIGGER trg_management_calendar_day_windows BEFORE INSERT OR UPDATE OF "rowJSON" ON public."managementCalendarDaysTable"
+  FOR EACH ROW WHEN (jsonb_exists(NEW."rowJSON", 'windows')) EXECUTE FUNCTION public.organization_calendar_day_windows_check();
+
+-- the new keys of a task: whole minutes (a start time of day, a duration of at least 1 minute, a leveling delay); a delay only on a plain task
+CREATE OR REPLACE FUNCTION public.project_task_hour_keys_check() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  j jsonb := NEW."rowJSON";
+  k text;
+  n numeric;
+BEGIN
+  FOREACH k IN ARRAY ARRAY['taskStartMinute', 'taskDurationMinutes', 'taskLevelingDelayMinutes'] LOOP
+    IF j->k IS NULL OR jsonb_typeof(j->k) = 'null' THEN CONTINUE; END IF;
+    IF jsonb_typeof(j->k) <> 'number' THEN RAISE EXCEPTION '% must be a number', k; END IF;
+    n := (j->>k)::numeric;
+    IF n <> trunc(n) THEN RAISE EXCEPTION '% must be a whole number of minutes', k; END IF;
+    IF k = 'taskStartMinute' AND (n < 0 OR n > 1439) THEN RAISE EXCEPTION 'taskStartMinute must be 0 to 1439 (minutes from 00:00)'; END IF;
+    IF k = 'taskDurationMinutes' AND n < 1 THEN RAISE EXCEPTION 'taskDurationMinutes must be 1 minute or more'; END IF;
+    IF k = 'taskLevelingDelayMinutes' THEN
+      IF n < 0 THEN RAISE EXCEPTION 'taskLevelingDelayMinutes must be 0 or more'; END IF;
+      IF n > 0 AND (COALESCE(j->>'rowKind', 'task') IN ('stage', 'milestone') OR COALESCE(j->>'taskIsSubproject', 'false') = 'true') THEN
+        RAISE EXCEPTION 'a stage, a milestone or a subproject task cannot have a leveling delay';
+      END IF;
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_task_hour_keys_chk ON public.project_task_table;
+
+CREATE TRIGGER trg_project_task_hour_keys_chk BEFORE INSERT OR UPDATE OF "rowJSON" ON public.project_task_table
+  FOR EACH ROW WHEN (jsonb_exists(NEW."rowJSON", 'taskStartMinute') OR jsonb_exists(NEW."rowJSON", 'taskDurationMinutes') OR jsonb_exists(NEW."rowJSON", 'taskLevelingDelayMinutes'))
+  EXECUTE FUNCTION public.project_task_hour_keys_check();
+
+-- the inputs of an hour leveling run for p_resources = [{"k": "person", "g": "<guid>"}] between two days:
+--   capacity [{k, g, d, w}]  the windows [[from, to], ...] of the calendar of the resource that day in minutes ([] = a closed day); a day WITHOUT a calendar row is left out (unknown)
+--   foreign  [{k, g, s, e, h}] the POSTED hours of the other projects of the organization as slices [s, e) of 'YYYY-MM-DDTHH:MM:SS' (wall clock): the hour rows of a line, and for a line that has
+--            only day rows its day hours spread over the windows of that day (a day without a known window: the whole day). Only hours: no title, no project, no task of a colleague.
+CREATE OR REPLACE FUNCTION public.project_resource_leveling_inputs_hours(p_project uuid, p_from date, p_to date, p_resources jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_org text;
+  v_cap jsonb;
+  v_for jsonb;
+BEGIN
+  IF NOT public.perm_can_in('project_resource_leveling_run', 'R', p_project) THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs_hours: the project is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF p_from IS NULL OR p_to IS NULL OR p_to < p_from THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs_hours: give the first and the last day';
+  END IF;
+  IF p_to - p_from > 1500 THEN
+    RAISE EXCEPTION 'project_resource_leveling_inputs_hours: the range is longer than 1500 days';
+  END IF;
+  SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project;
+
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT r->>'k' AS k, r->>'g' AS g FROM jsonb_array_elements(COALESCE(p_resources, '[]'::jsonb)) r WHERE NULLIF(r->>'g', '') IS NOT NULL AND NULLIF(r->>'k', '') IS NOT NULL),
+  days AS MATERIALIZED (
+    SELECT d::date AS d FROM generate_series(p_from, p_to, interval '1 day') d),
+  cap AS MATERIALIZED (
+    SELECT res.k, res.g, days.d, public.organization_resource_capacity_windows(res.k, res.g, days.d) AS w FROM res CROSS JOIN days)
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('k', c.k, 'g', c.g, 'd', c.d, 'w', c.w) ORDER BY c.k, c.g, c.d) FILTER (WHERE c.w IS NOT NULL), '[]'::jsonb)
+    INTO v_cap FROM cap c;
+
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT r->>'k' AS k, r->>'g' AS g FROM jsonb_array_elements(COALESCE(p_resources, '[]'::jsonb)) r WHERE NULLIF(r->>'g', '') IS NOT NULL AND NULLIF(r->>'k', '') IS NOT NULL),
+  hr AS (
+    SELECT h."resourceKind" AS k, h."resourceGUID" AS g, h."periodDay" AS d, h."minuteFrom" AS f, h."minuteTo" AS t, COALESCE(h."qtyTaskLine", 0)::numeric AS q
+      FROM public.task_line_plan_hour_movements h
+      JOIN res ON res.k = h."resourceKind" AND res.g = h."resourceGUID"
+      JOIN public.project_table p ON p."rowGUID" = h."rowProjectGUID"
+      JOIN public.task_line_table l ON l."rowGUID" = h."rowParentGUID"
+     WHERE p."rowParentGUID" = v_org AND h."rowProjectGUID" <> p_project AND h."planMovementStatus" AND COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false)
+       AND h."periodDay" BETWEEN p_from AND p_to),
+  dayonly AS (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q
+      FROM public.resource_occupancy_x_movement o
+      JOIN res ON res.k = o."resourceKind" AND res.g = o."resourceGUID"
+     WHERE o."scopeGUID" = v_org AND o."statusOfLine" = 'posted' AND o."projectGUID" <> p_project::text AND o."periodDay" BETWEEN p_from AND p_to
+       AND NOT EXISTS (SELECT 1 FROM public.task_line_plan_hour_movements h2 WHERE h2."rowParentGUID" = o."lineGUID"::uuid AND h2."periodDay" = o."periodDay")
+     GROUP BY 1, 2, 3),
+  spread AS (
+    SELECT d.k, d.g, d.d, (w.x->>0)::integer AS f, (w.x->>1)::integer AS t, d.q * ((w.x->>1)::numeric - (w.x->>0)::numeric) / NULLIF(tot.total, 0) AS q
+      FROM dayonly d
+      CROSS JOIN LATERAL (SELECT COALESCE(NULLIF(public.organization_resource_capacity_windows(d.k, d.g, d.d), '[]'::jsonb), '[[0, 1440]]'::jsonb) AS ws) c
+      CROSS JOIN LATERAL jsonb_array_elements(c.ws) AS w(x)
+      CROSS JOIN LATERAL (SELECT sum((y->>1)::numeric - (y->>0)::numeric) AS total FROM jsonb_array_elements(c.ws) y) tot)
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'k', x.k, 'g', x.g,
+           's', to_char(x.d::timestamp + make_interval(mins => x.f), 'YYYY-MM-DD"T"HH24:MI:SS'),
+           'e', to_char(x.d::timestamp + make_interval(mins => x.t), 'YYYY-MM-DD"T"HH24:MI:SS'),
+           'h', round(x.q, 6)) ORDER BY x.k, x.g, x.d, x.f), '[]'::jsonb)
+    INTO v_for
+    FROM (SELECT k, g, d, f, t, q FROM hr UNION ALL SELECT k, g, d, f, t, q FROM spread) x;
+
+  RETURN jsonb_build_object('capacity', v_cap, 'foreign', v_for);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_resource_leveling_inputs_hours(uuid, date, date, jsonb) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.project_resource_leveling_inputs_hours(uuid, date, date, jsonb) TO authenticated;
+
+-- ---- Post and the busy check to the MINUTE ---------------------------------------------------------------------------------------------------------------------------------
+-- A project in the time-of-day model sends, next to the days of a Time line, its SLICES: "hours": [{"d": "2026-10-14", "f": 540, "t": 780, "c": 0.25}, ...] = the day, from / to (minutes of the day)
+-- and the coefficient (the share of the line) of a piece of a working window. create_task_line_plan writes them with task_line_plan_hour_movements_write (the same transaction as the day rows;
+-- the slices of a day must add up to the coefficient of its day row) and, for such a project, checks the MINUTES instead of the days (organization_resource_busy_check_hours).
+CREATE OR REPLACE FUNCTION public.task_line_plan_hours_write(p_task uuid, p_project uuid, p_line uuid, p_tz text, p_ljson jsonb, p_qty numeric, p_base numeric, p_hours jsonb, p_status boolean)
+RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := COALESCE(NULLIF(p_ljson->>'taskResourceKind', ''), 'person');
+  v_res  text := NULLIF(p_ljson->>'taskResourceItem', '');
+  v_csum numeric;
+  r      record;
+  v_n    integer;
+BEGIN
+  IF jsonb_typeof(p_hours) <> 'array' THEN RAISE EXCEPTION 'task_line_plan_hours_write: "hours" must be an array'; END IF;
+  FOR r IN SELECT (x->>'d')::date AS d, (x->>'f')::integer AS f, (x->>'t')::integer AS t, round((x->>'c')::numeric, 10) AS c FROM jsonb_array_elements(p_hours) x LOOP
+    IF r.d IS NULL OR r.f IS NULL OR r.t IS NULL OR r.c IS NULL OR r.f < 0 OR r.t > 1440 OR r.t <= r.f OR r.c < 0 THEN
+      RAISE EXCEPTION 'task_line_plan_hours_write: a slice of line % needs d, f < t within the day (0..1440 minutes) and c >= 0', p_line;
+    END IF;
+  END LOOP;
+  SELECT COALESCE(SUM(round((x->>'c')::numeric, 10)), 0) INTO v_csum FROM jsonb_array_elements(p_hours) x;
+  IF abs(v_csum - p_base) > 0.000001 THEN
+    RAISE EXCEPTION 'task_line_plan_hours_write: the slices of line % add up to %, not to %', p_line, v_csum, p_base;
+  END IF;
+  -- every day of the slices is a day of the line, with the same coefficient
+  FOR r IN SELECT s.d, s.c AS hc, m."rowCoefficient" AS dc
+             FROM (SELECT (x->>'d')::date AS d, SUM(round((x->>'c')::numeric, 10)) AS c FROM jsonb_array_elements(p_hours) x GROUP BY 1) s
+             LEFT JOIN public.task_line_plan_movements m ON m."rowParentGUID" = p_line AND m."periodDay" = s.d LOOP
+    IF r.dc IS NULL THEN RAISE EXCEPTION 'task_line_plan_hours_write: line % has slices on % but no day row', p_line, r.d; END IF;
+    IF abs(r.hc - r.dc) > 0.000001 THEN
+      RAISE EXCEPTION 'task_line_plan_hours_write: the slices of line % on % add up to %, the day row has %', p_line, r.d, r.hc, r.dc;
+    END IF;
+  END LOOP;
+  INSERT INTO public.task_line_plan_hour_movements ("rowProjectGUID", "rowOwnerGUID", "rowParentGUID", "periodDay", "minuteFrom", "minuteTo", "periodStart", "periodEnd", "minutes",
+                                                    "rowCoefficient", "qtyTaskLine", "resourceKind", "resourceGUID", "planMovementStatus")
+  SELECT p_project, p_task, p_line, (x->>'d')::date, (x->>'f')::integer, (x->>'t')::integer,
+         ((x->>'d')::date + make_interval(mins => (x->>'f')::integer)) AT TIME ZONE p_tz, ((x->>'d')::date + make_interval(mins => (x->>'t')::integer)) AT TIME ZONE p_tz,
+         (x->>'t')::integer - (x->>'f')::integer, round((x->>'c')::numeric, 10),
+         CASE WHEN p_qty IS NULL THEN NULL ELSE round(p_qty * round((x->>'c')::numeric, 10), 6) END,
+         CASE WHEN v_res IS NULL THEN NULL ELSE v_kind END, v_res, p_status
+    FROM jsonb_array_elements(p_hours) x;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.task_line_plan_hours_write(uuid, uuid, uuid, text, jsonb, numeric, numeric, jsonb, boolean) FROM PUBLIC, anon, authenticated;
+
+-- the busy check TO THE MINUTE for one task: per resource and day, the minute intervals where the booked hours (this task: its slices, free or posted; the other tasks of the organization: their
+-- posted slices; a line that has only day rows: its day hours spread over the windows of that day) are STRICTLY above the capacity of the windows of the resource. A booking outside the windows
+-- is over (capacity 0); a day without a calendar row is not filled (a conflict, never guessed). Equal is not busy. The answer has the shape of organization_resource_busy_check (one row per
+-- resource and day; `conflict` has the same keys, with the DAY totals) plus `intervals` = the minutes that are over.
+CREATE OR REPLACE FUNCTION public.organization_resource_busy_check_hours(p_task uuid, p_scope text)
+RETURNS TABLE (resource_kind text, resource_guid text, day date, over_hours numeric, not_filled boolean, line_guids uuid[], conflict jsonb)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_posting_email text := public.organization_project_manager_email((SELECT t."projectGUID" FROM public.project_task_table t WHERE t."rowGUID" = p_task));
+BEGIN
+  IF auth.uid() IS NOT NULL AND p_scope IS DISTINCT FROM public.organization_of_current_user() THEN
+    RAISE EXCEPTION 'organization_resource_busy_check_hours: the organization is not yours' USING ERRCODE = '42501';
+  END IF;
+  RETURN QUERY
+  WITH res AS MATERIALIZED (
+    SELECT DISTINCT COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person') AS k, l."rowJSON"->>'taskResourceItem' AS g
+      FROM public.task_line_table l
+     WHERE l."rowOwnerGUID" = p_task AND l."rowParentGUID" = 'timeGenus' AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> ''
+       AND COALESCE(NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''), 'unit_hour') = 'unit_hour'),
+  -- the hour rows: of this task (free or posted) and the posted ones of the other tasks of the organization
+  hs AS MATERIALIZED (
+    SELECT h."resourceKind" AS k, h."resourceGUID" AS g, h."periodDay" AS d, h."minuteFrom" AS f, h."minuteTo" AS t, COALESCE(h."qtyTaskLine", 0)::numeric AS q,
+           h."rowOwnerGUID" AS task, h."rowParentGUID" AS line, h."rowProjectGUID" AS project
+      FROM public.task_line_plan_hour_movements h
+      JOIN res ON res.k = h."resourceKind" AND res.g = h."resourceGUID"
+      JOIN public.project_table p ON p."rowGUID" = h."rowProjectGUID"
+      JOIN public.task_line_table l ON l."rowGUID" = h."rowParentGUID"
+     WHERE p."rowParentGUID" = p_scope AND (h."rowOwnerGUID" = p_task OR (h."planMovementStatus" AND COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false)))),
+  -- the day rows of lines that have no hour rows on that day
+  dd AS MATERIALIZED (
+    SELECT o."resourceKind" AS k, o."resourceGUID" AS g, o."periodDay" AS d, sum(o."quantityResourceBusy") AS q, o."taskLineMovementGUID"::uuid AS task, o."lineGUID"::uuid AS line, o."projectGUID"::uuid AS project
+      FROM public.resource_occupancy_x_movement o
+      JOIN res ON res.k = o."resourceKind" AND res.g = o."resourceGUID"
+     WHERE o."scopeGUID" = p_scope AND o."statusOfLine" IN ('free', 'posted')
+       AND NOT EXISTS (SELECT 1 FROM public.task_line_plan_hour_movements h2 WHERE h2."rowParentGUID" = o."lineGUID"::uuid AND h2."periodDay" = o."periodDay")
+     GROUP BY 1, 2, 3, 5, 6, 7),
+  -- only the resource-days where THIS task books something
+  rd AS MATERIALIZED (
+    SELECT k, g, d FROM hs WHERE task = p_task UNION SELECT k, g, d FROM dd WHERE task = p_task),
+  cw AS MATERIALIZED (
+    SELECT rd.k, rd.g, rd.d, public.organization_resource_capacity_windows(rd.k, rd.g, rd.d) AS w FROM rd),
+  sp AS (
+    SELECT dd.k, dd.g, dd.d, (w.x->>0)::integer AS f, (w.x->>1)::integer AS t,
+           dd.q * ((w.x->>1)::numeric - (w.x->>0)::numeric) / NULLIF(tot.total, 0) AS q, dd.task, dd.line, dd.project
+      FROM dd JOIN rd ON rd.k = dd.k AND rd.g = dd.g AND rd.d = dd.d
+      CROSS JOIN LATERAL (SELECT COALESCE(NULLIF((SELECT c.w FROM cw c WHERE c.k = dd.k AND c.g = dd.g AND c.d = dd.d), '[]'::jsonb), '[[0, 1440]]'::jsonb) AS ws) c2
+      CROSS JOIN LATERAL jsonb_array_elements(c2.ws) AS w(x)
+      CROSS JOIN LATERAL (SELECT sum((y->>1)::numeric - (y->>0)::numeric) AS total FROM jsonb_array_elements(c2.ws) y) tot),
+  sl AS MATERIALIZED (
+    SELECT hs.k, hs.g, hs.d, hs.f, hs.t, hs.q, hs.task, hs.line, hs.project FROM hs JOIN rd ON rd.k = hs.k AND rd.g = hs.g AND rd.d = hs.d
+    UNION ALL SELECT k, g, d, f, t, q, task, line, project FROM sp),
+  pts AS (
+    SELECT k, g, d, f AS m FROM sl UNION SELECT k, g, d, t FROM sl
+    UNION SELECT c.k, c.g, c.d, (w.x->>0)::integer FROM cw c CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.w, '[]'::jsonb)) w(x)
+    UNION SELECT c.k, c.g, c.d, (w.x->>1)::integer FROM cw c CROSS JOIN LATERAL jsonb_array_elements(COALESCE(c.w, '[]'::jsonb)) w(x)),
+  iv AS (
+    SELECT k, g, d, m AS a, lead(m) OVER (PARTITION BY k, g, d ORDER BY m) AS b FROM pts),
+  calc AS MATERIALIZED (
+    SELECT i.k, i.g, i.d, i.a, i.b,
+           (SELECT c.w FROM cw c WHERE c.k = i.k AND c.g = i.g AND c.d = i.d) AS w,
+           COALESCE((SELECT sum(s.q * (i.b - i.a) / (s.t - s.f)) FROM sl s WHERE s.k = i.k AND s.g = i.g AND s.d = i.d AND s.task = p_task AND s.f <= i.a AND s.t >= i.b), 0) AS here,
+           COALESCE((SELECT sum(s.q * (i.b - i.a) / (s.t - s.f)) FROM sl s WHERE s.k = i.k AND s.g = i.g AND s.d = i.d AND s.task <> p_task AND s.f <= i.a AND s.t >= i.b), 0) AS oth
+      FROM iv i WHERE i.b IS NOT NULL),
+  capv AS (
+    SELECT c.*, CASE WHEN c.w IS NULL THEN NULL
+                     ELSE COALESCE((SELECT sum(greatest(0, least(c.b, (x->>1)::integer) - greatest(c.a, (x->>0)::integer))) FROM jsonb_array_elements(c.w) x), 0) / 60.0 END AS cap
+      FROM calc c),
+  bad AS (
+    SELECT * FROM capv WHERE here > 1e-9 AND (cap IS NULL OR here + oth > cap + 1e-9)),
+  agg AS (
+    SELECT b.k, b.g, b.d,
+           sum(CASE WHEN b.cap IS NULL THEN b.here + b.oth ELSE b.here + b.oth - b.cap END) AS over,
+           bool_or(b.cap IS NULL) AS nf,
+           jsonb_agg(jsonb_build_object('from', lpad((b.a / 60)::text, 2, '0') || ':' || lpad((b.a % 60)::text, 2, '0'), 'to', lpad((b.b / 60)::text, 2, '0') || ':' || lpad((b.b % 60)::text, 2, '0'),
+                                        'capacityHours', round(b.cap, 6), 'bookedHere', round(b.here, 6), 'bookedOthers', round(b.oth, 6),
+                                        'overHours', round(CASE WHEN b.cap IS NULL THEN b.here + b.oth ELSE b.here + b.oth - b.cap END, 6)) ORDER BY b.a) AS intervals,
+           min(b.a) AS from_min, max(b.b) AS to_min
+      FROM bad b GROUP BY 1, 2, 3)
+  SELECT a.k, a.g, a.d, round(a.over, 6), a.nf,
+         COALESCE((SELECT array_agg(DISTINCT s.line) FROM sl s WHERE s.k = a.k AND s.g = a.g AND s.d = a.d AND s.task = p_task AND EXISTS (
+                     SELECT 1 FROM bad b WHERE b.k = a.k AND b.g = a.g AND b.d = a.d AND s.f <= b.a AND s.t >= b.b)), '{}'::uuid[]),
+         jsonb_build_object('resourceKind', a.k, 'resourceGUID', a.g, 'resourceTitle', public.organization_resource_title(a.k, a.g), 'day', a.d,
+                            'capacityHours', (SELECT COALESCE(sum(((x->>1)::numeric - (x->>0)::numeric) / 60.0), 0) FROM cw c, jsonb_array_elements(COALESCE(c.w, '[]'::jsonb)) x WHERE c.k = a.k AND c.g = a.g AND c.d = a.d),
+                            'bookedHere', round((SELECT sum(s.q) FROM sl s WHERE s.k = a.k AND s.g = a.g AND s.d = a.d AND s.task = p_task), 6),
+                            'bookedOthers', round(COALESCE((SELECT sum(s.q) FROM sl s WHERE s.k = a.k AND s.g = a.g AND s.d = a.d AND s.task <> p_task), 0), 6),
+                            'overHours', round(a.over, 6), 'notFilled', a.nf,
+                            'lines', to_jsonb(COALESCE((SELECT array_agg(DISTINCT s.line) FROM sl s WHERE s.k = a.k AND s.g = a.g AND s.d = a.d AND s.task = p_task AND EXISTS (
+                                       SELECT 1 FROM bad b WHERE b.k = a.k AND b.g = a.g AND b.d = a.d AND s.f <= b.a AND s.t >= b.b)), '{}'::uuid[])),
+                            'others', COALESCE((SELECT jsonb_agg(jsonb_build_object('projectGUID', o.project, 'taskGUID', o.task, 'hours', round(o.q, 6),
+                                                                                   'managerEmail', public.organization_project_manager_email(o.project))
+                                                                 ORDER BY o.project, o.task)
+                                                  FROM (SELECT s.project, s.task, sum(s.q) AS q FROM sl s
+                                                         WHERE s.k = a.k AND s.g = a.g AND s.d = a.d AND s.task <> p_task AND EXISTS (
+                                                           SELECT 1 FROM bad b WHERE b.k = a.k AND b.g = a.g AND b.d = a.d AND s.f <= b.a AND s.t >= b.b)
+                                                         GROUP BY 1, 2) o), '[]'::jsonb),
+                            'intervals', a.intervals, 'postingManagerEmail', v_posting_email)
+    FROM agg a
+   ORDER BY a.k, a.g, a.d;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_resource_busy_check_hours(uuid, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_resource_busy_check_hours(uuid, text) TO authenticated;
 
 NOTIFY pgrst, 'reload schema';
 

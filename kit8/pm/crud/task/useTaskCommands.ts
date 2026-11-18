@@ -441,6 +441,32 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
       },
 
       /**
+       * The time-of-day model (hourmodel/): the duration in WHOLE WORKING MINUTES (the working minutes of a day = `dayMinutes`). `durationDays` is written as the number of days it touches,
+       * rounded up, so every reader that knows only days (Monitor01, the day Gantt chart, a version) still has a valid value.
+       */
+      setDurationMinutes: (guid: string, minutes: number, dayMinutes: number) => {
+        const t = st().tasksById[guid];
+        if (!t || isSummary(guid) || t.rowJSON.rowKind === 'milestone') return;
+        const taskDurationMinutes = Math.max(1, Math.round(minutes));
+        if (taskDurationMinutes === t.rowJSON.taskDurationMinutes) return;
+        const durationDays = Math.max(1, Math.ceil(taskDurationMinutes / Math.max(1, dayMinutes)));
+        record('task-resize', `Duration of "${t.rowJSON.taskDescription}"`);
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: { ...t.rowJSON, taskDurationMinutes, durationDays } } });
+      },
+
+      /** The time-of-day model: the earliest start time of a task on its start day, minutes from 00:00 (null = the start of the first window). */
+      setStartMinute: (guid: string, minute: number | null) => {
+        const t = st().tasksById[guid];
+        if (!t || isSummary(guid)) return;
+        const next = minute === null ? null : Math.min(1439, Math.max(0, Math.round(minute)));
+        if ((t.rowJSON.taskStartMinute ?? null) === next) return;
+        record('task-move', `Start time of "${t.rowJSON.taskDescription}"`);
+        const json = { ...t.rowJSON } as PMTaskJSON;
+        if (next === null) delete json.taskStartMinute; else json.taskStartMinute = next;
+        updateTaskMutation.mutate({ rowGUID: guid, patch: { rowJSON: json as any } });
+      },
+
+      /**
        * Inline "Start" cell. An AUTO task: "start no earlier than" (null = as soon as possible; with the constraint types on, a task that has another type is asked first).
        * A MANUALLY scheduled task (Extended A1): its own start (it always has one, an empty cell does nothing).
        */

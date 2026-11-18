@@ -55,6 +55,7 @@ import ScrollableTabBar from '../../../ui/components/tabs/ScrollableTabBar';
 import PMTaskAdvancedTab from '../../extended/PMTaskAdvancedTab';
 import PMRichNotes from '../../extended/PMRichNotes';
 import { advancedTabOn } from '../../extended/extendedModel';
+import { hourModelOf } from '../../hourmodel/hourModelSettings';
 
 export default function PMTaskEditModal({
   crud,
@@ -95,6 +96,8 @@ export default function PMTaskEditModal({
   // Project planning units & format settings
   const planDay = usePMStore((s) => s.planDay);
   const planHour = usePMStore((s) => s.planHour);
+  const projectJSONForHours = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : undefined));
+  const hourModel = hourModelOf(projectJSONForHours);
   const planMinute = usePMStore((s) => s.planMinute);
   const planSecond = usePMStore((s) => s.planSecond);
   const planDateInputFormat = usePMStore((s) => s.planDateInputFormat);
@@ -367,6 +370,11 @@ export default function PMTaskEditModal({
       updatedJSON.taskSubprojectGUID = null;
     }
 
+    // the time-of-day model: the start hour / minute of the window are the earliest start TIME of the task (taskStartMinute); 00:00 = no start time
+    if (hourModel.active && (planHour || planMinute)) {
+      const startAtMinute = sH * 60 + sM;
+      if (startAtMinute > 0) updatedJSON.taskStartMinute = Math.min(1439, startAtMinute); else delete updatedJSON.taskStartMinute;
+    }
     if (planHour) {
       updatedJSON.startHourStart = sH;
       updatedJSON.startHourFinish = fH;

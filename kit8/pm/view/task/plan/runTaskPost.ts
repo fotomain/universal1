@@ -8,6 +8,8 @@ import { formatDateISO } from '../../project/scheduling';
 import { pmT } from '../../../i18n/pmT';
 import type { TaskLineRow } from '../finances/taskLineModel';
 import { calculateTaskLinePlan } from './calculateTaskLinePlan';
+import { withHourSlices } from '../../../hourmodel/hourPostPlan';
+import type { AxisPiece } from '../../../hourmodel/hourAxis';
 import { createTaskLinePlan } from './taskLinePlanApi';
 import { postableLines } from './taskLinePlanModel';
 import type { CapacityMode, ResourceBusyConflict } from './busyControl';
@@ -32,6 +34,9 @@ export interface RunTaskPostArgs {
   finishMs: number | undefined;
   /** the check of a line before it is posted (business units: useBusinessUnitPostCheck); a message = the line is left out */
   lineCheck?: (line: TaskLineRow) => string | null;
+  /** the time-of-day model: the real pieces of the bar of the task (a break splits it) and the zone of the project; the Time lines of resources are then posted with slices */
+  pieces?: readonly AxisPiece[];
+  timeZone?: string;
 }
 
 export type RunTaskPostResult =
@@ -43,7 +48,7 @@ export type RunTaskPostResult =
   | { status: 'error'; message: string };
 
 export async function runTaskPost(args: RunTaskPostArgs): Promise<RunTaskPostResult> {
-  const { taskGUID, lines, distributions, calendars, startMs, finishMs, lineCheck } = args;
+  const { taskGUID, lines, distributions, calendars, startMs, finishMs, lineCheck, pieces, timeZone } = args;
   const calendarForTaskPlan = args.calendarForTaskPlan || DEFAULT_CALENDAR_FOR_TASK_PLAN;
   try {
     if (postableLines(lines).length === 0) return { status: 'nothing', noBudget: true, problems: [] };
@@ -55,7 +60,8 @@ export async function runTaskPost(args: RunTaskPostArgs): Promise<RunTaskPostRes
       calendarDays = await fetchCalendarDays(calendarForTaskPlan, `${years[0]}-01-01`, `${years[years.length - 1]}-12-31`);
     }
     const calendarTitle = String(calendars.find((r) => r.rowGUID === calendarForTaskPlan)?.rowJSON?.title || '') || undefined;
-    const plan = calculateTaskLinePlan({ taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle, lineCheck });
+    const plan = calculateTaskLinePlan({ taskGUID, fromDay, toDay, lines, calendarDays, distributions, calendarTitle, lineCheck, ...(timeZone ? { timeZone } : {}) });
+    if (plan.taskLinePlanJSON && pieces && pieces.length > 0) plan.taskLinePlanJSON = withHourSlices(plan.taskLinePlanJSON, lines, pieces);
     const problems = plan.errors.map((e) => pmT(e.message));
     if (!plan.taskLinePlanJSON) return { status: 'nothing', noBudget: false, problems };
     const result = await createTaskLinePlan(plan.taskLinePlanJSON);

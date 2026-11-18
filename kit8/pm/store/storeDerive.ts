@@ -5,6 +5,8 @@ import { costColumnShown, costCurrencyOf, costWithVatColumnShown } from '../cost
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from '../view/project/scheduling';
 import { NO_PENDING, pendingCountOf, pendingOf, PMCalcSignature, provisionalRowOf, signatureOf } from '../model/calcSignature';
 import { calculationManualOf, scheduleOptionsOf } from '../model/scheduleOptions';
+import { hourAxisOfProject } from '../hourmodel/hourAxisOfProject';
+import { scheduleProjectHours } from '../hourmodel/scheduleHours';
 import { extendedOf } from '../extended/extendedModel';
 import { extendedOptionsOf, PMExtendedOptions } from '../extended/extendedOptions';
 import { extColumnDefsOf, PMExtColumnContext } from '../extended/extendedColumns';
@@ -211,14 +213,18 @@ export function derive(
     // stage and project % = the stored values (the database formula), not a client roll-up of rows that were not recalculated
     projectProgress = Number.isFinite(Number(project?.rowProgress)) && s.tasks.length ? Number(project?.rowProgress) : frozen.projectProgress;
   } else {
-    const result = scheduleProject({
-      tasks: s.tasks,
-      deps: s.deps,
-      projectStartMs: projectStart,
-      calendar,
-      ...options,
-      externalDates: s.externalDates,
-    });
+    // the time-of-day model (resourceOptimizationMode = hourByHourModel) plans by the clock on the working-minute axis; every other project is scheduled exactly as before
+    const hourAxis = hourAxisOfProject(project?.rowJSON, projectStart, calendar);
+    const result = hourAxis
+      ? scheduleProjectHours({ tasks: s.tasks, deps: s.deps, projectStartMs: projectStart, axis: hourAxis, options, levelingEnabled: options.levelingEnabled })
+      : scheduleProject({
+          tasks: s.tasks,
+          deps: s.deps,
+          projectStartMs: projectStart,
+          calendar,
+          ...options,
+          externalDates: s.externalDates,
+        });
     rowsOut = result.rows;
     projectStartMs = result.projectStartMs;
     projectFinishMs = result.projectFinishMs;
