@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resource Optimization Hours WBS</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --surface: #ffffff; --text: #1f2328; --muted: #656d76;
+    --border: #d8dce0; --accent: #3b5bdb; --accent-bg: #e8edff;
+    --warn: #b35900; --warn-bg: #fff3e0; --ok: #1a7f37; --ok-bg: #e6f4ea; --no: #8a1f1f; --no-bg: #fde8e8;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a; --surface: #1c1f24; --text: #e6e8eb; --muted: #9aa3ad;
+      --border: #2e333a; --accent: #8fa6ff; --accent-bg: #232b4a;
+      --warn: #ffb866; --warn-bg: #3a2c18; --ok: #6fd08c; --ok-bg: #16301f; --no: #ff9a9a; --no-bg: #3a1c1c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 1060px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { font-size: 26px; margin: 0 0 4px; }
+  h2 { font-size: 19px; margin: 38px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border); }
+  h3 { font-size: 16px; margin: 22px 0 6px; }
+  p { margin: 8px 0; }
+  .sub { color: var(--muted); margin-bottom: 20px; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; margin: 12px 0; }
+  .callout { background: var(--accent-bg); border-left: 4px solid var(--accent); border-radius: 6px; padding: 10px 14px; margin: 12px 0; }
+  .warn { background: var(--warn-bg); border-left-color: var(--warn); }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--accent-bg); font-weight: 600; }
+  tr:last-child td { border-bottom: 0; }
+  td.id { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); width: 56px; }
+  tr.group td { background: var(--accent-bg); font-weight: 600; }
+  tr.group td.id { color: var(--accent); }
+  .tbl { overflow-x: auto; }
+  code { background: var(--accent-bg); padding: 1px 6px; border-radius: 4px; font-size: 13px; }
+  ul, ol { margin: 6px 0; padding-left: 22px; }
+  .tag { display: inline-block; font-size: 12px; padding: 0 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--muted); white-space: nowrap; }
+  .tag.have { color: var(--ok); background: var(--ok-bg); border-color: var(--ok); }
+  .tag.new { color: var(--accent); background: var(--accent-bg); border-color: var(--accent); }
+  .tag.map { color: var(--warn); background: var(--warn-bg); border-color: var(--warn); }
+  .tag.no { color: var(--no); background: var(--no-bg); border-color: var(--no); }
+  .flow { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px; white-space: pre; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 12px 16px; }
+</style>
+</head>
+<body>
+<main>
+
+<h1>Resource Optimization, phase 2 – the time-of-day model (<code>hourByHourModel</code>) – Work Breakdown Structure</h1>
+<p class="sub">Scope: the work package <b>WP15</b> of <code>RESOURCE_LEVELING_WBS.html</code> (section 7.10, “phase 2”), made a document of its own as that package asks (item 15.1). It makes the choice <b>Hour by hour</b> in <b>Project settings → Resources → Resource optimization</b> selectable: a calendar with clock windows, a task with a start time and a duration, a scheduler, Post and a busy check, and leveling that all work <b>to the minute</b> (the model keeps its stored name <code>hourByHourModel</code>; “hour” is the name of the choice, the precision is the minute – section 4.0). Planning document – <b>no code</b> (2026-11-18). Everything below is checked against the code of that date; what is a proposal is marked <span class="tag new">proposal</span>, what already exists <span class="tag have">exists</span>, what the owner decided in the first document <span class="tag map">decided</span>.</p>
+
+<h2>1. Why the choice is disabled today</h2>
+<div class="card">
+  <p>The text under the radio button is <i>“Phase 2: the time-of-day model is not available yet.”</i> (<code>PMResourceLevelingSettingsTab.tsx</code>; the switch is the constant <code>HOUR_BY_HOUR_MODEL_AVAILABLE = false</code> in <code>resourceLevelingSettings.ts</code>, and <code>resourceLevelingValuesOf</code> forces <code>dayByDayModel</code> whatever is stored). It is off because <b>the data the app keeps has no clock</b>: a resource calendar says “8 hours on Monday”, not “from 09:00 to 17:00”; a task starts on a <b>day</b> and lasts whole <b>working days</b>; Post writes <b>one row per line and day</b>. With such data “hour” and “day” leveling find the same conflicts. The owner decided (answer 16 of the first document): <b>yes, hour-by-hour needs a time-of-day model</b>, as a separate phase chosen by the project setting <code>resourceOptimizationMode</code>. This document is that phase.</p>
+</div>
+<div class="callout warn"><b>Hard constraint (same as phase 1):</b> with <code>resourceOptimizationMode = dayByDayModel</code> (the default, and the value of every existing project) <b>nothing changes</b>: the scheduler, the Gantt chart, Post, the busy check, the reports and every screen work exactly as today. Every new column, field, button and table of this document is invisible and unused in that model. A golden test proves it (WP15.12).</div>
+
+<h2>2. What the app has today (checked in the code, 2026-11-18)</h2>
+<div class="tbl">
+<table>
+  <tr><th>Area</th><th>Finding</th><th>Where</th><th>Consequence for this phase</th></tr>
+  <tr><td>Calendar capacity</td><td>A resource calendar has day rows with <code>hours</code> (0..24, kept in step with <code>isActive</code> by a CHECK). <b>No clock times, no breaks</b> on a day.</td><td>PART 21, <code>management_calendar_day_hours_chk</code></td><td>Windows are new data (4.1). The <code>hours</code> of a day must stay the sum of its windows.</td></tr>
+  <tr><td>Calendar work window</td><td>The <b>calendar row</b> already has <code>workFrom</code> / <code>workTo</code> (<code>'HH:MM'</code>); the four seeded calendars carry them (08:00–16:00, part time 08:00–12:00). The comment of PART 21 says “used by hour / minute control later”. <b>Nothing reads them.</b></td><td>PART 21, <code>start4</code> / <code>start5</code> seeds</td><td><span class="tag have">exists</span> the cheapest start: the default window of a calendar needs no new column (4.1).</td></tr>
+  <tr><td>Task duration</td><td>Stored as <code>rowJSON.durationDays</code>. The duration text accepts <code>4h</code>, <code>30m</code>, <code>45s</code> and turns them into <b>fractions of 24 hours</b> (<code>parsePlanDuration</code>: hours / 24). But the scheduler reads it through <code>durationOf</code> = <code>Math.round(durationDays)</code>: <b>a 4 h task rounds to 0 days</b>, 12 h and over round to 1 day.</td><td><code>planDateFormats.ts</code>, <code>scheduling.ts</code> <code>durationOf</code></td><td>The <b>planning units</b> <code>planHour / planMinute / planSecond</code> are today only a way to <b>type and show</b> a duration; they do not plan. They also mean 24 clock hours a day, not the working hours of a calendar (decision H7). WP15.1 keeps them for the day model and does not reuse them as the new data.</td></tr>
+  <tr><td>Minutes</td><td><b>Minutes do not exist as planning data.</b> They exist only as a typed <b>unit</b>: the text <code>30m</code> is read as 30 / 1440 of a day, the project switch <code>planMinute</code> and the tree column <code>planMinuteStart</code> only show / type it. The scheduler rounds every duration to whole days, a calendar knows hours per day, Post writes days. Seconds (<code>planSecond</code>) are the same case.</td><td><code>planDateFormats.ts</code>, <code>types.ts</code>, <code>scheduling.ts</code></td><td>This document therefore plans <b>in whole minutes</b> everywhere (4.0): stored start, duration, delay and Post slices are minutes. Seconds stay out (a typed <code>45s</code> is rounded up to a minute with a hint).</td></tr>
+  <tr><td>Start time of a task</td><td><code>PMTaskJSON</code> has <code>startHourStart / startHourFinish / planMinuteStart / planMinuteFinish / planSecond…</code>; the tree has the matching columns. The tree shows the stored value or the hour of <code>startAt</code> (<code>getUTCHours()</code>). The scheduler works on <b>UTC midnights</b> (<code>utcMidnight</code>, <code>addWorkDays</code>) and never reads these keys.</td><td><code>types.ts</code>, <code>PMProjectTasksTree.tsx</code>, <code>scheduling.ts</code></td><td>Display-only fields. The new start time is the separate key <code>taskStartMinute</code> (decision H2); the old keys stay untouched.</td></tr>
+  <tr><td>Scheduler</td><td>Pure TypeScript <code>scheduleProject</code>: forward / backward pass, links with lag, calendars (<code>skipWeekends</code>, <code>workWeek</code>, <code>offDays</code>, <code>extraDays</code>), everything in <b>working days</b>; scans stop after <code>MAX_SCAN_DAYS</code> = 36 600. Leveling reads <code>taskLevelingDelayDays</code> as a lag.</td><td><code>scheduling.ts</code></td><td>The hour scheduler is a <b>second, separate function</b> (4.4); it must not change a line of the day scheduler.</td></tr>
+  <tr><td>Post</td><td>The device computes the days and a coefficient per day (<code>calculateTaskLinePlan</code>) and sends <code>{ d, c }</code> per day; <code>create_task_line_plan</code> writes <b>one row per line and day</b> into <code>task_line_plan_movements</code> (unique per line + <code>rowPeriodDatetime</code> = the start of the day in the time zone the Post sends, default UTC; <code>periodDay</code> = the day). Coefficients of a line add up to its base, one transaction.</td><td>PART 15, <code>create_task_line_plan</code></td><td>The day rows stay the truth for every report (H4). Hour rows are a second, derived table written in the same transaction (4.5).</td></tr>
+  <tr><td>Busy check</td><td>PART 22: <code>resource_occupancy_x_movement</code> (abstract occupancy of the posted days, <code>quantityResourceBusy</code> in hours per <code>periodDay</code>), <code>organization_resource_busy_check</code>, the per-resource lock, mode <code>resourceCapacityStrongMode</code> (<code>capacityModeOff / Warn / Block</code>). “Equal is not over-allocated.”</td><td>PART 22</td><td>The hour check is an <b>addition</b> over the same movements (4.5); the day check stays and runs first.</td></tr>
+  <tr><td>Leveling</td><td>Phase 1 (Manual mode) is built: the result is <code>taskLevelingDelayDays</code>, <b>whole working days</b>; the trigger <code>trg_project_task_leveling_chk</code> refuses a fractional delay. The Load graph, the Usage grid, Automatic and Fast mode are <b>not built</b>.</td><td><code>kit8/pm/resourceleveling</code>, PART 42</td><td>2c (hour leveling) needs a delay in minutes (H5) and the hour axis of the load views – whose day version does not exist yet (dependency, section 9).</td></tr>
+  <tr><td>Gantt scale</td><td><code>PM_DAY_WIDTH</code> 1..160 px per day (year to day zoom). No hour scale.</td><td><code>model/constants.ts</code></td><td>An hour zoom is new (4.7).</td></tr>
+  <tr><td>Time zone</td><td>No project time zone is stored; the Post sends <code>timeZone</code> (default <code>'UTC'</code>); dates are UTC midnights.</td><td><code>create_task_line_plan</code></td><td>Clock windows need a zone (decision H6).</td></tr>
+  <tr><td>SQL part number</td><td>The first document says “PART 43” for the hour table. <b>PART 43 is taken</b> (saved report Views); the numbered parts now run to <b>52</b>.</td><td><code>start2_sql_code.sql</code></td><td>This phase uses <b>PART 53</b> (the next free one at the time of writing; re-check before the build).</td></tr>
+</table>
+</div>
+
+<h2>3. Decisions</h2>
+<p>H1–H5 and Q11 are <span class="tag map">decided</span> in section 7.10 of the first document (“for the most comfortable use, the owner may change them”). H6–H12 are <span class="tag new">proposal</span>: they were not asked yet and every one has a default, so the work can start; the owner may overrule any of them before 2a is built.</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Decision / default</th><th>Stored in</th></tr>
+  <tr><td class="id">H1</td><td>Work windows (from / to) and breaks in the calendar?</td><td><span class="tag map">decided</span> Yes: windows per day. A calendar without windows keeps working (it gets one window from <code>workFrom</code> with the day’s hours, 4.1).</td><td>day row <code>rowJSON.windows</code>; calendar row <code>workFrom / workTo</code></td></tr>
+  <tr><td class="id">H2</td><td>A start time of day on a task?</td><td><span class="tag map">decided</span> Yes, <code>taskStartMinute</code> = minutes from 00:00 of the start day, 0..1439. Absent = the start of the first window of that day.</td><td><code>project_task_table.rowJSON.taskStartMinute</code></td></tr>
+  <tr><td class="id">H3</td><td>A duration in hours or minutes (a task shorter than a day)?</td><td><span class="tag map">decided</span> Yes (hours), <span class="tag new">adapted to minutes</span>: <code>taskDurationMinutes</code> = a <b>whole number of working minutes</b> of the task calendar (2.5 h = 150, 1 h 30 = 90), only while the project is in this model. The user may type hours or minutes; the cell shows “1h 30m”.</td><td><code>rowJSON.taskDurationMinutes</code></td></tr>
+  <tr><td class="id">H4</td><td>Hour rows in Post?</td><td><span class="tag map">decided</span> The day rows stay (every report reads them); a new table holds the hour rows, derived in the same transaction.</td><td>PART 53 <code>task_line_plan_hour_movements</code></td></tr>
+  <tr><td class="id">H5</td><td>A leveling delay in hours?</td><td><span class="tag map">decided</span> Yes, in <b>working minutes</b>.</td><td><code>rowJSON.taskLevelingDelayMinutes</code></td></tr>
+  <tr><td class="id">Q11</td><td>A setting for the model?</td><td><span class="tag map">decided</span> <code>resourceOptimizationMode</code> = <code>dayByDayModel</code> | <code>hourByHourModel</code>, editable also while the master switch is off.</td><td>project settings (exists)</td></tr>
+  <tr><td class="id">H6</td><td>Which clock? Windows say “09:00” – in which zone?</td><td><span class="tag new">proposal</span> A <b>project time zone</b> (IANA name, default = the zone of the device that switches the model on; stored once): <code>projectTimeZone</code>. All windows and start times are wall-clock times of that zone; instants are stored as <code>timestamptz</code>. The Post sends this zone as its <code>timeZone</code>. A change of the zone is refused while hour rows are posted.</td><td>project row <code>rowJSON.projectTimeZone</code></td></tr>
+  <tr><td class="id">H7</td><td>What is “1 hour” of a duration: wall clock or working?</td><td><span class="tag new">proposal</span> <b>Working hour</b>: a task of 12 h on an 8 h calendar lasts 1.5 working days (09:00 → 13:00 next day), not half a calendar day. This differs from the typed <code>12h</code> of today (= 0.5 day of 24 h); in this model the typed text <code>12h</code> sets <code>taskDurationMinutes = 720</code> and the planning units of the day model are ignored.</td><td>—</td></tr>
+  <tr><td class="id">H8</td><td>Breaks inside a day?</td><td><span class="tag new">proposal</span> Yes: a day has a list of windows, a lunch break is the gap between two windows. A task in progress when a break starts <b>pauses</b> and goes on after it (its bar is drawn in pieces). No “elapsed” (wall-clock) duration in 2a–2c.</td><td>day row <code>windows</code></td></tr>
+  <tr><td class="id">H9</td><td>A shift that crosses midnight (22:00–06:00)?</td><td><span class="tag new">proposal</span> Not in one window: it is written as <b>two windows on two days</b> (22:00–24:00 and 00:00–06:00 of the next day). Each window lies inside one calendar day; the day rows keep one date each (the checks and the busy check keep reading <code>periodDay</code>).</td><td>—</td></tr>
+  <tr><td class="id">H10</td><td>Whose windows plan a task: the project calendar or the resource calendar?</td><td><span class="tag new">proposal</span> As the day model: the <b>task calendar</b> (<code>calendarForTaskPlan</code> or the task’s own, A10) gives the task its working time; the <b>resource calendar</b> gives the resource’s capacity. A task is placed in the task calendar’s windows; a conflict is found where the resource’s windows are smaller than the demand.</td><td>—</td></tr>
+  <tr><td class="id">H11</td><td>What does a Time line book in an hour?</td><td><span class="tag new">proposal</span> The line’s hours are spread <b>uniformly over the working minutes of the task</b>, so a 4 h line on a 4 h task books 1.0 h per clock hour (100 % units); on a 2-day task of 16 working hours it books 1.0 h per hour as well; 8 h on a 16 h task books 0.5 h per hour; a 90-minute line on a 90-minute task books 1.5 h in those 90 minutes. The check is <b>exact to the minute</b>: the bookings of one resource at any minute must not exceed the capacity of its windows at that minute (the check sweeps the slice boundaries, it does not round to clock hours). The distribution types of the day model (uniform, front, back, custom) map to the same coefficients over the working minutes (WP15.8).</td><td>hour rows (PART 53)</td></tr>
+  <tr><td class="id">H12</td><td>The grain (smallest step) of the model.</td><td><span class="tag new">proposal</span> Whole <b>minutes</b> are stored and checked, nothing is rounded to the hour. The <b>step</b> (<code>resourceSlotMinutes</code>: 1 · 5 · 10 · 15 · 30 · 60, default <b>15</b>) only sets how coarse the <i>user-facing</i> things are: the steps of a typed start time, the leveling moves (a task is delayed by whole steps) and the axis of the load views. <code>resourceGrainUnit = hour</code> shows the totals in hours, <code>day</code> in days; <code>minute</code> is added as a value of that setting.</td><td>settings of the Resources tab (new)</td></tr>
+</table>
+</div>
+
+<h2>4. Design</h2>
+
+<h3>4.0 Minute precision – what it means everywhere (adapted: minutes did not exist)</h3>
+<ul>
+  <li><b>Stored.</b> Every time value of the model is an <b>integer number of minutes</b>: window ends (<code>'HH:MM'</code>), <code>taskStartMinute</code> (0..1439), <code>taskDurationMinutes</code>, <code>taskLevelingDelayMinutes</code>, hour-table <code>minutes</code>. Instants are <code>timestamptz</code> on a minute boundary (seconds = 0; a trigger refuses a start / window with seconds).</li>
+  <li><b>Working minutes.</b> A duration or a delay counts <b>working minutes</b> of a calendar (4.3), as the day model counts working days. A day = the sum of its window minutes (an 8 h day = 480).</li>
+  <li><b>The smallest task</b> is 1 minute (a milestone stays 0). A task shorter than the step (<code>resourceSlotMinutes</code>) is allowed when typed; leveling moves it by whole steps.</li>
+  <li><b>Typing.</b> <code>90m</code>, <code>1h30m</code>, <code>1.5h</code>, <code>2d</code> (a day = the working minutes of that day) all give minutes; <code>45s</code> is rounded <b>up</b> to 1 minute with a hint; a number without a unit uses the unit of the project (<code>planMinute</code> / <code>planHour</code> / <code>planDay</code> decide only the <i>default unit of an untyped number</i> in this model, not the arithmetic).</li>
+  <li><b>Display.</b> “1h 30m”, “09:15”; the Gantt zoom steps reach the minute (4.7); money is not affected (the day rows keep the sums).</li>
+  <li><b>Not in this phase:</b> seconds, and a step finer than 1 minute.</li>
+</ul>
+
+<h3>4.1 The calendar with windows (2a)</h3>
+<ul>
+  <li><b>Storage.</b> Day row of <code>managementCalendarDaysTable</code>: <code>rowJSON.windows</code> = <code>[{ "from": "09:00", "to": "13:00" }, { "from": "14:00", "to": "18:00" }]</code>, sorted, no overlap, each inside one day, minutes only. <b>Hours of the day = the sum of the windows</b>; the trigger that keeps <code>isActive</code> and <code>hours</code> in step (PART 21) is extended: when <code>windows</code> exist, <code>hours</code> is computed from them and a typed <code>hours</code> that disagrees is refused.</li>
+  <li><b>A day without windows</b> (every row that exists today) = one window that starts at the calendar’s <code>workFrom</code> (default <code>'08:00'</code>) and lasts its <code>hours</code>; if that would pass midnight it ends at 24:00 and the rest is lost (a check at the calendar editor says so). So <b>no existing calendar needs a data change</b>, and the four seeded calendars (08:00–16:00, 08:00–12:00) already give their windows.</li>
+  <li><b>Fill</b> (<code>CalendarFillMenu</code>): a week pattern gets a window pattern per weekday (<code>weekWindows</code> next to <code>weekPattern</code>); a manual day (vacation, sick leave) clears its windows, as it clears its hours today.</li>
+  <li><b>Lock</b> (PART 23): a day with posted hours cannot change its hours; the rule extends to <b>windows</b> – a change that moves posted hour rows outside a window is refused with the same message (the new window may only keep or enlarge the posted slices).</li>
+  <li><b>RPC.</b> <code>organization_resource_capacity_windows(kind, guid, from, to)</code> returns <code>(day, from_minute, to_minute)</code> per resource and day with the same priority as <code>organization_resource_capacity_info</code> (contract in force → resource calendar → Standard week); a day without a row is <b>unknown</b> (never guessed), as in phase 1.</li>
+  <li><b>UI.</b> The calendar day editor (<code>ManagementCalendarCRUD</code>) gets a <b>Windows</b> editor under the hours: a list of from / to pairs, “Add break”, a total that must equal the hours. Shown only while the project (or, for a catalog calendar, any project of the organization) is in the hour model – hidden otherwise.</li>
+</ul>
+
+<h3>4.2 Task time keys (2a)</h3>
+<ul>
+  <li><code>taskStartMinute</code> (H2), <code>taskDurationMinutes</code> (H3), <code>taskLevelingDelayMinutes</code> (H5) – all <b>whole minutes</b> – in <code>project_task_table.rowJSON</code>; typed in <code>PMTaskJSON</code> (<code>types.ts</code>) and stripped by <code>task_template_clean_task</code> (like <code>taskLevelingDelayDays</code>); the trigger <code>trg_project_task_leveling_chk</code> is extended: whole minutes ≥ 0 (a duration ≥ 1), none on a stage, milestone or subproject origin task, <code>taskStartMinute</code> in 0..1439.</li>
+  <li><b>Written back with the dates.</b> <code>startAt</code> keeps being the written timestamp, now <b>with the time</b> (UTC instant of the wall-clock start); the finish stays in <code>rowDuration</code>. <code>durationDays</code> is written as the <b>number of calendar days the task touches, rounded up</b>, so the day Gantt bar, Monitor01 and every reader that knows only days keep a valid value (they see the task as occupying those days).</li>
+  <li><b>Normalizers.</b> A new <code>rowJSON</code> key must also be added where the task is rebuilt on save (the lesson of <code>normalizeOrganization</code> / <code>normalizePerson</code>), checked by a test that saves a task with each key (WP15.12).</li>
+  <li><b>Typing.</b> In this model the duration cell of the tree and the task window read <code>2.5h</code>, <code>90m</code>, <code>1h30m</code>, <code>1d</code> (a day = the working minutes of that day’s windows) and write <code>taskDurationMinutes</code> (4.0); the project’s <code>planHour / planMinute</code> switches only choose the unit of an untyped number there (H7) and the settings tab says so.</li>
+</ul>
+
+<h3>4.3 The time axis (2a)</h3>
+<p>The hour model works on a <b>working-minute axis</b>: for a calendar, the sequence of its windows over the days, with every non-working stretch removed. Two pure functions, shared by the scheduler and the leveling engine, live in a new file <code>kit8/pm/hourmodel/workMinutes.ts</code>:</p>
+<ul>
+  <li><code>instantAtWorkMinute(calendar, fromInstant, n)</code> – the instant that is <code>n</code> working minutes after <code>fromInstant</code> (n = 0 → the first working instant on or after it);</li>
+  <li><code>workMinutesBetween(calendar, a, b)</code>.</li>
+</ul>
+<p>Windows come from a <code>PMHourCalendar</code> = the <code>PMCalendar</code> of today + <code>windowsOf(day)</code> (a map from the day’s UTC midnight to its windows in wall-clock minutes of <code>projectTimeZone</code>) + the zone. A day-light-saving jump changes the instants of a window, not its length in the wall-clock sense (a 09:00–17:00 window is 8 h on every day; the jump night has no window). The scan guard of the day model (<code>MAX_SCAN_DAYS</code>) applies.</p>
+
+<h3>4.4 The hour scheduler (2a)</h3>
+<ul>
+  <li><b>A new function</b> <code>scheduleProjectHours(input)</code> in <code>kit8/pm/hourmodel/scheduleHours.ts</code>, called by the dashboard <b>only</b> when <code>resourceOptimizationMode = hourByHourModel</code>; the day function <code>scheduleProject</code> is untouched, so the day model cannot regress.</li>
+  <li><b>Same graph, minute arithmetic.</b> It reuses the leaf graph, the stage roll-up, the link types and the cycle report of the day scheduler (those parts are exported and shared, not copied); durations become working minutes, a lag becomes working minutes (a lag typed in days = days × the working minutes of the task calendar’s day), start and finish are instants. FS: the successor starts at the finish of the predecessor (plus lag), SS / FF / SF accordingly.</li>
+  <li><b>A pinned start.</b> A task with <code>taskStartMinute</code> or a manual start (A1) starts <b>not before</b> that wall-clock instant; a constraint (A3) works on instants. The project start is a day; its time is the start of the first window.</li>
+  <li><b>Splits.</b> A task paused by a break is a task with its bar in pieces (the pieces are derived, never stored); the A12 splits of the day model are not combined with hour windows in 2a (the function says <code>splitUnsupportedInHourModel</code> and ignores them, visible in the task window).</li>
+  <li><b>Output.</b> The same <code>PMScheduleResult</code> shape plus per task <code>startInstant / finishInstant / pieces[]</code>; the write-back (<code>pm_apply_schedule</code>) takes the timestamps, the day keys as described in 4.2. <b>Performance:</b> a bench of 3 000 tasks must stay under 1.5 × the day scheduler (WP15.12).</li>
+</ul>
+
+<h3>4.5 Hour Post and the hour busy check (2b)</h3>
+<p>New <b>PART 53</b> (tables in <code>start1</code>, code in <code>start2</code>, drop in <code>delete_sql_structure.sql</code>, tests in Docker).</p>
+<div class="tbl">
+<table>
+  <tr><th>Object</th><th>What it is</th><th>Main columns / rules</th></tr>
+  <tr><td><code>task_line_plan_hour_movements</code> (table)</td><td>One row per task line and <b>window slice</b> (a piece of a window between two breakpoints; its length is any whole number of minutes). Derived: written only by <code>create_task_line_plan</code> in the same transaction as the day rows, deleted with them (Unpost, line delete, <code>planMovementStatus</code> follows the day row).</td><td><code>rowGUID</code> · <code>rowProjectGUID</code> · <code>rowOwnerGUID</code> (task) · <code>rowParentGUID</code> (line) · <code>periodStart</code> / <code>periodEnd</code> (<code>timestamptz</code>) · <code>periodDay</code> (the day, in <code>projectTimeZone</code>) · <code>minutes</code> (the length of the slice) · <code>rowCoefficient</code> (its share of the line) · <code>qtyTaskLine</code> · <code>planMovementStatus</code>. Unique (line, <code>periodStart</code>). Sums of money are <b>not</b> repeated here (the day rows carry them): a CHECK-like verify function proves that the hour rows of a line add up to its day rows.</td></tr>
+  <tr><td><code>resource_occupancy_x_hour</code> (view)</td><td>The abstract occupancy per resource and minute slice, the twin of <code>resource_occupancy_x_movement</code>.</td><td>resource kind + GUID · <code>periodStart / periodEnd</code> · <code>quantityResourceBusy</code> (hours in the slice = minutes ÷ 60) · line · project · status.</td></tr>
+  <tr><td><code>organization_resource_busy_check_hours(…)</code></td><td>The hour twin of <code>organization_resource_busy_check</code>: per resource and <b>minute interval</b> (a sweep over the slice boundaries of the bookings and the windows, so a 90-minute booking is compared over its 90 minutes, not rounded to hours), booked hours (all projects of the organization, posted and the lines being posted) against the capacity of the resource’s windows in that interval (<code>organization_resource_capacity_windows</code>). “Equal is not over-allocated.” Same <code>resourceCapacityStrongMode</code> (Off / Warn / Block) and the same per-resource lock, so two Posts cannot both pass.</td><td>Called inside <code>create_task_line_plan</code> <b>after</b> the day check; the day check stays (a day total above the day’s hours is still refused first). Only for a task of a project in the hour model.</td></tr>
+  <tr><td><code>create_task_line_plan</code> (changed in place)</td><td>Takes an extra array <code>hours</code> per line (<code>{ s, e, c }</code> = start instant, end instant, coefficient); with the day model nothing is sent and nothing is written. It checks that the slices lie in the task’s windows, that coefficients add up to the base and agree with the day rows. <b>Lesson kept:</b> the function is replaced in more than one PART (15, 22 …) – change the <b>last</b> definition in <code>start2</code> (see KNOW_HOW pitfalls).</td><td>Docker test <code>tests/NN_hour_post.sql</code>.</td></tr>
+  <tr><td>Switch back / unpost</td><td>A project that goes back to the day model <b>keeps</b> its hour rows until the user unposts; the day check ignores them. Unpost removes the day and hour rows together.</td><td>—</td></tr>
+</table>
+</div>
+<p><b>Client side.</b> <code>calculateTaskLinePlan</code> gets an hour mode: it spreads the line over the working minutes of the task (H11), cuts them into slices at the window and break boundaries and returns both the day coefficients (unchanged format, so the day tables are written as always) and the hour slices. <b>Fact input, invoices, Monitor01, ROI, cost total</b> keep reading the day rows – no report changes in this phase.</p>
+
+<h3>4.6 Hour leveling (2c)</h3>
+<ul>
+  <li><b>Detector</b> (<code>resourceLevelingDetect.ts</code> twin): over-allocation per resource and minute interval (<code>period: 'minute'</code>; the load views aggregate it to the step), capacity from <code>organization_resource_capacity_windows</code>.</li>
+  <li><b>Engine</b> (<code>resourceLevelingEngine.ts</code> twin <code>…Hours.ts</code>): the same orders, priorities, leveling / smoothing and reason codes; the delay is in <b>working minutes</b> of the task calendar (H5), always a whole multiple of the step <code>resourceSlotMinutes</code> (H12); <code>scheduleProjectHours</code> reads <code>taskLevelingDelayMinutes</code> as a lag. Deterministic and idempotent, tested with generated plans like phase 1.</li>
+  <li><b>Server side computation</b> (section 20 of the first document) is <b>not</b> offered in the hour model in 2c: the radio shows “Client side” only, with a note (<code>serverSideNeedsDayModel</code>). It can follow when the hour twin is proven.</li>
+  <li><b>Posted tasks</b>: the same question as phase 1 (Unpost and move / Move and post again / Keep); a moved start unposts the day and hour rows through the existing triggers (<code>task_line_plan_unpost_on_dates</code> also fires when only <code>taskStartMinute</code> or the delay changes: the trigger is extended).</li>
+  <li><b>Result in the history:</b> <code>project_resource_leveling_task</code> (PART 42) gets nullable columns for the delay in minutes before / after and the instants; the run row says <code>runGrain = 'minute'</code> (the step is in the options snapshot).</li>
+</ul>
+
+<h3>4.7 Screens</h3>
+<div class="tbl">
+<table>
+  <tr><th>Screen</th><th>Change (only in the hour model)</th><th>Package</th></tr>
+  <tr><td>Project settings → Resources</td><td>The radio “Hour by hour” becomes selectable; <b>switch dialog</b>: shows what happens (days are kept, times start at the first window, posted lines must be posted again, the typed units are ignored) and asks the time zone (H6); a Back-switch asks too. New <code>resourceSlotMinutes</code> (hidden, 60).</td><td>WP15.2</td></tr>
+  <tr><td>Calendar editor</td><td>Windows editor (4.1).</td><td>WP15.3</td></tr>
+  <tr><td>Task window / tree</td><td>Field <b>Start time</b> (HH:MM, in steps of the step setting) and <b>Duration</b> (“1h 30m”); tree columns “Start time” and “Duration” (virtual, off by default); the old <code>startHourStart</code> columns stay as they are.</td><td>WP15.5</td></tr>
+  <tr><td>Gantt chart</td><td><b>Hours and minutes</b> zoom steps (6 h · 1 h · 15 min · 5 min per column, finest = the step setting): the header shows the date row and an hour / minute row, a bar starts and ends at its minute, a task paused by a break is drawn in pieces, the non-working stretches are shaded. Day zoom keeps working (a bar is drawn from the start day to the finish day as today).</td><td>WP15.6</td></tr>
+  <tr><td>Level preview / conflicts list</td><td>Clock times: “Mon 13:00–17:00”, “Mon 09:15–10:45”, the delay in hours and minutes.</td><td>WP15.10</td></tr>
+  <tr><td>Load graph and Usage grid</td><td>The <b>time axis</b> (hour columns, finer by the step). These two views are <b>not built in the day model either</b> (phase 1 WP9, section 19 of the first document): this package builds the day view first or builds both axes at once.</td><td>WP15.11</td></tr>
+  <tr><td>Busy conflicts window (Post)</td><td>Lists the conflicts of the minute check with the clock interval.</td><td>WP15.9</td></tr>
+</table>
+</div>
+
+<h3>4.8 Switching the model and old data</h3>
+<ul>
+  <li><b>Day → hour:</b> days are kept; <code>taskStartMinute</code> is absent (= start of the first window), a task’s <code>taskDurationMinutes</code> = its <code>durationDays</code> × the working minutes of its first day <span class="tag new">proposal</span> (so the Gantt looks the same after the switch); no posted row is changed – the day rows stay, and the hour rows of the old lines are <b>missing</b> until the user presses Post again (the hour check treats a posted line with no hour rows as its day total spread over its day’s window, so it still counts).</li>
+  <li><b>Hour → day:</b> the new keys are ignored, never deleted; the Gantt returns to whole days using <code>durationDays</code> as written back (4.2).</li>
+  <li><b>Templates, import / export, project copy:</b> the project file (<code>kit8.pm.project</code>) gets the optional keys; the importer ignores them for a day project; <code>task_template_clean_task</code> strips them; <code>projectCopy</code> copies them (WP15.13).</li>
+</ul>
+
+<h2>5. Work breakdown structure</h2>
+<p>Sub-phases of the first document: <b>2a</b> = WP15.2 – WP15.7, <b>2b</b> = WP15.8 – WP15.9, <b>2c</b> = WP15.10 – WP15.11, closing = WP15.12 – WP15.14. Each package ends with its tests; the README of <code>kit8/pm/hourmodel</code> and the row in KNOW_HOW are written in the same round as the first code (the working agreement).</p>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Work</th><th>Result</th><th>Test</th></tr>
+  <tr class="group"><td class="id">WP15.1</td><td colspan="3"><b>Decision round</b> (this document)</td></tr>
+  <tr><td class="id">15.1.1</td><td>Read what <code>planHour / planMinute</code> do today (section 2: display and input only, 24 h fractions, rounded to days by the scheduler).</td><td><span class="tag have">done</span> section 2</td><td>—</td></tr>
+  <tr><td class="id">15.1.2</td><td>Owner confirms or changes H6 – H12 (section 3) and the open questions of section 8.</td><td>Answers in section 10 of this file</td><td>—</td></tr>
+  <tr class="group"><td class="id">2a</td><td colspan="3"><b>Calendar windows, task times, the hour scheduler</b> – <code>resourceOptimizationMode</code> becomes selectable</td></tr>
+  <tr><td class="id">15.2</td><td>Setting plumbing: <code>HOUR_BY_HOUR_MODEL_AVAILABLE</code> becomes a real check; <code>projectTimeZone</code>; <code>resourceSlotMinutes</code> and the value <code>minute</code> of <code>resourceGrainUnit</code>; the rule “whole minutes” (4.0) in one place, <code>kit8/pm/hourmodel/minutes.ts</code> (parse <code>90m</code> / <code>1h30m</code>, format “1h 30m”, round up seconds); the switch dialog and the 14 languages (<code>kit8/pm/i18n</code>, <code>keys.ts</code>). The radio stays disabled until 15.7 is done.</td><td>Settings tab, texts</td><td>Jest: settings, translations, minute parsing / formatting</td></tr>
+  <tr><td class="id">15.3</td><td>Calendar windows: day row <code>windows</code> (trigger: hours = sum, no overlap, one day, minutes), <code>weekWindows</code> in Fill, the lock rule, RPC <code>organization_resource_capacity_windows</code>; the editor (4.1). SQL PART 53 part 1 (the day trigger / RPC are code → <code>start2</code>; no new table here).</td><td>SQL + editor</td><td>Docker <code>tests/NN_calendar_windows.sql</code>; Jest editor</td></tr>
+  <tr><td class="id">15.4</td><td><code>workMinutes.ts</code> (4.3) + <code>PMHourCalendar</code> built from the calendar rows and the RPC.</td><td>Pure functions</td><td>Jest with generated calendars (breaks, holidays, DST night)</td></tr>
+  <tr><td class="id">15.5</td><td>Task keys <code>taskStartMinute</code> / <code>taskDurationMinutes</code> in <code>PMTaskJSON</code>, normalizers, check trigger, template strip; the task window fields and the tree columns; duration typing (4.2).</td><td>Model + UI</td><td>Jest + Docker (trigger)</td></tr>
+  <tr><td class="id">15.6</td><td><code>scheduleProjectHours</code> (4.4), the dashboard switch, the write-back of the timestamps and of <code>durationDays</code>; the Gantt hour / minute zoom, the bar pieces, the shaded non-working time.</td><td>Scheduler + chart</td><td>Jest (golden: the same plan in both models agrees on whole-day tasks); bench 3 000 tasks</td></tr>
+  <tr><td class="id">15.7</td><td>Enable the radio; first usable slice 2a = <b>plan by the clock, no Post yet</b>: the hour model is selectable and plans; Post still writes the day rows as today and the busy check is the day check (a banner in the settings says so).</td><td>Releasable slice</td><td>Browser check; golden test of 4 (the day model unchanged)</td></tr>
+  <tr class="group"><td class="id">2b</td><td colspan="3"><b>Hour Post and the hour busy check</b></td></tr>
+  <tr><td class="id">15.8</td><td>Client: <code>calculateTaskLinePlan</code> time-of-day mode and the distribution types over working minutes (H11); the Post call sends <code>hours</code> (slices with minute boundaries).</td><td>Spread function</td><td>Jest (coefficients add up; day rows equal the day model’s for a whole-day task)</td></tr>
+  <tr><td class="id">15.9</td><td>SQL PART 53: <code>task_line_plan_hour_movements</code>, <code>resource_occupancy_x_hour</code>, <code>organization_resource_busy_check_hours</code>, <code>create_task_line_plan</code> (last definition), unpost / delete cascade, verify function, drop in <code>delete_sql_structure.sql</code>, the Busy conflicts window with clock slices.</td><td>Tables + RPC</td><td>Docker: install twice, hour rows = day rows, a 4 h + 4 h overlap is refused and 4 h + 4 h in two halves of a window is not, per-resource lock (<code>test_time_genus_race.sh</code> twin), day model writes no hour row</td></tr>
+  <tr class="group"><td class="id">2c</td><td colspan="3"><b>Hour leveling and the clock axis</b></td></tr>
+  <tr><td class="id">15.10</td><td>Minute detector + engine (steps of <code>resourceSlotMinutes</code>), <code>taskLevelingDelayMinutes</code> (check trigger, unpost trigger extension), preview and conflicts list with clock times, the history columns (4.6).</td><td>Engine + windows</td><td>Jest with generated plans (idempotent, deterministic); Docker (trigger)</td></tr>
+  <tr><td class="id">15.11</td><td>The time axis of the Load graph and the Usage grid (after, or together with, the day versions of phase 1 WP9 / WP10).</td><td>Views</td><td>Jest UI + browser</td></tr>
+  <tr class="group"><td class="id">Closing</td><td colspan="3"><b>Finish</b></td></tr>
+  <tr><td class="id">15.12</td><td>Golden tests: the day model is byte-for-byte as before (scheduler, Post rows, busy check, Gantt layout); a save of a task keeps every new key; bench of the hour scheduler, time-of-day Post of 2 000 lines, the minute check of a month; the full Jest baseline compare (section 5 of KNOW_HOW).</td><td>Proof</td><td>—</td></tr>
+  <tr><td class="id">15.13</td><td>Import / export of the project file, project copy, templates (4.8).</td><td>Data paths</td><td>Jest (<code>__tests__/pm/crud/exchange</code>, <code>catalog/project</code>)</td></tr>
+  <tr><td class="id">15.14</td><td>README of <code>kit8/pm/hourmodel</code>; row in KNOW_HOW section 6 and the resource-optimization memory; “Implementation status” in this file; the first document’s WP15 and section 19 set to the new status; security review (RLS of the hour table: by <code>pm_owns_project</code> and the permission matrix – add the new table to <code>permission_matrix.py</code>; the RPCs call <code>perm_can_in</code>).</td><td>Documentation</td><td>—</td></tr>
+</table>
+</div>
+
+<h2>6. Sequence and dependencies</h2>
+<div class="flow">15.1 ──► 15.2 ──► 15.3 ──► 15.4 ──► 15.5 ──► 15.6 ──► 15.7   (2a, one after the other)
+                                                       │
+                                  15.8 ──► 15.9 ◄──────┘                    (2b needs 15.3, 15.4, 15.6)
+                                              │
+                           15.10 ──► 15.11 ◄──┘                              (2c needs 2b; 15.11 also needs phase 1 WP9 / WP10)
+15.12 – 15.14 run through all work and close it · 15.13 after 15.5</div>
+<ul>
+  <li><b>First usable slice = 15.7</b>: the user can plan by the clock and see it on the Gantt chart. The over-allocation check is still by day – said openly in the settings tab.</li>
+  <li><b>Phase 1 leftovers that this phase needs:</b> the Load graph / Usage grid (WP9 / WP10), the delay column / bar (WP8) – for the hour model they need a clock axis, so build their day versions with the axis in mind.</li>
+</ul>
+
+<h2>7. Acceptance criteria</h2>
+<ul>
+  <li><b>A1.</b> With <code>dayByDayModel</code> every existing Jest, Docker and golden test gives the same result as before this phase; no new column, field or table row appears.</li>
+  <li><b>A2.</b> A calendar with windows 09:00–13:00 and 14:00–18:00: a 6-hour task starting at 11:00 on a working day finishes at 16:00 (it paused over the break); the bar is drawn in two pieces.</li>
+  <li><b>A3.</b> The same project in both models: tasks whose durations are whole working days get the same start and finish days.</li>
+  <li><b>A4.</b> Post in the hour model: the hour rows of a line add up to its day rows and to the line; the day rows equal what the day model would write for the same days; Monitor01 shows the same numbers.</li>
+  <li><b>A5.</b> Two 4-hour tasks booking one person 09:00–13:00 at once are over-allocated (Warn / Block follow <code>resourceCapacityStrongMode</code>); one at 09:00–13:00 and one at 14:00–18:00 are not.</li>
+  <li><b>A6.</b> Hour leveling moves the second task to 14:00 (a delay of 300 working minutes from the break-aware axis) and a second run changes nothing; Smoothing never moves the project finish.</li>
+  <li><b>A7.</b> Switch day → hour → day: no data is lost; the Gantt chart of the day model shows the same bars as before.</li>
+  <li><b>A8.</b> A change of a window that would leave posted hour slices outside it is refused with a clear message; a vacation day clears its windows.</li>
+  <li><b>A9.</b> Hour scheduler: 3 000 tasks in under 1.5 × the day scheduler; hour Post of 2 000 lines under the 8 s limit of <code>authenticated</code>.</li>
+  <li><b>A10.</b> All new texts exist in the 14 languages; the settings tab, the calendar editor and the Gantt chart look right in RTL (ar, fa).</li>
+  <li><b>A11 (minutes).</b> A 90-minute task starting at 09:15 on a 09:00–13:00 window finishes at 10:45; a 1-minute task is valid; a task of 4 h 20 min over the 13:00 break pauses and ends at the right minute; a typed <code>45s</code> becomes 1 minute with a hint; the day total of a line’s hour slices equals its day row to the cent; the minute check calls 10:00–10:45 and 10:30–11:15 on one person over-allocated for the overlap 10:30–10:45 and 10:00–10:45 + 10:45–11:30 not; with the step 15 a leveling delay is always a multiple of 15 minutes.</li>
+</ul>
+
+<h2>8. Open questions for the owner</h2>
+<div class="tbl">
+<table>
+  <tr><th>#</th><th>Question</th><th>Default if no answer</th></tr>
+  <tr><td class="id">O1</td><td>H6: is one <b>project time zone</b> right, or should each resource calendar have its own zone (a team in two countries)?</td><td>One zone per project</td></tr>
+  <tr><td class="id">O2</td><td>H7: a typed <code>12h</code> in the hour model = 12 <b>working</b> hours (1.5 days on an 8 h calendar). OK, or should it stay a wall-clock 12 h?</td><td>Working hours</td></tr>
+  <tr><td class="id">O3</td><td>H9: is “a shift across midnight = two windows on two days” acceptable, or must a window itself cross midnight?</td><td>Two windows</td></tr>
+  <tr><td class="id">O4</td><td>H11: should a Time line have an own <b>units %</b> (50 % of a person), or is the intensity always “line hours ÷ task working hours”?</td><td>Derived intensity, no units field</td></tr>
+  <tr><td class="id">O5</td><td>Should the A12 task splits and A13 recurring tasks work in the hour model, or stay day-only?</td><td>Day-only; the hour model says so</td></tr>
+  <tr><td class="id">O6</td><td>Should <b>Fact input</b> and <b>Time sheets</b> (which already keep a day) get hour data later, so “plan vs fact” can be seen by the clock? (not in this phase)</td><td>No</td></tr>
+  <tr><td class="id">O7</td><td>Is <b>server side computation</b> of hour leveling wanted later?</td><td>Not in this phase</td></tr>
+  <tr><td class="id">O8</td><td>The <b>step</b> (H12): is 15 minutes the right default, and is 1 minute allowed as the finest choice? (a finer step makes more slices and a slower leveling)</td><td>Default 15, choices 1 / 5 / 10 / 15 / 30 / 60</td></tr>
+</table>
+</div>
+
+<h2>9. Risks</h2>
+<div class="tbl">
+<table>
+  <tr><th>Risk</th><th>Answer</th></tr>
+  <tr><td>The day scheduler and the hour scheduler drift apart (two implementations of one graph).</td><td>The graph, stage roll-up and cycle code are <b>shared</b>, not copied; golden test A3 compares both on whole-day plans.</td></tr>
+  <tr><td>A daylight-saving change makes a window one hour long or twice.</td><td>Windows are wall-clock in <code>projectTimeZone</code>; the arithmetic works on the window list, not on 24 h days; Jest cases with a spring and an autumn night.</td></tr>
+  <tr><td><code>create_task_line_plan</code> is defined in several PARTs.</td><td>Change the <b>last</b> definition only; the Docker test of PART 22 / 30 / 52 must still pass (pitfall in KNOW_HOW).</td></tr>
+  <tr><td>Hour rows multiply the data (a 3-month task of 1 line = about 500 rows).</td><td>Slices are stored per window piece, not per minute; a bench (15.12) measures 2 000 lines; an index on (<code>rowParentGUID</code>, <code>periodStart</code>); the table is not read by the reports.</td></tr>
+  <tr><td>Users read the typed <code>4h</code> differently in the two models.</td><td>The switch dialog and a hint under the duration cell say what an hour means in the model; the model is shown in the project bar.</td></tr>
+  <tr><td>Phase 1 views (Load graph, Usage grid) are not built.</td><td>15.11 is last and is allowed to build the day version with the hour axis; the earlier packages do not depend on it.</td></tr>
+  <tr><td>The one-time migration of old posted lines.</td><td>No migration: old lines have no hour rows and are counted by the day-total rule of 4.8 until they are posted again.</td></tr>
+</table>
+</div>
+
+<h2>10. Decisions of the owner</h2>
+<p>None yet for H6 – H12 and O1 – O7 of this document. H1 – H5 and Q11 come from the first document (decided 2026-10-27). Write the answers here, with the date.</p>
+
+<h2>11. Update steps when it is built (preview)</h2>
+<ol>
+  <li>Run <code>start1_sql_tables.sql</code> and then <code>start2_sql_code.sql</code> in the Supabase SQL Editor (PART 53 + the changed functions); <code>start4</code> / <code>start5</code> only if seeds change (the four calendars keep their <code>workFrom / workTo</code>; no seed is expected).</li>
+  <li>Restart Expo with a cleared cache, open <b>Project settings → Resources</b>, choose <b>Hour by hour</b>, answer the switch dialog.</li>
+  <li>Not needed: <code>start3</code> (no pg_cron job), <code>.env</code> lines.</li>
+</ol>
+
+<h2>12. Implementation status</h2>
+<p>2026-11-18: <b>planning only</b>, no code. The choice “Hour by hour” stays disabled (<code>HOUR_BY_HOUR_MODEL_AVAILABLE = false</code>) until WP15.7 is done.</p>
+
+</main>
+</body>
+</html>
