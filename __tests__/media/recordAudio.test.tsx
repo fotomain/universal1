@@ -26,13 +26,13 @@ jest.mock('expo-audio', () => ({
 const mockSave = jest.fn(async (segments: any[]) => ({
   rowGUID: 'g', rowOwnerGUID: 'u', rowParentGUID: 'empty', orderInList: 1, rowJSON: { mediaPostTitle: 'Audio T', mediaDurationSec: segments[0].durationSec },
 }));
-jest.mock('../../kit8/ui/components/media/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
-jest.mock('../../kit8/ui/components/media/RecordingResult', () => {
+jest.mock('../../kit8/ui/components/media/common/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
+jest.mock('../../kit8/ui/components/media/common/RecordingResult', () => {
   const R = require('react');
   return { __esModule: true, default: ({ post }: any) => R.createElement('div', { 'data-testid': 'recording-result' }, post.rowJSON.mediaPostTitle) };
 });
 
-import RecordAudio, { meterLevel } from '../../kit8/ui/components/media/RecordAudio';
+import RecordAudio, { meterLevel } from '../../kit8/ui/components/media/audio/RecordAudio';
 
 beforeEach(() => {
   Object.assign(rec, { prepared: 0, recorded: 0, paused: 0, stopped: 0, uri: null, state: { isRecording: false, durationMillis: 0, metering: -30, url: null } });

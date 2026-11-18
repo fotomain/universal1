@@ -380,7 +380,7 @@ export const reusableRootSaga = (p: any) => {
             // a media post of a READ-ONLY project: say whose project it is (the database error carries the name)
             let readonlyText: string | null = null;
             if (tableName === "mediaPostTable") {
-                try { readonlyText = require("../../ui/components/media/mediaPostProject").readonlyDeleteMessageOf(e); } catch { /* the generic text below */ }
+                try { readonlyText = require("../../ui/components/media/common/mediaPostProject").readonlyDeleteMessageOf(e); } catch { /* the generic text below */ }
             }
             yield put(showSnackbar({message: readonlyText ?? `${itemLabel} was not deleted: ${dbErrorMessage(e)}`}));
         }

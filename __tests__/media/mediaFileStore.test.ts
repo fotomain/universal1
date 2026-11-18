@@ -15,7 +15,7 @@ jest.mock('expo-file-system', () => {
   return { Directory, File, Paths: { document: 'DOC' } };
 });
 
-import { deleteStoredMedia, persistRecording, resolveMediaUri } from '../../kit8/ui/components/media/mediaFileStore';
+import { deleteStoredMedia, persistRecording, resolveMediaUri } from '../../kit8/ui/components/media/common/mediaFileStore';
 
 beforeEach(() => { jest.clearAllMocks(); mockExists = true; });
 

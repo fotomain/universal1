@@ -1,22 +1,38 @@
-# Media: record and play audio / video (web + iOS + Android)
+# Media: record, play, photo, scan (web + iOS + Android)
 
-Menu (hamburger drawer): **Record** → Audio, Video · **Play** → Audio, Video.
-Routes: `app/media/record/{audio,video}`, `app/media/play/{audio,video}` (one line each, over the components below).
+Menu (hamburger drawer): **Record** → Audio, Video, Photo · **Play** → Audio, Video · **Scan** → QR / Barcode, NFC.
+Routes: `app/media/record/{audio,video,photo}`, `app/media/play/{audio,video}`, `app/media/scan`, `app/media/nfc` (one line each, over the components below).
+
+## Folders (2026-11-18: the root holds only `index.ts`, this README and the subfolders)
+
+| Folder | What is in it |
+|---|---|
+| `common/` | the media post (`mediaPost`, `notePost` = scan / NFC / photo posts, `mediaPostList`, `mediaPostProject`), the file store (`mediaFileStore` + `.web`), `useSaveRecording`, `useWriteMediaPost` (the ONE place that writes a post row), `RecordingResult`, `RecordingSignInGate`, `MediaSourceInput`, `MediaPostsNativeList`, `mediaSource`, `audioMode`; the camera helpers shared by video / photo / scan: `cameraZoom`, `ZoomControl`, `PinchZoomView`, `ResultPostOffer` |
+| `play/` | the player: `MediaPlayer*`, `AudioPlayerView`, `VideoPlayerView` (+ `.web`), the video buttons (`VideoControls*`, `TapSurface`, `useAutoHideControls`, `videoControlsLogic`, `usePlayVideoSettings`) |
+| `video/` | `RecordVideo` (+ `.web`), its settings panel + hook, `stampedStream`, `dateTimeOver`, `DateTimeOverStamp`, `recordVideoTypes` |
+| `audio/` | `RecordAudio` |
+| `photo/` | `RecordPhoto` (+ `.web`), `PhotoReview`, `PhotoFilterStrip`, `photoFilters` (the looks), `applyPhotoFilter` (+ `.web`), `useSavePhoto`, `recordPhotoTypes` |
+| `scan/` | `ScanCodes` (+ `.web`), `ScanResultCard`, `scanModel` |
+| `nfc/` | `NfcScan` (the screen), `NFCReceivedInfo`, `nfcModel`, `nfcInbox`, `useNfcReader`, `nfcReader` (+ `.web`), `NfcBackgroundHandler` (+ `.web`) |
+
+An import from outside the folder names the subfolder (`kit8/ui/components/media/play/MediaPlayerModal`); `index.ts` re-exports the main pieces.
 
 ## Libraries (one per job)
 
 | Job | Library | Platform files |
 |---|---|---|
-| Record video | `react-native-vision-camera` v4 (iOS / Android, hardware H.264 → mp4) | `RecordVideo.tsx` |
-| Record video | browser `getUserMedia` + `MediaRecorder` (web) | `RecordVideo.web.tsx` |
-| Record + play audio | `expo-audio` (all three platforms) | `RecordAudio.tsx`, `AudioPlayerView.tsx` |
-| Play video | `expo-video` (iOS / Android: files, http(s), HLS, DASH, picture-in-picture) | `VideoPlayerView.tsx` |
-| Play video | browser `<video>` (web) | `VideoPlayerView.web.tsx` |
-| Pick a local file | `expo-document-picker` | `MediaSourceInput.tsx` |
-| Keep a recording | `expo-file-system` (phone: `<document>/media`) · IndexedDB (web) | `mediaFileStore.ts`, `mediaFileStore.web.ts` |
+| Record video, take photos, scan QR / barcodes | `react-native-vision-camera` v4 (iOS / Android, hardware H.264 → mp4; `takePhoto`; `useCodeScanner`) | `video/RecordVideo.tsx`, `photo/RecordPhoto.tsx`, `scan/ScanCodes.tsx` |
+| Record video / photo / scan on the web | browser `getUserMedia` + `MediaRecorder` + canvas + `BarcodeDetector` | `video/RecordVideo.web.tsx`, `photo/RecordPhoto.web.tsx`, `scan/ScanCodes.web.tsx` |
+| Look of a photo | `@shopify/react-native-skia` (colour matrix, off-screen surface) + `expo-image-manipulator` (EXIF orientation → real pixels); web: the same matrix over canvas pixels | `photo/applyPhotoFilter.ts` (+ `.web`) |
+| NFC tags | `react-native-nfc-manager` v4 (iOS + Android; config plugin in `app.config.js`); web: Web NFC `NDEFReader` (Chrome on Android) | `nfc/nfcReader.ts` (+ `.web`) |
+| Record + play audio | `expo-audio` (all three platforms) | `audio/RecordAudio.tsx`, `play/AudioPlayerView.tsx` |
+| Play video | `expo-video` (iOS / Android: files, http(s), HLS, DASH, picture-in-picture) | `play/VideoPlayerView.tsx` |
+| Play video | browser `<video>` (web) | `play/VideoPlayerView.web.tsx` |
+| Pick a local file | `expo-document-picker` | `common/MediaSourceInput.tsx` |
+| Keep a recording / photo | `expo-file-system` (phone: `<document>/media`) · IndexedDB (web) | `common/mediaFileStore.ts`, `common/mediaFileStore.web.ts` |
 
-`X.web.tsx` is used by the web bundler, `X.tsx` by iOS / Android. Config plugins in `app.config.js`: `react-native-vision-camera`, `expo-audio`.
-Vision Camera, expo-video and expo-audio are native code: a **development build** is needed (not Expo Go).
+`X.web.tsx` is used by the web bundler, `X.tsx` by iOS / Android. Config plugins in `app.config.js`: `react-native-vision-camera`, `expo-audio`, `react-native-nfc-manager` + `withNfcLaunch` (Android intent filters).
+Vision Camera, expo-video, expo-audio, NFC manager and image manipulator are native code: a **development build** is needed (not Expo Go).
 
 ## The reusable player
 
@@ -83,7 +99,8 @@ drag and drop exist on the web only.
 
 ## Tests (`__tests__/media`)
 
-`mediaSource`, `mediaPost`, `dateTimeOver`, `recordVideoSettings`, `mediaPostList` (pure) · `mediaPostsNativeList` · `mediaPlayer` (MediaPlayer, modal, route) · `audioPlayerView` · `videoPlayerView` (+ `Web`) · `videoControlsOverlay` · `videoControlsLogic` · `playVideoSettings` · `recordAudio` · `recordVideoNative` (fake camera:
+New 2026-11-18: `cameraZoom`, `scanModel`, `nfcModel` (+ the inbox), `photoFilters` (+ the result posts) (pure) · `zoomUi` (ZoomControl, pinch, zoom of the phone recorder BEFORE and WHILE recording) · `scanCodes` · `nfcScreen` · `recordPhoto` (fake Vision Camera / reader) · `webCameraTools` (digital zoom of the canvas, browser pixels, Web NFC records) · `mediaRoutes` (folder layout, routes, dependencies, NFC config).
+Older: `mediaSource`, `mediaPost`, `dateTimeOver`, `recordVideoSettings`, `mediaPostList` (pure) · `mediaPostsNativeList` · `mediaPlayer` (MediaPlayer, modal, route) · `audioPlayerView` · `videoPlayerView` (+ `Web`) · `videoControlsOverlay` · `videoControlsLogic` · `playVideoSettings` · `recordAudio` · `recordVideoNative` (fake camera:
 parts, switch, pause, limit) · `recordVideoWeb` (fake MediaRecorder / getUserMedia) · `saveRecording` · `mediaFileStore` · `mediaRoutes`.
 `mediaUiTestKit.tsx` mocks Paper / common / expo-router. What a test cannot do: record with a real camera or microphone — try it on a device.
 
@@ -104,6 +121,34 @@ parts, switch, pause, limit) · `recordVideoWeb` (fake MediaRecorder / getUserMe
 so it is persisted. A state saved by an older app version has none: every reader uses `selectPlayVideoSettings` (defaults + clamping).
 Files: `VideoControls.tsx` (look), `VideoControlsOverlay.tsx` (gestures, state), `TapSurface.tsx` (where was it touched; web DOM click / native Pressable),
 `useAutoHideControls.ts`, `videoControlsLogic.ts` (pure: zones, jump, progress).
+
+## Zoom (video, photo, scan; 2026-11-18)
+
+`common/cameraZoom.ts` (pure) + `ZoomControl` (buttons `− 0.5× 1× 2× 5× +` and the factor between two buttons) + `PinchZoomView` (two finger pinch on the picture, plain touch events).
+The user sees a FACTOR (1× = the main lens); Vision Camera speaks of a device zoom, so 1× = `device.neutralZoom` (it is 2 on a multi lens phone) and the factor is `zoom / neutral`.
+Never more than 20× the main lens (`MAX_USEFUL_FACTOR`). A camera that cannot zoom shows nothing.
+- **Video: the zoom works BEFORE and WHILE recording** (the `zoom` prop of the live `<Camera>`; no new part is started).
+- **Web:** a camera whose track reports `zoom` zooms by hardware (`applyConstraints`, also while recording); the others are zoomed DIGITALLY 1-4×: the preview is scaled by CSS and the recording goes through the canvas of `stampedStream.ts` (`getZoom()` is read for every frame, so it also works while recording; `position = null` = no date text, only the zoom). A browser with no `canvas.captureStream` has no digital zoom for video (the control is hidden).
+
+## Photo (`photo/`, route `/media/record/photo`, signed-in users only like the recordings)
+
+Vision Camera `takePhoto` (flash off / auto / on, front / back camera, zoom) → `PhotoReview`: the picture, the **looks** (`PhotoFilterStrip`), **Save** (a media post with the file kept in the document folder / IndexedDB, `photoFilter`, `photoZoomFactor`) or Retake.
+Looks (`photoFilters.ts`; ONE 4×5 colour matrix per look, `applyPhotoFilter` for the phone (Skia) and the browser (canvas pixels) use the same numbers): **black and white** Mono · Noir (strong contrast) · Silver (soft) · High key · Film B&W; **colour** Vivid · Warm · Cool · Fade · Vintage · Drama · Teal & orange.
+The look is chosen before the shot and changed after it - always applied to the ORIGINAL file (never a look on a look). Phone: the live picture is NOT filtered (that needs a frame processor); the photo is. Web: the live preview shows the look (CSS filter, an approximation of the matrix).
+The post has no `mediaKind` (nothing to play); the phone list draws `mediaImageUri` as a thumbnail (`MediaPostRow.imageUri`). The web list (`ListWebCardsComponent`) was not changed for photos.
+
+## Scan: QR code / barcode (`scan/`, route `/media/scan`, open to guests)
+
+Vision Camera `useCodeScanner` (no frame processor, no extra package: AVFoundation / ML Kit read the codes): QR, Aztec, Data Matrix, PDF417, EAN-13 / 8, UPC-A / E, Code 128 / 39 / 93, Codabar, ITF / ITF-14. Web: `BarcodeDetector` (Chrome, Edge, Safari 17+; Firefox says so).
+`scanModel.ts` (pure) tells what a code is: link, e-mail, phone, SMS, Wi-Fi (`WIFI:T:WPA;S:..;P:..;;`), geo, contact card (vCard / MECARD), calendar event, product code (EAN / UPC), text. `ScanResultCard`: the facts, **Open** (link / mail / tel / sms / geo), **Copy**, **Scan again**, and the offer **Create media post** (`ResultPostOffer`: a guest is told to sign in; `buildScanPost` in `notePost.ts`, `dataOriginName = 'scanner'`). The same code in the next frames is one scan (`SCAN_REPEAT_MS`); a frame that arrives while a result is shown is ignored. Torch + zoom + front / back camera.
+
+## NFC (`nfc/`, route `/media/nfc`, open to guests)
+
+`react-native-nfc-manager` (the best maintained NFC package for Expo; no Expo module reads tags). The screen runs the reader while it is shown; **every tag that touches the phone is added to the list `NFCReceivedInfo`** (newest first, the same tag held on the phone is one read for 2 s). A card shows every NDEF record (text with its language, link, phone, mail, Smart Poster, MIME, external), the tag id / technologies / size / read only, **Open**, **Copy**, **Remove**, **Create media post** (`buildNfcPost`, `dataOriginName = 'nfc'`). `nfcModel.ts` (pure) decodes the records itself (text status byte, URI prefix table, UTF-8 / UTF-16, embedded Smart Poster message).
+- **Android:** reader mode: tags are read one after the other with no button. **Background:** the config plugin `withNfcLaunch` (`app.config.js`) puts the intent filters `NDEF_DISCOVERED` (text/plain) and `TAG_DISCOVERED` on the main activity, so a tag started against the closed app opens it; `NfcBackgroundHandler` (mounted once in `app/_layout.tsx`) takes that tag (`getBackgroundTag`), also the background tags of a running app (`DiscoverBackgroundTag`) and when the app comes to the front, puts it into the inbox (`nfcInbox.ts`) and opens `/media/nfc`. Nothing is saved without the user.
+- **iOS:** a read session (the system sheet) started by the **Scan** button; it ends after the system time limit - press Scan again. The system reads tags with a URL in the background by itself and opens the app only through a universal link (associated domain: not set up). Needs the NFC capability on the App ID (the plugin adds the entitlement + `NFCReaderUsageDescription`).
+- **Web:** Web NFC (`NDEFReader`, Chrome on Android over https); other browsers say so. No background.
+- Not built: writing tags, MIFARE / ISO-DEP commands, iOS background universal links.
 
 ## Do not install
 

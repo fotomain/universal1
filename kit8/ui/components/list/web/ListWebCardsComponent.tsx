@@ -30,8 +30,8 @@ import AskBeforeDeletePostComponent from '../../common/AskBeforeDeletePostCompon
 import {BusinessFunnyScrollComponent} from "./BusinessFunnyScrollComponent";
 import {showSnackbar} from "../../../../redux/uxuiSlice";
 import {deleteFileRow} from "../../../../files/common/filesDriveApi";
-import {mediaPostProjectGUID, readonlyDeleteMessageOf} from "../../media/mediaPostProject";
-import {useMediaPostProjects} from "../../media/useMediaPostProjects";
+import {mediaPostProjectGUID, readonlyDeleteMessageOf} from "../../media/common/mediaPostProject";
+import {useMediaPostProjects} from "../../media/common/useMediaPostProjects";
 import {useRealtimeEntity} from "../../../../redux/reusable/useRealtimeEntity";
 import {matchRow} from "../../../../redux/reusable/realtimeRows";
 

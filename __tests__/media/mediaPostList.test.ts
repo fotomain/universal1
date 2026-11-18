@@ -1,5 +1,5 @@
 // The rows of the phone's Media Posts list
-import { mediaPostRows } from '../../kit8/ui/components/media/mediaPostList';
+import { mediaPostRows } from '../../kit8/ui/components/media/common/mediaPostList';
 
 const recorded = '2026-11-13T08:33:44.002Z';
 const video = {

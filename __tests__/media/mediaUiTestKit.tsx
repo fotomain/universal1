@@ -33,7 +33,7 @@ jest.mock('../../kit8/ui/components/common', () => {
 });
 
 // uxuiState.RecordVideoSettings without a redux store: a test sets (globalThis as any).__recordVideoSettings BEFORE render
-jest.mock('../../kit8/ui/components/media/useRecordVideoSettings', () => {
+jest.mock('../../kit8/ui/components/media/video/useRecordVideoSettings', () => {
   const R = require('react');
   const { normalizeRecordVideoSettings, RECORD_VIDEO_DEFAULTS } = require('../../kit8/redux/recordVideoSettings');
   return {

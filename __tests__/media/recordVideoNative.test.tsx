@@ -34,13 +34,13 @@ const mockSave = jest.fn(async (segments: any[]) => ({
   rowGUID: 'g1', rowOwnerGUID: 'u', rowParentGUID: 'empty', orderInList: 1,
   rowJSON: { mediaPostTitle: 'Video T', mediaDurationSec: 9, mediaWithAudio: segments.some((s) => s.hasAudio), mediaSegments: segments },
 }));
-jest.mock('../../kit8/ui/components/media/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
-jest.mock('../../kit8/ui/components/media/RecordingResult', () => {
+jest.mock('../../kit8/ui/components/media/common/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
+jest.mock('../../kit8/ui/components/media/common/RecordingResult', () => {
   const R = require('react');
   return { __esModule: true, default: ({ post }: any) => R.createElement('div', { 'data-testid': 'recording-result' }, post.rowJSON.mediaPostTitle) };
 });
 
-import RecordVideo, { SEGMENT_GAP_MS, toFileUri } from '../../kit8/ui/components/media/RecordVideo';
+import RecordVideo, { SEGMENT_GAP_MS, toFileUri } from '../../kit8/ui/components/media/video/RecordVideo';
 
 const advance = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); });
 

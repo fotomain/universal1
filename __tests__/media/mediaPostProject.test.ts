@@ -1,5 +1,5 @@
 // The project of a media post and the words of a delete stopped by a read-only project
-import { isReadonlyRefusal, mediaPostProjectGUID, projectNameOfReadonlyError, projectReadonlyDeleteMessage, readonlyDeleteMessageOf } from '../../kit8/ui/components/media/mediaPostProject';
+import { isReadonlyRefusal, mediaPostProjectGUID, projectNameOfReadonlyError, projectReadonlyDeleteMessage, readonlyDeleteMessageOf } from '../../kit8/ui/components/media/common/mediaPostProject';
 
 const P = '11111111-2222-3333-4444-555555555555';
 const T = '66666666-2222-3333-4444-555555555555';

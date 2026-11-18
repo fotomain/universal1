@@ -6,7 +6,7 @@ import { cleanup, flush, press, q, render, text } from './mediaUiTestKit';
 let mockState: any;
 jest.mock('react-redux', () => ({ useDispatch: () => jest.fn(), useSelector: (fn: any) => fn(mockState) }));
 
-import RecordingSignInGate from '../../kit8/ui/components/media/RecordingSignInGate';
+import RecordingSignInGate from '../../kit8/ui/components/media/common/RecordingSignInGate';
 
 const push = jest.fn();
 beforeEach(() => { (globalThis as any).__push = push; });

@@ -1,4 +1,4 @@
-import { buildRecordingPost, defaultRecordingTitle, playableUrisOfPost } from '../../kit8/ui/components/media/mediaPost';
+import { buildRecordingPost, defaultRecordingTitle, playableUrisOfPost } from '../../kit8/ui/components/media/common/mediaPost';
 
 const now = new Date(2026, 9, 15, 14, 3, 9);
 

@@ -40,6 +40,7 @@ import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
 import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
 import ReminderHost from '../kit8/ui/reminder/ReminderHost';
 import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
+import NfcBackgroundHandler from '../kit8/ui/components/media/nfc/NfcBackgroundHandler';
 import PM80FaviconByTheme from '../apps/appPM80/home/pm80Favicon';
 import { AppCustomizationProvider } from '../kit8/providers/AppCustomizationProvider';
 import { getAppCustomization } from '../apps/appCustomization';
@@ -456,6 +457,9 @@ function RootLayoutContent() {
               <Drawer.Screen name="user/historyofactivity/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.historyOfActivity') }} />
               <Drawer.Screen name="media/record/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordAudio') }} />
               <Drawer.Screen name="media/record/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordVideo') }} />
+              <Drawer.Screen name="media/record/photo/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordPhoto') }} />
+              <Drawer.Screen name="media/scan/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.scanCodes') }} />
+              <Drawer.Screen name="media/nfc/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.scanNfc') }} />
               <Drawer.Screen name="media/play/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playAudio') }} />
               <Drawer.Screen name="media/play/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideo') }} />
             </Drawer>
@@ -467,6 +471,8 @@ function RootLayoutContent() {
             <ReminderHost />
             {/* counts the screens the user opens (app_route_visits_turnover) while the Organization switch numberOfVisitsFunctionalityEnabled is on */}
             <RouteVisitTracker />
+            {/* a tag that starts the app / touches the phone in the background goes into the NFC inbox (kit8/ui/components/media/nfc) */}
+            <NfcBackgroundHandler />
             {/* appPM80 on web: the tab icon on a transparent background while the theme is not dark */}
             <PM80FaviconByTheme />
             {/* the texts the administrator replaced for the organization (organizationTextTable): read once after the sign in, used by pmT / t() / the column headers */}

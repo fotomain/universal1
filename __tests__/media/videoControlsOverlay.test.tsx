@@ -5,7 +5,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { cleanup, q, render, text } from './mediaUiTestKit';
 import uxuiReducer, { setPlayVideoSettings } from '../../kit8/redux/uxuiSlice';
-import VideoControlsOverlay from '../../kit8/ui/components/media/VideoControlsOverlay';
+import VideoControlsOverlay from '../../kit8/ui/components/media/play/VideoControlsOverlay';
 
 // ---- a store with the real uxuiState, a 300 px wide video
 let store: ReturnType<typeof makeStore>;

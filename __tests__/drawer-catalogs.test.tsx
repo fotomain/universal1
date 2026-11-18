@@ -218,11 +218,12 @@ it('opens by itself on a catalog page (list or edit)', () => {
 });
 
 
-it('Record (Audio, Video) and Play (Audio, Video) are closed accordions that open the media screens', () => {
+it('Record (Audio, Video, Photo), Play (Audio, Video) and Scan (QR / Barcode, NFC) are closed accordions that open the media screens', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
   expect(ids.indexOf('drawer-item-record')).toBe(ids.indexOf('drawer-item-posts') + 1);
   expect(ids.indexOf('drawer-item-play')).toBe(ids.indexOf('drawer-item-record') + 1);
+  expect(ids.indexOf('drawer-item-scan')).toBe(ids.indexOf('drawer-item-play') + 1);
   expect(q('drawer-subitem-record-audio')).toBeNull(); // closed
   expect(q('drawer-subitem-play-audio')).toBeNull();
 
@@ -234,6 +235,15 @@ it('Record (Audio, Video) and Play (Audio, Video) are closed accordions that ope
   expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/audio');
   press('drawer-subitem-record-video');
   expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/video');
+  press('drawer-subitem-record-photo');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/photo');
+
+  expect(q('drawer-subitem-scan-codes')).toBeNull(); // closed
+  press('drawer-item-scan');
+  press('drawer-subitem-scan-codes');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/scan');
+  press('drawer-subitem-scan-nfc');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/nfc');
 
   press('drawer-item-play');
   press('drawer-subitem-play-audio');
@@ -305,10 +315,10 @@ it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, setting
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });
 
-it('Chat (after Play, before Catalogs) navigates to /chat', () => {
+it('Chat (after Scan, before Catalogs) navigates to /chat', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-chat')).toBe(ids.indexOf('drawer-item-play') + 1);
+  expect(ids.indexOf('drawer-item-chat')).toBe(ids.indexOf('drawer-item-scan') + 1);
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-chat') + 1);
   press('drawer-item-chat');
   expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/chat$/));

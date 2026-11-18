@@ -13,12 +13,12 @@ jest.mock('react-redux', () => ({
 jest.mock('../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: { get mediaPostReusable() { return { actions: mockActions }; } } }));
 jest.mock('expo-crypto', () => ({ randomUUID: () => 'uuid-1' }));
 const mockPersist = jest.fn(async (uri: string, kind: string) => `kept-${kind}:${uri}`);
-jest.mock('../../kit8/ui/components/media/mediaFileStore', () => ({ persistRecording: (u: string, k: string) => mockPersist(u, k) }));
+jest.mock('../../kit8/ui/components/media/common/mediaFileStore', () => ({ persistRecording: (u: string, k: string) => mockPersist(u, k) }));
 
 let mockClient: any = null;
 jest.mock('../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: mockClient }) }));
 
-import { useSaveRecording, saveRefusalText } from '../../kit8/ui/components/media/useSaveRecording';
+import { useSaveRecording, saveRefusalText } from '../../kit8/ui/components/media/common/useSaveRecording';
 
 let save: (segments: any[], title?: string) => Promise<any>;
 function Probe({ kind }: { kind: 'audio' | 'video' }) {

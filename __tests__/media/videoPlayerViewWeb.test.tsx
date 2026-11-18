@@ -6,7 +6,7 @@ import { Provider } from 'react-redux';
 import { configureStore } from '@reduxjs/toolkit';
 import { cleanup, flush, q, render, text } from './mediaUiTestKit';
 import uxuiReducer from '../../kit8/redux/uxuiSlice';
-import VideoPlayerView from '../../kit8/ui/components/media/VideoPlayerView.web';
+import VideoPlayerView from '../../kit8/ui/components/media/play/VideoPlayerView.web';
 
 const mount = (extra: Partial<React.ComponentProps<typeof VideoPlayerView>> = {}) =>
   render(

@@ -7,13 +7,13 @@ const mockSave = jest.fn(async (segments: any[]) => ({
   rowGUID: 'g1', rowOwnerGUID: 'u', rowParentGUID: 'empty', orderInList: 1,
   rowJSON: { mediaPostTitle: 'Video W', mediaDurationSec: 3, mediaWithAudio: segments.some((s) => s.hasAudio) },
 }));
-jest.mock('../../kit8/ui/components/media/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
-jest.mock('../../kit8/ui/components/media/RecordingResult', () => {
+jest.mock('../../kit8/ui/components/media/common/useSaveRecording', () => ({ useSaveRecording: () => mockSave }));
+jest.mock('../../kit8/ui/components/media/common/RecordingResult', () => {
   const R = require('react');
   return { __esModule: true, default: ({ post }: any) => R.createElement('div', { 'data-testid': 'recording-result' }, post.rowJSON.mediaPostTitle) };
 });
 
-import RecordVideo, { pickRecorderMimeType, RECORDER_MIME_CANDIDATES } from '../../kit8/ui/components/media/RecordVideo.web';
+import RecordVideo, { pickRecorderMimeType, RECORDER_MIME_CANDIDATES } from '../../kit8/ui/components/media/video/RecordVideo.web';
 
 // ---- browser fakes
 class FakeRecorder {

@@ -1,7 +1,7 @@
 // The date and time over a video: text, place, clock time of a second of a part (documentation/CAMERA_DATE_TIME.html)
-import { clockTimeAt, dateTimeOverLayout, dateTimeOverOfPost, dateTimeOverTextAt, formatDateTimeOver, parseDateTimeOverParam, PartClock } from '../../kit8/ui/components/media/dateTimeOver';
-import { buildRecordingPost } from '../../kit8/ui/components/media/mediaPost';
-import { buildPlayRoute } from '../../kit8/ui/components/media/mediaSource';
+import { clockTimeAt, dateTimeOverLayout, dateTimeOverOfPost, dateTimeOverTextAt, formatDateTimeOver, parseDateTimeOverParam, PartClock } from '../../kit8/ui/components/media/video/dateTimeOver';
+import { buildRecordingPost } from '../../kit8/ui/components/media/common/mediaPost';
+import { buildPlayRoute } from '../../kit8/ui/components/media/common/mediaSource';
 
 const local = (y: number, mo: number, d: number, h: number, mi: number, s: number, ms = 0) => new Date(y, mo - 1, d, h, mi, s, ms);
 

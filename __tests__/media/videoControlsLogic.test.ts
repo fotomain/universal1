@@ -1,4 +1,4 @@
-import { doubleTapZone, isRepeatedTap, progressOf, seekTarget, TAP_WINDOW_MS, timeAtPosition } from '../../kit8/ui/components/media/videoControlsLogic';
+import { doubleTapZone, isRepeatedTap, progressOf, seekTarget, TAP_WINDOW_MS, timeAtPosition } from '../../kit8/ui/components/media/play/videoControlsLogic';
 
 describe('doubleTapZone: left 40 %, middle 20 %, right 40 %', () => {
   it.each([

@@ -5,20 +5,20 @@ import { cleanup, flush, press, pressAsync, q, render, text } from './mediaUiTes
 
 // the platform players are stubs: they show what MediaPlayer hands them and let the test end the file
 const mockViews: Array<{ kind: string; props: any }> = [];
-jest.mock('../../kit8/ui/components/media/AudioPlayerView', () => {
+jest.mock('../../kit8/ui/components/media/play/AudioPlayerView', () => {
   const R = require('react');
   return { __esModule: true, default: (props: any) => { (mockViews as any).push({ kind: 'audio', props }); return R.createElement('div', { 'data-testid': 'audio-view', 'data-uri': props.uri, 'data-autoplay': String(props.autoPlay) }); } };
 });
-jest.mock('../../kit8/ui/components/media/VideoPlayerView', () => {
+jest.mock('../../kit8/ui/components/media/play/VideoPlayerView', () => {
   const R = require('react');
   return { __esModule: true, default: (props: any) => { (mockViews as any).push({ kind: 'video', props }); return R.createElement('div', { 'data-testid': 'video-view', 'data-uri': props.uri, 'data-autoplay': String(props.autoPlay) }); } };
 });
 const mockResolve = jest.fn(async (uri: string) => (uri.startsWith('kit8media://') ? 'blob:resolved-' + uri.slice(12) : uri));
-jest.mock('../../kit8/ui/components/media/mediaFileStore', () => ({ resolveMediaUri: (u: string) => mockResolve(u) }));
+jest.mock('../../kit8/ui/components/media/common/mediaFileStore', () => ({ resolveMediaUri: (u: string) => mockResolve(u) }));
 
-import MediaPlayer from '../../kit8/ui/components/media/MediaPlayer';
-import MediaPlayerModal from '../../kit8/ui/components/media/MediaPlayerModal';
-import MediaPlayerScreen from '../../kit8/ui/components/media/MediaPlayerScreen';
+import MediaPlayer from '../../kit8/ui/components/media/play/MediaPlayer';
+import MediaPlayerModal from '../../kit8/ui/components/media/play/MediaPlayerModal';
+import MediaPlayerScreen from '../../kit8/ui/components/media/play/MediaPlayerScreen';
 
 const lastView = () => mockViews[mockViews.length - 1];
 const typeInto = (testID: string, value: string) =>

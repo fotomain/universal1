@@ -13,7 +13,7 @@ jest.mock('expo-audio', () => ({
   setAudioModeAsync: jest.fn(async () => undefined),
 }));
 
-import AudioPlayerView, { AUDIO_LOAD_TIMEOUT_MS } from '../../kit8/ui/components/media/AudioPlayerView';
+import AudioPlayerView, { AUDIO_LOAD_TIMEOUT_MS } from '../../kit8/ui/components/media/play/AudioPlayerView';
 
 const base = { isLoaded: true, playing: false, didJustFinish: false, currentTime: 0, duration: 100, error: null };
 const setStatus = (s: any) => { status = { ...base, ...s }; (globalThis as any).__audioStatus = status; };

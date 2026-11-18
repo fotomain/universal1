@@ -91,6 +91,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [
         { id: 'record-audio', label: 'Audio', icon: 'mic', route: 'media/record/audio' },
         { id: 'record-video', label: 'Video', icon: 'videocam', route: 'media/record/video' },
+        { id: 'record-photo', label: 'Photo', icon: 'photo_camera', route: 'media/record/photo' },
       ],
     },
     {
@@ -101,6 +102,17 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [
         { id: 'play-audio', label: 'Audio', icon: 'headphones', route: 'media/play/audio' },
         { id: 'play-video', label: 'Video', icon: 'movie', route: 'media/play/video' },
+      ],
+    },
+    // scan with the camera (QR code, barcode) or with the NFC reader (kit8/ui/components/media/scan, .../nfc): open to guests too
+    {
+      id: 'scan',
+      label: 'Scan',
+      icon: 'qr_code_scanner',
+      route: '',
+      children: [
+        { id: 'scan-codes', label: 'QR / Barcode', icon: 'qr_code_scanner', route: 'media/scan' },
+        { id: 'scan-nfc', label: 'NFC', icon: 'nfc', route: 'media/nfc' },
       ],
     },
     // the chat (kit8/chat): the themes of the user and the chats of the tasks he works on; the red number of the new messages is in the application bar

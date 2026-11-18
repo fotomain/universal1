@@ -28,7 +28,7 @@ jest.mock('expo-video', () => {
   };
 });
 
-import VideoPlayerView from '../../kit8/ui/components/media/VideoPlayerView';
+import VideoPlayerView from '../../kit8/ui/components/media/play/VideoPlayerView';
 
 const mount = (extra: Partial<React.ComponentProps<typeof VideoPlayerView>> = {}) =>
   render(

@@ -98,7 +98,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = stream;
       const canDigital = typeof document !== 'undefined' && typeof (document.createElement('canvas') as any).captureStream === 'function';
-      const cap = webZoomCapability(stream.getVideoTracks()[0], canDigital);
+      const cap = webZoomCapability(stream.getVideoTracks?.()[0], canDigital);
       setZoomCap(cap);
       zoomRef.current = cap?.range.neutral ?? 1;
       setZoom(zoomRef.current);

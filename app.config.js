@@ -90,12 +90,44 @@ const withFastGradle = (config) =>
     return cfg;
   });
 
+// A tag that touches an Android phone while the app is closed or in the background starts the app: intent filters on the main activity
+// (NDEF_DISCOVERED for plain text / links, TAG_DISCOVERED for every other tag) + the NFC feature as optional (a phone without NFC can install it).
+const { withAndroidManifest } = require('expo/config-plugins');
+const withNfcLaunch = (config) =>
+  withAndroidManifest(config, (cfg) => {
+    const manifest = cfg.modResults.manifest;
+    manifest['uses-feature'] = manifest['uses-feature'] || [];
+    if (!manifest['uses-feature'].some((f) => f.$['android:name'] === 'android.hardware.nfc')) {
+      manifest['uses-feature'].push({ $: { 'android:name': 'android.hardware.nfc', 'android:required': 'false' } });
+    }
+    const main = (manifest.application?.[0]?.activity || []).find((a) => a.$['android:name'] === '.MainActivity');
+    if (main) {
+      main['intent-filter'] = main['intent-filter'] || [];
+      const has = (action) => main['intent-filter'].some((f) => (f.action || []).some((a) => a.$['android:name'] === action));
+      if (!has('android.nfc.action.NDEF_DISCOVERED')) {
+        main['intent-filter'].push({
+          action: [{ $: { 'android:name': 'android.nfc.action.NDEF_DISCOVERED' } }],
+          category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+          data: [{ $: { 'android:mimeType': 'text/plain' } }],
+        });
+      }
+      if (!has('android.nfc.action.TAG_DISCOVERED')) {
+        main['intent-filter'].push({
+          action: [{ $: { 'android:name': 'android.nfc.action.TAG_DISCOVERED' } }],
+          category: [{ $: { 'android:name': 'android.intent.category.DEFAULT' } }],
+        });
+      }
+    }
+    return cfg;
+  });
+
 // Texts of the permission questions (iOS shows them; Android uses its own wording).
 const PERMISSION_TEXT = {
   camera: 'The app uses the camera to record video and take pictures for your posts.',
   microphone: 'The app uses the microphone to record audio and video for your posts.',
   photos: 'The app reads your photo library so you can attach pictures and videos.',
   savePhotos: 'The app saves recorded pictures and videos to your photo library.',
+  nfc: 'The app reads NFC tags that you hold near the phone.',
 };
 
 const defaultVariant = 'appClothes1';
@@ -144,6 +176,11 @@ const expoConfig = {
       // record video (kit8/ui/components/media/RecordVideo.tsx): hardware camera + microphone.
       // Do NOT add expo-camera next to it: it pulls CameraX 1.6.0, vision-camera 4.x needs 1.5.0-alpha03 -> NoClassDefFoundError Camera2CameraInfoImpl on Android
       ['react-native-vision-camera', { cameraPermissionText: PERMISSION_TEXT.camera, enableMicrophonePermission: true, microphonePermissionText: PERMISSION_TEXT.microphone }],
+      // scan NFC tags (kit8/ui/components/media/nfc): react-native-nfc-manager. iOS: the NFC reader entitlement (needs the NFC capability of the
+      // App ID at Apple) + the usage text; Android: the NFC permission. A native module: a development build is needed.
+      ['react-native-nfc-manager', { nfcPermission: PERMISSION_TEXT.nfc }],
+      // a tag that touches the phone while the app is closed / in the background starts the app (Android)
+      withNfcLaunch,
       // record / play audio (RecordAudio.tsx, AudioPlayerView.tsx)
       ['expo-audio', { microphonePermission: PERMISSION_TEXT.microphone }],
       ['expo-media-library', { photosPermission: PERMISSION_TEXT.photos, savePhotosPermission: PERMISSION_TEXT.savePhotos, isAccessMediaLocationEnabled: true }],

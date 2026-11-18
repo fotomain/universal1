@@ -9,7 +9,7 @@ import {
   parseAutoPlayParam,
   parseMediaSource,
   parseQueueParam,
-} from '../../kit8/ui/components/media/mediaSource';
+} from '../../kit8/ui/components/media/common/mediaSource';
 
 describe('parseMediaSource', () => {
   it('accepts a web address', () => {

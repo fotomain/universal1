@@ -6,24 +6,28 @@ const root = path.resolve(__dirname, '../..');
 const read = (p: string) => fs.readFileSync(path.join(root, p), 'utf8');
 const exists = (p: string) => fs.existsSync(path.join(root, p));
 
-const ROUTES: Record<string, string> = {
-  'app/media/record/audio/index.tsx': 'RecordAudio',
-  'app/media/record/video/index.tsx': 'RecordVideo',
-  'app/media/play/audio/index.tsx': 'MediaPlayerScreen',
-  'app/media/play/video/index.tsx': 'MediaPlayerScreen',
+// route file -> [the component it renders, the subfolder of kit8/ui/components/media it lives in]
+const ROUTES: Record<string, [string, string]> = {
+  'app/media/record/audio/index.tsx': ['RecordAudio', 'audio'],
+  'app/media/record/video/index.tsx': ['RecordVideo', 'video'],
+  'app/media/record/photo/index.tsx': ['RecordPhoto', 'photo'],
+  'app/media/play/audio/index.tsx': ['MediaPlayerScreen', 'play'],
+  'app/media/play/video/index.tsx': ['MediaPlayerScreen', 'play'],
+  'app/media/scan/index.tsx': ['ScanCodes', 'scan'],
+  'app/media/nfc/index.tsx': ['NfcScan', 'nfc'],
 };
 
 describe('media routes', () => {
   it('app/play and app/record are gone, their content is in app/media', () => {
     expect(exists('app/play')).toBe(false);
     expect(exists('app/record')).toBe(false);
-    expect(exists('kit8/ui/components/media/RecordVideoNativeComponent.tsx')).toBe(false); // the fake recorders were replaced
-    expect(exists('kit8/ui/components/media/RecordVideoWebComponent.tsx')).toBe(false);
+    expect(exists('kit8/ui/components/media/video/RecordVideoNativeComponent.tsx')).toBe(false); // the fake recorders were replaced
+    expect(exists('kit8/ui/components/media/video/RecordVideoWebComponent.tsx')).toBe(false);
   });
 
-  it.each(Object.entries(ROUTES))('%s renders %s from kit8/ui/components/media', (file, component) => {
+  it.each(Object.entries(ROUTES))('%s renders %s from kit8/ui/components/media', (file, [component, folder]) => {
     const src = read(file);
-    expect(src).toContain(`kit8/ui/components/media/${component}'`);
+    expect(src).toContain(`kit8/ui/components/media/${folder}/${component}'`);
     const imported = /from '(\.\.\/[^']+)'/.exec(src)![1];
     const target = path.resolve(root, path.dirname(file), imported);
     expect(['.tsx', '.ts'].some((ext) => fs.existsSync(target + ext))).toBe(true);
@@ -40,16 +44,20 @@ describe('media routes', () => {
       const name = file.replace(/^app\//, '').replace(/\.tsx$/, '');
       expect(layout).toContain(`<Drawer.Screen name="${name}"`);
     }
-    for (const key of ['recordAudio', 'recordVideo', 'playAudio', 'playVideo']) expect(read('kit8/i18n/i18n.ts')).toContain(`${key}: '`);
+    for (const key of ['recordAudio', 'recordVideo', 'recordPhoto', 'scanCodes', 'scanNfc', 'playAudio', 'playVideo']) expect(read('kit8/i18n/i18n.ts')).toContain(`${key}: '`);
     expect(layout).not.toMatch(/record\/record(audio|video)(web|native)/);
     expect(layout).not.toMatch(/play\/playvideo(web|native)/);
   });
 
   it('the platform pairs exist (the bundler picks .web on the web, the plain file on iOS / Android)', () => {
-    for (const base of ['VideoPlayerView', 'RecordVideo', 'mediaFileStore']) {
-      const ext = base === 'mediaFileStore' ? 'ts' : 'tsx';
-      expect(exists(`kit8/ui/components/media/${base}.${ext}`)).toBe(true);
-      expect(exists(`kit8/ui/components/media/${base}.web.${ext}`)).toBe(true);
+    const pairs: Array<[string, string, string]> = [
+      ['play', 'VideoPlayerView', 'tsx'], ['video', 'RecordVideo', 'tsx'], ['common', 'mediaFileStore', 'ts'],
+      ['photo', 'RecordPhoto', 'tsx'], ['photo', 'applyPhotoFilter', 'ts'], ['scan', 'ScanCodes', 'tsx'],
+      ['nfc', 'nfcReader', 'ts'], ['nfc', 'NfcBackgroundHandler', 'tsx'],
+    ];
+    for (const [folder, base, ext] of pairs) {
+      expect(exists(`kit8/ui/components/media/${folder}/${base}.${ext}`)).toBe(true);
+      expect(exists(`kit8/ui/components/media/${folder}/${base}.web.${ext}`)).toBe(true);
     }
   });
 
@@ -64,5 +72,22 @@ describe('media routes', () => {
     expect(config).not.toMatch(/\[\s*'expo-camera'/);
     expect(config).toContain("'react-native-vision-camera'");
     expect(config).toContain("'expo-audio'");
+  });
+
+  it('scan + photo: react-native-nfc-manager and expo-image-manipulator are dependencies, the NFC plugin and the Android launch filter are in app.config.js', () => {
+    const pkg = JSON.parse(read('package.json'));
+    for (const dep of ['react-native-nfc-manager', 'expo-image-manipulator', '@shopify/react-native-skia', 'expo-clipboard', 'expo-haptics']) expect(pkg.dependencies[dep]).toBeTruthy();
+    const config = read('app.config.js');
+    expect(config).toContain("'react-native-nfc-manager'");
+    expect(config).toContain('android.nfc.action.NDEF_DISCOVERED');
+    expect(config).toContain('android.nfc.action.TAG_DISCOVERED');
+    expect(config).toContain("'android.hardware.nfc'");
+    // the iOS NDEF entitlement is needed by the NDEF read session: the plugin must not drop it
+    expect(config).not.toContain('includeNdefEntitlement: false');
+  });
+
+  it('the media folder is sorted: only index.ts, README.md and the subfolders stand in its root', () => {
+    const entries = fs.readdirSync(path.join(root, 'kit8/ui/components/media')).sort();
+    expect(entries).toEqual(['README.md', 'audio', 'common', 'index.ts', 'nfc', 'photo', 'play', 'scan', 'video']);
   });
 });

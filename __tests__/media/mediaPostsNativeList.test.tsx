@@ -15,14 +15,14 @@ const mockDeleteSuccess = jest.fn((p: any) => ({ type: 'deleteSuccess', p }));
 const mockDeleteFileRow = jest.fn();
 jest.mock('../../kit8/files/common/filesDriveApi', () => ({ deleteFileRow: (id: string) => mockDeleteFileRow(id) }));
 const PROJ = '11111111-2222-3333-4444-555555555555';
-jest.mock('../../kit8/ui/components/media/useMediaPostProjects', () => ({ useMediaPostProjects: () => ({ ['11111111-2222-3333-4444-555555555555']: { name: 'Railway #1', readonly: true } }) }));
+jest.mock('../../kit8/ui/components/media/common/useMediaPostProjects', () => ({ useMediaPostProjects: () => ({ ['11111111-2222-3333-4444-555555555555']: { name: 'Railway #1', readonly: true } }) }));
 const mockModal = jest.fn();
-jest.mock('../../kit8/ui/components/media/MediaPlayerModal', () => {
+jest.mock('../../kit8/ui/components/media/play/MediaPlayerModal', () => {
   const R = require('react');
   return { __esModule: true, default: (props: any) => { mockModal(props); return R.createElement('div', { 'data-testid': 'player-modal' }, props.title); } };
 });
 
-import MediaPostsNativeList from '../../kit8/ui/components/media/MediaPostsNativeList';
+import MediaPostsNativeList from '../../kit8/ui/components/media/common/MediaPostsNativeList';
 
 beforeEach(() => {
   mockState = {
