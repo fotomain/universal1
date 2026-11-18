@@ -27,6 +27,8 @@ const initialState = {
     deleteErrorData: "",
 
     crudMoment: 0,
+    /** the scope of the LAST read that filled the list: JSON of readData.match ('null' = the whole table; null = nothing read yet / a list made another way) */
+    readScope: null as string | null,
 
     // Supabase Realtime (another browser / device changed the table -> the list follows)
     realtimeStatus: "idle" as RealtimeStatus,
@@ -82,6 +84,7 @@ export const reusableCrudSlice = (name: string) =>
             },
             readDataSuccess: (state, action) => {
                 state.entityDataFromServer = action.payload.data;
+                state.readScope = action.payload?.action?.payload !== undefined || action.payload?.action ? JSON.stringify(action.payload?.action?.payload?.match ?? null) : null;
                 state.isReading = false;
                 state.readSuccessful = 1;
                 state.crudMoment = Date.now();
@@ -98,6 +101,7 @@ export const reusableCrudSlice = (name: string) =>
             },
             filterAllSuccess: (state, action) => {
                 state.entityDataFromServer = action.payload;
+                state.readScope = null;
                 state.isReading = false;
                 state.readSuccessful = 1;
                 state.crudMoment = Date.now();

@@ -1,4 +1,4 @@
-// Step 7 - the answers on one page; every line can be pressed to go back to its step.
+// Last step - the answers on one page; every line can be pressed to go back to its step.
 import React from 'react';
 import { View } from 'react-native';
 import { Divider, List } from 'react-native-paper';

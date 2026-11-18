@@ -99,9 +99,15 @@ describe('the tab is wired where the other tabs are (source check)', () => {
     expect(org.indexOf("{ id: 'resources', label: 'Resources' }")).toBeGreaterThan(org.indexOf("{ id: 'roi', label: 'ROI' }"));
     expect(org).toContain("{tab === 'resources' && <PMResourceLevelingSettingsTab values={v} onChange={patch} />}");
   });
-  it('Project settings window: TabResources after TabROI; read for a project, written on save, defaulted for a new one', () => {
+  it('Project settings window: TabResources after TabBudgets and before TabROI; read for a project, written on save, defaulted for a new one', () => {
     const w = readSrc('kit8/pm/view/project/recent/PMRecentProjectsToolbar.tsx');
-    expect(w.indexOf("{ id: 'TabResources' as const")).toBeGreaterThan(w.indexOf("{ id: 'TabROI' as const"));
+    const tab = (id: string) => w.indexOf(`{ id: '${id}' as const`);
+    expect(tab('TabResources')).toBeGreaterThan(tab('TabBudgets'));
+    expect(tab('TabROI')).toBeGreaterThan(tab('TabResources'));
+    expect(tab('TabPayments')).toBeGreaterThan(tab('TabROI'));
+    // the time-of-day keys (zone, step, windows) are read and saved with the leveling keys
+    expect(w).toContain('...hourModelValuesOf(project.rowJSON)');
+    expect(w).toContain('hourModelValuesOf(draft)');
     expect(w).toContain('...resourceLevelingValuesOf(null)');
     expect(w).toContain('...resourceLevelingValuesOf(project.rowJSON)');
     expect(w).toContain('resourceLevelingValuesOf(draft)');

@@ -163,6 +163,7 @@ describe('the questions', () => {
   });
   it('the currencies of the project are typed also when the organization has projects; the consolidation currency is read only', async () => {
     await toSchedule();
+    click('assistant-next'); // planning
     click('assistant-next');
     expect(q('assistant-step-body-currencies')).not.toBeNull();
     expect(q('assistant-currencies-readonly')).toBeNull();
@@ -182,6 +183,60 @@ describe('the questions', () => {
   });
 });
 
+describe('the planning model and the time of day', () => {
+  async function toPlanning() {
+    await mount();
+    click('assistant-option-assistant');
+    await flush();
+    type('assistant-input-name', 'Plant 7 - shutdown');
+    click('assistant-next'); // schedule
+    click('assistant-next'); // planning
+  }
+  it('day by day skips the time of day; hour by hour asks it, a wrong zone or window blocks Next, the answers reach the window', async () => {
+    await toPlanning();
+    expect(q('assistant-step-body-planning')).not.toBeNull();
+    expect(q('assistant-step-timeOfDay')).toBeNull();
+    click('assistant-model-hour');
+    expect(q('assistant-step-timeOfDay')).not.toBeNull();
+    click('assistant-next');
+    expect(q('assistant-step-body-timeOfDay')).not.toBeNull();
+    expect((q('assistant-windows') as HTMLInputElement).value).toBe('08:00-16:00');
+    expect((q('assistant-zone') as HTMLInputElement).value).toBe('UTC');
+    type('assistant-zone', 'Mars/Base');
+    expect(disabled('assistant-next')).toBe(true);
+    click('assistant-zone-utc');
+    type('assistant-windows', '25:00-26:00');
+    expect(disabled('assistant-next')).toBe(true);
+    click('assistant-windows-lunch');
+    expect(disabled('assistant-next')).toBe(false);
+    click('assistant-choice-slot-30');
+    click('assistant-next'); // currencies
+    click('assistant-currency-budget-EUR');
+    click('assistant-currency-accounting-EUR');
+    click('assistant-next'); // budgets
+    click('assistant-next'); // control
+    click('assistant-next'); // review
+    expect(q('assistant-review')?.textContent).toMatch(/Hour by hour/);
+    click('assistant-create');
+    return flush().then(() => {
+      expect(usePMStore.getState().projectAssistantResult.patch).toMatchObject({
+        resourceOptimizationMode: 'hourByHourModel', resourceSlotMinutes: 30, projectTimeZone: 'UTC', planHour: true,
+        projectWorkWindows: [{ from: '09:00', to: '13:00' }, { from: '14:00', to: '18:00' }],
+      });
+    });
+  });
+  it('the resource optimization is asked after the resources, only while time costs are on', async () => {
+    await toPlanning();
+    click('assistant-next'); // currencies
+    click('assistant-currency-budget-EUR');
+    click('assistant-currency-accounting-EUR');
+    click('assistant-next'); // budgets
+    expect(q('assistant-step-optimization')).toBeNull();
+    click('assistant-switch-cost');
+    expect(q('assistant-step-optimization')).not.toBeNull();
+  });
+});
+
 describe('the end', () => {
   async function toReview(e: any = {}) {
     await mount({ env: e });
@@ -190,6 +245,7 @@ describe('the end', () => {
     type('assistant-input-name', 'Plant 7 - shutdown');
     const steps = e.projectCount === 0 ? 5 : 5;
     click('assistant-next'); // schedule
+    click('assistant-next'); // planning
     click('assistant-next'); // currencies
     click('assistant-next'); // budgets
     click('assistant-next'); // control
@@ -222,7 +278,7 @@ describe('the end', () => {
     await flush();
     click('assistant-option-assistant'); await flush();
     type('assistant-input-name', 'First project');
-    click('assistant-next'); click('assistant-next');
+    click('assistant-next'); click('assistant-next'); click('assistant-next');
     click('assistant-currency-budget-EUR'); click('assistant-currency-accounting-USD');
     click('assistant-next'); click('assistant-next'); click('assistant-next');
     click('assistant-open-window');

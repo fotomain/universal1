@@ -1,4 +1,4 @@
-// Step 5 - which kinds of resource a time line may book (asked only while time costs are on).
+// Step (budgets -> resources) - which kinds of resource a time line may book (asked only while time costs are on).
 import React from 'react';
 import { View } from 'react-native';
 import { ToggleRow } from '../components/AssistantFields';

@@ -1,4 +1,4 @@
-// PMResourceLevelingSettingsTab - the tab "Resources" of the Project settings window (TabResources, after ROI) and of Organization edit -> Projects -> Settings.
+// PMResourceLevelingSettingsTab - the tab "Resources" of the Project settings window (TabResources, after Budgets; ROI follows it) and of Organization edit -> Projects -> Settings.
 // Part "Resources" (resourceOptimizationMode, resourceGrainUnit) and the section "Resource optimization" (everything else). documentation/RESOURCE_LEVELING_WBS.html 7.1, 9.
 // The values and the rules are in resourceLevelingSettings.ts (pure); this file is only the form. The sub switches are edited only while the master is on.
 import React, { useState } from 'react';

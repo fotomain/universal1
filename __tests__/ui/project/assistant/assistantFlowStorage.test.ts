@@ -20,16 +20,18 @@ describe('flow', () => {
   it('the user can go back and jump to a step already seen, never ahead', () => {
     let s = reduce(start(), { type: 'next' });
     s = reduce(s, { type: 'next' });
+    expect(s.stepId).toBe('planning');
+    s = reduce(s, { type: 'next' });
     expect(s.stepId).toBe('currencies');
     expect(canJumpTo(s, 'identity', ctx)).toBe(true);
     expect(canJumpTo(s, 'control', ctx)).toBe(false);
     expect(reduce(s, { type: 'goto', stepId: 'control' }).stepId).toBe('currencies');
     expect(reduce(s, { type: 'goto', stepId: 'identity' }).stepId).toBe('identity');
-    expect(reduce(s, { type: 'back' }).stepId).toBe('schedule');
+    expect(reduce(s, { type: 'back' }).stepId).toBe('planning');
     // the answers of the steps ahead are kept when the user went back
     const back = reduce(s, { type: 'goto', stepId: 'identity' });
     expect(back.values.name).toBe('Plant 7 - shutdown');
-    expect(back.reached).toEqual(['identity', 'schedule', 'currencies']);
+    expect(back.reached).toEqual(['identity', 'schedule', 'planning', 'currencies']);
   });
   it('an answer that hides the current step moves the user to a visible one', () => {
     let s = start();
@@ -37,6 +39,21 @@ describe('flow', () => {
     const out = reduce(s, { type: 'change', patch: { projectExpenseBudgetNeeded: false } });
     expect(out.stepId).not.toBe('resources');
     expect(out.reached).not.toContain('resources');
+  });
+  it('choosing the hour model adds the time of day step right after the planning model; going back to the day model drops it', () => {
+    let s = reduce(start(), { type: 'next' });
+    s = reduce(s, { type: 'next' });
+    expect(s.stepId).toBe('planning');
+    s = reduce(s, { type: 'change', patch: { resourceOptimizationMode: 'hourByHourModel' } });
+    s = reduce(s, { type: 'next' });
+    expect(s.stepId).toBe('timeOfDay');
+    // a wrong zone blocks Next on the time of day
+    const bad = reduce(s, { type: 'change', patch: { projectTimeZone: 'Mars/Base' } });
+    expect(reduce(bad, { type: 'next' }).stepId).toBe('timeOfDay');
+    // the day model again: the step is gone, the user stands on a visible one
+    const day = reduce(s, { type: 'change', patch: { resourceOptimizationMode: 'dayByDayModel' } });
+    expect(day.stepId).not.toBe('timeOfDay');
+    expect(day.reached).not.toContain('timeOfDay');
   });
   it('restore puts the user where he stopped', () => {
     const vals = { ...defaultAssistantValues(TODAY), name: 'Plant 7 - shutdown' };

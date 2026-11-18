@@ -1,5 +1,5 @@
 // The catalog rows a task line needs, from redux (read once when the Finances screen opens; the catalogs change rarely, so no realtime).
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { PRODUCT_READ_PARAMS } from '../../../../catalog/product/dashboard/useProductCatalogData';
@@ -52,14 +52,34 @@ const ENTITIES: Record<keyof TaskLineCatalogData, string> = {
 };
 const KEYS = Object.keys(ENTITIES) as (keyof TaskLineCatalogData)[];
 
+/**
+ * The Finances view of a task is mounted AGAIN for every task the user clicks (key = task GUID). The catalogs it needs (28 tables) used to be read again on every mount: 28 requests per click
+ * before a single line could be shown. Now a catalog is read ONCE and read again only when it is older than CATALOG_FRESH_MS (they change rarely; the screens that edit them read them themselves).
+ * The map is module-level, so it lives as long as the app does; `resetTaskLineCatalogReads` is for tests.
+ */
+export const CATALOG_FRESH_MS = 5 * 60 * 1000;
+const readAt: Record<string, number> = {};
+export const resetTaskLineCatalogReads = () => { for (const k of Object.keys(readAt)) delete readAt[k]; };
+/** the entities that must be read now (never read, or older than the freshness window) */
+export function staleCatalogEntities(now: number, have: (entity: string) => boolean): string[] {
+  return KEYS.map((k) => ENTITIES[k]).filter((e) => !(have(e) && readAt[e] !== undefined && now - readAt[e] < CATALOG_FRESH_MS));
+}
+
 export function useTaskLineCatalogs(enabled = true): TaskLineCatalogData {
   const dispatch = useDispatch();
   const lists: any[] = useSelector((s: any) => KEYS.map((k) => s?.[ENTITIES[k]]?.entityDataFromServer), shallowEqual);
+  // "have" = the whole catalog is in the list (the last read had no scope) or its read failed (a table that does not exist yet is not asked again and again);
+  // a list another screen narrowed to one owner (readScope is not 'null') is not the whole catalog: it is read again
+  const haveFlags: boolean[] = useSelector((s: any) => KEYS.map((k) => { const st = s?.[ENTITIES[k]]; return !!st && (st.readScope === 'null' || !!st.readErrorData); }), shallowEqual);
+  const haveRef = useRef(haveFlags);
+  haveRef.current = haveFlags;
   useEffect(() => {
     if (!enabled) return;
-    for (const k of KEYS) {
-      const actions = SystemMetaData[ENTITIES[k]]?.actions;
-      if (actions?.readData) dispatch(actions.readData(PRODUCT_READ_PARAMS));
+    const now = Date.now();
+    const have = (e: string) => !!haveRef.current[KEYS.findIndex((k) => ENTITIES[k] === e)];
+    for (const e of staleCatalogEntities(now, have)) {
+      const actions = SystemMetaData[e]?.actions;
+      if (actions?.readData) { readAt[e] = now; dispatch(actions.readData(PRODUCT_READ_PARAMS)); }
     }
   }, [enabled, dispatch]);
   return useMemo(() => {
@@ -67,4 +87,14 @@ export function useTaskLineCatalogs(enabled = true): TaskLineCatalogData {
     KEYS.forEach((k, i) => { out[k] = Array.isArray(lists[i]) ? lists[i] : []; });
     return out;
   }, [lists]);
+}
+
+/** true while a catalog the lines need has not answered its FIRST read yet (the names of persons, products, roles ... are not there): the table shows a spinner over it */
+export function useTaskLineCatalogsLoading(enabled = true): boolean {
+  const flags: boolean[] = useSelector((s: any) => KEYS.map((k) => {
+    const st = s?.[ENTITIES[k]];
+    if (!st || !SystemMetaData[ENTITIES[k]]?.actions?.readData) return false;
+    return !((st.crudMoment ?? 0) > 0 || !!st.readErrorData);
+  }), shallowEqual);
+  return enabled && flags.some(Boolean);
 }

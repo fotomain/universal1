@@ -36,8 +36,10 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
   const readKey = JSON.stringify(fullReadParams);
 
   useRealtimeEntity(entityName, { enabled: !local && realtime && !!listOwnerGUID, readParams: fullReadParams });
+  /** the read key this table has already sent to the server (a ref: set in the effect below); a table whose key changed, or that is new, is "reading" until the answer is there */
+  const issuedKeyRef = useRef<string | null>(null);
   useEffect(() => {
-    if (actions?.readData && listOwnerGUID) dispatch(actions.readData(fullReadParams));
+    if (actions?.readData && listOwnerGUID) { issuedKeyRef.current = readKey; dispatch(actions.readData(fullReadParams)); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actions, entityName, listOwnerGUID, readKey, dispatch]);
 
@@ -73,7 +75,10 @@ export function useReusableTableCrud({ entityName, entityForArchivationName, lis
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entityState?.entityDataFromServer, readKey, rowFilter]);
 
-  const loading = !local && !!listOwnerGUID && entityState?.readSuccessful !== 1 && !entityState?.lastRealtimeEvent && rows.length === 0 && !entityState?.readErrorData;
+  // "the rows of THIS scope are being read": no row to show yet and the read of this scope has not been sent (first frame) or has not answered (isReading). The old test (readSuccessful !== 1)
+  // was only true for the very first read of the entity: opening ANOTHER task showed an empty table (and "No lines yet") until its rows arrived, with no sign of life.
+  const loading = !local && !!listOwnerGUID && !!actions?.readData && rows.length === 0 && !entityState?.readErrorData
+    && (issuedKeyRef.current !== readKey || entityState?.isReading === true);
 
   // ---- create ----
   const newRow = useCallback((rowJSON?: Record<string, any>): ReusableTableRow => {

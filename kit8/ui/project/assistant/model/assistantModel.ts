@@ -7,8 +7,11 @@
 // The values are the answers; `assistantPatchFor()` turns them into the keys of the "New project" window (PMRecentProjectsToolbar Draft), which then does the real
 // save (business units, validation, permissions): the assistant never writes a project row itself.
 import { TASK_INPUT_DEFAULTS } from '../../../../pm/model/taskInputScope';
+import { hourModelOf, parseWindowsText, timeZoneIsValid, windowsToJson, windowsToText } from '../../../../pm/hourmodel/hourModelSettings';
+import { slotMinutesOf } from '../../../../pm/hourmodel/minutes';
+import { resourceLevelingValuesOf, type ResourceGrainUnit, type ResourceLevelingMode, type ResourceOptimizationMode } from '../../../../pm/resourceleveling/resourceLevelingSettings';
 
-export type AssistantStepId = 'identity' | 'schedule' | 'currencies' | 'budgets' | 'resources' | 'control' | 'review';
+export type AssistantStepId = 'identity' | 'schedule' | 'planning' | 'timeOfDay' | 'currencies' | 'budgets' | 'resources' | 'optimization' | 'control' | 'review';
 export type AssistantPlanUnit = 'day' | 'hour';
 
 export interface AssistantValues {
@@ -19,6 +22,21 @@ export interface AssistantValues {
   projectFinishDate: string;
   planUnit: AssistantPlanUnit;
   skipWeekends: boolean;
+  /** Project settings -> Resources: 'dayByDayModel' (the plan counts days) | 'hourByHourModel' (planned to the minute, the calendar has working windows) */
+  resourceOptimizationMode: ResourceOptimizationMode;
+  /** the unit of the resource load */
+  resourceGrainUnit: ResourceGrainUnit;
+  /** hour model only: the step of a start time and of a leveling move, minutes (1 5 10 15 30 60) */
+  resourceSlotMinutes: number;
+  /** hour model only: IANA zone the windows are wall clock of */
+  projectTimeZone: string;
+  /** hour model only: '09:00-13:00, 14:00-18:00' (the text the user types; a break = the gap between two windows) */
+  workWindowsText: string;
+  /** Resource optimization (levelling / smoothing) */
+  resourceLevelingFunctionalityEnabled: boolean;
+  resourceLevelingMode: ResourceLevelingMode;
+  /** true = Smoothing (only the slack is used), false = Leveling */
+  resourceLevelingWithinSlackOnly: boolean;
   /** ISO 4217, '' = not chosen. EACH PROJECT OWNS its currencies (the organization's are only the start values of a new project) */
   currencyForBudget: string;
   currencyForAccounting: string;
@@ -75,6 +93,16 @@ export const ASSISTANT_STEPS: AssistantStepDef[] = [
     tip: 'Fix the start first: every task date, resource booking and payment date hangs on it. The finish is the target the plan is checked against; leave it open if the plan will decide it.',
   },
   {
+    id: 'planning',
+    title: 'Planning model',
+    tip: 'Decide how fine the plan is. Day by day counts working days (right for most projects). Hour by hour plans to the minute with the working windows of a day: use it for shift work, machines, production and anything that is booked by the clock. It makes the plan heavier, so choose it only when hours really matter.',
+  },
+  {
+    id: 'timeOfDay',
+    title: 'Time of day',
+    tip: 'The clock of the hour by hour plan: the working windows of a day (a break is the gap between two windows), the smallest step of a start time and of a leveling move, and the time zone the windows are read in. Resources can have calendars of their own on top of these windows.',
+  },
+  {
     id: 'currencies',
     title: 'Currencies',
     tip: 'Budget currency = the one management reads the project in; accounting currency = the legal books; contract currency = the default of new contracts. Each project has its own currencies (a new project starts from the ones of the organization); the money of all projects is added in the consolidation currency of the organization, shown read only.',
@@ -88,6 +116,11 @@ export const ASSISTANT_STEPS: AssistantStepDef[] = [
     id: 'resources',
     title: 'Resources',
     tip: 'Say who can be booked on time lines: people, equipment, or partners (suppliers). Each kind uses its own calendar and capacity check, so switch on only what the project really books.',
+  },
+  {
+    id: 'optimization',
+    title: 'Resource optimization',
+    tip: 'A resource booked for more hours than its calendar allows is over-allocated. Leveling delays tasks until nobody is overloaded (the finish may move); smoothing uses only the slack (the finish stays). Start with Manual: you see a preview before anything moves.',
   },
   {
     id: 'control',
@@ -148,6 +181,14 @@ export function defaultAssistantValues(today: string = todayISO()): AssistantVal
     projectFinishDate: '',
     planUnit: 'day',
     skipWeekends: false,
+    resourceOptimizationMode: 'dayByDayModel',
+    resourceGrainUnit: 'hour',
+    resourceSlotMinutes: 15,
+    projectTimeZone: 'UTC',
+    workWindowsText: windowsToText(hourModelOf(null).windows),
+    resourceLevelingFunctionalityEnabled: false,
+    resourceLevelingMode: 'manual',
+    resourceLevelingWithinSlackOnly: false,
     currencyForBudget: '',
     currencyForAccounting: '',
     currencyForContract: '',
@@ -177,12 +218,23 @@ export function assistantValuesFrom(source: Record<string, any> | null | undefin
   const d = defaultAssistantValues(today);
   const j = source || {};
   const start = str(j.projectStartDate) || str(j.start);
+  const rl = resourceLevelingValuesOf(j);
+  const hm = hourModelOf(j);
   return {
     name: str(j.name),
     projectStartDate: isISODate(start) ? start : d.projectStartDate,
     projectFinishDate: isISODate(j.projectFinishDate) ? j.projectFinishDate : '',
     planUnit: j.planHour === true ? 'hour' : 'day',
     skipWeekends: bool(j.skipWeekends, d.skipWeekends),
+    resourceOptimizationMode: rl.resourceOptimizationMode,
+    resourceGrainUnit: rl.resourceGrainUnit,
+    resourceSlotMinutes: hm.slotMinutes,
+    projectTimeZone: hm.timeZone,
+    // a draft of the assistant already has the text; a project row has the stored windows
+    workWindowsText: typeof j.workWindowsText === 'string' && j.workWindowsText.trim() ? j.workWindowsText : windowsToText(hm.windows),
+    resourceLevelingFunctionalityEnabled: rl.resourceLevelingFunctionalityEnabled,
+    resourceLevelingMode: rl.resourceLevelingMode,
+    resourceLevelingWithinSlackOnly: rl.resourceLevelingWithinSlackOnly,
     currencyForBudget: normalizeCurrency(j.currencyForBudget),
     currencyForAccounting: normalizeCurrency(j.currencyForAccounting),
     currencyForContract: normalizeCurrency(j.currencyForContract),
@@ -211,10 +263,12 @@ export const sanitizeAssistantValues = (raw: unknown, today: string = todayISO()
 /** the money inputs the project asks (the master switch of the cost inputs is `projectExpenseBudgetNeeded`) */
 export const costBudgetOn = (v: AssistantValues): boolean => v.projectExpenseBudgetNeeded;
 export const timeInputOn = (v: AssistantValues): boolean => v.projectExpenseBudgetNeeded && v.projectTimeCostsNeeded;
+export const hourModelOn = (v: AssistantValues): boolean => v.resourceOptimizationMode === 'hourByHourModel';
 
 /** is the step asked at all with these answers? */
 export function stepVisible(id: AssistantStepId, v: AssistantValues, _ctx?: AssistantContext): boolean {
-  if (id === 'resources') return timeInputOn(v);
+  if (id === 'resources' || id === 'optimization') return timeInputOn(v);
+  if (id === 'timeOfDay') return hourModelOn(v);
   return true;
 }
 
@@ -264,6 +318,42 @@ export function stepNotes(id: AssistantStepId, v: AssistantValues, ctx: Assistan
     }
     if (isISODate(start) && isISODate(ctx.today) && daysBetween(start, ctx.today) > 365) add('warning', 'The start is more than a year ago: is it a project that is already running?');
     if (!finish) add('info', 'No finish date: the plan will decide it. Add one later when the target is known.');
+  }
+
+  if (id === 'planning') {
+    if (hourModelOn(v)) {
+      add('info', 'Hour by hour: start times, durations and delays are whole minutes. The plan is made from the project start (a plan from the finish date is not used).');
+      if (isISODate(v.projectStartDate) && isISODate(v.projectFinishDate) && daysBetween(v.projectStartDate, v.projectFinishDate) > 90) {
+        add('warning', 'Hour by hour over more than three months makes a heavy plan: day by day is usually enough, or split the project into stages.');
+      }
+      if (!timeInputOn(v)) add('info', 'Without time costs nothing is booked by the hour, so the hour model changes little: switch the cost budget and time costs on, or stay day by day.');
+    } else {
+      add('info', 'Day by day: the plan counts working days. You can change to hour by hour later in Project settings -> Resources.');
+    }
+  }
+
+  if (id === 'timeOfDay') {
+    const zone = v.projectTimeZone.trim();
+    if (!zone) add('error', 'The time zone is required, for example Europe/Berlin or UTC.');
+    else if (!timeZoneIsValid(zone)) add('error', 'This is not a time zone name, for example Europe/Berlin.');
+    const windows = parseWindowsText(v.workWindowsText);
+    if (!windows) add('error', 'The working windows must be from-to times, from the earliest, not overlapping: for example 09:00-13:00, 14:00-18:00.');
+    else {
+      const minutes = windows.reduce((sum, w) => sum + (w.to - w.from), 0);
+      add('info', `Working time of a day: ${Math.floor(minutes / 60)} h${minutes % 60 ? ` ${minutes % 60} min` : ''}${windows.length > 1 ? ` in ${windows.length} windows` : ''}.`);
+      if (minutes > 16 * 60) add('info', 'Round the clock: who really works when is decided by the calendar of each person or machine.');
+      if (minutes < 4 * 60) add('warning', 'Less than four working hours a day: a task of a few days will stretch over many weeks.');
+      const step = slotMinutesOf(v.resourceSlotMinutes);
+      if (windows.some((w) => (w.to - w.from) % step !== 0)) add('warning', 'A window is not a whole number of steps: a leveling move lands on the step grid, so the end of that window cannot be used exactly. Use a smaller step.');
+    }
+  }
+
+  if (id === 'optimization') {
+    if (!v.resourceLevelingFunctionalityEnabled) add('info', 'Off: nothing is moved, over-allocated resources are only visible in the plan.');
+    else {
+      if (v.resourceLevelingMode === 'automatic') add('warning', 'Automatic optimizes after every change: it is heavy for a big project. Manual with a preview is the safe start.');
+      add('info', v.resourceLevelingWithinSlackOnly ? 'Smoothing: only the slack is used, the project finish does not change.' : 'Leveling: dates may move beyond the slack, the project finish may change.');
+    }
   }
 
   if (id === 'currencies') {
@@ -339,7 +429,13 @@ export function assistantPatchFor(v: AssistantValues, _ctx?: Pick<AssistantConte
     projectFinishDate: v.projectFinishDate || '',
     skipWeekends: v.skipWeekends,
     planDay: true,
-    planHour: v.planUnit === 'hour',
+    // the hour model needs hours in the inputs of the plan
+    planHour: v.planUnit === 'hour' || hourModelOn(v),
+    resourceOptimizationMode: v.resourceOptimizationMode,
+    resourceGrainUnit: v.resourceGrainUnit,
+    resourceLevelingFunctionalityEnabled: v.resourceLevelingFunctionalityEnabled,
+    resourceLevelingMode: v.resourceLevelingMode,
+    resourceLevelingWithinSlackOnly: v.resourceLevelingWithinSlackOnly,
     projectRevenueBudgetNeeded: v.projectRevenueBudgetNeeded,
     projectExpenseBudgetNeeded: v.projectExpenseBudgetNeeded,
     projectTimeCostsNeeded: v.projectTimeCostsNeeded,
@@ -353,6 +449,13 @@ export function assistantPatchFor(v: AssistantValues, _ctx?: Pick<AssistantConte
     subprojectsFunctionalityEnabled: v.subprojectsFunctionalityEnabled,
     chatFunctionalityEnabled: v.chatFunctionalityEnabled,
   };
+  // the time of day is written only for the hour model (the day model never reads it); an invalid text keeps the stored value
+  if (hourModelOn(v)) {
+    patch.resourceSlotMinutes = slotMinutesOf(v.resourceSlotMinutes);
+    if (v.projectTimeZone.trim() && timeZoneIsValid(v.projectTimeZone.trim())) patch.projectTimeZone = v.projectTimeZone.trim();
+    const windows = parseWindowsText(v.workWindowsText);
+    if (windows) patch.projectWorkWindows = windowsToJson(windows);
+  }
   const budget = normalizeCurrency(v.currencyForBudget);
   patch.currencyForBudget = budget;
   patch.currencyForAccounting = normalizeCurrency(v.currencyForAccounting);
@@ -370,6 +473,14 @@ export function reviewLines(v: AssistantValues, ctx: AssistantContext): { id: As
     { id: 'schedule', label: 'Finish', value: v.projectFinishDate || 'open' },
     { id: 'schedule', label: 'Plan accuracy', value: v.planUnit === 'hour' ? 'Hours' : 'Days' },
     { id: 'schedule', label: 'Skip weekends', value: yes(v.skipWeekends) },
+    { id: 'planning', label: 'Planning model', value: hourModelOn(v) ? 'Hour by hour' : 'Day by day' },
+    ...(hourModelOn(v)
+      ? [
+          { id: 'timeOfDay' as const, label: 'Working windows', value: v.workWindowsText.trim() || '-' },
+          { id: 'timeOfDay' as const, label: 'Step (minutes)', value: String(slotMinutesOf(v.resourceSlotMinutes)) },
+          { id: 'timeOfDay' as const, label: 'Time zone', value: v.projectTimeZone.trim() || '-' },
+        ]
+      : []),
     { id: 'currencies', label: 'Currencies (budget / accounting / contracts)', value: cur },
     { id: 'currencies', label: 'Consolidation currency (organization)', value: normalizeCurrency(ctx.consolidationCurrency) || '-' },
     { id: 'budgets', label: 'Revenue budget', value: yes(v.projectRevenueBudgetNeeded) },
@@ -382,6 +493,11 @@ export function reviewLines(v: AssistantValues, ctx: AssistantContext): { id: As
   if (timeInputOn(v)) {
     const kinds = [v.projectTimeOfPersonNeeded && 'People', v.projectTimeOfEquipmentNeeded && 'Equipment', v.projectTimeOfPartnerNeeded && 'Partners'].filter(Boolean).join(', ');
     lines.push({ id: 'resources', label: 'Resources', value: kinds || '-' });
+    lines.push({
+      id: 'optimization',
+      label: 'Resource optimization',
+      value: v.resourceLevelingFunctionalityEnabled ? `${v.resourceLevelingMode === 'automatic' ? 'Automatic' : 'Manual'}, ${v.resourceLevelingWithinSlackOnly ? 'smoothing' : 'leveling'}` : 'Off',
+    });
   }
   lines.push(
     { id: 'control', label: 'ROI per task', value: yes(v.roiForTasksFunctionalityEnabled) },

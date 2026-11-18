@@ -3,6 +3,9 @@ import React from 'react';
 import type { AssistantStepId } from '../model/assistantModel';
 import IdentityStep from './IdentityStep';
 import ScheduleStep from './ScheduleStep';
+import PlanningStep from './PlanningStep';
+import TimeOfDayStep from './TimeOfDayStep';
+import OptimizationStep from './OptimizationStep';
 import CurrenciesStep from './CurrenciesStep';
 import BudgetsStep from './BudgetsStep';
 import ResourcesStep from './ResourcesStep';
@@ -13,9 +16,12 @@ import type { AssistantStepProps } from './stepProps';
 const VIEWS: Record<AssistantStepId, React.ComponentType<AssistantStepProps>> = {
   identity: IdentityStep,
   schedule: ScheduleStep,
+  planning: PlanningStep,
+  timeOfDay: TimeOfDayStep,
   currencies: CurrenciesStep,
   budgets: BudgetsStep,
   resources: ResourcesStep,
+  optimization: OptimizationStep,
   control: ControlStep,
   review: ReviewStep,
 };

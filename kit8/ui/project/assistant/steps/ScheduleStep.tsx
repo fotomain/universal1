@@ -1,4 +1,4 @@
-// Step 2 - when: start (required), finish (optional), the accuracy of the plan and the working days.
+// Step (schedule) - when: start (required), finish (optional), the accuracy of the plan and the working days.
 import React from 'react';
 import { View } from 'react-native';
 import { SegmentedButtons, Text } from 'react-native-paper';

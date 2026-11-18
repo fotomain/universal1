@@ -76,3 +76,15 @@ export function parseWindowsText(text: string): HourWindow[] | null {
 }
 
 export const windowsToText = (windows: readonly HourWindow[]): string => windows.map((w) => `${formatClock(w.from)}-${formatClock(w.to)}`).join(', ');
+
+/**
+ * The time-of-day keys of a settings draft / project row, only the ones that exist (a day by day project never gets them): the Project settings window and the
+ * Project assistant save them next to `resourceLevelingValuesOf` (that one knows only the leveling keys).
+ */
+export function hourModelValuesOf(j: Json): HourModelValues {
+  const out: HourModelValues = {};
+  if (typeof j?.projectTimeZone === 'string' && j.projectTimeZone.trim() && timeZoneIsValid(j.projectTimeZone.trim())) out.projectTimeZone = j.projectTimeZone.trim();
+  if (j?.resourceSlotMinutes !== undefined && j?.resourceSlotMinutes !== null) out.resourceSlotMinutes = slotMinutesOf(j.resourceSlotMinutes);
+  if (Array.isArray(j?.projectWorkWindows) && j.projectWorkWindows.length) out.projectWorkWindows = windowsToJson(normalizeWindows(j.projectWorkWindows));
+  return out;
+}

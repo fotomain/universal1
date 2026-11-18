@@ -1,7 +1,7 @@
 // The small input pieces of the assistant steps (React Native Paper): a switch row with an explanation, a date field with quick buttons, a currency field = a pick from the currency catalog.
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
-import { Button, HelperText, List, Switch, TextInput } from 'react-native-paper';
+import { Button, Chip, HelperText, List, Switch, Text, TextInput } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import SelectElementFromCatalog from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
 import { CURRENCY_CATALOG_OWNER, CURRENCY_ENTITY } from '../../../../catalog/currency/currencyModel';
@@ -100,7 +100,26 @@ export function CurrencyField({ id, label, value, onChange, editable, helper }: 
   );
 }
 
+/** a row of chips = one choice among a few values (the step of the minutes, the unit of the load ...); `hint` explains the picked one */
+export function ChipChoice<T extends string | number>({ id, label, items, value, onChange, hint }: { id: string; label: string; items: { value: T; label: string }[]; value: T; onChange: (v: T) => void; hint?: string }) {
+  return (
+    <View style={styles.field}>
+      <Text variant="labelLarge" style={styles.choiceLabel}>{pmT(label)}</Text>
+      <View style={styles.row}>
+        {items.map((i) => (
+          <Chip key={String(i.value)} compact selected={i.value === value} showSelectedOverlay onPress={() => onChange(i.value)} style={styles.chip} testID={`assistant-choice-${id}-${i.value}`}>
+            {i.label}
+          </Chip>
+        ))}
+      </View>
+      <HelperText type="info" visible={!!hint}>{hint ? pmT(hint) : ''}</HelperText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  choiceLabel: { marginTop: 8, marginBottom: 6 },
+  chip: { marginRight: 8, marginBottom: 6 },
   field: { marginBottom: 8 },
   row: { flexDirection: 'row', flexWrap: 'wrap' },
 });

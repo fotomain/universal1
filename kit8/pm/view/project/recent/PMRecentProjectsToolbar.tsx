@@ -83,6 +83,7 @@ import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } 
 import PMProjectKanbanSettingsSection from "../settings/kanban/PMProjectKanbanSettingsSection";
 import { kanbanValuesOf, type PMKanbanSettingsValues } from "../settings/kanban/kanbanSettings";
 import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
+import { hourModelValuesOf } from "../../../hourmodel/hourModelSettings";
 import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourceLevelingValues } from "../../../resourceleveling/PMResourceLevelingSettingsTab";
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
 import PMProjectFilesTab, { filesValuesOf, type PMProjectFilesValues } from "../settings/PMProjectFilesTab";
@@ -377,6 +378,7 @@ export default function PMRecentProjectsToolbar({
       ...subprojectValuesOf(project.rowJSON),
       ...roiValuesOf(project.rowJSON),
       ...resourceLevelingValuesOf(project.rowJSON),
+      ...hourModelValuesOf(project.rowJSON),
       ...kanbanValuesOf(project.rowJSON),
       ...paymentsValuesOf(project.rowJSON),
       ...filesValuesOf(project.rowJSON),
@@ -554,6 +556,7 @@ export default function PMRecentProjectsToolbar({
             ...subprojectValuesOf(draft),
             ...roiValuesOf(draft),
             ...resourceLevelingValuesOf(draft),
+            ...hourModelValuesOf(draft),
             ...kanbanValuesOf(draft),
             ...paymentsValuesOf(draft),
             ...filesValuesOf(draft),
@@ -605,7 +608,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), hourModelValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -906,12 +909,14 @@ export default function PMRecentProjectsToolbar({
                 </Pressable>
               </View>
 
-              {/* TopTabs Bar: TabMain, TabGantt, TabBudgets, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabROI, TabUXUI, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabGantt, TabBudgets, TabResources, TabROI, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
               <ScrollableTabBar testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
                   { id: 'TabGantt' as const, label: 'Gantt', icon: 'view_timeline' },
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
+                  { id: 'TabResources' as const, label: 'Resources', icon: 'engineering' },
+                  { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
                   { id: 'TabPayments' as const, label: 'Payments', icon: 'account_balance_wallet' },
                   { id: 'TabFiles' as const, label: 'Files', icon: 'attach_file' },
                   { id: 'TabChat' as const, label: 'Chat', icon: 'chat' },
@@ -919,8 +924,6 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabCustomer' as const, label: 'Customer', icon: 'request_quote' },
                   { id: 'TabProduct' as const, label: 'Product', icon: 'inventory_2' },
                   { id: 'TabSubprojects' as const, label: 'Subprojects', icon: 'account_tree' },
-                  { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
-                  { id: 'TabResources' as const, label: 'Resources', icon: 'engineering' },
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },

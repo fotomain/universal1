@@ -46,7 +46,8 @@ import { formatMoney, taskLineTotals } from './taskLineMoney';
 import { computeTaskLineRowJSON } from './taskLineCompute';
 import { buildTaskLineColumns, taskLineErrors } from './taskLineColumns';
 import { productFieldsOfProject } from '../../../../catalog/product/productFieldsModel';
-import { useTaskLineCatalogs } from './useTaskLineCatalogs';
+import { useTaskLineCatalogs, useTaskLineCatalogsLoading } from './useTaskLineCatalogs';
+import ActivityIndicatorCircleApp from '../../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import { computeFx, fxEnabled, fxProjectOf, LineFxContext, recalculateLineFx } from './taskLineFx';
 import { lineContractCurrency } from './taskLineCatalogs';
 import { useLineRateBook } from './useLineRateBook';
@@ -96,6 +97,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   const projectCurrency = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON?.currencyForContract ?? null);
   const selectRowCheckBoxForm = usePMStore((s) => s.selectRowCheckBoxForm);
   const data = useTaskLineCatalogs(true);
+  const catalogsLoading = useTaskLineCatalogsLoading(true);
   const dispatch = useDispatch();
   const perm = usePermissions(projectGUID, taskGUID);   // PART 46 / 47: what the profiles of the user give for the lines of THIS task (the database refuses the rest)
   const openFactInput = useOpenFactInput();
@@ -332,6 +334,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
       ) : filesActive ? (
         <PMTaskFilesPanel projectGUID={projectGUID} taskGUID={taskGUID} provider={organizationFilesProvider} testID={`${testID}-files`} />
       ) : (
+        <View style={styles.tableBox}>
         <ReusableTable
           key={def.genus}
           testID={`${testID}-table`}
@@ -417,6 +420,13 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           )}
           realtime
         />
+        {/* the names of persons, products, roles ... come from 28 catalogs: until the FIRST read of them has answered the lines would show ids / empty cells - a spinner over the table says so */}
+        {catalogsLoading ? (
+          <View style={[styles.overlay, { backgroundColor: c.surface }]} pointerEvents="auto" testID={`${testID}-catalogs-loading`}>
+            <ActivityIndicatorCircleApp testID={`${testID}-catalogs-spinner`} />
+          </View>
+        ) : null}
+        </View>
       )}
       {toolbarMenu && (() => {
         const line = checkedLines.length === 1 ? taskLines.find((l) => l.rowGUID === checkedLines[0]) : undefined;
@@ -457,6 +467,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
 
 const styles = StyleSheet.create({
   root: { width: '100%' },
+  tableBox: { width: '100%', position: 'relative' },
+  overlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center', opacity: 0.92, minHeight: 120, zIndex: 5 },
   tabs: { flexDirection: 'row', flexWrap: 'wrap', borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
   // paddingTop / paddingRight leave room for the count badge in the corner
   tab: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingTop: 12, paddingBottom: 8, paddingLeft: 14, paddingRight: 20, borderBottomWidth: 2 },

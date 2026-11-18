@@ -1,4 +1,4 @@
-import { hourModelOf, hourModelSwitchPatch, parseWindowsText, timeZoneIsValid, windowsToText } from '../../../kit8/pm/hourmodel/hourModelSettings';
+import { hourModelOf, hourModelSwitchPatch, hourModelValuesOf, parseWindowsText, timeZoneIsValid, windowsToText } from '../../../kit8/pm/hourmodel/hourModelSettings';
 
 describe('hourModelSettings', () => {
   test('the day model is the default and nothing of the hour model is active', () => {
@@ -30,5 +30,14 @@ describe('hourModelSettings', () => {
     expect(hourModelSwitchPatch('hourByHourModel', {}, 'Europe/Riga')).toMatchObject({ resourceOptimizationMode: 'hourByHourModel', projectTimeZone: 'Europe/Riga', resourceSlotMinutes: 15 });
     expect(hourModelSwitchPatch('hourByHourModel', { projectTimeZone: 'Asia/Tokyo', resourceSlotMinutes: 30 }, 'Europe/Riga')).toMatchObject({ projectTimeZone: 'Asia/Tokyo', resourceSlotMinutes: 30 });
     expect(hourModelSwitchPatch('hourByHourModel', {}, 'Not/AZone').projectTimeZone).toBe('UTC');
+  });
+  test('hourModelValuesOf: only the keys that exist (what the Project settings window must save)', () => {
+    expect(hourModelValuesOf({})).toEqual({});
+    expect(hourModelValuesOf(null)).toEqual({});
+    expect(hourModelValuesOf({ resourceOptimizationMode: 'dayByDayModel', resourceLevelingMode: 'manual' })).toEqual({});
+    expect(hourModelValuesOf({ projectTimeZone: ' Europe/Berlin ', resourceSlotMinutes: 5, projectWorkWindows: [{ from: '14:00', to: '18:00' }, { from: '09:00', to: '13:00' }] }))
+      .toEqual({ projectTimeZone: 'Europe/Berlin', resourceSlotMinutes: 5, projectWorkWindows: [{ from: '09:00', to: '13:00' }, { from: '14:00', to: '18:00' }] });
+    // a wrong zone is dropped, a wrong step falls back to the default
+    expect(hourModelValuesOf({ projectTimeZone: 'Mars/Base', resourceSlotMinutes: 7 })).toEqual({ resourceSlotMinutes: 15 });
   });
 });

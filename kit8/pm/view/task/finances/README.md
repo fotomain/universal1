@@ -137,3 +137,10 @@ A **Time** line has a column **RACI** right after the person / equipment / work 
 `kit8/catalog/management/raci_genus`), stored as the rowGUID in `rowJSON.raciItem`. It cannot be emptied: a new row starts as **Responsible** (`newRowDefaults` of `PMProjectTaskInputCRUD`),
 and the database trigger `trg_task_line_raci` fills a missing item and refuses a value that is no row of the catalog. The other genus have no RACI column. More than one Accountable on the Time
 lines of a task shows a red warning above the table (PMBOK; never blocks). The RACI item does not change the plan. Tests: `__tests__/pm/view/task/finances/taskLineRaciColumn.test.tsx`.
+
+## Opening a task is fast (2026-11-18)
+The Finances view is mounted AGAIN for every task clicked in the tree (`key = task GUID` in `PMTaskEditView`). What this costs, and what keeps it small:
+- **The 28 catalogs** (`useTaskLineCatalogs`) are read ONCE; a catalog is read again only when it is older than `CATALOG_FRESH_MS` (5 min) or another screen narrowed its list to one owner (`readScope` of the redux entity is not `'null'`). Before: 28 requests on every click.
+- **Spinner**: over the table while the first read of the catalogs is not answered (`useTaskLineCatalogsLoading`, overlay `…-catalogs-loading`); inside the table while the rows of THIS task are being read (`useReusableTableCrud.loading` = no row for the scope yet and the read of this scope not sent / `isReading`). The old flag was true only for the first read of the entity, so the second task showed "No lines yet".
+- **Realtime**: the catch-up read after SUBSCRIBED waits for a read in flight (`reusableRootSaga`, `readData` is `takeLatest`: a second read used to cancel the first, so the rows came after channel + second read).
+- Tests: `__tests__/pm/view/task/finances/taskLineCatalogsCache.test.tsx`, `__tests__/ui/table/reusableTableScopeLoading.test.tsx`, `__tests__/redux/reusableRealtime.test.ts`.

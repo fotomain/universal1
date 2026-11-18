@@ -1,4 +1,4 @@
-import {call, cancel, cancelled, flush, fork, getContext, put, select, take, takeEvery, takeLatest} from "redux-saga/effects";
+import {call, cancel, cancelled, delay, flush, fork, getContext, put, race, select, take, takeEvery, takeLatest} from "redux-saga/effects";
 import {createSupabaseTableChannel} from "./createSupabaseTableChannel";
 import {SystemMetaData} from "../SystemMetaData";
 import {updateNestedJSONField} from "../lib/updateNestedJSONField";
@@ -550,6 +550,12 @@ export const reusableRootSaga = (p: any) => {
                     // many rows at once: ONE read of the list instead of hundreds of single updates
                     if (changes.length > REALTIME_BULK_LIMIT) read = true;
                     if (read) {
+                        // readData is takeLatest: a catch-up read sent while the FIRST read of the screen is still on its way would cancel it (its answer is thrown away), so the rows
+                        // appeared only after the channel was open + a second read. Wait for the read in flight (8 s at most), then catch up - the rows of the first read are on the screen already.
+                        const st: any = yield select((state: any) => state?.[entityKey]);
+                        if (st?.isReading) {
+                            yield race({done: take([actions.readDataSuccess.type, actions.readDataFailure.type]), timeout: delay(8000)});
+                        }
                         yield put(catchUpRead());
                     } else {
                         for (const msg of changes) {

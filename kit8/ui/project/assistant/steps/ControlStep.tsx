@@ -1,4 +1,4 @@
-// Step 6 - how the project is followed.
+// Step (control) - how the project is followed.
 import React from 'react';
 import { View } from 'react-native';
 import { ToggleRow } from '../components/AssistantFields';

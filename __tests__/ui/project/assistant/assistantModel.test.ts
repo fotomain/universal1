@@ -43,15 +43,18 @@ describe('dates', () => {
 });
 
 describe('steps in the order of a project manager', () => {
-  it('asks identity -> schedule -> currencies -> budgets -> (resources) -> control -> review', () => {
-    expect(visibleSteps(v())).toEqual(['identity', 'schedule', 'currencies', 'budgets', 'control', 'review']);
-    expect(visibleSteps(v({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true }))).toEqual(['identity', 'schedule', 'currencies', 'budgets', 'resources', 'control', 'review']);
+  it('asks identity -> schedule -> planning -> (time of day) -> currencies -> budgets -> (resources, optimization) -> control -> review', () => {
+    expect(visibleSteps(v())).toEqual(['identity', 'schedule', 'planning', 'currencies', 'budgets', 'control', 'review']);
+    expect(visibleSteps(v({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true }))).toEqual(['identity', 'schedule', 'planning', 'currencies', 'budgets', 'resources', 'optimization', 'control', 'review']);
+    expect(visibleSteps(v({ resourceOptimizationMode: 'hourByHourModel' }))).toEqual(['identity', 'schedule', 'planning', 'timeOfDay', 'currencies', 'budgets', 'control', 'review']);
     // a cost budget without time costs has nothing to book
     expect(visibleSteps(v({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: false }))).not.toContain('resources');
   });
   it('walks forward and back over the visible steps', () => {
     const a = v();
     expect(nextStepId('identity', a)).toBe('schedule');
+    expect(nextStepId('schedule', a)).toBe('planning');
+    expect(nextStepId('planning', a)).toBe('currencies');
     expect(nextStepId('budgets', a)).toBe('control');
     expect(nextStepId('review', a)).toBeNull();
     expect(previousStepId('identity', a)).toBeNull();
@@ -124,5 +127,88 @@ describe('values and hand over', () => {
     expect(hasMeaningfulInput(defaultAssistantValues(TODAY), TODAY)).toBe(false);
     expect(hasMeaningfulInput(v({ name: 'A' }), TODAY)).toBe(true);
     expect(hasMeaningfulInput(v({ projectRevenueBudgetNeeded: true }), TODAY)).toBe(true);
+  });
+});
+
+describe('the planning model, the time of day and the resource optimization (Project settings -> Resources)', () => {
+  const hour = (over: Record<string, any> = {}) => v({ resourceOptimizationMode: 'hourByHourModel', ...over });
+
+  it('the defaults are those of the settings tab: day by day, 15 min, UTC, 08:00-16:00, optimization off', () => {
+    expect(defaultAssistantValues(TODAY)).toMatchObject({ resourceOptimizationMode: 'dayByDayModel', resourceGrainUnit: 'hour', resourceSlotMinutes: 15, projectTimeZone: 'UTC', workWindowsText: '08:00-16:00', resourceLevelingFunctionalityEnabled: false, resourceLevelingMode: 'manual', resourceLevelingWithinSlackOnly: false });
+  });
+
+  it('a project row gives its stored model, step, zone and windows', () => {
+    const a = assistantValuesFrom({ resourceOptimizationMode: 'hourByHourModel', resourceSlotMinutes: 5, projectTimeZone: 'Europe/Berlin', projectWorkWindows: [{ from: '09:00', to: '13:00' }, { from: '14:00', to: '18:00' }], resourceLevelingFunctionalityEnabled: true, resourceLevelingMode: 'automatic', resourceLevelingWithinSlackOnly: true }, TODAY);
+    expect(a).toMatchObject({ resourceOptimizationMode: 'hourByHourModel', resourceSlotMinutes: 5, projectTimeZone: 'Europe/Berlin', workWindowsText: '09:00-13:00, 14:00-18:00', resourceLevelingFunctionalityEnabled: true, resourceLevelingMode: 'automatic', resourceLevelingWithinSlackOnly: true });
+    // a draft of the assistant keeps the text the user typed
+    expect(assistantValuesFrom({ workWindowsText: '10:00-12:00' }, TODAY).workWindowsText).toBe('10:00-12:00');
+  });
+
+  it('planning: advises, warns about a long project by the hour, no error', () => {
+    expect(stepNotes('planning', v(), ctx())).toEqual([expect.objectContaining({ level: 'info' })]);
+    const long = stepNotes('planning', hour({ projectFinishDate: '2027-06-01' }), ctx());
+    expect(long.some((n) => n.level === 'warning' && /heavy plan/.test(n.text))).toBe(true);
+    expect(hasError(long)).toBe(false);
+    expect(stepNotes('planning', hour(), ctx()).some((n) => /hour model changes little/.test(n.text))).toBe(true);
+  });
+
+  it('time of day: a bad zone or bad windows block Next; the working time is told', () => {
+    expect(hasError(stepNotes('timeOfDay', hour(), ctx()))).toBe(false);
+    expect(hasError(stepNotes('timeOfDay', hour({ projectTimeZone: 'Mars/Base' }), ctx()))).toBe(true);
+    expect(hasError(stepNotes('timeOfDay', hour({ projectTimeZone: ' ' }), ctx()))).toBe(true);
+    expect(hasError(stepNotes('timeOfDay', hour({ workWindowsText: '16:00-08:00' }), ctx()))).toBe(true);
+    expect(hasError(stepNotes('timeOfDay', hour({ workWindowsText: '09:00-13:00, 12:00-18:00' }), ctx()))).toBe(true);
+    expect(hasError(stepNotes('timeOfDay', hour({ workWindowsText: 'all day' }), ctx()))).toBe(true);
+    const lunch = stepNotes('timeOfDay', hour({ workWindowsText: '09:00-13:00, 14:00-18:00' }), ctx());
+    expect(lunch.find((n) => n.level === 'info')!.text).toBe('Working time of a day: 8 h in 2 windows.');
+    expect(stepNotes('timeOfDay', hour({ workWindowsText: '00:00-24:00' }), ctx()).some((n) => /Round the clock/.test(n.text))).toBe(true);
+    expect(stepNotes('timeOfDay', hour({ workWindowsText: '08:00-10:00' }), ctx()).some((n) => n.level === 'warning')).toBe(true);
+    expect(stepNotes('timeOfDay', hour({ workWindowsText: '08:00-16:10', resourceSlotMinutes: 15 }), ctx()).some((n) => /whole number of steps/.test(n.text))).toBe(true);
+  });
+
+  it('the first step with an error is the time of day (the error is not hidden by another step)', () => {
+    const a = hour({ name: 'Plant', currencyForBudget: 'EUR', currencyForAccounting: 'EUR', workWindowsText: 'x' });
+    expect(firstStepWithError(a, ctx())).toBe('timeOfDay');
+    // the day model does not read the time of day: the same wrong text is no error
+    expect(firstStepWithError({ ...a, resourceOptimizationMode: 'dayByDayModel' }, ctx())).toBeNull();
+  });
+
+  it('optimization: automatic is a warning, smoothing / leveling are told', () => {
+    const base = { projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, resourceLevelingFunctionalityEnabled: true };
+    expect(stepNotes('optimization', v({ ...base, resourceLevelingMode: 'automatic' }), ctx()).some((n) => n.level === 'warning')).toBe(true);
+    expect(stepNotes('optimization', v({ ...base, resourceLevelingWithinSlackOnly: true }), ctx()).some((n) => /Smoothing/.test(n.text))).toBe(true);
+    expect(stepNotes('optimization', v({ ...base }), ctx()).some((n) => /Leveling/.test(n.text))).toBe(true);
+    expect(stepNotes('optimization', v({ ...base, resourceLevelingFunctionalityEnabled: false }), ctx())[0].text).toMatch(/^Off/);
+  });
+
+  it('the patch: the day model writes only the mode, the hour model also the zone, step and windows', () => {
+    const day = assistantPatchFor(v({ resourceSlotMinutes: 5, projectTimeZone: 'Europe/Berlin' }), ctx());
+    expect(day).toMatchObject({ resourceOptimizationMode: 'dayByDayModel', resourceGrainUnit: 'hour', resourceLevelingFunctionalityEnabled: false, planHour: false });
+    expect(day).not.toHaveProperty('projectTimeZone');
+    expect(day).not.toHaveProperty('resourceSlotMinutes');
+    expect(day).not.toHaveProperty('projectWorkWindows');
+    const h = assistantPatchFor(hour({ resourceSlotMinutes: 30, projectTimeZone: ' Europe/Berlin ', workWindowsText: '14:00-18:00, 09:00-13:00', resourceLevelingFunctionalityEnabled: true, resourceLevelingMode: 'automatic', resourceLevelingWithinSlackOnly: true }), ctx());
+    expect(h).toMatchObject({
+      resourceOptimizationMode: 'hourByHourModel', resourceSlotMinutes: 30, projectTimeZone: 'Europe/Berlin',
+      projectWorkWindows: [{ from: '09:00', to: '13:00' }, { from: '14:00', to: '18:00' }],
+      resourceLevelingFunctionalityEnabled: true, resourceLevelingMode: 'automatic', resourceLevelingWithinSlackOnly: true,
+      // the hour model needs hours in the inputs of the plan
+      planHour: true,
+    });
+    // an invalid text never overwrites the stored windows / zone
+    const bad = assistantPatchFor(hour({ workWindowsText: 'x', projectTimeZone: 'Mars/Base' }), ctx());
+    expect(bad).not.toHaveProperty('projectWorkWindows');
+    expect(bad).not.toHaveProperty('projectTimeZone');
+  });
+
+  it('the review shows the model, the windows and the optimization', () => {
+    const day = reviewLines(v({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true }), ctx());
+    expect(day.find((l) => l.label === 'Planning model')!.value).toBe('Day by day');
+    expect(day.find((l) => l.label === 'Working windows')).toBeUndefined();
+    expect(day.find((l) => l.label === 'Resource optimization')!.value).toBe('Off');
+    const h = reviewLines(hour({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, resourceLevelingFunctionalityEnabled: true }), ctx());
+    expect(h.find((l) => l.label === 'Planning model')!.value).toBe('Hour by hour');
+    expect(h.find((l) => l.label === 'Working windows')).toMatchObject({ id: 'timeOfDay', value: '08:00-16:00' });
+    expect(h.find((l) => l.label === 'Resource optimization')!.value).toBe('Manual, leveling');
   });
 });
