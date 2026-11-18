@@ -28,7 +28,8 @@ jest.mock('../../../kit8/ui/components/common/IconApp', () => {
     R.createElement(Pressable, { testID, onPress }, R.createElement(Text, null, name));
 });
 
-import ProjectCard from '../../../kit8/catalog/project/ProjectCard';
+import ProjectCard, { isCompactProjectCard, PROJECT_CARD_COMPACT_WIDTH } from '../../../kit8/catalog/project/ProjectCard';
+import { ProjectCardActionsContext } from '../../../kit8/catalog/project/copy/ProjectCardActionsContext';
 import { projectToCard } from '../../../kit8/catalog/project/projectCatalogModel';
 import { usePMStore } from '../../../kit8/pm/store/store_pm';
 
@@ -117,5 +118,83 @@ describe('ProjectCard', () => {
 
     expect(onSelect).toHaveBeenCalledWith('proj-999');
     expect(usePMStore.getState().selectedProjectGUID).toBe('proj-999');
+  });
+
+  describe('card menu (right click + three dots)', () => {
+    const mount = (el: React.ReactElement) => {
+      const div = document.createElement('div');
+      document.body.appendChild(div);
+      root = createRoot(div);
+      act(() => root.render(el));
+    };
+    const withActions = (card: any, props: any = {}, actions: any = { onCopy: jest.fn(), onCopyWithTasks: jest.fn() }) => (
+      <ProjectCardActionsContext.Provider value={actions}>
+        <ProjectCard card={card} {...props} />
+      </ProjectCardActionsContext.Provider>
+    );
+
+    it('has a three dots button that opens Copy / Copy with Tasks / Delete', () => {
+      mount(withActions(projectToCard(sampleProject), { onDelete: jest.fn() }));
+      expect(q('project-menu-popup-proj-999')).toBeNull();
+      press('project-menu-proj-999');
+      expect(q('project-menu-popup-proj-999')).not.toBeNull();
+      expect(q('project-menu-copy-proj-999')).not.toBeNull();
+      expect(q('project-menu-copy-tasks-proj-999')).not.toBeNull();
+      expect(q('project-menu-delete-proj-999')).not.toBeNull();
+      expect(document.body.textContent).toContain('Copy with Tasks');
+    });
+
+    it('a right click on the card opens the same menu', () => {
+      mount(withActions(projectToCard(sampleProject), { onDelete: jest.fn() }));
+      const card = q('project-card-proj-999') as HTMLElement;
+      const ev = new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 40, clientY: 60 });
+      act(() => {
+        card.dispatchEvent(ev);
+      });
+      expect(ev.defaultPrevented).toBe(true);
+      expect(q('project-menu-copy-proj-999')).not.toBeNull();
+    });
+
+    it('Copy and Copy with Tasks call their handler with the project id and close the menu', () => {
+      const actions = { onCopy: jest.fn(), onCopyWithTasks: jest.fn() };
+      mount(withActions(projectToCard(sampleProject), {}, actions));
+      press('project-menu-proj-999');
+      press('project-menu-copy-proj-999');
+      expect(actions.onCopy).toHaveBeenCalledWith('proj-999');
+      expect(actions.onCopyWithTasks).not.toHaveBeenCalled();
+      expect(q('project-menu-popup-proj-999')).toBeNull();
+      press('project-menu-proj-999');
+      press('project-menu-copy-tasks-proj-999');
+      expect(actions.onCopyWithTasks).toHaveBeenCalledWith('proj-999');
+    });
+
+    it('Delete of the menu calls onDelete', () => {
+      const onDelete = jest.fn();
+      mount(withActions(projectToCard(sampleProject), { onDelete }));
+      press('project-menu-proj-999');
+      press('project-menu-delete-proj-999');
+      expect(onDelete).toHaveBeenCalledWith('proj-999');
+    });
+
+    it('without actions and without onDelete there is no menu', () => {
+      mount(<ProjectCard card={projectToCard(sampleProject)} />);
+      expect(q('project-menu-proj-999')).toBeNull();
+    });
+  });
+
+  it('a narrow card is compact (buttons on their own row, the title keeps the first row); a wide or unmeasured one is not', () => {
+    expect(isCompactProjectCard(380)).toBe(true);
+    expect(isCompactProjectCard(PROJECT_CARD_COMPACT_WIDTH - 1)).toBe(true);
+    expect(isCompactProjectCard(PROJECT_CARD_COMPACT_WIDTH)).toBe(false);
+    expect(isCompactProjectCard(null)).toBe(false);
+  });
+
+  it('still shows the full title and every button (compact decision only moves them)', () => {
+    const div = document.createElement('div');
+    document.body.appendChild(div);
+    root = createRoot(div);
+    act(() => root.render(<ProjectCard card={projectToCard(sampleProject)} onEdit={jest.fn()} onDelete={jest.fn()} />));
+    expect(document.body.textContent).toContain('Timber Construction 2026');
+    for (const id of ['project-dashboard-proj-999', 'project-edit-proj-999', 'project-delete-proj-999', 'project-menu-proj-999']) expect(q(id)).not.toBeNull();
   });
 });

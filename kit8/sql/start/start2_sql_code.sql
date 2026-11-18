@@ -56,6 +56,7 @@
 --   49. create_files.sql - FILE ATTACHMENTS (first slice): RLS of files_google_connection_table (no policy, no grant: only the Edge Function reads it) and files_connection_status(organization) = the state without any secret
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): membership helpers + read only policies of chatObjectTable / chatThemeTable / chatMembersTable / chatMessagesTable, the chat_ RPCs, the RACI synchronisation of the members of a task chat (trigger on task_line_table), the delete triggers, realtime; the scope chat of the file attachments (PART 49 functions changed in place)
 --   51. create_project_readonly.sql - READ-ONLY PROJECT (project_table.rowJSON.projectIsReadonly, Project settings -> Main): the guard triggers that refuse every change of the data of a read-only project made by a signed-in user, project_set_readonly
+--   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the obligatory organization currency + the two VAT switches (guard trigger), consolidation_apply (the twin sums of the movements, set-based), the queue + worker consolidation_process_dirty (pg_cron consolidation_tick), the gaps, consolidation_report / _status / _refresh_now / _verify, the project currency guard
 -- ===============================================================================================
 
 DO $$
@@ -4216,7 +4217,9 @@ BEGIN
                              'createdByUser', v_email, 'isActive', true, 'contactEmail', v_email, 'legalData', jsonb_build_object('country', 'LV'),
                              -- the currencies of every new project of the organization (project settings show them read only; the organization changes them):
                              -- budget USD, accounting EUR, default currency for contracts GBP
-                             'defaultProjectSettings', jsonb_build_object('currencyForBudget', 'USD', 'currencyForAccounting', 'EUR', 'currencyForContract', 'GBP')));
+                             'defaultProjectSettings', jsonb_build_object('currencyForBudget', 'USD', 'currencyForAccounting', 'EUR', 'currencyForContract', 'GBP'),
+                             -- the obligatory currency of the consolidation (PART 52, documentation/CONSOLIDATION_WBS.html): USD for a new organization
+                             'currencyForConsolidation', 'USD'));
   RETURN v_guid;
 END;
 $$;
@@ -14134,6 +14137,8 @@ $$;
 CREATE OR REPLACE FUNCTION public.partner_balance_movements_no_update() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN
+  -- the one writer that may change a row: the consolidation twin (PART 52, consolidation_apply)
+  IF COALESCE(current_setting('app.consolidation_apply', true), '') = 'on' THEN RETURN NEW; END IF;
   RAISE EXCEPTION 'partner_balance_movements: a row is never changed (it is written by the Post of a document and deleted by its Unpost)' USING ERRCODE = '23514';
 END;
 $$;
@@ -14906,6 +14911,45 @@ CREATE POLICY task_template_dependency_select ON public.task_template_dependency
 DROP POLICY IF EXISTS task_template_line_select ON public.task_template_line;
 
 CREATE POLICY task_template_line_select ON public.task_template_line FOR SELECT TO authenticated USING (public.task_template_visible("rowTemplateGUID"));
+
+-- ---- import of a project file: the tasks of ONE chunk (kit8/pm/crud/exchange/project/import, documentation/CAKE1) -------------------------------------------------------------
+-- A task row fires the progress of the WHOLE project (pm_task_after_progress_change) and the calendar row of the task: a file of 2 000 tasks in chunks of 500 hit the 8 s limit of
+-- `authenticated` (4 s, then 8 s+ from the 2nd chunk). Like task_template_fill this runs with app.task_bulk = on, makes the calendar rows in ONE statement and calculates the
+-- progress ONCE. SECURITY INVOKER: the policies decide who may write (owner / matrix), the read-only guard of PART 51 refuses a read-only project. Parents must come first by
+-- depth inside the chunk and in the chunks before it. The links are NOT here: project_task_dependencies_table is inserted as before (cycle check + closure, 1.4 s for 500).
+CREATE OR REPLACE FUNCTION public.project_import_tasks(p_project uuid, p_rows jsonb) RETURNS integer
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  IF p_project IS NULL OR NOT EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = p_project) THEN
+    RAISE EXCEPTION 'project_import: the project does not exist or is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF p_rows IS NULL OR jsonb_typeof(p_rows) <> 'array' THEN
+    RAISE EXCEPTION 'project_import: rows must be a json array' USING ERRCODE = '22023';
+  END IF;
+  PERFORM set_config('app.task_bulk', 'on', true);
+  INSERT INTO public.project_task_table ("rowGUID", "treePath", "projectGUID", "rowOwnerGUID", "rowDuration", "rowProgress", "orderInList", "rowJSON")
+  SELECT x."rowGUID", x."treePath"::ltree, p_project, x."rowOwnerGUID", x."rowDuration", COALESCE(x."rowProgress", 0), COALESCE(x."orderInList", 0), COALESCE(x."rowJSON", '{}'::jsonb)
+    FROM jsonb_to_recordset(p_rows) AS x("rowGUID" uuid, "treePath" text, "rowOwnerGUID" uuid, "rowDuration" timestamptz, "rowProgress" numeric, "orderInList" numeric, "rowJSON" jsonb)
+   ORDER BY nlevel(x."treePath"::ltree), x."orderInList";
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  -- the calendar rows of the new tasks / milestones (the row trigger was off): one statement
+  INSERT INTO public.user_calendar_event_table ("rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  SELECT k."rowOwnerGUID", 'empty', EXTRACT(EPOCH FROM (x.j->>'startAt')::timestamptz) * 1000, x.j
+    FROM public.project_task_table k
+    CROSS JOIN LATERAL (SELECT public.user_calendar_project_task_json(k) AS j) x
+   WHERE k."rowGUID" IN (SELECT r."rowGUID" FROM jsonb_to_recordset(p_rows) AS r("rowGUID" uuid))
+     AND COALESCE(k."rowJSON"->>'rowKind', 'task') IN ('task', 'milestone')
+  ON CONFLICT DO NOTHING;
+  PERFORM set_config('app.task_bulk', 'off', true);
+  PERFORM public.pm_recalc_project_progress(p_project);
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_import_tasks(uuid, jsonb) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_import_tasks(uuid, jsonb) TO authenticated;
 
 -- ===============================================================================================
 -- PART 41: create_route_visits.sql
@@ -19243,6 +19287,505 @@ GRANT EXECUTE ON FUNCTION public.project_set_readonly(uuid, boolean) TO authenti
 
 NOTIFY pgrst, 'reload schema';
 
+
+-- ===============================================================================================
+-- PART 52: create_consolidation.sql
+-- CONSOLIDATION (documentation/CONSOLIDATION_WBS.html). The money of ALL projects of an organization added in ONE currency.
+--   organizationTable.rowJSON (top level, NOT defaultProjectSettings): currencyForConsolidation (OBLIGATORY) · exchangeRateTypeForConsolidation (default 'Default') ·
+--     consolidationIncludePurchaseVAT / consolidationIncludeSaleVAT (booleans, default false) · consolidationState ('ready' | 'recalculating' | 'gaps', written by the database only)
+--   sumForConsolidation = the twin of sumForBudget on project_status_movements (+ vatForConsolidation / vatInCostForConsolidation), cash_account_ledger_movements,
+--     partner_balance_movements, task_payment_plan_movements. Source = the budget sum of the movement in the budget currency of its project, rate type of the organization, the day of the movement,
+--     rounded to the decimals of the target currency (same currency = the sum itself). Written ONLY here: AFTER INSERT statement triggers (the Post transaction), the worker consolidation_process_dirty
+--     (a currency / rate type / project currency changed, a missing rate arrived). A movement that cannot be converted gets 0 and a row in consolidation_gap_table: a Post is never refused.
+--   The two VAT switches act at READ time (consolidation_amount): purchase ON = net + VAT, OFF = net + the VAT that is cost (the Cost basis); sale ON = net + VAT, OFF = net.
+-- ===============================================================================================
+
+-- the settings of an organization (no row = all NULL)
+CREATE OR REPLACE FUNCTION public.consolidation_settings(p_org text, OUT o_currency text, OUT o_rate_type text, OUT o_purchase_vat boolean, OUT o_sale_vat boolean)
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT NULLIF(upper(btrim(o."rowJSON"->>'currencyForConsolidation')), ''),
+         COALESCE(NULLIF(btrim(o."rowJSON"->>'exchangeRateTypeForConsolidation'), ''), 'Default'),
+         COALESCE((o."rowJSON"->>'consolidationIncludePurchaseVAT') = 'true', false),
+         COALESCE((o."rowJSON"->>'consolidationIncludeSaleVAT') = 'true', false)
+    FROM public."organizationTable" o WHERE o."rowGUID" = p_org
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_settings(text) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.consolidation_settings(text) TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.fx_consolidation_currency() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT s.o_currency FROM public.consolidation_settings(public.organization_of_current_user()) s
+$$;
+
+CREATE OR REPLACE FUNCTION public.fx_consolidation_rate_type() RETURNS text
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT s.o_rate_type FROM public.consolidation_settings(public.organization_of_current_user()) s
+$$;
+
+REVOKE ALL ON FUNCTION public.fx_consolidation_currency() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.fx_consolidation_rate_type() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.fx_consolidation_currency() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.fx_consolidation_rate_type() TO authenticated;
+
+-- Q12: the currency a missing key gets: the budget currency of the default project settings, else the base currency of the rate book, else EUR
+CREATE OR REPLACE FUNCTION public.consolidation_default_currency(p_json jsonb) RETURNS text
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT COALESCE((SELECT c FROM unnest(ARRAY[upper(btrim(p_json->'defaultProjectSettings'->>'currencyForBudget')), upper(btrim(p_json->>'baseCurrency'))]) WITH ORDINALITY v(c, ord)
+                    WHERE c ~ '^[A-Z]{3}$' ORDER BY ord LIMIT 1), 'EUR')
+$$;
+
+-- the amount a report adds: side 'sale' (kind sold, Revenue genus) or 'purchase' (everything else); the two organization switches choose the VAT (Q11)
+CREATE OR REPLACE FUNCTION public.consolidation_amount(p_net numeric, p_vat numeric, p_vat_in_cost numeric, p_side text, p_include_purchase boolean, p_include_sale boolean) RETURNS numeric
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT CASE WHEN p_side = 'sale' THEN COALESCE(p_net, 0) + CASE WHEN COALESCE(p_include_sale, false) THEN COALESCE(p_vat, 0) ELSE 0 END
+              ELSE COALESCE(p_net, 0) + CASE WHEN COALESCE(p_include_purchase, false) THEN COALESCE(p_vat, 0) ELSE COALESCE(p_vat_in_cost, 0) END END
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_default_currency(jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.consolidation_amount(numeric, numeric, numeric, text, boolean, boolean) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.consolidation_default_currency(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.consolidation_amount(numeric, numeric, numeric, text, boolean, boolean) TO authenticated;
+
+-- ---- the guard of the organization row: obligatory currency, booleans, the state is the database's, a change queues every project --------------------------------------------------
+CREATE OR REPLACE FUNCTION public.organization_consolidation_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_sys boolean := COALESCE(current_setting('app.consolidation_system', true), '') = 'on';
+  v_old jsonb := CASE WHEN TG_OP = 'UPDATE' THEN OLD."rowJSON" ELSE '{}'::jsonb END;
+  v_new jsonb := NEW."rowJSON";
+  v_cur text; v_type text; v_state text; k text; v_changed boolean := false; v_queued integer;
+BEGIN
+  IF v_new ? 'currencyForConsolidation' THEN
+    v_cur := upper(btrim(COALESCE(v_new->>'currencyForConsolidation', '')));
+    IF v_cur !~ '^[A-Z]{3}$' THEN
+      RAISE EXCEPTION 'organization: the currency for consolidation is obligatory (a 3 letter ISO code)' USING ERRCODE = '23514';
+    END IF;
+  ELSIF v_old ? 'currencyForConsolidation' THEN
+    v_cur := v_old->>'currencyForConsolidation';
+  ELSE
+    v_cur := public.consolidation_default_currency(v_new);
+  END IF;
+  IF v_new ? 'exchangeRateTypeForConsolidation' THEN
+    v_type := btrim(COALESCE(v_new->>'exchangeRateTypeForConsolidation', ''));
+    IF v_type = '' THEN
+      RAISE EXCEPTION 'organization: the exchange rate type for consolidation cannot be empty' USING ERRCODE = '23514';
+    END IF;
+  ELSIF v_old ? 'exchangeRateTypeForConsolidation' THEN
+    v_type := v_old->>'exchangeRateTypeForConsolidation';
+  ELSE
+    v_type := 'Default';
+  END IF;
+  FOREACH k IN ARRAY ARRAY['consolidationIncludePurchaseVAT', 'consolidationIncludeSaleVAT'] LOOP
+    IF v_new ? k THEN
+      v_new := jsonb_set(v_new, ARRAY[k], to_jsonb(COALESCE(v_new->>k, '') = 'true'));
+    ELSIF v_old ? k THEN
+      v_new := jsonb_set(v_new, ARRAY[k], v_old->k);
+    ELSE
+      v_new := jsonb_set(v_new, ARRAY[k], 'false'::jsonb);
+    END IF;
+  END LOOP;
+  -- the state is written by the database only (a system writer sets app.consolidation_system)
+  v_state := CASE WHEN v_sys AND v_new ? 'consolidationState' THEN v_new->>'consolidationState' ELSE COALESCE(v_old->>'consolidationState', 'ready') END;
+  IF TG_OP = 'UPDATE' THEN
+    v_changed := NOT (v_old ? 'currencyForConsolidation') OR v_old->>'currencyForConsolidation' IS DISTINCT FROM v_cur
+                 OR COALESCE(v_old->>'exchangeRateTypeForConsolidation', 'Default') IS DISTINCT FROM v_type;
+    IF NOT v_sys AND auth.uid() IS NOT NULL AND (
+         (v_old ? 'currencyForConsolidation' AND v_changed)
+         OR COALESCE(v_old->'consolidationIncludePurchaseVAT', 'false'::jsonb) IS DISTINCT FROM (v_new->'consolidationIncludePurchaseVAT')
+         OR COALESCE(v_old->'consolidationIncludeSaleVAT', 'false'::jsonb) IS DISTINCT FROM (v_new->'consolidationIncludeSaleVAT')) THEN
+      IF NOT public.organization_is_admin(NEW."rowGUID") THEN
+        RAISE EXCEPTION 'No permission: only the administrator of the organization changes the consolidation settings' USING ERRCODE = '42501';
+      END IF;
+    END IF;
+    IF v_changed THEN
+      INSERT INTO public.consolidation_dirty ("rowProjectGUID", "rowOrganizationGUID", "reason")
+      SELECT p."rowGUID", NEW."rowGUID", 'organization' FROM public.project_table p WHERE p."rowParentGUID"::text = NEW."rowGUID"
+      ON CONFLICT ("rowProjectGUID") DO UPDATE SET "queuedAt" = clock_timestamp(), "attempts" = 0, "reason" = 'organization', "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID";
+      GET DIAGNOSTICS v_queued = ROW_COUNT;
+      IF v_queued > 0 THEN v_state := 'recalculating'; END IF;
+    END IF;
+  END IF;
+  NEW."rowJSON" := v_new || jsonb_build_object('currencyForConsolidation', v_cur, 'exchangeRateTypeForConsolidation', v_type, 'consolidationState', v_state);
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_organizationTable_consolidation ON public."organizationTable";
+CREATE TRIGGER trg_organizationTable_consolidation BEFORE INSERT OR UPDATE ON public."organizationTable"
+  FOR EACH ROW EXECUTE FUNCTION public.organization_consolidation_guard();
+
+-- ---- the factor of one (project, day) -----------------------------------------------------------------------------------------------------------------------------------------------------
+-- budget currency of the project -> currencyForConsolidation of its organization on the day. o_ok = false: o_reason says why (noBudgetCurrency | noExchangeRate), the rate is 0
+CREATE OR REPLACE FUNCTION public.consolidation_factor(p_project uuid, p_day date, OUT o_ok boolean, OUT o_rate numeric, OUT o_dec integer, OUT o_org text, OUT o_from text, OUT o_to text,
+                                                        OUT o_type text, OUT o_reason text)
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE s record;
+BEGIN
+  SELECT p."rowParentGUID"::text, NULLIF(upper(btrim(COALESCE(p."rowJSON"->>'currencyForBudget', ''))), '') INTO o_org, o_from FROM public.project_table p WHERE p."rowGUID" = p_project;
+  SELECT * INTO s FROM public.consolidation_settings(o_org);
+  o_to := s.o_currency; o_type := s.o_rate_type; o_ok := false; o_rate := 0; o_dec := 2;
+  IF o_from IS NULL THEN o_reason := 'noBudgetCurrency'; RETURN; END IF;
+  IF o_to IS NULL THEN o_reason := 'noExchangeRate'; RETURN; END IF;
+  SELECT CASE WHEN (x."rowJSON"->>'decimalDigits') ~ '^[0-6]$' THEN (x."rowJSON"->>'decimalDigits')::integer ELSE 2 END INTO o_dec
+    FROM public."currencyTable" x WHERE upper(x."rowJSON"->>'currencyCode') = o_to;
+  o_dec := COALESCE(o_dec, 2);
+  IF o_from = o_to THEN o_ok := true; o_rate := 1; RETURN; END IF;
+  o_rate := public.fx_pair_rate(o_from, o_to, o_type, p_day);
+  IF o_rate IS NULL THEN o_rate := 0; o_reason := 'noExchangeRate'; RETURN; END IF;
+  o_ok := true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_factor(uuid, date) FROM PUBLIC, anon, authenticated;
+
+-- ---- apply: fill the twin columns of some rows (SET-BASED: one factor per distinct project + day, never one rate lookup per row) ---------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.consolidation_apply(p_table text, p_guids uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_prj text; v_day text; v_vat boolean := false; v_n integer; v_sql text; v_set text := ''; v_vb text := '0'; v_vc text := '0';
+BEGIN
+  IF p_guids IS NULL OR cardinality(p_guids) = 0 THEN RETURN 0; END IF;
+  IF p_table = 'project_status_movements' THEN v_prj := '"rowProjectGUID"'; v_day := '"rowTurnoverDay"'; v_vat := true;
+  ELSIF p_table = 'cash_account_ledger_movements' THEN v_prj := '"rowProjectGUID"'; v_day := '"periodDay"';
+  ELSIF p_table = 'partner_balance_movements' THEN v_prj := '"projectGUID"'; v_day := '"periodDay"';
+  ELSIF p_table = 'task_payment_plan_movements' THEN v_prj := '"rowProjectGUID"'; v_day := '"periodDay"';
+  ELSE RAISE EXCEPTION 'consolidation_apply: unknown table %', p_table; END IF;
+  IF v_vat THEN
+    v_vb := 'COALESCE(t."vatForBudget", 0)'; v_vc := 'COALESCE(t."vatInCostForBudget", 0)';
+    v_set := ', "vatForConsolidation" = CASE WHEN f.o_ok THEN round(n.vb * f.o_rate, f.o_dec) ELSE 0 END, "vatInCostForConsolidation" = CASE WHEN f.o_ok THEN round(n.vc * f.o_rate, f.o_dec) ELSE 0 END';
+  END IF;
+  v_sql := format($f$
+    WITH n AS (SELECT t."rowGUID" AS g, t.%1$s AS prj, t.%2$s AS d, COALESCE(t."sumForBudget", 0) AS sb, %3$s AS vb, %4$s AS vc FROM public.%5$I t WHERE t."rowGUID" = ANY ($1)),
+    k AS MATERIALIZED (SELECT DISTINCT prj, d FROM n),
+    f AS MATERIALIZED (SELECT k.prj, k.d, x.* FROM k CROSS JOIN LATERAL public.consolidation_factor(k.prj, k.d) x),
+    u AS (UPDATE public.%5$I t SET "sumForConsolidation" = CASE WHEN f.o_ok THEN round(n.sb * f.o_rate, f.o_dec) ELSE 0 END %6$s
+            FROM n JOIN f ON f.prj = n.prj AND f.d = n.d WHERE t."rowGUID" = n.g
+          RETURNING n.g AS g, n.prj AS prj, n.d AS d, f.o_ok AS ok, f.o_org AS org, f.o_from AS cfrom, f.o_to AS cto, f.o_type AS ctype, f.o_reason AS reason),
+    dg AS (DELETE FROM public.consolidation_gap_table gp USING u WHERE gp."sourceTable" = %7$L AND gp."sourceRowGUID" = u.g AND u.ok),
+    ig AS (INSERT INTO public.consolidation_gap_table ("rowOrganizationGUID", "rowProjectGUID", "sourceTable", "sourceRowGUID", "fromCurrency", "toCurrency", "rateType", "periodDay", "reason")
+           SELECT u.org, u.prj, %7$L, u.g, u.cfrom, u.cto, u.ctype, u.d, u.reason FROM u WHERE NOT u.ok
+           ON CONFLICT ("sourceTable", "sourceRowGUID") DO UPDATE SET "fromCurrency" = EXCLUDED."fromCurrency", "toCurrency" = EXCLUDED."toCurrency", "rateType" = EXCLUDED."rateType",
+                                                                      "periodDay" = EXCLUDED."periodDay", "reason" = EXCLUDED."reason", "rowOrganizationGUID" = EXCLUDED."rowOrganizationGUID"
+           RETURNING 1)
+    SELECT (SELECT count(*) FROM u)::integer
+  $f$, v_prj, v_day, v_vb, v_vc, p_table, v_set, p_table);
+  PERFORM set_config('app.consolidation_apply', 'on', true);
+  EXECUTE v_sql INTO v_n USING p_guids;
+  PERFORM set_config('app.consolidation_apply', 'off', true);
+  RETURN COALESCE(v_n, 0);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_apply(text, uuid[]) FROM PUBLIC, anon, authenticated;
+
+-- ---- the statement triggers of the four movement tables -------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.consolidation_trg_insert() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.consolidation_apply(TG_ARGV[0], ARRAY(SELECT n."rowGUID" FROM new_rows n));
+  RETURN NULL;
+END;
+$$;
+
+-- the cash ledger is recalculated by UPDATE (a rate change): the twin follows a changed budget sum. The apply itself updates the table: its own update is skipped
+CREATE OR REPLACE FUNCTION public.consolidation_trg_update() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF COALESCE(current_setting('app.consolidation_apply', true), '') = 'on' THEN RETURN NULL; END IF;
+  PERFORM public.consolidation_apply(TG_ARGV[0], ARRAY(SELECT n."rowGUID" FROM new_rows n JOIN old_rows o ON o."rowGUID" = n."rowGUID" WHERE n."sumForBudget" IS DISTINCT FROM o."sumForBudget"));
+  RETURN NULL;
+END;
+$$;
+
+-- a deleted movement takes its gap with it
+CREATE OR REPLACE FUNCTION public.consolidation_trg_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.consolidation_gap_table LIMIT 1) THEN
+    DELETE FROM public.consolidation_gap_table g WHERE g."sourceTable" = TG_ARGV[0] AND g."sourceRowGUID" IN (SELECT o."rowGUID" FROM old_rows o);
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_trg_insert() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.consolidation_trg_update() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.consolidation_trg_delete() FROM PUBLIC, anon, authenticated;
+
+DO $$
+DECLARE t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['project_status_movements', 'cash_account_ledger_movements', 'partner_balance_movements', 'task_payment_plan_movements'] LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_consolidation_ins ON public.%I', t, t);
+    EXECUTE format('CREATE TRIGGER trg_%s_consolidation_ins AFTER INSERT ON public.%I REFERENCING NEW TABLE AS new_rows FOR EACH STATEMENT EXECUTE FUNCTION public.consolidation_trg_insert(%L)', t, t, t);
+    EXECUTE format('DROP TRIGGER IF EXISTS trg_%s_consolidation_del ON public.%I', t, t);
+    EXECUTE format('CREATE TRIGGER trg_%s_consolidation_del AFTER DELETE ON public.%I REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.consolidation_trg_delete(%L)', t, t, t);
+  END LOOP;
+  DROP TRIGGER IF EXISTS trg_cash_account_ledger_movements_consolidation_upd ON public.cash_account_ledger_movements;
+  CREATE TRIGGER trg_cash_account_ledger_movements_consolidation_upd AFTER UPDATE ON public.cash_account_ledger_movements REFERENCING OLD TABLE AS old_rows NEW TABLE AS new_rows
+    FOR EACH STATEMENT EXECUTE FUNCTION public.consolidation_trg_update('cash_account_ledger_movements');
+END $$;
+
+-- ---- the queue, the rebuild, the worker ---------------------------------------------------------------------------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION public.consolidation_queue_project(p_project uuid, p_reason text) RETURNS void
+LANGUAGE sql SECURITY DEFINER SET search_path = public, extensions AS $$
+  INSERT INTO public.consolidation_dirty ("rowProjectGUID", "rowOrganizationGUID", "reason")
+  SELECT p."rowGUID", p."rowParentGUID"::text, p_reason FROM public.project_table p WHERE p."rowGUID" = p_project
+  ON CONFLICT ("rowProjectGUID") DO UPDATE SET "queuedAt" = clock_timestamp(), "attempts" = 0, "reason" = EXCLUDED."reason"
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_queue_project(uuid, text) FROM PUBLIC, anon, authenticated;
+
+-- every movement of ONE project, in batches of 50000 rows per table (a batch recomputes the factor of every distinct day in it: a small batch repeats that work - 100 000 rows over 1 000 days took 47 s with batches of 5000)
+CREATE OR REPLACE FUNCTION public.consolidation_rebuild(p_project uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  t record; v_guids uuid[]; v_last uuid; n integer := 0;
+BEGIN
+  FOR t IN SELECT * FROM (VALUES ('project_status_movements', 'rowProjectGUID'), ('cash_account_ledger_movements', 'rowProjectGUID'),
+                                 ('partner_balance_movements', 'projectGUID'), ('task_payment_plan_movements', 'rowProjectGUID')) v(tbl, prj) LOOP
+    v_last := NULL;
+    LOOP
+      EXECUTE format('SELECT array_agg(x."rowGUID" ORDER BY x."rowGUID") FROM (SELECT "rowGUID" FROM public.%I WHERE %I = $1 AND ($2::uuid IS NULL OR "rowGUID" > $2) ORDER BY "rowGUID" LIMIT 50000) x', t.tbl, t.prj)
+        INTO v_guids USING p_project, v_last;
+      EXIT WHEN v_guids IS NULL;
+      n := n + public.consolidation_apply(t.tbl, v_guids);
+      v_last := v_guids[cardinality(v_guids)];
+    END LOOP;
+  END LOOP;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_rebuild(uuid) FROM PUBLIC, anon, authenticated;
+
+-- the gaps: convert them again (a rate arrived / a budget currency was set)
+CREATE OR REPLACE FUNCTION public.consolidation_retry_gaps() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE r record; n integer := 0;
+BEGIN
+  FOR r IN SELECT g."sourceTable" AS tbl, array_agg(g."sourceRowGUID") AS guids FROM public.consolidation_gap_table g GROUP BY g."sourceTable" LOOP
+    n := n + public.consolidation_apply(r.tbl, r.guids);
+  END LOOP;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_retry_gaps() FROM PUBLIC, anon, authenticated;
+
+-- the state of an organization: recalculating (queued projects) > gaps > ready; written into the organization row by the database only
+CREATE OR REPLACE FUNCTION public.consolidation_refresh_state(p_org text) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_state text;
+BEGIN
+  v_state := CASE WHEN EXISTS (SELECT 1 FROM public.consolidation_dirty d WHERE d."rowOrganizationGUID" = p_org) THEN 'recalculating'
+                  WHEN EXISTS (SELECT 1 FROM public.consolidation_gap_table g WHERE g."rowOrganizationGUID" = p_org) THEN 'gaps' ELSE 'ready' END;
+  PERFORM set_config('app.consolidation_system', 'on', true);
+  UPDATE public."organizationTable" o SET "rowJSON" = jsonb_set(o."rowJSON", '{consolidationState}', to_jsonb(v_state))
+   WHERE o."rowGUID" = p_org AND o."rowJSON"->>'consolidationState' IS DISTINCT FROM v_state;
+  PERFORM set_config('app.consolidation_system', 'off', true);
+  RETURN v_state;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_refresh_state(text) FROM PUBLIC, anon, authenticated;
+
+-- the worker: oldest queue rows first; the nil UUID row = retry the gaps. p_org limits it to the projects of one organization (the button of the screen). Returns the movements written
+CREATE OR REPLACE FUNCTION public.consolidation_process_dirty(p_batch integer DEFAULT 20, p_org text DEFAULT NULL) RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record; n integer := 0; v_orgs text[] := ARRAY[]::text[]; o text;
+  v_nil CONSTANT uuid := '00000000-0000-0000-0000-000000000000';
+BEGIN
+  FOR r IN SELECT d."rowProjectGUID" AS prj, d."rowOrganizationGUID" AS org FROM public.consolidation_dirty d
+            WHERE d."attempts" < 5 AND (p_org IS NULL OR d."rowOrganizationGUID" = p_org OR d."rowProjectGUID" = v_nil)
+            ORDER BY d."queuedAt", d."rowProjectGUID" LIMIT GREATEST(p_batch, 1) FOR UPDATE SKIP LOCKED LOOP
+    BEGIN
+      IF r.prj = v_nil THEN
+        n := n + public.consolidation_retry_gaps();
+      ELSIF EXISTS (SELECT 1 FROM public.project_table p WHERE p."rowGUID" = r.prj) THEN
+        n := n + public.consolidation_rebuild(r.prj);
+      END IF;
+      DELETE FROM public.consolidation_dirty d WHERE d."rowProjectGUID" = r.prj;
+    EXCEPTION WHEN OTHERS THEN
+      UPDATE public.consolidation_dirty d SET "attempts" = d."attempts" + 1, "lastError" = left(SQLERRM, 500) WHERE d."rowProjectGUID" = r.prj;
+    END;
+    IF r.org IS NOT NULL AND NOT (r.org = ANY (v_orgs)) THEN v_orgs := v_orgs || r.org; END IF;
+  END LOOP;
+  -- the state of every organization that has gaps or a queue (a finished retry changes the gaps of ANY organization)
+  FOR o IN SELECT DISTINCT x FROM (SELECT unnest(v_orgs) AS x UNION SELECT g."rowOrganizationGUID" FROM public.consolidation_gap_table g
+                                   UNION SELECT o2."rowGUID" FROM public."organizationTable" o2 WHERE o2."rowJSON"->>'consolidationState' IN ('recalculating', 'gaps')) y WHERE x IS NOT NULL LOOP
+    PERFORM public.consolidation_refresh_state(o);
+  END LOOP;
+  RETURN n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_process_dirty(integer, text) FROM PUBLIC, anon, authenticated;
+
+-- ---- the triggers on the project and on the rates ---------------------------------------------------------------------------------------------------------------------------------------
+-- Q1: the budget / accounting currency of a project cannot change while it has posted documents (the sums of their lines are frozen in the old currency); the SQL editor and the workers pass
+CREATE OR REPLACE FUNCTION public.project_currency_guard() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE k text; o text; n text; v_msg text;
+BEGIN
+  IF auth.uid() IS NULL THEN RETURN NEW; END IF;
+  FOREACH k IN ARRAY ARRAY['currencyForBudget', 'currencyForAccounting'] LOOP
+    o := upper(btrim(COALESCE(OLD."rowJSON"->>k, '')));
+    n := upper(btrim(COALESCE(NEW."rowJSON"->>k, '')));
+    IF o <> '' AND n <> o THEN
+      SELECT string_agg(x.kind || ' ' || x.c, ', ' ORDER BY x.kind) INTO v_msg FROM (
+        SELECT s."rowMovementKind" AS kind, count(*) AS c FROM public.project_status_movements s WHERE s."rowProjectGUID" = OLD."rowGUID" AND s."rowMovementKind" <> 'plan' GROUP BY s."rowMovementKind"
+        UNION ALL SELECT 'payment', count(*) FROM public.cash_account_ledger_movements m WHERE m."rowProjectGUID" = OLD."rowGUID" HAVING count(*) > 0) x;
+      IF v_msg IS NOT NULL THEN
+        RAISE EXCEPTION 'project currencies: the % cannot be changed while the project has posted documents (movements: %). Unpost them first.', k, v_msg USING ERRCODE = '23514';
+      END IF;
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_table_currency_guard ON public.project_table;
+CREATE TRIGGER trg_project_table_currency_guard BEFORE UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'currencyForBudget' IS DISTINCT FROM NEW."rowJSON"->>'currencyForBudget' OR OLD."rowJSON"->>'currencyForAccounting' IS DISTINCT FROM NEW."rowJSON"->>'currencyForAccounting')
+  EXECUTE FUNCTION public.project_currency_guard();
+
+-- a new budget currency of a project: its movements are converted again
+CREATE OR REPLACE FUNCTION public.project_consolidation_queue() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  PERFORM public.consolidation_queue_project(NEW."rowGUID", 'projectCurrency');
+  PERFORM public.consolidation_refresh_state(NEW."rowParentGUID"::text);
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_table_consolidation ON public.project_table;
+CREATE TRIGGER trg_project_table_consolidation AFTER UPDATE OF "rowJSON" ON public.project_table
+  FOR EACH ROW WHEN (OLD."rowJSON"->>'currencyForBudget' IS DISTINCT FROM NEW."rowJSON"->>'currencyForBudget')
+  EXECUTE FUNCTION public.project_consolidation_queue();
+
+-- a rate arrived (or changed): while there are gaps, wake the worker to retry them (posted sums are NOT moved by a rate change: decision Q3)
+CREATE OR REPLACE FUNCTION public.consolidation_rate_trigger() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.consolidation_gap_table LIMIT 1) THEN
+    INSERT INTO public.consolidation_dirty ("rowProjectGUID", "reason") VALUES ('00000000-0000-0000-0000-000000000000', 'rate')
+    ON CONFLICT ("rowProjectGUID") DO UPDATE SET "queuedAt" = clock_timestamp(), "attempts" = 0;
+  END IF;
+  RETURN NULL;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_consolidation_rate ON public."currencyExchangeRateTable";
+CREATE TRIGGER trg_consolidation_rate AFTER INSERT OR UPDATE OR DELETE ON public."currencyExchangeRateTable" FOR EACH STATEMENT EXECUTE FUNCTION public.consolidation_rate_trigger();
+
+-- ---- RLS and grants of the two tables ---------------------------------------------------------------------------------------------------------------------------------------------------
+ALTER TABLE public.consolidation_gap_table ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.consolidation_dirty ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.consolidation_dirty FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON public.consolidation_gap_table FROM PUBLIC, anon, authenticated;
+GRANT SELECT ON public.consolidation_gap_table TO authenticated;
+DROP POLICY IF EXISTS consolidation_gap_select ON public.consolidation_gap_table;
+CREATE POLICY consolidation_gap_select ON public.consolidation_gap_table FOR SELECT TO authenticated USING (public.pm_owns_project("rowProjectGUID"));
+
+-- ---- what the screens call ---------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the status of the organization of the user
+CREATE OR REPLACE FUNCTION public.consolidation_status() RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_org text := public.organization_of_current_user(); s record; v_gaps integer; v_queued integer;
+BEGIN
+  IF v_org IS NULL THEN RETURN NULL; END IF;
+  SELECT * INTO s FROM public.consolidation_settings(v_org);
+  SELECT count(*) INTO v_gaps FROM public.consolidation_gap_table g WHERE g."rowOrganizationGUID" = v_org;
+  SELECT count(*) INTO v_queued FROM public.consolidation_dirty d WHERE d."rowOrganizationGUID" = v_org;
+  RETURN jsonb_build_object('organization', v_org, 'currency', s.o_currency, 'rateType', s.o_rate_type, 'includePurchaseVAT', s.o_purchase_vat, 'includeSaleVAT', s.o_sale_vat,
+                            'state', CASE WHEN v_queued > 0 THEN 'recalculating' WHEN v_gaps > 0 THEN 'gaps' ELSE 'ready' END, 'gaps', v_gaps, 'queued', v_queued);
+END;
+$$;
+
+-- "Refresh now": the worker for the projects of my organization (works without pg_cron); the gaps are retried too
+CREATE OR REPLACE FUNCTION public.consolidation_refresh_now() RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE v_org text := public.organization_of_current_user(); n integer := 0; i integer := 0; v_left integer;
+BEGIN
+  IF v_org IS NULL THEN RAISE EXCEPTION 'consolidation_refresh_now: the user has no organization' USING ERRCODE = '42501'; END IF;
+  INSERT INTO public.consolidation_dirty ("rowProjectGUID", "reason") VALUES ('00000000-0000-0000-0000-000000000000', 'refresh')
+  ON CONFLICT ("rowProjectGUID") DO UPDATE SET "queuedAt" = clock_timestamp(), "attempts" = 0;
+  LOOP
+    n := n + public.consolidation_process_dirty(50, v_org);
+    i := i + 1;
+    SELECT count(*) INTO v_left FROM public.consolidation_dirty d WHERE d."attempts" < 5 AND (d."rowOrganizationGUID" = v_org OR d."rowProjectGUID" = '00000000-0000-0000-0000-000000000000');
+    EXIT WHEN v_left = 0 OR i >= 20;
+  END LOOP;
+  PERFORM public.consolidation_refresh_state(v_org);
+  RETURN public.consolidation_status() || jsonb_build_object('written', n);
+END;
+$$;
+
+-- the report: ONE row per project x month x kind x side. SECURITY INVOKER: the policies of the register and of project_table decide which projects the user sees.
+-- o_amount = the consolidated amount with the two VAT switches; o_net / o_vat / o_vat_in_cost = the consolidated components; o_budget_* = the same in the budget currency of the project
+CREATE OR REPLACE FUNCTION public.consolidation_report(p_projects uuid[] DEFAULT NULL, p_from date DEFAULT NULL, p_to date DEFAULT NULL, p_by_month boolean DEFAULT false)
+RETURNS TABLE (o_project uuid, o_project_name text, o_month date, o_kind text, o_side text, o_qty numeric, o_amount numeric, o_net numeric, o_vat numeric, o_vat_in_cost numeric,
+               o_budget_currency text, o_budget_net numeric, o_budget_vat numeric, o_budget_vat_in_cost numeric, o_currency text)
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT s."rowProjectGUID", max(p."rowJSON"->>'name'), CASE WHEN p_by_month THEN s."rowTurnoverMonth" END, s."rowMovementKind",
+         CASE WHEN s."rowMovementKind" = 'sold' OR s."genusGUID" = 'revenueGenus' THEN 'sale' ELSE 'purchase' END AS side,
+         sum(s."qtyProjectStatus"),
+         sum(public.consolidation_amount(s."sumForConsolidation", s."vatForConsolidation", s."vatInCostForConsolidation",
+                                         CASE WHEN s."rowMovementKind" = 'sold' OR s."genusGUID" = 'revenueGenus' THEN 'sale' ELSE 'purchase' END, c.o_purchase_vat, c.o_sale_vat)),
+         sum(s."sumForConsolidation"), sum(s."vatForConsolidation"), sum(s."vatInCostForConsolidation"),
+         max(upper(NULLIF(btrim(p."rowJSON"->>'currencyForBudget'), ''))),
+         sum(s."sumForBudget"), sum(s."vatForBudget"), sum(s."vatInCostForBudget"),
+         max(c.o_currency)
+    FROM public.project_status_movements s
+    JOIN public.project_table p ON p."rowGUID" = s."rowProjectGUID"
+    CROSS JOIN LATERAL public.consolidation_settings(p."rowParentGUID"::text) c
+   WHERE (p_projects IS NULL OR s."rowProjectGUID" = ANY (p_projects)) AND (p_from IS NULL OR s."rowTurnoverDay" >= p_from) AND (p_to IS NULL OR s."rowTurnoverDay" <= p_to)
+   GROUP BY s."rowProjectGUID", CASE WHEN p_by_month THEN s."rowTurnoverMonth" END, s."rowMovementKind",
+            CASE WHEN s."rowMovementKind" = 'sold' OR s."genusGUID" = 'revenueGenus' THEN 'sale' ELSE 'purchase' END
+$$;
+
+CREATE OR REPLACE FUNCTION public.consolidation_gap_list(p_limit integer DEFAULT 200) RETURNS SETOF public.consolidation_gap_table
+LANGUAGE sql STABLE SET search_path = public, extensions AS $$
+  SELECT g.* FROM public.consolidation_gap_table g ORDER BY g."created_at", g."rowGUID" LIMIT GREATEST(p_limit, 1)
+$$;
+
+-- maintenance: how many rows of an organization have a stored twin that differs from a fresh calculation (a gap row must hold 0). No owner filter: revoked from clients, like roi_verify
+CREATE OR REPLACE FUNCTION public.consolidation_verify(p_org text) RETURNS TABLE (o_table text, o_rows bigint, o_wrong bigint)
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE t record;
+BEGIN
+  FOR t IN SELECT * FROM (VALUES ('project_status_movements', 'rowProjectGUID', 'rowTurnoverDay'), ('cash_account_ledger_movements', 'rowProjectGUID', 'periodDay'),
+                                 ('partner_balance_movements', 'projectGUID', 'periodDay'), ('task_payment_plan_movements', 'rowProjectGUID', 'periodDay')) v(tbl, prj, d) LOOP
+    o_table := t.tbl;
+    EXECUTE format($f$
+      WITH n AS (SELECT x."rowGUID" AS g, x.%2$I AS prj, x.%3$I AS d, COALESCE(x."sumForBudget", 0) AS sb, x."sumForConsolidation" AS sc FROM public.%1$I x JOIN public.project_table p ON p."rowGUID" = x.%2$I WHERE p."rowParentGUID"::text = $1),
+      k AS MATERIALIZED (SELECT DISTINCT prj, d FROM n),
+      f AS MATERIALIZED (SELECT k.prj, k.d, y.* FROM k CROSS JOIN LATERAL public.consolidation_factor(k.prj, k.d) y)
+      SELECT count(*), count(*) FILTER (WHERE (f.o_ok AND n.sc IS DISTINCT FROM round(n.sb * f.o_rate, f.o_dec)) OR (NOT f.o_ok AND n.sc <> 0)) FROM n JOIN f ON f.prj = n.prj AND f.d = n.d
+    $f$, t.tbl, t.prj, t.d) INTO o_rows, o_wrong USING p_org;
+    RETURN NEXT;
+  END LOOP;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.consolidation_status() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.consolidation_refresh_now() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.consolidation_report(uuid[], date, date, boolean) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.consolidation_gap_list(integer) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.consolidation_verify(text) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.consolidation_status() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.consolidation_refresh_now() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.consolidation_report(uuid[], date, date, boolean) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.consolidation_gap_list(integer) TO authenticated;
+
+-- Q12: an organization that exists already gets its currency now (the guard trigger fills it and queues its projects; the worker does the rest)
+UPDATE public."organizationTable" o SET "rowJSON" = o."rowJSON" WHERE NOT (o."rowJSON" ? 'currencyForConsolidation');
+
+NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

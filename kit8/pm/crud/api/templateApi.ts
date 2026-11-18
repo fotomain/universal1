@@ -32,7 +32,7 @@ import {
 } from '../../model/types';
 import { PMProjectKanbanStageRow } from '../../model/kanbanTypes';
 import { projectTreePath, toLtreeLabel, todayUTC } from '../../view/project/scheduling';
-import { check, newGUID, normalizeDep, normalizeProject, normalizeTask } from './apiUtils';
+import { check, newGUID, normalizeDep, normalizeProject, normalizeTask, readAllPages } from './apiUtils';
 import { PMDependencyPatch } from './dependencyApi';
 
 export interface CreateTemplateFromProjectParams {
@@ -302,31 +302,23 @@ export function createTemplateApi(sb: SupabaseClient) {
   ): Promise<PMProjectRow> {
     const { sourceProjectGUID, ownerGUID, templateName, templateDescription } = params;
 
-    // 1. Fetch source data in parallel
-    const [
-      sourceProjectRes,
-      tasksRes,
-      depsRes,
-      closureRes,
-      stagesRes,
-      settingsRes,
-    ] = await Promise.all([
+    // 1. Fetch source data in parallel (the tasks, links and closure in ALL pages: one request returns at most 1000 rows)
+    const [sourceProjectRes, sourceTasks, sourceDeps, sourceClosure, stagesRes, settingsRes] = await Promise.all([
       sb.from(projectTable).select('*').eq('rowGUID', sourceProjectGUID).single(),
-      sb
-        .from(projectTaskTable)
-        .select('*')
-        .eq('projectGUID', sourceProjectGUID)
-        .order('orderInList', { ascending: true }),
-      sb.from(projectTaskDependenciesTable).select('*').eq('projectGUID', sourceProjectGUID),
-      sb.from(projectTaskDependencyClosureTable).select('*').eq('projectGUID', sourceProjectGUID),
+      readAllPages<PMTaskRow>((from, to) =>
+        sb.from(projectTaskTable).select('*').eq('projectGUID', sourceProjectGUID).order('orderInList', { ascending: true }).order('rowGUID', { ascending: true }).range(from, to)
+      ),
+      readAllPages<PMTaskDependencyRow>((from, to) =>
+        sb.from(projectTaskDependenciesTable).select('*').eq('projectGUID', sourceProjectGUID).order('rowGUID', { ascending: true }).order('rowDependsOnGUID', { ascending: true }).range(from, to)
+      ),
+      readAllPages<PMTaskDependencyClosureRow>((from, to) =>
+        sb.from(projectTaskDependencyClosureTable).select('*').eq('projectGUID', sourceProjectGUID).order('ancestorGUID', { ascending: true }).order('descendantGUID', { ascending: true }).range(from, to)
+      ),
       sb.from(projectKanbanStageTable).select('*').eq('rowOwnerGUID', sourceProjectGUID),
       sb.from(projectUserSettingsTable).select('*').eq('rowOwnerGUID', sourceProjectGUID),
     ]);
 
     const sourceProject: PMProjectRow = check(sourceProjectRes);
-    const sourceTasks: PMTaskRow[] = check(tasksRes) || [];
-    const sourceDeps: PMTaskDependencyRow[] = check(depsRes) || [];
-    const sourceClosure: PMTaskDependencyClosureRow[] = check(closureRes) || [];
     const sourceStages: any[] = check(stagesRes) || [];
     const sourceSettings: any[] = check(settingsRes) || [];
 

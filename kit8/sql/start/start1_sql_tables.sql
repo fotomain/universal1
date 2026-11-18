@@ -57,6 +57,7 @@
 --   49. create_files.sql - FILE ATTACHMENTS (documentation/FILE_ATTACHMENT_WBS.html, way C; first slice): files_google_connection_table = the Google Drive connection of an organization (the encrypted refresh token; NO client can read it)
 --   50. create_chat.sql - CHAT (documentation/CHAT_WBS.html): chatObjectTable, chatThemeTable, chatMembersTable, chatMessagesTable
 --   51. create_project_readonly.sql - READ-ONLY PROJECT: no table (the switch is the key projectIsReadonly of project_table.rowJSON); the guard triggers are in start2_sql_code.sql
+--   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the twin columns sumForConsolidation of the four movement tables, the queue consolidation_dirty and the gap table consolidation_gap_table; the code is in start2_sql_code.sql
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -3936,6 +3937,58 @@ CREATE TABLE IF NOT EXISTS public."chatMessagesTable" (
 );
 
 CREATE INDEX IF NOT EXISTS "idx_chatMessages_theme_time" ON public."chatMessagesTable" ("rowParentGUID", "created_at" DESC);
+
+-- ===============================================================================================
+-- PART 52: create_consolidation.sql
+-- CONSOLIDATION (documentation/CONSOLIDATION_WBS.html). The organization has ONE currency in which the money of all its projects is added: organizationTable.rowJSON.currencyForConsolidation
+-- (OBLIGATORY, see start2). sumForConsolidation is the twin of sumForBudget on the register-like MOVEMENT tables; it is calculated by the database only (start2: statement triggers, the queue
+-- consolidation_dirty and the worker consolidation_process_dirty) and appears in the reports only - no document line, no task line, no form has it.
+--   project_status_movements         sumForConsolidation / vatForConsolidation / vatInCostForConsolidation (net, VAT, the part of the VAT that is cost - the two organization VAT switches choose at READ time)
+--   cash_account_ledger_movements    sumForConsolidation (WITH VAT, like its sumForBudget)
+--   partner_balance_movements        sumForConsolidation (WITH VAT)
+--   task_payment_plan_movements      sumForConsolidation (WITH VAT)
+--   consolidation_dirty              UNLOGGED queue, one row per project to (re)calculate; the nil UUID = "retry the gaps" (a rate arrived)
+--   consolidation_gap_table          a movement that could not be converted (no rate / no budget currency): its twin is 0 until the worker closes the gap; a Post is never refused because of it
+-- ===============================================================================================
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "sumForConsolidation"       NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "vatForConsolidation"       NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.project_status_movements ADD COLUMN IF NOT EXISTS "vatInCostForConsolidation" NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.cash_account_ledger_movements ADD COLUMN IF NOT EXISTS "sumForConsolidation" NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.partner_balance_movements ADD COLUMN IF NOT EXISTS "sumForConsolidation" NUMERIC(18,2) NOT NULL DEFAULT 0;
+ALTER TABLE public.task_payment_plan_movements ADD COLUMN IF NOT EXISTS "sumForConsolidation" NUMERIC(18,2) NOT NULL DEFAULT 0;
+
+CREATE UNLOGGED TABLE IF NOT EXISTS public.consolidation_dirty (
+  "rowProjectGUID"      UUID        NOT NULL,
+  "rowOrganizationGUID" TEXT,
+  "queuedAt"            TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  "reason"              TEXT,
+  "attempts"            INTEGER     NOT NULL DEFAULT 0,
+  "lastError"           TEXT,
+  PRIMARY KEY ("rowProjectGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_consolidation_dirty_queued ON public.consolidation_dirty ("queuedAt") WHERE "attempts" < 5;
+
+CREATE TABLE IF NOT EXISTS public.consolidation_gap_table (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOrganizationGUID" TEXT,
+  "rowProjectGUID"      UUID        NOT NULL,
+  "sourceTable"         TEXT        NOT NULL,
+  "sourceRowGUID"       UUID        NOT NULL,
+  "fromCurrency"        TEXT,
+  "toCurrency"          TEXT,
+  "rateType"            TEXT,
+  "periodDay"           DATE,
+  "reason"              TEXT        NOT NULL,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT consolidation_gap_source_uq UNIQUE ("sourceTable", "sourceRowGUID"),
+  CONSTRAINT consolidation_gap_reason_chk CHECK ("reason" IN ('noExchangeRate', 'noBudgetCurrency'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_consolidation_gap_project ON public.consolidation_gap_table ("rowProjectGUID");
+
+CREATE INDEX IF NOT EXISTS idx_consolidation_gap_org ON public.consolidation_gap_table ("rowOrganizationGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

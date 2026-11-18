@@ -425,6 +425,8 @@ export interface PMUxUiSettings {
   projectProgressLineColor?: string;
   /** Main view switch: Gantt chart, Kanban board, network view, versions or finances. Saved per user AND project (default 'showGanttChart'). */
   ganttVsNetworkView?: PMGanttVsNetworkView;
+  /** The task the user clicked last (saved per user AND project, view/project/useLastTask.ts): the dashboard scrolls to it when the project is opened again. null = none. */
+  lastTaskGUID?: string | null;
   /** PMNetworkView radio: network diagram (AON) or network schedule (AOA) (default 'networkDiagram'). */
   networkViewMode?: PMNetworkViewMode;
   /** PMNetworkDiagram variant (default 'cpmNodes'). */
@@ -531,6 +533,7 @@ export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSet
     criticalPathTaskColor: criticalPathTaskColorOf(u.criticalPathTaskColor),
     criticalPathColorHasPriorityOverTheCustomTaskColor: !!u.criticalPathColorHasPriorityOverTheCustomTaskColor,
     ganttVsNetworkView: pmMainViewOf(u.ganttVsNetworkView),
+    lastTaskGUID: typeof u.lastTaskGUID === 'string' && u.lastTaskGUID ? u.lastTaskGUID : null,
     networkViewMode: u.networkViewMode === 'networkSchedule' ? 'networkSchedule' : 'networkDiagram',
     networkDiagramVariant: u.networkDiagramVariant === 'compactNodes' ? 'compactNodes' : 'cpmNodes',
     networkScheduleVariant: u.networkScheduleVariant === 'timeScaled' ? 'timeScaled' : 'eventCircles',

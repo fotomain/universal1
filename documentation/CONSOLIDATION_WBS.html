@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Consolidation - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-top: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.warn { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .good { border-left: 4px solid var(--emerald); background: var(--emerald-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Consolidation</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#req">Request &rarr; answer</a></li><li><a href="#rules">Rules</a></li><li><a href="#flow">Flow</a></li><li><a href="#example">Example</a></li>
+    <li><a href="#projcur">1 Project currencies</a></li><li><a href="#orgcur">2 Organization setting</a></li><li><a href="#sums">3-4 The sum</a></li><li><a href="#hidden">5 Reports only</a></li>
+    <li><a href="#wbs">WBS</a></li><li><a href="#tests">Tests</a></li><li><a href="#open">Decisions &amp; limits</a></li><li><a href="#install">Install</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+  <section id="goal">
+    <h1>Consolidation</h1>
+    <p class="lead">Every project may have its own currencies. The organization has ONE more currency, the <b>currency for consolidation</b>, and every money amount that a report adds up across projects is also kept in that currency, in a new sum <code>sumForConsolidation</code> that lives next to <code>sumForBudget</code> and is calculated by the database alone.</p>
+    <p class="sub">BUILT 2026-11-17 (C1-C6 and C8; C7 and the parts listed in &ldquo;Built vs plan&rdquo; are NOT built) · SQL PART 52 (<code>start1_sql_tables.sql</code> tables, <code>start2_sql_code.sql</code> code, <code>start3_sql_pg_cron.sql</code> the tick) · modules <code>kit8/pm/reports/consolidation</code> (Monitor08), <code>kit8/catalog/organization/consolidation</code>, <code>kit8/catalog/organization/currencies</code> · Docker test <code>tests/100_consolidation.sql</code> (75 checks)</p>
+    <div class="card">
+      <h3 style="margin-top:0">The request (owner, 2026-11-17)</h3>
+      <ol class="steps">
+        <li>Make <b>all currencies editable for each project</b>.</li>
+        <li>An organization-only setting <code>currencyForConsolidation</code>. It must <b>consolidate the data of all projects</b>.</li>
+        <li><code>sumForConsolidation</code> must work <b>in parallel to <code>sumForBudget</code></b> and the other sums.</li>
+        <li><code>sumForConsolidation</code> must be <b>auto calculable</b>.</li>
+        <li><code>sumForConsolidation</code> is <b>not visible and not editable in the documents</b>; it appears <b>in the reports only</b>.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Improvement of 2026-11-17 (second round)</h3>
+      <ol class="steps">
+        <li><b>Q7 decided:</b> <code>currencyForConsolidation</code> is <b>obligatory</b>: consolidation is never off (sections 2, 3 and 5, decisions Q7 / Q12 changed).</li>
+        <li>Two new organization settings: <b>Include purchase VAT into consolidation</b> and <b>Include sale VAT into consolidation</b> (section 2, decision Q11).</li>
+      </ol>
+    </div>
+    <div class="card" id="built">
+      <h3 style="margin-top:0">Built vs plan (2026-11-17)</h3>
+      <ul class="steps">
+        <li><b>Simplification of section 3 (decided while reading the SQL):</b> the twin columns live ONLY on the four movement tables (<code>project_status_movements</code> with the three VAT parts, <code>cash_account_ledger_movements</code>, <code>partner_balance_movements</code>, <code>task_payment_plan_movements</code>). <code>project_status_month_turnover</code>, <code>monitor01_view</code>, <code>project_task_cost_total</code> and the ROI tables got NO twin: the report <code>consolidation_report</code> aggregates the movements (SECURITY INVOKER, the register is indexed by project / month / kind). One writer instead of six, no change of the Monitor01 worker.</li>
+        <li><b>Filled by statement triggers, not by the register functions:</b> an AFTER INSERT statement trigger per table calls <code>consolidation_apply</code> (set-based: ONE factor per distinct project + day, never a lookup per row); the cash ledger also has an AFTER UPDATE trigger (its rate recalculation); the partner register guard lets the apply pass.</li>
+        <li><b>Decided by the owner:</b> Q7 obligatory currency, Q11 purchase OFF = Cost basis. The other decisions Q1..Q6, Q8..Q10, Q12 were built with the recommended defaults. Q1 = <code>project_currency_guard</code> (a user cannot change the budget / accounting currency of a project that has posted documents; the SQL editor and the workers can).</li>
+        <li><b>Measured by hand</b> (Docker, Postgres 15, 100 000 movements in 1 000 distinct days, no script): the insert with the twin 9.1 s (about 2 s without it), <code>consolidation_rebuild</code> of the project 9.3 s (47 s with batches of 5 000: the batch repeats the factor of every day, so the batch is 50 000), <code>consolidation_verify</code> 2.2 s. A Post of one task (tens of rows) is not noticeable; BUDGET1 (4 604 plan rows posted) passes in 18 s.</li>
+        <li><b>NOT built:</b> C7 the ROI twins (Monitor02 / 03 all-project totals); the currency basis switch inside Monitor01 / 02 / 03 / 07 (only Monitor08 has it; <code>CurrencyBasisSelect</code> / <code>useCurrencyBasis</code> are ready in <code>reports/common</code>); a drill-down of a number, saved Views, realtime and a bench script for Monitor08; the rate of a day is read with the base currency of the database user (EUR for the workers: the same limit as the cash ledger).</li>
+      </ul>
+    </div>
+    <div class="note"><b>This reverses a rule of 2026-11-17 (same day).</b> Today the three currencies (<code>currencyForBudget</code>, <code>currencyForAccounting</code>, <code>currencyForContract</code>) are changed ONLY on the organization screen and the Project settings window shows them read only (<code>PMProjectBudgetsTab currenciesEditable = false</code>). Point 1 makes the project the owner of its currencies again; the organization keeps them as the <b>defaults of a new project</b> plus the existing "apply to all projects" window. KNOW_HOW.md (Organization scope row, currencies) is rewritten when this is built.</div>
+  </section>
+
+  <section id="req">
+    <h2>Request &rarr; answer</h2>
+    <p class="sub">One line per point; the sections below carry the detail.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Request</th><th>Answer in one sentence</th><th>Section</th></tr>
+      <tr><td>1</td><td>All currencies editable per project</td><td>The Budgets tab of Project settings makes the three currencies editable again; a change asks an approval window and recalculates THIS project; a change of the budget / accounting currency is refused while the project has posted documents (decision Q1).</td><td><a href="#projcur">1</a></td></tr>
+      <tr><td>2</td><td>Organization-only <code>currencyForConsolidation</code>, consolidates all projects</td><td>One key in <code>organizationTable.rowJSON</code> (NOT in <code>defaultProjectSettings</code>, so a project never inherits or sees it as its own), set by the administrator, <b>obligatory</b> (never empty, consolidation is never off); a new report <b>Monitor08 Consolidation</b> adds every project of the organization in that currency.</td><td><a href="#orgcur">2</a></td></tr>
+      <tr><td>3</td><td><code>sumForConsolidation</code> parallel to <code>sumForBudget</code></td><td>Every register / report table that has a <code>sumForBudget…</code> column gets a twin <code>sumForConsolidation…</code> (+ its VAT components), written in the same statement, same grain, same sign.</td><td><a href="#sums">3-4</a></td></tr>
+      <tr><td>4</td><td>Auto calculable</td><td>Calculated in the Post transaction; recalculated by a queue + worker (pg_cron) when the consolidation currency, the rate type, a project currency or a missing rate changes. Nobody types it, nobody presses a button (a "Refresh now" exists for databases without pg_cron).</td><td><a href="#sums">3-4</a></td></tr>
+      <tr><td>6</td><td>Organization switches <code>includePurchaseVAT</code> / <code>includeSaleVAT</code> into consolidation</td><td>Two organization booleans (stored as <code>consolidationIncludePurchaseVAT</code> / <code>consolidationIncludeSaleVAT</code>, default OFF). They decide at read time whether purchase-side and sale-side amounts are consolidated with VAT or without; the VAT components are stored, so a switch change needs no recalculation.</td><td><a href="#orgcur">2</a></td></tr>
+      <tr><td>5</td><td>Reports only</td><td>The column exists ONLY in the register and the report tables, never on a document line or a task line; no document form, list or Finances table has a field for it; the reports show it through a currency basis switch (Project currency | Consolidation currency) and in Monitor08.</td><td><a href="#hidden">5</a></td></tr>
+    </table></div>
+  </section>
+
+  <section id="rules">
+    <h2>Why it is needed, and the rules</h2>
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin-top:0">The problem point 1 creates</h3>
+        <p>Project A budgets in EUR, project B in USD. A report that adds the two (the footer of Monitor02, the totals of Monitor01 over "all projects", Monitor07 per partner) would add euros to dollars. Today the project currencies are the same inside an organization, so it never showed. Once they are free, <b>a sum over several projects is only meaningful in one currency</b>: that is the consolidation currency.</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Rules</h3>
+        <ol class="steps">
+          <li><b>Convert at the finest grain, add afterwards.</b> The conversion is made per movement (its own day); totals are sums of converted movements, never a conversion of a total.</li>
+          <li>Project currencies are never added to each other; a report that spans projects with different budget currencies is forced to the consolidation basis (or says "mixed").</li>
+          <li>Same shape as the budget sum: <b>net · VAT · VAT that is cost</b> are stored; what a report adds is chosen at read time by the two organization switches <code>consolidationIncludePurchaseVAT</code> / <code>consolidationIncludeSaleVAT</code> (section 2).</li>
+          <li><code>currencyForConsolidation</code> is <b>obligatory</b>: consolidation is never off, so a cross-project total always has a currency to be added in.</li>
+          <li>Only the database writes it. The client never sends it; the Post transaction and the worker are the only writers.</li>
+          <li>Posting is never refused because of consolidation (a reporting layer): a missing rate is a <b>gap</b> that the worker closes later.</li>
+          <li>Same currency = no conversion: when the budget currency of the project IS the consolidation currency, <code>sumForConsolidation = sumForBudget</code> exactly.</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section id="flow">
+    <h2>Flow</h2>
+    <p class="sub">The new parts are the green boxes. Documents and task lines stay as they are.</p>
+    <div class="card scroll">
+<svg viewBox="0 0 1040 330" width="100%" role="img" aria-label="Flow of sumForConsolidation">
+  <defs><marker id="ar" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#64748b"/></marker></defs>
+  <g font-size="13" fill="#0f172a">
+    <rect x="10" y="20" width="190" height="64" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="105" y="46" text-anchor="middle" font-weight="700">Document line / task line</text>
+    <text x="105" y="66" text-anchor="middle" fill="#64748b">sumForContract, sumForBudget</text>
+    <rect x="10" y="130" width="190" height="64" rx="10" fill="#f1f5f9" stroke="#cbd5e1"/>
+    <text x="105" y="156" text-anchor="middle" font-weight="700">Project currencies</text>
+    <text x="105" y="176" text-anchor="middle" fill="#64748b">editable per project (1)</text>
+    <rect x="10" y="240" width="190" height="64" rx="10" fill="#d1fae5" stroke="#059669"/>
+    <text x="105" y="266" text-anchor="middle" font-weight="700">Organization</text>
+    <text x="105" y="286" text-anchor="middle" fill="#334155">currencyForConsolidation (2)</text>
+
+    <rect x="270" y="60" width="200" height="90" rx="10" fill="#cffafe" stroke="#0891b2"/>
+    <text x="370" y="88" text-anchor="middle" font-weight="700">Post (one transaction)</text>
+    <text x="370" y="108" text-anchor="middle" fill="#334155">project_status_register_*</text>
+    <text x="370" y="128" text-anchor="middle" fill="#334155">consolidation_convert(...)</text>
+
+    <rect x="540" y="20" width="230" height="130" rx="10" fill="#d1fae5" stroke="#059669"/>
+    <text x="655" y="46" text-anchor="middle" font-weight="700">Register movements</text>
+    <text x="655" y="68" text-anchor="middle" fill="#334155">sumForBudget</text>
+    <text x="655" y="88" text-anchor="middle" font-weight="700" fill="#059669">+ sumForConsolidation (3)</text>
+    <text x="655" y="108" text-anchor="middle" fill="#334155">+ VAT components, same grain</text>
+    <text x="655" y="128" text-anchor="middle" fill="#64748b">turnover · monitor01_view · ledgers</text>
+
+    <rect x="540" y="190" width="230" height="114" rx="10" fill="#d1fae5" stroke="#059669"/>
+    <text x="655" y="216" text-anchor="middle" font-weight="700">Queue + worker (4)</text>
+    <text x="655" y="238" text-anchor="middle" fill="#334155">consolidation_dirty · pg_cron tick</text>
+    <text x="655" y="258" text-anchor="middle" fill="#334155">rebuild · gaps · verify</text>
+    <text x="655" y="278" text-anchor="middle" fill="#64748b">currency / rate / project change</text>
+
+    <rect x="830" y="60" width="200" height="90" rx="10" fill="#ede9fe" stroke="#7c3aed"/>
+    <text x="930" y="88" text-anchor="middle" font-weight="700">Reports only (5)</text>
+    <text x="930" y="108" text-anchor="middle" fill="#334155">Monitor08 Consolidation</text>
+    <text x="930" y="128" text-anchor="middle" fill="#334155">currency basis switch</text>
+  </g>
+  <g stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+    <path d="M200,52 L268,92"/><path d="M200,162 L268,120"/><path d="M200,272 C250,272 250,190 268,140"/>
+    <path d="M470,105 L538,85"/><path d="M655,190 L655,152"/><path d="M770,85 L828,100"/>
+  </g>
+</svg>
+    </div>
+  </section>
+
+  <section id="example">
+    <h2>Worked example</h2>
+    <p class="sub">Consolidation currency EUR, rate type Default. USD&rarr;EUR on 2026-11-10 = 0.92.</p>
+    <div class="card scroll"><table>
+      <tr><th>Project</th><th>Budget currency</th><th class="num">Used (budget currency)</th><th class="num">Used (consolidation, EUR)</th><th>How</th></tr>
+      <tr><td>A</td><td>EUR</td><td class="num">5,000.00 EUR</td><td class="num">5,000.00</td><td>same currency: copy, no rate</td></tr>
+      <tr><td>B</td><td>USD</td><td class="num">10,000.00 USD</td><td class="num">9,200.00</td><td><code>fx_convert(10000, 'USD', 'EUR', 'Default', 2026-11-10)</code></td></tr>
+      <tr><th colspan="2">Monitor08 total</th><th class="num">not added (15,000 would be wrong)</th><th class="num">14,200.00 EUR</th><th></th></tr>
+    </table></div>
+    <div class="good">The total of a report over A and B is 14,200.00 EUR in the consolidation currency; in the project currency basis the report shows each project in its own currency and refuses to add them.</div>
+  </section>
+
+  <section id="projcur">
+    <h2>1 &middot; Currencies editable for each project</h2>
+    <h3>What changes</h3>
+    <ul class="steps">
+      <li>Project settings &rarr; Budgets &rarr; Main: <code>currencyForBudget</code>, <code>currencyForAccounting</code>, <code>currencyForContract</code> are editable fields again (<code>PMProjectBudgetsTab</code>: <code>currenciesEditable</code> default becomes <code>true</code>; the read only message <code>CURRENCIES_ORGANIZATION_MESSAGE</code> goes away). The two rate types per project (<code>exchangeRateTypeForAccounting / ForBudget</code>) stay as they are.</li>
+      <li>The organization screen keeps the three currencies as <b>defaults</b>: a new project starts from them; the existing window "Change the currencies of the organization?" (Yes = recalculate all projects, No = save only, Cancel) stays, and its text says that Yes overwrites the own currencies of the projects.</li>
+      <li>A project whose currencies differ from the organization's shows a small mark "own currencies" in the settings window (information only).</li>
+    </ul>
+    <h3>A change of ONE project</h3>
+    <ol class="steps">
+      <li>The user edits a currency and presses Save. An approval window (<code>askPMApprove</code>) lists the change: <b>Yes</b> = save and recalculate this project; <b>Cancel</b> = save nothing. There is no "save only" here: old lines in the old currency under a new project currency would be wrong sums.</li>
+      <li>Recalculate = the algorithm of the organization run for ONE project: the core of <code>recalculateOrganizationProjects.ts</code> is split into <code>recalculateProject(env, project)</code> (the organization loop calls it for each project; no behavior change), the task lines are converted again (<code>recalculateLineFx</code>), the posted tasks are posted again (<code>runTaskPost</code>), the cost totals are refreshed, then the project is queued for consolidation (section 3-4).</li>
+      <li>A read only project is refused (only the read only switch changes).</li>
+      <li>Right: the project manager (update right on <code>project_table</code>), the same as other project settings.</li>
+    </ol>
+    <div class="note"><b>The one real danger (decision Q1).</b> The organization recalculation re-posts the tasks but does <b>not</b> touch the lines of posted documents (invoices, orders, receipts, fact input, time sheets, payment facts): their <code>sumForBudget</code> / <code>sumForAccounting</code> were frozen in the old currency. After a change of the budget or accounting currency the register of that project would hold old and new currencies together. Recommended: a database guard (<code>project_currency_guard</code>, BEFORE UPDATE on <code>project_table</code>) refuses a change of <code>currencyForBudget</code> / <code>currencyForAccounting</code> while the project has any posted document and says how many of which kind ("unpost them first"); <code>currencyForContract</code> (only the default of a new line) is always free. A later package can add "rebuild the posted documents" (touch each line so the line trigger recalculates, then re-register).</div>
+  </section>
+
+  <section id="orgcur">
+    <h2>2 &middot; The organization setting</h2>
+    <div class="card scroll"><table>
+      <tr><th>Key (<code>organizationTable.rowJSON</code>)</th><th>Meaning</th><th>Default</th></tr>
+      <tr><td><code>currencyForConsolidation</code></td><td>ISO 4217 code of the one currency in which all projects are added. Top level of the row, NOT inside <code>defaultProjectSettings</code>: a project does not copy it and its settings window never shows it.</td><td><b>OBLIGATORY</b> (Q7): never empty, never unknown. A new organization gets one at creation; an existing one is filled once by the install (Q12).</td></tr>
+      <tr><td><code>exchangeRateTypeForConsolidation</code></td><td>Rate type of <code>currencyExchangeRateTable</code> used for the conversion (Q4).</td><td><code>Default</code></td></tr>
+      <tr><td><code>consolidationIncludePurchaseVAT</code></td><td>Switch <b>Include purchase VAT into consolidation</b> (your <code>includePurchaseVAT</code>; prefixed so it never clashes with the project ROI keys). It decides what the consolidated amount of everything on the <b>purchase side</b> contains: ON = net + ALL VAT (With VAT); OFF = the Cost basis (net + only the part of the VAT that is not recoverable, the IFRS cost; with fully recoverable VAT this is the net). See Q11.</td><td>OFF</td></tr>
+      <tr><td><code>consolidationIncludeSaleVAT</code></td><td>Switch <b>Include sale VAT into consolidation</b> (your <code>includeSaleVAT</code>). Same for the <b>sale side</b>: ON = net + VAT of the customer invoices; OFF = net (the VAT of a sale is never cost).</td><td>OFF</td></tr>
+      <tr><td><code>consolidationState</code></td><td>Written by the database only: <code>ready</code> · <code>recalculating</code> · <code>gaps</code> (some movements wait for a rate). Reports read it for their badge. There is no "off": consolidation always runs.</td><td><code>ready</code></td></tr>
+    </table></div>
+    <div class="card">
+      <h3 style="margin-top:0">The two VAT switches</h3>
+      <ul class="steps">
+        <li><b>Purchase side</b> = the plan, order, receipt, fact and vendor invoice rows of Time / Material / Expense. <b>Sale side</b> = the customer invoice rows (kind <code>sold</code>) and the Revenue lines of the plan and the fact input.</li>
+        <li>The switches change only what a report ADDS, never what is stored: the twins keep the three components (<code>sumForConsolidation</code> = net, <code>vatForConsolidation</code>, <code>vatInCostForConsolidation</code>) and the database function <code>consolidation_amount(net, vat, vat_in_cost, side)</code> (the sibling of <code>vat_basis_amount</code>) picks the amount from the two switches. So <b>a change of a switch needs no recalculation</b>: it is saved at once and every report shows the new figures.</li>
+        <li>Consolidation is ONE number for the organization, so in the consolidation currency basis the two organization switches <b>replace</b> the VAT basis selector of the report (the selector shows "set by the organization"). In the project currency basis the VAT basis selector works as before.</li>
+        <li>Rows that are already <b>with VAT by their nature</b> are outside the switches: payments (<code>task_payment_plan_movements</code>), the cash ledger and the partner balance store the gross amount; their twin is the gross amount converted, with no VAT components.</li>
+        <li>ROI (phase 2) uses the same two organization switches for the all-project totals; the project ROI switches (<code>projectROIInclude…</code>) stay for the ROI of one project.</li>
+        <li>The block says in words what each switch does, and every report header that shows the consolidation basis prints the two states ("VAT: purchase without, sale without").</li>
+      </ul>
+    </div>
+    <h3>The screen</h3>
+    <ul class="steps">
+      <li>Organization edit gets a block <b>Consolidation</b> (next to the currencies, outside the project defaults): a currency select (<b>no Clear: the field is obligatory</b>, a save without a currency is refused with a message), a rate type select, the two VAT switches, the state badge, the number of gaps, a "Refresh now" button. Visible and editable for the <b>administrator</b> only (<code>organization_is_admin</code>); the others do not see the block.</li>
+      <li>A change of the currency or of the rate type asks an approval window (the VAT switches do not: see above): <b>Yes</b> = save and recalculate every project of the organization (a database job, below); <b>Cancel</b> = nothing. There is no "No": half of the book in the old currency would be wrong.</li>
+      <li>Pure rules in <code>kit8/catalog/organization/consolidation/consolidationModel.ts</code> (codes, changed?, words of the window) like <code>organizationCurrenciesModel.ts</code>; tested without a screen.</li>
+    </ul>
+    <h3>In SQL</h3>
+    <ul class="steps">
+      <li><code>fx_consolidation_currency()</code> and <code>fx_consolidation_rate_type()</code>: like <code>fx_base_currency()</code>, they read the row of <code>organization_of_current_user()</code>. A variant with the organization as an argument serves the worker (no user).</li>
+      <li><b>Obligatory in the database too</b> (Q7): a trigger on <code>organizationTable</code> refuses a row whose <code>currencyForConsolidation</code> is empty, is not a code of <code>currencyTable</code>, or whose rate type is empty, for every writer except the install backfill; <code>organization_for_email</code> (the organization made at the first sign in) sets it at creation to <b>USD</b> (owner decision 2026-11-17; the budget currency of a new organization is USD too). Any other insert that sends none gets the default of the trigger (budget currency of its default project settings, else the base currency, else EUR). The two switches are booleans, a missing value is read as OFF (<code>=== true</code> in TS, <code>vendor_project_setting_on</code> style in SQL).</li>
+      <li>A trigger on <code>organizationTable</code> (change of the currency or the rate type, not of the switches) writes one row per project of the organization into <code>consolidation_dirty</code> and sets <code>consolidationState = 'recalculating'</code>. Only the administrator can change the row (the organization guard of PART 45); the keys <code>consolidationState</code> are protected from a client write by the same trigger.</li>
+    </ul>
+  </section>
+
+  <section id="sums">
+    <h2>3 &amp; 4 &middot; <code>sumForConsolidation</code>, parallel and automatic</h2>
+    <h3>How it is calculated</h3>
+    <div class="card">
+      <p><code>consolidation_convert(p_amount, p_project, p_day)</code> =</p>
+      <ul class="steps">
+        <li>source = the <b>budget sum</b> of the movement and the <code>currencyForBudget</code> of its project (decision Q2: every table already has the budget sum and the project, so one rule fits all of them; converting from the contract sum would need a currency column in each table);</li>
+        <li>target = <code>currencyForConsolidation</code> of the organization of the project, rate type <code>exchangeRateTypeForConsolidation</code>;</li>
+        <li>day = the day of the movement (<code>periodDay</code> / the date of <code>rowTurnoverMoment</code> / the document date) - the same day the budget sum was made;</li>
+        <li>same currency &rarr; the amount itself; otherwise <code>fx_convert(...)</code> (the existing D365-style pair rate with the "latest rate on or before the day" rule, rounded to the decimals of the target currency); no rate &rarr; a <b>gap</b> (below).</li>
+      </ul>
+      <p>The same function converts the VAT and the VAT that is cost, so the three components keep <code>net + VAT</code> consistent in the consolidation currency.</p>
+    </div>
+    <h3>Where the column lives (parallel to <code>sumForBudget</code>)</h3>
+    <p class="sub">Rule: a table gets a twin when it is a <b>register or a report table</b> (written by Post / a worker, read by reports). A table that holds the lines the user types does not (section 5). The exact list is made at C3 by scanning the <code>sumForBudget…</code> columns; a Jest test (<code>consolidationTwinsSql.test.ts</code>) fails when a table of the first group has one without its twin.</p>
+    <div class="card scroll"><table>
+      <tr><th>Group</th><th>Table</th><th>New columns (twins)</th><th>Written by</th></tr>
+      <tr><td rowspan="3">Register (cost / revenue)</td><td><code>project_status_movements</code></td><td><code>sumForConsolidation</code>, <code>vatForConsolidation</code>, <code>vatInCostForConsolidation</code></td><td><code>project_status_register_plan / _fact / _order / _receipt / _invoice / _customer_invoice</code> (+ the time sheet register), in the Post transaction</td></tr>
+      <tr><td><code>project_status_month_turnover</code></td><td><code>sumForConsolidationPlan / Used / Ordered / Received / Invoiced / Sold</code> (+ the VAT components where the budget column has them)</td><td>the turnover triggers (sum of the movements, never a new conversion)</td></tr>
+      <tr><td><code>monitor01_view</code> · <code>project_task_cost_total</code></td><td><code>sumForConsolidation</code> · <code>sumForConsolidationInvoiced</code> / <code>…Customer</code> · <code>costTotalForConsolidation</code></td><td><code>monitor01_apply</code> (both definitions of <code>monitor01_fresh_rows</code>, PART 25 and 29) · <code>project_cost_apply</code></td></tr>
+      <tr><td>Money</td><td><code>cash_account_ledger_movements</code> · <code>_rests</code></td><td><code>sumForConsolidation</code> (+ sum kind <code>consolidation</code> in the rests)</td><td><code>cash_ledger_fresh</code> (the one place that converts; a rate change already rebuilds it)</td></tr>
+      <tr><td>Partners</td><td><code>partner_balance_movements</code> · <code>partner_balance_ledger</code></td><td><code>sumForConsolidation</code> (signed like the others; WITH VAT like the rest of these tables, outside the two VAT switches)</td><td>the register triggers of PART 39</td></tr>
+      <tr><td>Payments plan</td><td><code>task_payment_plan_movements</code></td><td><code>sumForConsolidation</code> (WITH VAT, outside the two VAT switches)</td><td><code>post_task_payment_plan</code></td></tr>
+      <tr><td>ROI (phase 2)</td><td><code>project_status_roi_task_month</code> · <code>project_status_month_totals</code></td><td>the consolidation twins of the money components (ROI is a ratio and needs no currency inside ONE project; only the all-projects totals do)</td><td><code>roi_apply</code></td></tr>
+      <tr><td><b>NOT stored</b></td><td>vendor / customer invoice lines, purchase order lines, product receipt lines, fact input lines, time sheet lines, payment fact lines, payment plan lines, task lines, <code>task_line_plan_movements</code> / <code>_timeline</code></td><td>none</td><td>-</td></tr>
+    </table></div>
+    <h3>Auto calculation (point 4)</h3>
+    <div class="card scroll"><table>
+      <tr><th>Event</th><th>What happens</th></tr>
+      <tr><td>Post / Unpost of any document</td><td>The register function writes the movement WITH its consolidation sum in the same statement (Unpost deletes it with the movement). Frozen at Post like the budget sum (decision Q3).</td></tr>
+      <tr><td>Consolidation currency or rate type changes</td><td>Trigger on the organization row queues every project &rarr; worker recalculates the consolidation columns of all register / report tables, project by project; state <code>recalculating</code> then <code>ready</code>.</td></tr>
+      <tr><td>A project currency changes (point 1)</td><td>The recalculation of that project re-registers it; the trigger on <code>project_table</code> (currency keys) queues the project.</td></tr>
+      <tr><td>A rate is missing at Post</td><td>The movement is written with 0 and one row in <code>consolidation_gap_table</code> (movement, from, to, rate type, day, reason <code>noExchangeRate</code> / <code>noBudgetCurrency</code>; there is no "no consolidation currency" reason: it is obligatory); Post goes through (decision Q5). State <code>gaps</code>, reports show the number.</td></tr>
+      <tr><td>The missing rate is entered (ECB seed, a user)</td><td>A trigger on <code>currencyExchangeRateTable</code> (the pattern of <code>trg_cash_ledger_rate</code>: it does nothing while there are no gaps) wakes the worker for the gaps of that currency; the gap closes, the sums are filled.</td></tr>
+      <tr><td>Anything else (safety net)</td><td>pg_cron job <code>consolidation_tick</code> (10 s, <code>start3_sql_pg_cron.sql</code>) calls <code>consolidation_process_dirty()</code>; the button "Refresh now" = <code>consolidation_refresh_now(org)</code> works without pg_cron, like "Refresh rests" of the money accounts.</td></tr>
+    </table></div>
+    <h3>The pieces in SQL (PART 52)</h3>
+    <ul class="steps">
+      <li><b>start1</b>: the twin columns (<code>ADD COLUMN IF NOT EXISTS … NUMERIC(18,2) NOT NULL DEFAULT 0</code>), <code>consolidation_dirty</code> (UNLOGGED queue, one row per project, attempts / lastError, like <code>monitor01_dirty</code>), <code>consolidation_gap_table</code>.</li>
+      <li><b>start2</b>: <code>fx_consolidation_*</code>, <code>consolidation_convert</code>, <code>consolidation_convert_vat</code>, <code>consolidation_amount(net, vat, vat_in_cost, side)</code> (side = <code>sale</code> for kind <code>sold</code> and Revenue lines, else <code>purchase</code>; reads the two organization switches), the guard trigger of the obligatory currency; the changes of the register functions; the worker <code>consolidation_process_dirty()</code> (a project per call in batches, one set-based <code>UPDATE … FROM</code> with a small temp table of rates <b>per (currency, day)</b>, not one rate lookup per row - the lesson of the cash ledger); <code>consolidation_rebuild(project)</code> / <code>consolidation_rebuild_org()</code>; <code>consolidation_refresh_now(org)</code>; <code>consolidation_verify(org)</code> (recomputes and compares, a maintenance function without an owner filter like <code>roi_verify</code>); the triggers; grants; the matrix entry for the new tables in <code>permission_matrix.py</code> (read for those who read the register, no client write); a backfill of the existing movements, queued, not done in the install transaction.</li>
+      <li><b>start3</b>: the job <code>consolidation_tick</code>. <b>delete_sql_structure.sql</b>: drops of PART 52. <b>start4 / start5</b>: nothing.</li>
+    </ul>
+  </section>
+
+  <section id="hidden">
+    <h2>5 &middot; Not visible and not editable in the documents; reports only</h2>
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin-top:0">Documents</h3>
+        <ul class="steps">
+          <li>No table of the "NOT stored" group has the column, so a document form, a list, the Finances table, a ReusableTable "Fill all lines", a file import or a template can neither show nor carry it. There is nothing to hide, so nothing can leak by a forgotten column.</li>
+          <li>The register tables are written by <code>SECURITY DEFINER</code> functions only (as today): a client has SELECT, no insert / update / delete; a client value would be overwritten anyway.</li>
+          <li>A test (<code>consolidationNotInDocumentsSql.test.ts</code>) lists the document tables and fails if one gets a <code>…Consolidation</code> column; another (<code>consolidationNotInUi.test.ts</code>) greps the document and task-line column files.</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Reports</h3>
+        <ul class="steps">
+          <li><b>Currency basis</b> next to the VAT basis: <code>CurrencyBasisSelect</code> + <code>useCurrencyBasis</code> (<code>kit8/pm/reports/common</code>, kept in AsyncStorage like <code>useVatBasis</code>): <b>Project currency</b> | <b>Consolidation currency</b>. The amounts of the report switch; the columns stay the same (no doubled column set). The header says the currency ("Amounts in EUR (consolidation)").</li>
+          <li>With several projects of different budget currencies in the scope the report is <b>forced</b> to the consolidation basis. Consolidation is never off (the currency is obligatory), so there is always a correct total to show; a project currency basis over several currencies shows the projects side by side and no total.</li>
+          <li>In the consolidation basis the VAT basis selector is disabled and shows "set by the organization": the two switches of section 2 decide.</li>
+          <li>Used by Monitor01 (strip, totals, grid), Monitor02 / 03 (all-project totals, phase 2 with the ROI twins), Monitor07 (partner balance across contracts).</li>
+          <li>The Gantt tree column <code>costTotalForBudget</code> is a project view, not a report: it stays in the project currency.</li>
+        </ul>
+      </div>
+    </div>
+    <h3>New report <b>Monitor08 Consolidation</b> (Drawer &rarr; Reports)</h3>
+    <ul class="steps">
+      <li>Rows = projects of the organization (a row per project; the top row = the total), optional second level = month; columns = Budget (plan) · Ordered · Received · Used · Vendor Invoice · Customer Invoice · Cash in · Cash out, all in the consolidation currency, VAT basis switch as everywhere, filters = period, project selection (default all), genus.</li>
+      <li>Shows only the projects the user may read (the existing RLS / <code>perm_projects</code>): a member sees the consolidation of his own projects, the administrator that of the organization. No new permission profile.</li>
+      <li>A badge: Live / Recalculating (a progress count) / N gaps with a drill-down list of the movements without a rate; a double click on a number opens its movements (the drill-down of Monitor01).</li>
+      <li>Built on the shared layer <code>kit8/pm/reports/common</code> (data hook, filter bar, formats, age badge) and the report registry; Views (save / restore) work as in Monitor01.</li>
+    </ul>
+  </section>
+
+  <section id="wbs">
+    <h2>WBS</h2>
+    <p class="sub">Work packages in the order they should be built. Each package: code + tests + README in the same round. State: <span class="pill yes">built</span> except C7 and the parts named in &ldquo;Built vs plan&rdquo;.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Work package</th><th>Where</th><th>Test</th><th>Size</th></tr>
+      <tr><td>C1</td><td>Project currencies editable: Budgets tab, approval window, <code>recalculateProject</code> split out, guard Q1 (<code>project_currency_guard</code>), texts of the organization window</td><td><code>PMProjectBudgetsTab</code>, <code>kit8/catalog/organization/currencies</code>, SQL PART 52 (guard)</td><td>Jest <code>projectCurrencies*</code>, Docker <code>tests/100</code> (guard)</td><td>M</td></tr>
+      <tr><td>C2</td><td>Organization setting: block Consolidation (obligatory currency, rate type, the two VAT switches), model, approval window, <code>fx_consolidation_*</code>, guard trigger + one-time fill of old organizations (Q12), state key</td><td><code>kit8/catalog/organization/consolidation</code>, <code>OrganizationEdit</code></td><td>Jest <code>consolidationModel</code>, Docker</td><td>S</td></tr>
+      <tr><td>C3</td><td>Columns + <code>consolidation_convert</code> + <code>consolidation_amount</code> (the VAT switches) + the register writers (Post transaction), turnover, <code>monitor01_apply</code>, cost total, ledgers</td><td>SQL PART 52 start1 + start2</td><td>Docker <code>tests/100</code>, <code>consolidationTwinsSql.test.ts</code></td><td>L</td></tr>
+      <tr><td>C4</td><td>Queue, worker, rebuild, gaps, rate trigger, refresh now, verify, backfill, pg_cron tick</td><td>SQL PART 52 + <code>start3_sql_pg_cron.sql</code></td><td>Docker, <code>test_cron.sh</code>, <code>bench_consolidation.sh</code></td><td>L</td></tr>
+      <tr><td>C5</td><td>Monitor08 report: model, api, dashboard, table, badge, drill-down, route, Drawer item</td><td><code>kit8/pm/reports/consolidation</code>, <code>app/pm/reports/monitor08</code></td><td>Jest <code>__tests__/pm/reports/consolidation</code></td><td>L</td></tr>
+      <tr><td>C6</td><td>Currency basis switch in the common report layer and in Monitor01 / 07 (Monitor02 / 03 after the ROI twins)</td><td><code>kit8/pm/reports/common</code>, <code>monitor01</code>, <code>partner_balance</code></td><td>Jest, Docker</td><td>M</td></tr>
+      <tr><td>C7</td><td>ROI twins (phase 2): consolidated all-project totals of Monitor02 / 03</td><td>SQL PART 33 / 34 tables, <code>roi_apply</code></td><td>Docker <code>tests/92</code> + 100</td><td>M</td></tr>
+      <tr><td>C8</td><td>README, KNOW_HOW.md (feature row, the currencies rule, pitfalls), delete file, start3 text, the speed test</td><td>docs</td><td>numbering test of the delete file</td><td>S</td></tr>
+    </table></div>
+    <p class="sub">C1 and C2 can ship before the rest (they change settings only and need the guard / state key). C3 and C4 ship together. C5 / C6 need C3 + C4.</p>
+  </section>
+
+  <section id="tests">
+    <h2>Tests and measurements</h2>
+    <ul class="steps">
+      <li><b>Docker <code>tests/100_consolidation.sql</code></b> (one transaction, rolled back): same currency copies the sum; USD&rarr;EUR example of this page; Post writes the twin in the same transaction; Unpost removes it; two projects in two currencies add up to the golden 14,200.00; the VAT components follow; the four combinations of the two VAT switches give the golden amounts (purchase / sale, with and without a non-recoverable part) and a switch change needs no recalculation; the sale switch never moves a purchase row and the other way round; payments, cash and partner balance ignore the switches; an empty / unknown / missing consolidation currency or rate type is refused by the guard; a new organization has one; the old-organization fill; a missing rate = a gap + Post still works, the rate entered later closes it; consolidation currency changed = every project queued, worker fills, state <code>ready</code>; the project currency guard (Q1) refuses and names the document kinds; <code>consolidation_verify</code> = 0 differences; a client cannot write the columns; a member sees only his projects in the report read; no document table has a consolidation column.</li>
+      <li><b><code>test_cron.sh</code></b>: the job <code>consolidation_tick</code> drains the queue by itself; delete unschedules.</li>
+      <li><b><code>bench_consolidation.sh N</code></b>: rebuild of an organization with N movements (10 000 / 100 000), a Post of 200 lines (must stay in the Post budget of the other documents), the rate-per-(currency, day) cache. Targets are set after the first measurement, not guessed.</li>
+      <li><b>Jest</b>: models, approval windows, <code>CurrencyBasisSelect</code>, Monitor08 (STABLE <code>useSupabase</code> mock, see KNOW_HOW section 7), the "not in documents" greps, the SQL file tests (names, the PART 52 mirror in start1 / start2, the delete file numbering).</li>
+      <li>Not testable here: the user's Supabase and the first real tick on it (as for the other workers).</li>
+    </ul>
+  </section>
+
+  <section id="open">
+    <h2>Decisions &amp; limits</h2>
+    <p class="sub">Each question carries a recommended default; the build follows it unless the owner answers otherwise.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Question</th><th>Recommended default</th><th>Alternative</th></tr>
+      <tr><td>Q1</td><td>A project changes its budget / accounting currency while it has posted documents.</td><td>Refuse with the list of kinds and counts (guard in SQL). Contract currency always free.</td><td>Allow and leave old sums (mixed project); or build "rebuild the posted documents" (phase 3).</td></tr>
+      <tr><td>Q2</td><td>Source of the consolidation sum.</td><td>From the budget sum + the budget currency of the project, one rule for all tables.</td><td>From the contract sum (less rounding drift, needs a currency column in each table).</td></tr>
+      <tr><td>Q3</td><td>A rate edited later: do posted consolidation sums move?</td><td>No: frozen at Post, like the budget sum. "Refresh now" / a consolidation currency change recompute.</td><td>Float with every rate change (the way of the cash ledger; heavier, history not stable).</td></tr>
+      <tr><td>Q4</td><td>Rate type of the consolidation.</td><td>Organization setting, default <code>Default</code> (the accounting rate type).</td><td>Fixed <code>Budget</code>; or a new type <code>Consolidation</code> seeded.</td></tr>
+      <tr><td>Q5</td><td>No rate for a movement.</td><td>Post allowed; gap + retry; the report shows the count.</td><td>Refuse Post (the way of the time sheet).</td></tr>
+      <tr><td>Q6</td><td>How the reports show it.</td><td>A currency basis switch + Monitor08.</td><td>An extra group of columns "Consolidation" in Monitor01.</td></tr>
+      <tr><td>Q7</td><td>An organization with no consolidation currency. <b>DECIDED by the owner 2026-11-17: <code>currencyForConsolidation</code> is obligatory.</b></td><td>Obligatory in the screen (no Clear), in the database (guard trigger) and at creation (<code>organization_for_email</code>). Consolidation is never off: no "off" state, no hidden switch, no "mixed" total.</td><td>(was: feature OFF when empty - dropped)</td></tr>
+      <tr><td>Q11</td><td>What "VAT not included" means for the PURCHASE side (the sale side has no doubt: net). <b>DECIDED by the owner 2026-11-17: OK, the Cost basis.</b></td><td>OFF = the Cost basis: net + the part of the VAT that is not recoverable (IFRS: that part IS cost). With the default fully recoverable VAT this equals net, so nothing changes for most organizations. ON = With VAT.</td><td>OFF = pure net, whatever the recoverable share (literal reading; understates cost where VAT is not recoverable).</td></tr>
+      <tr><td>Q12</td><td>The currency of an EXISTING organization at the install (it has none yet, but it is obligatory).</td><td>The install fills it once: <code>defaultProjectSettings.currencyForBudget</code> if set, else <code>baseCurrency</code>, else EUR. Rate type <code>Default</code>, both VAT switches OFF. The administrator sees it in Organization edit and can change it (approval window).</td><td>Block the organization (and its Post) until the administrator picks one - rejected: it would stop working installations.</td></tr>
+      <tr><td>Q8</td><td>Change of the consolidation currency.</td><td>Yes / Cancel only, recalculates all projects (database job).</td><td>"Only new data" - rejected: a book in two currencies.</td></tr>
+      <tr><td>Q9</td><td>Which tables get a twin.</td><td>Register / report tables only (section 3).</td><td>Also the document lines (rejected by point 5).</td></tr>
+      <tr><td>Q10</td><td>ROI in phase 1.</td><td>Not in phase 1 (C7): ROI inside one project needs no currency.</td><td>Do it with C3.</td></tr>
+    </table></div>
+    <h3>Limits (NOT built, NOT promised)</h3>
+    <ul class="steps">
+      <li>Financial statement translation of IAS 21 / ASC 830 (closing rate for the balance, average rate for the result, translation reserve). Here: ONE rate per movement day.</li>
+      <li>Elimination of intercompany transactions (projects or legal entities of the same organization that trade with each other).</li>
+      <li>More than one consolidation currency, a consolidation per legal entity, a consolidation across several organizations.</li>
+      <li>A consolidated Gantt / project cost tree; the tree stays in the project currency.</li>
+      <li>Changing the currency of an old posted document line (Q1 alternative).</li>
+    </ul>
+  </section>
+
+  <section id="install">
+    <h2>Install (when built)</h2>
+    <ol class="steps">
+      <li>Run <code>start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> in the Supabase SQL Editor (PART 52), then <code>start3_sql_pg_cron.sql</code> (the new job). <code>start4</code> is not needed.</li>
+      <li>No <code>.env</code> change. Reload the app. As administrator: Organization edit &rarr; Consolidation &rarr; check the currency the install filled (obligatory), set the two VAT switches (default OFF); wait for the badge <code>ready</code>; open Drawer &rarr; Reports &rarr; Monitor08.</li>
+      <li>Not needed now: this page is the plan, nothing runs yet.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

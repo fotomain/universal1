@@ -36,6 +36,9 @@ export default function SignInScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  // ONE sign-in at a time: while any way of signing in works (Google, Microsoft, the email code being sent / verified, the password), every other button and input is disabled
+  const [otpBusy, setOtpBusy] = useState(false);
+  const busy = googleLoading || microsoftLoading || loading || otpBusy;
   // Email sign-in: one-time code (Supabase OTP, default) or the old email + password
   const [emailMode, setEmailMode] = useState<'otp' | 'password'>('otp');
 
@@ -72,6 +75,7 @@ export default function SignInScreen() {
   }, [googleUser, returnTo, dispatch]);
 
   const handleEmailSignIn = async () => {
+    if (busy) return;
     if (!email || !password) {
       Alert.alert('Error', 'Please fill in both email and password.');
       return;
@@ -144,7 +148,7 @@ export default function SignInScreen() {
           {googleLoading ? (
             <ActivityIndicatorCircleApp />
           ) : (
-            <SignInWithGoogleButton onPress={signInWithGoogle}>
+            <SignInWithGoogleButton onPress={signInWithGoogle} disabled={busy}>
               {t('screens.signInWithGoogle')}
             </SignInWithGoogleButton>
           )}
@@ -154,7 +158,7 @@ export default function SignInScreen() {
           {microsoftLoading ? (
             <ActivityIndicatorCircleApp />
           ) : (
-            <SignInWithMicrosoftButton onPress={signInWithMicrosoft}>
+            <SignInWithMicrosoftButton onPress={signInWithMicrosoft} disabled={busy}>
               {t('screens.signInWithMicrosoft')}
             </SignInWithMicrosoftButton>
           )}
@@ -168,7 +172,7 @@ export default function SignInScreen() {
         <Text style={[styles.orText, { color: theme.colors.onSurfaceVariant }]}>{t('screens.or')}</Text>
 
         {emailMode === 'otp' ? (
-          <SignInWithEmailOtp onSignedIn={leaveToReturnTo} />
+          <SignInWithEmailOtp onSignedIn={leaveToReturnTo} disabled={googleLoading || microsoftLoading || loading} onBusyChange={setOtpBusy} />
         ) : (
           <>
             <Text variant="titleMedium" style={[styles.sectionTitle, { color: theme.colors.onSurface }]}>
@@ -183,6 +187,7 @@ export default function SignInScreen() {
               autoCapitalize="none"
               keyboardType="email-address"
               inputMode="nativePaper"
+              disabled={busy}
             />
 
             <TextInputApp
@@ -192,6 +197,7 @@ export default function SignInScreen() {
               placeholder="Password"
               secureTextEntry
               inputMode="nativePaper"
+              disabled={busy}
             />
 
             <View style={styles.buttonWrapper}>
@@ -200,6 +206,7 @@ export default function SignInScreen() {
               ) : (
                 <ButtonPrimaryApp 
                   onPress={handleEmailSignIn} 
+                  disabled={busy}
                   color={theme.colors.primary}
                   style={{ marginTop: 8 }}
                 >
@@ -210,6 +217,7 @@ export default function SignInScreen() {
 
             <ButtonTextApp
               testID="signin-forgot-password"
+              disabled={busy}
               onPress={() => router.push({ pathname: '/user/forgotpassword', params: { email, returnTo } } as any)}
             >
               {t('screens.forgotPassword')}
@@ -219,6 +227,7 @@ export default function SignInScreen() {
 
         <ButtonTextApp
           testID="signin-toggle-email-mode"
+          disabled={busy}
           onPress={() => setEmailMode(emailMode === 'otp' ? 'password' : 'otp')}
           style={{ marginTop: 8 }}
         >

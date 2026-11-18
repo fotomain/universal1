@@ -8,6 +8,8 @@ import { SystemMetaData } from '../../redux/SystemMetaData';
 import { useRealtimeEntity } from '../../redux/reusable/useRealtimeEntity';
 import CurrencyRealtimeBadge from '../currency/CurrencyRealtimeBadge';
 import ProjectCard from './ProjectCard';
+import { ProjectCardActionsContext } from './copy/ProjectCardActionsContext';
+import { useCopyProject } from './copy/useCopyProject';
 import { PROJECT_ENTITY, projectToCard } from './projectCatalogModel';
 import { usePMStore } from '../../pm/store/store_pm';
 import { useBuildProjectRow, useCreateProjectMutation, usePMOwnerGUID } from '../../pm/crud/queries';
@@ -55,6 +57,16 @@ export default function ProjectList({
     });
   };
 
+  /** menu of a card: Copy / Copy with Tasks (kit8/catalog/project/copy) */
+  const { copy, busy: copyBusy } = useCopyProject(ownerGUID);
+  const cardActions = React.useMemo(() => {
+    const copyOf = (guid: string, withTasks: boolean) => {
+      const row = rows.find((r) => r.rowGUID === guid);
+      if (row) void copy(row, withTasks);
+    };
+    return { onCopy: (guid: string) => copyOf(guid, false), onCopyWithTasks: (guid: string) => copyOf(guid, true) };
+  }, [rows, copy]);
+
   const handleSelect = (projectGUID: string) => {
     const s = usePMStore.getState();
     s.addRecentProject(projectGUID);
@@ -79,6 +91,7 @@ export default function ProjectList({
       ]}
       testID="catalog-project-list"
     >
+      <ProjectCardActionsContext.Provider value={cardActions}>
       <View style={styles.header}>
         <CurrencyRealtimeBadge status={status} />
         {Platform.OS !== 'web' && (
@@ -111,6 +124,12 @@ export default function ProjectList({
       ) : (
         <NativeProjectList onSelect={handleSelect} onEdit={handleSettings} />
       )}
+      {copyBusy && (
+        <Text testID="project-copy-busy" style={{ color: c.text, opacity: 0.7, textAlign: 'center', paddingVertical: 4 }}>
+          Copying the project…
+        </Text>
+      )}
+      </ProjectCardActionsContext.Provider>
     </View>
   );
 }

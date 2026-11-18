@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>appPM80 CapEx / OpEx - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --blue: #1d4ed8; --blue-soft: #dbeafe; --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1160px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1160px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 880px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .small { font-size: 13px; color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-top: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .grid .card { margin-top: 0; }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.have { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.part { background: var(--amber-soft); color: var(--amber); }
+  .pill.none { background: var(--rose-soft); color: var(--rose); }
+  .pill.capex { background: var(--blue-soft); color: var(--blue); }
+  .pill.opex { background: var(--purple-soft); color: var(--purple); }
+  .pill.p0 { background: var(--rose-soft); color: var(--rose); }
+  .pill.p1 { background: var(--amber-soft); color: var(--amber); }
+  .pill.p2 { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.p3 { background: var(--bg-subtle); color: var(--muted); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  td.c, th.c { text-align: center; }
+  tr.grp td { background: var(--bg-subtle); font-weight: 700; }
+  tr.tot td { font-weight: 700; border-top: 2px solid var(--border-strong); }
+  td.neg { color: var(--rose); }
+  td.pos { color: var(--emerald); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .good { border-left: 4px solid var(--emerald); background: var(--emerald-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .info { border-left: 4px solid var(--blue); background: var(--blue-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .filters { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
+  .filters button { font: 600 13px var(--font); padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text-2); cursor: pointer; }
+  .filters button.on { background: var(--text); color: #fff; border-color: var(--text); }
+  .ph { display: inline-block; min-width: 22px; text-align: center; font-weight: 700; font-size: 12px; padding: 2px 8px; border-radius: 8px; background: var(--bg-subtle); }
+  .viewport { overflow-x: auto; }
+  svg text { font-family: var(--font); }
+  .kpi { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin-top: 10px; }
+  .kpi div { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .kpi b { display: block; font-size: 22px; }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">appPM80 &middot; CapEx / OpEx</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#answer">Answer</a></li><li><a href="#today">What exists</a></li><li><a href="#rules">CFO rules</a></li>
+    <li><a href="#flow">Flow</a></li><li><a href="#mock">Mock-ups</a></li><li><a href="#wbs">WBS</a></li><li><a href="#phases">Phases</a></li>
+    <li><a href="#decisions">Decisions</a></li><li><a href="#risks">Risks</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+
+<section id="goal">
+  <h1>appPM80 for a CFO: CapEx and OpEx</h1>
+  <p class="lead">Make <b>Project Budget Management</b> (appPM80) look and behave the way a CFO, a financial controller and a capital committee expect:
+  every amount knows whether it is <span class="pill capex">CapEx</span> or <span class="pill opex">OpEx</span>, every report can be cut by it,
+  capital spending is requested, approved, committed, forecast and finally capitalised in a controlled way.</p>
+  <div class="note"><b>Planning document only - no code was written or changed.</b> Written 2026-11-17 after reading the home model (<code>apps/appPM80/home/pm80HomeModel.ts</code>), the app customization, the budget item key (<code>kit8/catalog/budget/item/budgetItemKeyModel.ts</code>), the READMEs of Monitor01 / ROI / business units, and <code>KNOW_HOW.md</code>.
+  Not checked: your live Supabase data, and the running screens in a browser or on a phone. Accounting references (IAS / IFRS / US GAAP) are given as orientation, <b>your accountant must confirm them</b> for your jurisdiction.</div>
+  <div class="kpi">
+    <div><b>3</b><span class="small">answers: reports, inputs, and everything else (home, control, accounting)</span></div>
+    <div><b>7</b><span class="small">work packages A - G</span></div>
+    <div><b>4</b><span class="small">phases, Phase 1 is the visible "professional" step</span></div>
+    <div><b>12</b><span class="small">open decisions with a recommended default</span></div>
+  </div>
+</section>
+
+<section id="answer">
+  <h2>Your question &rarr; the answer in one table</h2>
+  <p class="sub">"What kind of modifications or improvements are necessary - reports, inputs, ???"</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Reports <span class="pill none">biggest gap</span></h3>
+      <ul class="steps">
+        <li>Monitor01 filtered and grouped by <b>CapEx / OpEx</b>.</li>
+        <li>A new report <b>Monitor09 "Capital &amp; operating spend"</b>: Approved &middot; Budget &middot; Committed &middot; Actual &middot; Paid &middot; Forecast (EAC) &middot; Variance.</li>
+        <li><b>Cash flow</b> by IAS 7 activity and free cash flow (the "Cash flow" sub-tab of the payment plan is empty today).</li>
+        <li>Commitments, phasing by <b>fiscal year</b>, variance against the approved baseline.</li>
+        <li>Later: WIP roll-forward, depreciation schedule (the P&amp;L impact of CapEx), lifecycle cost (TCO).</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">Inputs <span class="pill part">partly there</span></h3>
+      <ul class="steps">
+        <li>A visible <b>Expenditure type</b> on budget item, task line and every document line (an override needs a reason).</li>
+        <li><b>Capital request</b> (AFE / business case) with benefits, an <b>approval</b> by limits, a budget change log, contingency.</li>
+        <li><b>Forecast</b> (estimate to complete) input per line, monthly, with a lock.</li>
+        <li>Purchase order above a threshold needs a capital request number; <b>commissioning</b> document (WIP &rarr; asset: in-service date, useful life).</li>
+        <li>Policy of the organization: threshold, fiscal year, own labour capitalisation.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">"???" - what else a CFO sees</h3>
+      <ul class="steps">
+        <li><b>The home (appPM80) itself</b>: real numbers instead of demo snapshots, a CapEx / OpEx slicer, fiscal periods, a basis line, a capital portfolio table, an exceptions panel.</li>
+        <li><b>Control</b>: delegation of authority, commitments, no PO without approval, read-only closed projects (exists).</li>
+        <li><b>Accounting bridge</b>: freeze the class at Post, WIP, asset catalog, depreciation, journal CSV for D365 FO / SAP.</li>
+        <li><b>Investment appraisal</b>: NPV, IRR, payback from the payment plan; post-implementation review.</li>
+        <li><b>Quality</b>: seeds / demo data, tests, glossary texts, reclassification of old items.</li>
+      </ul></div>
+  </div>
+  <div class="good"><b>The good news.</b> The hardest part of the foundation is done: a budget item already carries an IAS 7 <i>activity</i> (<code>operatingActivity</code> / <code>investingActivity</code> / <code>financingActivity</code>) in its key, with a SQL-checked matrix of 14 allowed cells (PART 32), and the VAT basis already separates "VAT that is cost" (the part of VAT that belongs in a capitalised cost). The work is mostly to <b>use</b> this data, not to invent it.</div>
+</section>
+
+<section id="today">
+  <h2>What the app already has, and what is missing</h2>
+  <p class="sub">Read from the code and <code>KNOW_HOW.md</code>. <span class="pill have">have</span> = works today &middot; <span class="pill part">part</span> = data or a piece exists, nothing shows it &middot; <span class="pill none">none</span> = not in the code (searched: capex, opex, depreciation, fiscal, appropriation, contingency, NPV, IRR, payback, WACC: no feature found).</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>Capability a CFO looks for</th><th>State</th><th>What exists / what is missing</th></tr>
+      <tr><td>Activity of a budget item (operating = OpEx, investing = CapEx, financing)</td><td><span class="pill part">part</span></td><td>PART 32: <code>budgetItemGenericKey</code> = <code>&lt;activity&gt;.&lt;genus&gt;</code>, 14 allowed cells, direction. <b>No screen, report or home number is cut by it</b> (the design doc says "Monitor01 can group by activity - a later step"). Old budget items were all made <i>operating</i>, so a PPE item from before PART 32 may still be OpEx.</td></tr>
+      <tr><td>Capital cost = net + non-recoverable VAT</td><td><span class="pill have">have</span></td><td>VAT basis (<code>kit8/pm/vat</code>): components net / VAT / VAT that is cost; the default <i>Cost</i> basis is the IFRS cost. This is exactly the amount to capitalise (IAS 16.16: non-refundable purchase taxes are part of cost).</td></tr>
+      <tr><td>Plan, ordered, received, used, invoiced, paid per month</td><td><span class="pill have">have</span></td><td>Monitor01 (plan &rarr; ordered &rarr; received &rarr; used &rarr; vendor invoice &rarr; customer invoice), cash ledger (payment fact), partner balance (Monitor07). Live by Realtime, every number drills down to its source documents.</td></tr>
+      <tr><td>Capitalised own labour</td><td><span class="pill part">part</span></td><td>Key <code>investingActivity.timeGenus</code> is allowed; the time sheet posts cost of an hour. No research / development phase rule, no overhead (burden) rate.</td></tr>
+      <tr><td>Investment center</td><td><span class="pill part">part</span></td><td>CFR type <code>investmentCenter</code> exists; its rule "takes only investing lines" was left as "later" (<code>BUSINESS_UNIT_CFR_STRUCTURE.html</code>).</td></tr>
+      <tr><td>Multi-project, multi-currency view</td><td><span class="pill have">have</span></td><td>Consolidation (PART 52, Monitor08): <code>sumForConsolidation</code> on four movement tables, rate type, VAT switches. Not cut by class.</td></tr>
+      <tr><td>Approved baseline</td><td><span class="pill part">part</span></td><td>Project versions (read-only copies of a plan), budget scenarios, Gantt baselines / EVM (optional switch). Not tied to an <i>approved capital amount</i>.</td></tr>
+      <tr><td>Return of a project</td><td><span class="pill have">have</span></td><td>ROI1 - ROI4 (Monitor02 / 03, history). ROI cost = all cost, so a CapEx project and an OpEx project are not separable; no NPV / IRR / payback.</td></tr>
+      <tr><td>Planned cash by date</td><td><span class="pill have">have</span></td><td>Payment plan (Outbound / Inbound, dates, with VAT). The tab <b>Cash flow</b> is an empty place "for a later report". The planned cash flow of a project is therefore already in the database - the base of NPV / IRR.</td></tr>
+      <tr><td>Roles and permissions</td><td><span class="pill have">have</span></td><td>11 permission profiles, matrix of 146 tables, additive RLS policies, read-only project. A capital approver is one more profile.</td></tr>
+      <tr><td>Home numbers (appPM80)</td><td><span class="pill none">demo</span></td><td>The 8 circles, 4 rings and ROI ring are <b>demo snapshots</b> (<code>PM80_MONTH_INPUTS</code>), consistent with each other but not read from Supabase. A CFO notices this at once; it is the first thing to fix.</td></tr>
+      <tr><td>Fiscal year, quarters, YTD, life-to-date</td><td><span class="pill none">none</span></td><td>The home has month and year pickers only; no fiscal year setting was found.</td></tr>
+      <tr><td>Capital request / approval / delegation of authority</td><td><span class="pill none">none</span></td><td>No document, no limits, no approval trail. Budget changes are not logged as a business event.</td></tr>
+      <tr><td>Commitments, forecast (EAC / ETC), contingency</td><td><span class="pill none">none</span></td><td>"Ordered" exists in Monitor01 but there is no committed-vs-approved view; no forecast input; no reserve item.</td></tr>
+      <tr><td>Asset, WIP, depreciation</td><td><span class="pill none">none</span></td><td>Only budget items named like PPE / capitalised costs / intangibles in the BUDGET1 catalog. No asset class, in-service date, useful life, depreciation.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="rules">
+  <h2>How a CFO reads CapEx and OpEx - the rules the app must follow</h2>
+  <p class="sub">Orientation, IFRS first. US GAAP has its twins (ASC 360, ASC 350-40, ASC 842). The policy table of this plan makes the thresholds and lives editable per organization.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0"><span class="pill capex">CapEx</span> capital expenditure</h3>
+      <p>Spending that creates or extends an asset with benefit <b>beyond one year</b>: property, plant and equipment (IAS 16), intangible assets and development cost (IAS 38), directly attributable labour and installation, non-recoverable VAT and duties, borrowing cost of a qualifying asset (IAS 23). Appears in the <b>balance sheet</b> (first as WIP / assets under construction, then as an asset) and in <b>investing cash flow</b> (IAS 7.16); reaches the P&amp;L later as <b>depreciation / amortisation</b>.</p></div>
+    <div class="card"><h3 style="margin-top:0"><span class="pill opex">OpEx</span> operating expenditure</h3>
+      <p>Spending that is consumed in the period: wages, rent, utilities, repairs and maintenance, licences paid per period, research cost (IAS 38.54), training, audit. Appears in the <b>P&amp;L</b> at once and in <b>operating cash flow</b>. Cash timing and P&amp;L timing are the same (apart from accruals).</p></div>
+    <div class="card"><h3 style="margin-top:0">Grey zones the app must handle</h3>
+      <ul class="steps">
+        <li><b>Own labour</b>: capitalise only hours on development tasks of an asset, with evidence.</li>
+        <li><b>Software</b>: research OpEx, development CapEx (six IAS 38.57 criteria), run costs OpEx.</li>
+        <li><b>Maintenance vs improvement</b>: a repair is OpEx, an upgrade that extends life or capacity is CapEx.</li>
+        <li><b>Mixed invoice</b>: one invoice, part asset, part expense: split by % or amount.</li>
+        <li><b>Financing</b>: loans, lease principal, dividends are neither (the key already has <code>financingActivity</code>).</li>
+      </ul></div>
+  </div>
+  <h3>The classification decision (what the policy encodes)</h3>
+  <div class="card">
+    <ol class="steps">
+      <li>Is it financing (loan, equity, dividend, lease principal)? &rarr; <b>Financing</b>, in neither bucket.</li>
+      <li>Does it create or extend an asset that gives benefit longer than the capitalisation period (default 12 months)? No &rarr; <span class="pill opex">OpEx</span>.</li>
+      <li>Is it above the <b>capitalisation threshold</b> of the organization (per asset or per project)? No &rarr; <span class="pill opex">OpEx</span> (de minimis).</li>
+      <li>Is it in the research phase of the project (IAS 38)? Yes &rarr; <span class="pill opex">OpEx</span>.</li>
+      <li>Otherwise &rarr; <span class="pill capex">CapEx</span>: it collects in <b>WIP</b> until the asset is ready for use; from the <b>in-service date</b> it is depreciated over the useful life.</li>
+    </ol>
+    <p class="small">The budget item gives the <i>default</i> answer; a task line may override it with a reason; the answer is frozen on every posted movement.</p>
+  </div>
+  <h3>Worked example: non-recoverable VAT is capital cost</h3>
+  <div class="card scroll">
+    <table>
+      <tr><th>Machine invoice</th><th class="num">Net</th><th class="num">VAT 20 %</th><th class="num">Recoverable 50 %</th><th class="num">VAT that is cost</th><th class="num">Capital cost (Cost basis)</th></tr>
+      <tr><td>Conveyor, vendor invoice</td><td class="num">100 000</td><td class="num">20 000</td><td class="num">10 000</td><td class="num">10 000</td><td class="num"><b>110 000</b></td></tr>
+    </table>
+    <p class="small">The app already stores these three components; a report on the <i>Cost</i> basis shows 110 000. The same invoice with 100 % recoverable VAT gives 100 000.</p>
+  </div>
+</section>
+
+<section id="flow">
+  <h2>Target flow</h2>
+  <p class="sub">Blue = exists today &middot; green = new &middot; amber = exists but changes. One principle: <b>the class is decided once, stamped on every posted movement, and every report reads the stamp</b>.</p>
+  <div class="card viewport">
+    <svg viewBox="0 0 900 400" width="900" role="img" aria-label="Target flow: approve, spend, stamp, report, capitalise" xmlns="http://www.w3.org/2000/svg">
+      <defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#64748b"/></marker></defs>
+      <!-- lane labels -->
+      <text x="10" y="22" font-size="12" font-weight="700" fill="#64748b">1  DEFINE AND APPROVE</text>
+      <text x="10" y="104" font-size="12" font-weight="700" fill="#64748b">2  SPEND (the business order of the app)</text>
+      <text x="10" y="226" font-size="12" font-weight="700" fill="#64748b">3  SEE</text>
+      <text x="10" y="316" font-size="12" font-weight="700" fill="#64748b">4  CAPITALISE (phase 3)</text>
+      <!-- lane 1 -->
+      <rect x="20" y="30" width="170" height="46" rx="8" fill="#d1fae5" stroke="#059669"/><text x="105" y="50" text-anchor="middle" font-size="12.5" font-weight="600">Capital request (AFE)</text><text x="105" y="66" text-anchor="middle" font-size="11" fill="#334155">business case, benefits</text>
+      <rect x="230" y="30" width="170" height="46" rx="8" fill="#d1fae5" stroke="#059669"/><text x="315" y="50" text-anchor="middle" font-size="12.5" font-weight="600">Approval by limits</text><text x="315" y="66" text-anchor="middle" font-size="11" fill="#334155">delegation of authority</text>
+      <rect x="440" y="30" width="190" height="46" rx="8" fill="#fef3c7" stroke="#d97706"/><text x="535" y="50" text-anchor="middle" font-size="12.5" font-weight="600">Approved budget = baseline</text><text x="535" y="66" text-anchor="middle" font-size="11" fill="#334155">project version + change log</text>
+      <path d="M190,53 H228" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M400,53 H438" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <!-- lane 2 -->
+      <rect x="20" y="112" width="140" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8"/><text x="90" y="139" text-anchor="middle" font-size="12.5" font-weight="600">Plan (Post)</text>
+      <rect x="185" y="112" width="150" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8"/><text x="260" y="139" text-anchor="middle" font-size="12.5" font-weight="600">Order &#183; Receipt</text>
+      <rect x="360" y="112" width="150" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8"/><text x="435" y="139" text-anchor="middle" font-size="12.5" font-weight="600">Time sheet &#183; Fact</text>
+      <rect x="535" y="112" width="160" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8"/><text x="615" y="139" text-anchor="middle" font-size="12.5" font-weight="600">Vendor / Customer inv.</text>
+      <rect x="720" y="112" width="150" height="44" rx="8" fill="#dbeafe" stroke="#1d4ed8"/><text x="795" y="139" text-anchor="middle" font-size="12.5" font-weight="600">Payment (cash)</text>
+      <path d="M160,134 H183" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M335,134 H358" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M510,134 H533" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M695,134 H718" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M535,76 V96 H90 V110" stroke="#d97706" stroke-width="1.4" stroke-dasharray="5 4" fill="none" marker-end="url(#ar)"/>
+      <text x="300" y="92" font-size="11" fill="#d97706">a PO / plan above the threshold needs an approved request</text>
+      <!-- stamp band -->
+      <rect x="20" y="170" width="850" height="30" rx="8" fill="#d1fae5" stroke="#059669"/>
+      <text x="445" y="190" text-anchor="middle" font-size="12.5" font-weight="700" fill="#065f46">Class stamp CapEx | OpEx | Financing - frozen on every posted movement (reclassification = a document with an audit trail)</text>
+      <!-- lane 3 -->
+      <rect x="20" y="236" width="190" height="50" rx="8" fill="#fef3c7" stroke="#d97706"/><text x="115" y="257" text-anchor="middle" font-size="12.5" font-weight="600">Monitor01 + class</text><text x="115" y="274" text-anchor="middle" font-size="11" fill="#334155">tab All | CapEx | OpEx</text>
+      <rect x="235" y="236" width="210" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="340" y="257" text-anchor="middle" font-size="12.5" font-weight="600">Monitor09 Capital &amp; operating</text><text x="340" y="274" text-anchor="middle" font-size="11" fill="#334155">budget - committed - actual - EAC</text>
+      <rect x="470" y="236" width="190" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="565" y="257" text-anchor="middle" font-size="12.5" font-weight="600">Cash flow by activity</text><text x="565" y="274" text-anchor="middle" font-size="11" fill="#334155">operating | investing | financing</text>
+      <rect x="685" y="236" width="185" height="50" rx="8" fill="#fef3c7" stroke="#d97706"/><text x="777" y="257" text-anchor="middle" font-size="12.5" font-weight="600">appPM80 home, live</text><text x="777" y="274" text-anchor="middle" font-size="11" fill="#334155">slicer, portfolio, exceptions</text>
+      <path d="M115,200 V234" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M340,200 V234" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M565,200 V234" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M777,200 V234" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <!-- lane 4 -->
+      <rect x="20" y="326" width="190" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="115" y="347" text-anchor="middle" font-size="12.5" font-weight="600">Commissioning document</text><text x="115" y="364" text-anchor="middle" font-size="11" fill="#334155">WIP &#8594; asset, in-service date</text>
+      <rect x="235" y="326" width="200" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="335" y="347" text-anchor="middle" font-size="12.5" font-weight="600">Asset class + WIP ledger</text><text x="335" y="364" text-anchor="middle" font-size="11" fill="#334155">roll-forward, ageing</text>
+      <rect x="460" y="326" width="200" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="560" y="347" text-anchor="middle" font-size="12.5" font-weight="600">Depreciation worker</text><text x="560" y="364" text-anchor="middle" font-size="11" fill="#334155">monthly, P&amp;L impact forecast</text>
+      <rect x="685" y="326" width="185" height="50" rx="8" fill="#d1fae5" stroke="#059669"/><text x="777" y="347" text-anchor="middle" font-size="12.5" font-weight="600">Journal CSV export</text><text x="777" y="364" text-anchor="middle" font-size="11" fill="#334155">D365 FO / SAP names</text>
+      <path d="M210,351 H233" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M435,351 H458" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/><path d="M660,351 H683" stroke="#64748b" stroke-width="1.6" marker-end="url(#ar)"/>
+      <path d="M795,156 V166" stroke="#64748b" stroke-width="1.2"/>
+    </svg>
+  </div>
+  <p class="small">The existing registers (<code>project_status_movements</code>, <code>cash_account_ledger_movements</code>, <code>partner_balance_movements</code>, <code>task_payment_plan_movements</code>) already behave like 1C accumulation registers written in the Post transaction. The class stamp and the asset movements follow the same pattern, so no worker or screen is rebuilt from zero.</p>
+</section>
+
+<section id="mock">
+  <h2>Mock-ups (illustrative numbers, not real data)</h2>
+  <h3>Monitor09 &quot;Capital &amp; operating spend&quot; - the report a capital committee reads (EUR thousand)</h3>
+  <div class="card scroll">
+    <table>
+      <tr><th>Class &rsaquo; Project</th><th class="num">Approved</th><th class="num">Budget</th><th class="num">Committed</th><th class="num">Actual (invoiced)</th><th class="num">Paid</th><th class="num">Forecast EAC</th><th class="num">Variance (Budget &minus; EAC)</th><th class="num">% spent</th></tr>
+      <tr class="grp"><td><span class="pill capex">CapEx</span></td><td class="num">2 350</td><td class="num">2 350</td><td class="num">2 040</td><td class="num">1 520</td><td class="num">1 400</td><td class="num">2 390</td><td class="num neg">&minus;40</td><td class="num">65 %</td></tr>
+      <tr><td>&nbsp;&nbsp;Warehouse Automation</td><td class="num">1 200</td><td class="num">1 200</td><td class="num">980</td><td class="num">610</td><td class="num">540</td><td class="num">1 260</td><td class="num neg">&minus;60</td><td class="num">51 %</td></tr>
+      <tr><td>&nbsp;&nbsp;Data Center Migration</td><td class="num">800</td><td class="num">800</td><td class="num">760</td><td class="num">700</td><td class="num">650</td><td class="num">790</td><td class="num pos">+10</td><td class="num">88 %</td></tr>
+      <tr><td>&nbsp;&nbsp;Solar Roof Pilot</td><td class="num">350</td><td class="num">350</td><td class="num">300</td><td class="num">210</td><td class="num">210</td><td class="num">340</td><td class="num pos">+10</td><td class="num">60 %</td></tr>
+      <tr class="grp"><td><span class="pill opex">OpEx</span></td><td class="num">700</td><td class="num">700</td><td class="num">600</td><td class="num">510</td><td class="num">470</td><td class="num">703</td><td class="num neg">&minus;3</td><td class="num">73 %</td></tr>
+      <tr><td>&nbsp;&nbsp;ERP Upgrade</td><td class="num">400</td><td class="num">400</td><td class="num">350</td><td class="num">300</td><td class="num">280</td><td class="num">410</td><td class="num neg">&minus;10</td><td class="num">75 %</td></tr>
+      <tr><td>&nbsp;&nbsp;Training Program</td><td class="num">120</td><td class="num">120</td><td class="num">100</td><td class="num">90</td><td class="num">90</td><td class="num">118</td><td class="num pos">+2</td><td class="num">75 %</td></tr>
+      <tr><td>&nbsp;&nbsp;Compliance Audit</td><td class="num">180</td><td class="num">180</td><td class="num">150</td><td class="num">120</td><td class="num">100</td><td class="num">175</td><td class="num pos">+5</td><td class="num">67 %</td></tr>
+      <tr class="tot"><td>Total</td><td class="num">3 050</td><td class="num">3 050</td><td class="num">2 640</td><td class="num">2 030</td><td class="num">1 870</td><td class="num">3 093</td><td class="num neg">&minus;43</td><td class="num">67 %</td></tr>
+    </table>
+    <p class="small">Sources already in the database: Budget = posted plan (<code>project_status_movements</code> kind plan), Committed = ordered, Actual = invoiced, Paid = cash ledger. <b>New</b>: Approved (capital request), Forecast EAC (forecast input), the class column. Basis line above the table: <i>EUR &middot; Cost basis (net + VAT that is cost) &middot; consolidated at the organization rate type &middot; version: Approved baseline &middot; as of 2026-11-17 14:02</i>. Red / green = unfavourable / favourable for a cost.</p>
+  </div>
+  <div class="grid" style="margin-top:14px">
+    <div class="card"><h3 style="margin-top:0">WIP roll-forward (phase 3, EUR thousand)</h3>
+      <table>
+        <tr><td>Opening WIP</td><td class="num">1 100</td></tr>
+        <tr><td>+ Additions (CapEx actual of the period)</td><td class="num">420</td></tr>
+        <tr><td>&minus; Transferred to fixed assets (commissioning)</td><td class="num">&minus;300</td></tr>
+        <tr><td>&minus; Written off / impaired</td><td class="num">&minus;20</td></tr>
+        <tr class="tot"><td>Closing WIP</td><td class="num">1 200</td></tr>
+      </table>
+      <p class="small">An auditor reads exactly this table. Ageing of the closing WIP (a project still in WIP long after its planned in-service date) goes next to it.</p></div>
+    <div class="card"><h3 style="margin-top:0">Depreciation forecast of one asset</h3>
+      <table>
+        <tr><td>Asset cost (WIP transferred)</td><td class="num">300 000</td></tr>
+        <tr><td>Useful life / method / residual</td><td class="num">60 months &middot; straight line &middot; 0</td></tr>
+        <tr><td>Monthly depreciation</td><td class="num">5 000</td></tr>
+        <tr class="tot"><td>First 12 months in the P&amp;L</td><td class="num">60 000</td></tr>
+      </table>
+      <p class="small">This is the answer to "what will this CapEx do to our P&amp;L": the committee sees the depreciation <i>before</i> approving the request.</p></div>
+    <div class="card"><h3 style="margin-top:0">appPM80 home: the slicer</h3>
+      <p style="margin:0 0 8px">A chip row under the logo, next to the VAT basis chip:</p>
+      <p style="margin:0"><span class="pill have">All</span> <span class="pill capex">CapEx</span> <span class="pill opex">OpEx</span> &nbsp; &middot; &nbsp; <span class="pill p3">IFRS Cost</span> <span class="pill p3">EUR</span> <span class="pill p3">FY2026 YTD</span></p>
+      <p class="small" style="margin-top:8px">One click re-slices the 4 KPI rings, the 8 circles and the ROI ring. A thin stacked bar under the ROI ring shows the CapEx / OpEx share of the cost; a double tap on it opens the CFO description (the same generic modal as the ring descriptions).</p></div>
+  </div>
+</section>
+
+<section id="wbs">
+  <h2>WBS - the work packages</h2>
+  <p class="sub">Priority: <span class="pill p0">P0</span> must have for a professional first impression &middot; <span class="pill p1">P1</span> expected by a controller &middot; <span class="pill p2">P2</span> adds depth &middot; <span class="pill p3">P3</span> optional. Size is relative and rough: S = days, M = about a week, L = two to three weeks, XL = a month or more (including SQL, Docker tests, Jest, README). <b>Reuse</b> = what the code already has.</p>
+  <div class="filters" id="filters">
+    <button class="on" data-ph="all">All phases</button>
+    <button data-ph="1">Phase 1 &middot; Visible</button>
+    <button data-ph="2">Phase 2 &middot; Control</button>
+    <button data-ph="3">Phase 3 &middot; Accounting bridge</button>
+    <button data-ph="4">Phase 4 &middot; Appraisal</button>
+  </div>
+  <div class="card scroll" style="padding:0">
+    <table id="wbsTable">
+      <tr><th>ID</th><th>Work</th><th>What the user sees / does</th><th>Reuse &rarr; new</th><th>Prio</th><th>Size</th><th>Phase</th></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">A &middot; Classification and policy (the foundation)</td></tr>
+      <tr data-ph="1"><td>A1</td><td><b>Expenditure type on the budget item</b></td><td>A named, coloured badge <span class="pill capex">CapEx</span> / <span class="pill opex">OpEx</span> / Financing in the budget item list and wherever the item is picked; purpose: CapEx = Growth / Sustaining / Regulatory, OpEx = Run / Change.</td><td>Reuse the activity of <code>budgetItemGenericKey</code> (PART 32). New: <code>rowJSON.expenditurePurpose</code>, no new table.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>A2</td><td><b>Class on the task line, override with a reason</b></td><td>Column "Expenditure type" on the task lines (default from the item); a different value asks for a reason; a mixed line has a <b>capital share %</b>.</td><td>Reuse the trigger pattern of <code>trg_task_line_raci</code>. New keys <code>expenditureClassOverride</code>, <code>capitalSharePercent</code>, <code>overrideReason</code> in <code>task_line_table.rowJSON</code>.</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>A3</td><td><b>Freeze the class when a document is posted</b></td><td>Nothing visible except that history never changes when a policy changes; a <b>Reclassify</b> document (with reason, user, date) is the only way to move posted money.</td><td>Reuse the idea of <code>ownCost</code> stamped at Post. New column / key on the four movement tables + a reclassification document + trigger refusing updates.</td><td><span class="pill p0">P0</span></td><td>L</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>A4</td><td><b>Capitalisation policy of the organization</b></td><td>Organization edit &rarr; tab <b>Capital</b>: capitalisation threshold (amount per asset), capitalisation period (12 months), own-labour capitalisation yes / no, burden rate %, <b>fiscal year start month</b>; history of changes.</td><td>Reuse organization keys + <code>normalizeOrganization</code>. New: keys + <code>capitalisation_policy_history</code> (append-only).</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="3"><td>A5</td><td><b>Asset class catalog</b></td><td>Land, buildings, machinery, IT hardware, vehicles, software (intangible), capitalised development, leasehold improvements; each with useful life, method, residual %, IAS reference, D365 FO / SAP text.</td><td>Pattern of <code>managementActivityGenusTable</code> (read-only seed) &rarr; new <code>asset_class_catalog</code>.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>A6</td><td><b>Stage type: research | development | construction | operation</b></td><td>A stage of the WBS has a type; research cost can never be capitalised, development only after the criteria are met (a checkbox set with date).</td><td>Reuse task type / stage rows; new key on the task row; guard in the class rule.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="2"><td>A7</td><td><b>Investment center takes investing lines</b></td><td>The CFR rule "an investment center takes capital lines" (left as <i>later</i> in 2026-10) is finished; a cost center refuses CapEx lines when the policy says so.</td><td>Reuse <code>cfrTypeTable</code> flags and <code>kit8_cfr_accepts</code>; a new flag per CFR type.</td><td><span class="pill p2">P2</span></td><td>S</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="1"><td>A8</td><td><b>Classify the existing budget items (migration)</b></td><td>One-time screen "Review budget items": every item with a suggested class (by name and genus), the user confirms. Old items were all made <i>operating</i> by PART 32; PPE and capitalised-cost items would be wrong in a CFO report.</td><td>Reuse the budget item list; suggestions by keyword; no new table.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">B &middot; Inputs and documents</td></tr>
+      <tr data-ph="1"><td>B1</td><td><b>Expenditure type on every document line</b></td><td>A small badge on the lines of purchase order, product receipt, vendor invoice, time sheet, fact input, payment fact; a split capital / expense on one invoice line.</td><td>Reuse the line columns files; value copied from the task line; invoice line may split.</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="2"><td>B2</td><td><b>Capital request (AFE / business case)</b></td><td>A document: project, sponsor, class, amount, currency, justification, risks, <b>benefit lines</b> (savings / revenue per year), useful life; status Draft &rarr; Submitted &rarr; Approved &rarr; Released &rarr; Closed; new versions after approval.</td><td>Pattern of the documents (<code>_header / _lines</code>, RPC-only writes, Post). New <code>capital_request_header / _lines / _benefits</code>.</td><td><span class="pill p1">P1</span></td><td>XL</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>B3</td><td><b>Approval by limits (delegation of authority)</b></td><td>Limits matrix: class &times; amount range &rarr; approver role(s), single or two-step; the approver gets a task in the calendar / chat; every decision with user, time, comment.</td><td>Reuse permission profiles + chat + calendar. New profile <code>permissionCapitalApprover</code>, table <code>approval_limit_table</code>, <code>approval_history</code>.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>B4</td><td><b>Budget change log and transfer request</b></td><td>Every change of the approved budget (increase, decrease, transfer between items / projects) is a request with a reason, approved, and listed in a log; the existing "reasons for dates changes" idea, for money.</td><td>Pattern of <code>project_reasons_for_changes</code> (PLAN ONLY in KNOW_HOW). New <code>budget_change_history</code> (append-only).</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>B5</td><td><b>Contingency / management reserve</b></td><td>A budget item type "Contingency" per project; releasing it to a task is a logged transfer; reports show reserve left.</td><td>New budget item genus rule + release RPC; uses B4.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>B6</td><td><b>Forecast input (ETC / EAC)</b></td><td>Per task line: estimate to complete; the system proposes it (run-rate or plan remainder), the PM overrides; monthly forecast versions with a lock date ("forecast of November").</td><td>Reuse the plan lines and Monitor01 rest columns. New <code>forecast_version_table</code>, <code>forecast_line_table</code>.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>B7</td><td><b>PO guard: capital request number</b></td><td>A purchase order of a CapEx line above the threshold asks for the approved request; over-budget needs a transfer. Soft warning or hard stop per project setting.</td><td>Reuse the Post guards of the documents (<code>*_set_line_task</code> pattern). New guard in <code>create_purchase_orders</code> / Post.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="3"><td>B8</td><td><b>Time sheet: capitalisable hours</b></td><td>Hours on development tasks show "capitalised" with the loaded rate (rate + burden %); the sheet is the audit evidence for capitalised labour.</td><td>Reuse <code>timesheet_cell_money</code> and the golden-case test; new burden key (A4).</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>B9</td><td><b>Commissioning document (WIP &rarr; asset)</b></td><td>Pick the posted CapEx of a project / task, split into assets (asset class, tag, in-service date, useful life, business unit); Post moves WIP to asset; capitalisation stops at the in-service date.</td><td>Document pattern; reads the stamped movements. New <code>commissioning_header / _lines</code>.</td><td><span class="pill p1">P1</span></td><td>XL</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>B10</td><td><b>Disposal, impairment, write-off</b></td><td>Documents that reduce an asset; the P&amp;L effect is shown before Post.</td><td>Same pattern as B9.</td><td><span class="pill p3">P3</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">C &middot; Reports</td></tr>
+      <tr data-ph="1"><td>C1</td><td><b>Monitor01 by class</b></td><td>Tabs <b>All | CapEx | OpEx</b> next to Time / Material / Expense, a filter, and a tree level "Expenditure type"; subtotals per class; the class is a View setting.</td><td>Reuse tabs, filters, Views (PART 43), <code>monitor01_view</code>. New: class in the view rows (from the stamp).</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>C2</td><td><b>Monitor09 Capital &amp; operating spend</b></td><td>The table of the mock-up: Approved, Budget, Committed, Actual, Paid, Remaining; step 1 without Approved / EAC. Filters: period, fiscal year, project, business unit, class, version, VAT basis, currency basis.</td><td>Reuse the shared report layer (<code>reports/common</code>), drill-down, Views, consolidation basis. New RPC <code>capital_report</code> (SECURITY INVOKER) + screen + route <code>/pm/reports/monitor09</code>.</td><td><span class="pill p0">P0</span></td><td>XL</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>C3</td><td><b>Drill-down of every number</b></td><td>Press a number &rarr; the source documents (as Monitor01 does today); a double click on a project opens it in the dashboard.</td><td>Reuse <code>SumExplorerListReusable</code>, <code>*_sum_sources</code> pattern.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="2"><td>C4</td><td><b>Cash flow by activity + free cash flow</b></td><td>Fills the empty <b>Cash flow</b> sub-tab of the payment plan (planned) and a report (actual): operating / investing / financing, direct method, monthly; free cash flow = operating cash flow &minus; CapEx paid.</td><td>Reuse payment plan, cash ledger, activity of the item. New RPC + report; no new table.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>C5</td><td><b>Commitments</b></td><td>Open purchase orders not yet received or invoiced, by vendor, project, due year; "committed but not yet spent" is the number the CFO asks for before releasing more.</td><td>Reuse Monitor01 Ordered / Received / Vendor invoice columns.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>C6</td><td><b>Phasing by fiscal year and multi-year capital plan</b></td><td>Budget vs forecast vs actual by month, quarter, fiscal year; a 3 - 5 year capital plan by project; S-curve.</td><td>Needs A4 (fiscal year). Reuse month totals (<code>project_status_month_totals</code>).</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>C7</td><td><b>Variance vs the approved baseline and vs the last forecast</b></td><td>Two variance columns with favourable / unfavourable colours and a reason column (from the change log).</td><td>Reuse project versions (read-only plan copies) as the baseline; B4, B6.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>C8</td><td><b>Consolidation by class</b></td><td>Monitor08 gets the class filter and a CFR / investment center view in the organization currency.</td><td>Reuse <code>consolidation_report</code>; class from the stamp.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>C9</td><td><b>Board pack export</b></td><td>"Export" on Monitor09 and on the home: one-page PDF and an Excel file with the numbers, the basis line and the date.</td><td>Saved Views reuse; export code new (web + phone share sheet).</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="3"><td>C10</td><td><b>WIP roll-forward and WIP ageing</b></td><td>The table of the mock-up per project / asset class; ageing buckets 0-90 / 91-180 / 181-365 / over 365 days; flag past the planned in-service date.</td><td>Needs E1; reads the asset movements.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>C11</td><td><b>Additions and depreciation schedule (P&amp;L impact)</b></td><td>New assets of the period; the monthly depreciation forecast per asset and in total; shown inside the capital request too.</td><td>Needs E2.</td><td><span class="pill p2">P2</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>C12</td><td><b>Lifecycle cost (TCO)</b></td><td>CapEx plus the run OpEx after go-live (licences, maintenance, staff) over N years, per capital request.</td><td>Run-OpEx lines on the request (B2); no new register.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">D &middot; appPM80 home and shell</td></tr>
+      <tr data-ph="1"><td>D1</td><td><b>Live numbers instead of demo snapshots</b></td><td>The rings, circles and ROI ring read the database (Monitor01 totals, ROI month totals, payment ledger, work-center capacity). The demo stays for a guest with a clear "Demo data" ribbon.</td><td>Reuse <code>project_status_month_totals</code>, <code>roi_*</code> views, <code>usePM80Projects</code>, the filter / VAT chips. Replace <code>pm80InputFor</code> by a read hook; the model functions stay.</td><td><span class="pill p0">P0</span></td><td>L</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>D2</td><td><b>CapEx / OpEx slicer</b></td><td>A chip group All | CapEx | OpEx next to the VAT basis chip; it re-slices rings, circles, ROI ring and the portfolio table; remembered on the device.</td><td>Reuse the chip pattern of the VAT basis; needs C1 data.</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>D3</td><td><b>CapEx / OpEx split bar</b></td><td>A thin stacked bar with the share of the cost and, for each class, "used of budget"; tip and CFO description.</td><td>Reuse <code>PM80Tip</code>, generic <code>PM80InfoModal</code>.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>D4</td><td><b>Basis line</b></td><td>One line under the header: currency, VAT basis, consolidation basis, scenario / version, "as of" time; every number on the home is only valid for this line.</td><td>Reuse <code>useVatBasis</code>, <code>useCurrencyBasis</code>.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>D5</td><td><b>CFO descriptions of the new numbers</b></td><td>Double tap on the split bar, on the new rings and on the slicer opens the same modal as for the ROI buttons: question, formula, source, example, what misleads. A glossary page (CapEx, OpEx, WIP, EAC, committed ...).</td><td>Reuse <code>kpiInfo/</code>, <code>roiInfo/</code>, <code>infoModal/</code>.</td><td><span class="pill p1">P1</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="2"><td>D6</td><td><b>Period modes</b></td><td>Month | Quarter | YTD | Fiscal year | Life-to-date; the period picker keeps the month and year inputs.</td><td>Needs A4. Reuse <code>PM80PeriodPicker</code>.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>D7</td><td><b>Capital rings</b></td><td>A switch "Delivery | Capital" for the 4 rings: Capital shows <b>Committed of approved</b>, <b>Forecast vs approved</b>, <b>CapEx used</b>, <b>Cash paid of committed</b>.</td><td>Reuse <code>PM80CircularProgress</code> and <code>KPI_BANDS</code>; needs B2, B6, C2.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>D8</td><td><b>Capital portfolio table</b></td><td>Under the circles: a sortable list of projects: status (red / amber / green), approved, committed, actual, EAC, variance, % complete, ROI / NPV, next milestone; a tap opens the project.</td><td>Reuse <code>PM80_QUICK_LINKS</code> style, project filter, Monitor09 RPC.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>D9</td><td><b>Exceptions panel</b></td><td>"Needs attention": overspend above a limit, PO without approval, a CapEx item coded as OpEx (anomaly), policy threshold breach, forecast not submitted, WIP past in-service date.</td><td>New RPC <code>capital_exceptions</code>; chips link to the screens.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>D10</td><td><b>New home entry points</b></td><td>Quick links: Capital &amp; operating spend, Capital requests, Cash flow; FAB: "New capital request".</td><td>Reuse <code>PM80_QUICK_LINKS</code>, <code>fabExtraActions</code>; the Jest test that every link is a real file of <code>app/</code>.</td><td><span class="pill p2">P2</span></td><td>S</td><td class="c"><span class="ph">2</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">E &middot; Accounting bridge (engine)</td></tr>
+      <tr data-ph="3"><td>E1</td><td><b>Asset movement register</b></td><td>No screen of its own; feeds C10 / C11. Rows: addition to WIP, transfer to asset, depreciation, impairment, disposal; rests per asset and month.</td><td>Pattern of the cash ledger (movements + rests + dirty queue). New <code>asset_catalog</code>, <code>asset_movements</code>, <code>asset_rests</code>.</td><td><span class="pill p2">P2</span></td><td>XL</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>E2</td><td><b>Depreciation worker</b></td><td>Monthly run (straight line first; declining and units later), stops at disposal; "Run now" button like "Refresh rests".</td><td>pg_cron job in <code>start3</code> like <code>cash_ledger_tick</code>; golden cases like <code>tests/94</code>.</td><td><span class="pill p2">P2</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>E3</td><td><b>Journal proposal and CSV export</b></td><td>Dr Asset / Cr WIP (commissioning), Dr Depreciation expense / Cr Accumulated depreciation, with the D365 FO / SAP names of the item and class; a download, no live ERP link.</td><td>Reuse <code>d365foName</code> / <code>sapName</code> of the budget item key.</td><td><span class="pill p2">P2</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>E4</td><td><b>Consolidation twin for the asset register</b></td><td>Asset money in the consolidation currency.</td><td>The "three lists" of PART 52 (<code>consolidation_apply</code>, <code>_rebuild</code>, <code>_verify</code>).</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="4"><td>E5</td><td><b>Borrowing cost capitalisation (IAS 23)</b></td><td>Optional: interest on a qualifying asset capitalised by rate &times; average WIP.</td><td>Needs E1 and a rate input.</td><td><span class="pill p3">P3</span></td><td>L</td><td class="c"><span class="ph">4</span></td></tr>
+      <tr data-ph="4"><td>E6</td><td><b>Leases (IFRS 16)</b></td><td>Decision Q10: out of scope, or a lease only as a document that creates a right-of-use asset and a payment plan.</td><td>Payment plan.</td><td><span class="pill p3">P3</span></td><td>XL</td><td class="c"><span class="ph">4</span></td></tr>
+      <tr data-ph="1"><td>E7</td><td><b>Permissions, read-only, delete guards for every new table</b></td><td>Each package ships its matrix rows, RPC guards and read-only-project handling (not a separate release).</td><td>Pitfalls of KNOW_HOW: <code>permission_matrix.py</code>, PART 51 lists, Docker test 53 list.</td><td><span class="pill p0">P0</span></td><td>M each</td><td class="c"><span class="ph">1-3</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">F &middot; Investment appraisal</td></tr>
+      <tr data-ph="2"><td>F1</td><td><b>NPV, IRR, payback, discounted payback, profitability index</b></td><td>On the capital request and on a project: the planned cash flows come from the <b>payment plan</b> (inbound minus outbound by date); the user enters only the discount rate and the horizon. Shown next to ROI1 - ROI4.</td><td>Reuse payment plan movements and the exchange rates; new pure model (+ SQL twin with golden cases).</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>F2</td><td><b>ROI by class</b></td><td>Monitor02 / 03 get the class filter: "ROI on CapEx cost", "OpEx margin"; the existing ROI stays unchanged with All.</td><td>Reuse <code>roi_*</code>; class stamp on the register. Add a note: ROI = (R&minus;C)/C already includes CapEx in C.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="3"><td>F3</td><td><b>Scenarios and sensitivity</b></td><td>Best / base / worst on benefits, cost and delay (&plusmn; %) with the NPV change.</td><td>Reuse budget scenarios and project versions.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="4"><td>F4</td><td><b>Post-implementation review</b></td><td>Twelve months after go-live: promised benefit vs realised, one document and one report; lessons learned.</td><td>Capital request versions + the customer invoice / cost actuals.</td><td><span class="pill p2">P2</span></td><td>L</td><td class="c"><span class="ph">4</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">G &middot; Quality, data, language</td></tr>
+      <tr data-ph="1"><td>G1</td><td><b>Demo and seed data with a real mix</b></td><td>BUDGET1, RAILWAY #1 and the home demo get CapEx / OpEx lines, so a first-time viewer sees both classes; seed of the asset classes and policy defaults.</td><td>Generators in <code>documentation/BUDGET1/tools</code>, <code>start4 / start5</code>.</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>G2</td><td><b>Number and colour conventions</b></td><td>One rule across reports: cost overrun = red, saving = green, revenue the opposite; negative numbers with a minus sign, thousands separators, right-aligned, currency in the column title, "K / M" only in tiles.</td><td>Reuse <code>reports/common</code> formats.</td><td><span class="pill p1">P1</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>G3</td><td><b>Tests and README with each feature</b></td><td>Docker tests numbered from 101 (<code>tests/100</code> is the consolidation), Jest for the models and screens, golden cases for depreciation / NPV / capitalised VAT, a bench for Monitor09.</td><td>Rule of the working agreement (same round).</td><td><span class="pill p0">P0</span></td><td>in each</td><td class="c"><span class="ph">1-4</span></td></tr>
+      <tr data-ph="1"><td>G4</td><td><b>Texts and languages</b></td><td>The words "CapEx" / "OpEx" with plain tooltips (capital spending / operating spending); texts through <code>pmT</code>; organization texts can rename them.</td><td>Reuse <code>organizationTextTable</code> (PART 48).</td><td><span class="pill p2">P2</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="1"><td>G5</td><td><b>Update KNOW_HOW.md and the feature index</b></td><td>New rows in section 6, new pitfalls (class stamp, frozen history).</td><td>Rule of the working agreement.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1-4</span></td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="phases">
+  <h2>Phases - what changes for the CFO, step by step</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0"><span class="ph">1</span> Visible</h3>
+      <p><b>Result:</b> open the home, choose CapEx, see real numbers; open Monitor09, see budget - committed - actual - paid by class.</p>
+      <p class="small"><b>Contents:</b> A1 A2 A3 A4 A8 &middot; B1 &middot; C1 C2 C3 &middot; D1 - D5 &middot; E7 &middot; G1 - G5.</p>
+      <p class="small"><b>Why first:</b> it needs no new document and no workflow, it uses data that is already posted, and it removes the biggest credibility risk (demo numbers).</p></div>
+    <div class="card"><h3 style="margin-top:0"><span class="ph">2</span> Control</h3>
+      <p><b>Result:</b> nothing is bought above the threshold without an approved request; the committee sees EAC, variance, cash flow, NPV.</p>
+      <p class="small"><b>Contents:</b> A7 &middot; B2 - B7 &middot; C4 - C9 &middot; D6 - D10 &middot; F1 F2.</p></div>
+    <div class="card"><h3 style="margin-top:0"><span class="ph">3</span> Accounting bridge</h3>
+      <p><b>Result:</b> finished projects are capitalised with a document; WIP and depreciation forecast are reported; accounting gets a journal CSV.</p>
+      <p class="small"><b>Contents:</b> A5 A6 &middot; B8 - B10 &middot; C10 - C12 &middot; E1 - E4 &middot; F3.</p></div>
+    <div class="card"><h3 style="margin-top:0"><span class="ph">4</span> Appraisal and depth</h3>
+      <p><b>Result:</b> benefits realisation, borrowing cost, optionally leases.</p>
+      <p class="small"><b>Contents:</b> E5 E6 &middot; F4.</p></div>
+  </div>
+  <div class="info"><b>The minimum that already looks professional</b> = D1 (live numbers) + A1 / A8 (right classes) + C2 first step + D2 (slicer) + D4 (basis line). Everything else makes the app a control tool, not just a report.</div>
+</section>
+
+<section id="decisions">
+  <h2>Decisions to take (each with a recommended default)</h2>
+  <p class="sub">Same style as the other WBS pages: the default is what I would build if you do not answer.</p>
+  <div class="card scroll">
+    <table>
+      <tr><th>#</th><th>Question</th><th>Recommended default</th></tr>
+      <tr><td>Q1</td><td>Where is the class decided?</td><td>Budget item = default; task line may override with a reason; a posted movement is frozen (A1, A2, A3).</td></tr>
+      <tr><td>Q2</td><td>Which accounting standard?</td><td>IFRS first; the policy table keeps thresholds and lives so US GAAP or local rules are settings, not code.</td></tr>
+      <tr><td>Q3</td><td>Is the app the book of record for fixed assets?</td><td><b>No.</b> The ERP stays the statutory register. The app owns the project side: WIP, a capitalisation package, a depreciation <i>forecast</i>, and a journal CSV (phase 3).</td></tr>
+      <tr><td>Q4</td><td>Fiscal year</td><td>An organization setting "fiscal year starts in month N" (default January); all fiscal reports use it.</td></tr>
+      <tr><td>Q5</td><td>Capitalised own labour</td><td>Off by default; when on: only hours on tasks of a <i>development</i> stage, loaded rate = rate + burden % (A4, A6, B8).</td></tr>
+      <tr><td>Q6</td><td>Capitalisation threshold</td><td>One amount per organization in the budget currency (default 0 = off), overridable per project; below it the item is OpEx.</td></tr>
+      <tr><td>Q7</td><td>Approval limits</td><td>A matrix class &times; amount &rarr; role; default: project manager up to a limit, then a capital approver, then the administrator.</td></tr>
+      <tr><td>Q8</td><td>May a policy change move posted history?</td><td>No. Only a reclassification document moves posted money, with a reason and an audit row.</td></tr>
+      <tr><td>Q9</td><td>Currency of a capital request and of the portfolio</td><td>Request in the project budget currency; portfolio and home in the consolidation currency of the organization.</td></tr>
+      <tr><td>Q10</td><td>Leases (IFRS 16)</td><td>Out of scope for phases 1 - 3; a lease payment is a financing / operating payment as the key already allows.</td></tr>
+      <tr><td>Q11</td><td>Does the home go live first or the report first?</td><td>Both in phase 1, but the data hook is written once and used by both (D1 and C2 share the RPC).</td></tr>
+      <tr><td>Q12</td><td>Names in the UI</td><td>"CapEx" and "OpEx" with tooltips; the organization may rename through the application texts.</td></tr>
+    </table>
+  </div>
+</section>
+
+<section id="risks">
+  <h2>Risks and traps (from the project's own pitfall list)</h2>
+  <div class="card">
+    <ul class="steps">
+      <li><b>Old budget items are all operating</b> (PART 32 backfill). A CapEx report on unreviewed items is wrong &rarr; A8 first.</li>
+      <li><b>Freeze at Post.</b> If the report reads the class from the live budget item, changing an item rewrites history and the report no longer agrees with the closed month &rarr; A3.</li>
+      <li><b>Two meanings of <code>sumForAccounting</code></b> (a document line = total with VAT, register = net). Every new money column must go through the VAT basis function, never add columns itself (<code>kit8/pm/vat/README.md</code>).</li>
+      <li><b>Demo numbers on the home</b> consistent with each other are convincing until a CFO compares them with Monitor01 &rarr; D1 before any marketing use.</li>
+      <li><b>Consolidation twin lists</b> (three places in PART 52) and <b>permission matrix rows</b> are easy to forget for a new table; Docker tests 53 / 100 will say so.</li>
+      <li><b>Read-only projects</b> (PART 51): a new table of project data needs its row in the lists, a new automatic write must return quietly for a read-only project.</li>
+      <li><b>Scope creep into an ERP.</b> Fixed asset accounting for statutory books is a different product; Q3 keeps the app on the project side.</li>
+      <li><b>Performance.</b> Monitor09 reads four movement tables; use the monthly turnover / totals tables and a bench like <code>bench_monitor01.sh</code>, not raw movements for the screen.</li>
+      <li><b>Rate and VAT basis labels.</b> A CFO accepts any basis if the screen says which one; D4 is therefore P0.</li>
+    </ul>
+  </div>
+  <h3>What I did not verify</h3>
+  <div class="card">
+    <p class="small" style="margin:0">The running screens (home, Monitor01, budget item catalog) were not opened; your Supabase data was not read; the effort sizes are my estimates from the size of earlier features (Consolidation, Payment fact, Partner balance), not measurements. Planned SQL part numbers (53 and up) and table names are proposals that follow the naming rule of KNOW_HOW section 2.2 (<code>_catalog</code>, <code>_table</code>, <code>_history</code>).</p>
+  </div>
+</section>
+
+</main>
+
+<script>
+  /* phase filter of the WBS table (the page works without it) */
+  (function () {
+    var buttons = document.querySelectorAll('#filters button');
+    var rows = document.querySelectorAll('#wbsTable tr[data-ph]');
+    function apply(ph) {
+      for (var i = 0; i < buttons.length; i++) buttons[i].className = buttons[i].getAttribute('data-ph') === ph ? 'on' : '';
+      var showGroup = {};
+      for (var r = 0; r < rows.length; r++) {
+        var row = rows[r], p = row.getAttribute('data-ph');
+        if (p === 'all') continue;
+        row.style.display = (ph === 'all' || p === ph) ? '' : 'none';
+      }
+      /* hide a group header when nothing under it is visible */
+      var current = null, anyVisible = false;
+      for (var k = 0; k < rows.length; k++) {
+        var rw = rows[k];
+        if (rw.getAttribute('data-ph') === 'all') {
+          if (current) current.style.display = anyVisible || ph === 'all' ? '' : 'none';
+          current = rw; anyVisible = false;
+        } else if (rw.style.display !== 'none') anyVisible = true;
+      }
+      if (current) current.style.display = anyVisible || ph === 'all' ? '' : 'none';
+    }
+    for (var b = 0; b < buttons.length; b++) {
+      buttons[b].addEventListener('click', function () { apply(this.getAttribute('data-ph')); });
+    }
+  })();
+</script>
+</body>
+</html>

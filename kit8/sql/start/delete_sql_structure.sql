@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000000000000000000. delete_consolidation.sql - PART 52: drops consolidation_dirty + consolidation_gap_table (data included), the consolidation_* / fx_consolidation_* functions, the triggers on the organization row, project_table, the exchange rates and the four movement tables, and the sumForConsolidation columns; the organization keys (currencyForConsolidation ...) stay as inert JSON (runs very first: it is the newest)
 --  1a-000000000000000000. delete_project_readonly.sql - PART 51: drops the read-only guard triggers of the project tables and the project_readonly_* / project_set_readonly / project_is_readonly functions; the key projectIsReadonly stays on the projects as inert JSON (runs very first: it is the newest)
 --  1a-00000000000000000. delete_chat.sql - PART 50: drops chatObjectTable + chatThemeTable + chatMembersTable + chatMessagesTable (data included: ALL chats, members and messages of ALL organizations), the chat_ functions and triggers (the Time line trigger of the RACI members, the task / organization delete triggers); the file rows of the chats stay in mediaPostTable until PART 49 is deleted (runs very first: it is the newest)
 --  1a-0000000000000000. delete_files.sql - PART 49: drops files_google_connection_table + files_onedrive_connection_table (data included: the Google Drive connection and the encrypted token of ALL organizations) and files_connection_status (runs very first: it is the newest)
@@ -43,6 +44,45 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+
+-- =====================================================================================
+-- PART 1a-0000000000000000000: delete_consolidation.sql  (PART 52 of the structure file: CONSOLIDATION - runs before everything else, it is the newest)
+-- =====================================================================================
+DO $$
+DECLARE
+  r record;
+BEGIN
+  BEGIN PERFORM cron.unschedule('consolidation_tick'); EXCEPTION WHEN OTHERS THEN NULL; END;
+  DROP TRIGGER IF EXISTS trg_organizationTable_consolidation ON public."organizationTable";
+  IF to_regclass('public.project_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_project_table_currency_guard ON public.project_table;
+    DROP TRIGGER IF EXISTS trg_project_table_consolidation ON public.project_table;
+  END IF;
+  IF to_regclass('public."currencyExchangeRateTable"') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS trg_consolidation_rate ON public."currencyExchangeRateTable";
+  END IF;
+  FOR r IN SELECT t.tgname, c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN pg_namespace n ON n.oid = c.relnamespace
+            WHERE n.nspname = 'public' AND t.tgname LIKE 'trg\_%\_consolidation\_%' AND NOT t.tgisinternal LOOP
+    EXECUTE format('DROP TRIGGER IF EXISTS %I ON public.%I', r.tgname, r.relname);
+  END LOOP;
+  FOR r IN SELECT p.oid::regprocedure AS sig FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+            WHERE n.nspname = 'public' AND (p.proname LIKE 'consolidation\_%' OR p.proname IN ('fx_consolidation_currency', 'fx_consolidation_rate_type', 'organization_consolidation_guard',
+                                                                                              'project_currency_guard', 'project_consolidation_queue')) LOOP
+    EXECUTE format('DROP FUNCTION IF EXISTS %s CASCADE', r.sig);
+  END LOOP;
+  DROP TABLE IF EXISTS public.consolidation_gap_table CASCADE;
+  DROP TABLE IF EXISTS public.consolidation_dirty CASCADE;
+  FOR r IN SELECT x.tbl, x.col FROM (VALUES ('project_status_movements', 'sumForConsolidation'), ('project_status_movements', 'vatForConsolidation'), ('project_status_movements', 'vatInCostForConsolidation'),
+                                            ('cash_account_ledger_movements', 'sumForConsolidation'), ('partner_balance_movements', 'sumForConsolidation'),
+                                            ('task_payment_plan_movements', 'sumForConsolidation')) x(tbl, col) LOOP
+    IF to_regclass('public.' || quote_ident(r.tbl)) IS NOT NULL THEN
+      EXECUTE format('ALTER TABLE public.%I DROP COLUMN IF EXISTS %I', r.tbl, r.col);
+    END IF;
+  END LOOP;
+END $$;
+NOTIFY pgrst, 'reload schema';
 
 
 
@@ -294,6 +334,7 @@ DROP TABLE IF EXISTS public.task_template_task CASCADE;
 DROP TABLE IF EXISTS public.task_template_header CASCADE;
 DROP FUNCTION IF EXISTS public.task_template_save(uuid, text, text);
 DROP FUNCTION IF EXISTS public.task_template_fill(uuid, uuid, boolean);
+DROP FUNCTION IF EXISTS public.project_import_tasks(uuid, jsonb);
 DROP FUNCTION IF EXISTS public.task_template_set_title(uuid, text, text);
 DROP FUNCTION IF EXISTS public.task_template_visible(uuid);
 DROP FUNCTION IF EXISTS public.task_template_clean_task(jsonb);

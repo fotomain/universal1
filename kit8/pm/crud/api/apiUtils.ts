@@ -12,6 +12,25 @@ export function newGUID(): string {
   });
 }
 
+/** Supabase / PostgREST answers at most 1000 rows to ONE request (the project's max-rows): a project of 1 958 tasks was read as its first 1000 and 732 of them looked like root rows. */
+export const PM_PAGE = 1000;
+
+/**
+ * Reads ALL rows of a query, page by page. `page(from, to)` must return the SAME query with `.range(from, to)` and a UNIQUE order (add the key as the last .order(),
+ * else rows with equal order values may be skipped or doubled between two pages).
+ */
+export async function readAllPages<T = any>(page: (from: number, to: number) => PromiseLike<{ data: any; error: any }>, size: number = PM_PAGE): Promise<T[]> {
+  const out: T[] = [];
+  for (let from = 0; ; from += size) {
+    const res = await page(from, from + size - 1);
+    if (res.error) throw new Error(res.error.message || String(res.error));
+    const rows = (res.data || []) as T[];
+    out.push(...rows);
+    if (rows.length < size) break;
+  }
+  return out;
+}
+
 /** Unwraps a Supabase response or throws its error message. */
 export function check<T>(res: { data: T | null; error: any }): T {
   if (res.error) throw new Error(res.error.message || String(res.error));

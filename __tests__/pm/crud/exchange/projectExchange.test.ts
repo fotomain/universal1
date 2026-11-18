@@ -61,6 +61,39 @@ describe('projectExchangeFormat', () => {
   });
 });
 
+describe('task lines in a project file (optional taskLines)', () => {
+  const LINE = (g: string, owner: string, genus = 'timeGenus') => ({ rowGUID: g, rowOwnerGUID: owner, rowParentGUID: genus, orderInList: 1024, rowJSON: { qtyTaskLine: 2, priceTaskLine: 21, sumForBudget: 42, taskIsPosted: true, baseOfDistribution: 1, description: 'Confectioner' } });
+
+  it('a file without them imports as before; broken lines are refused', () => {
+    const { demo, P1 } = setup();
+    const file = buildProjectExchangeFile(P1, demo.tasks, demo.deps);
+    expect(parseProjectExchangeFile(JSON.stringify(file)).taskLines).toBeUndefined();
+    const bad = { ...file, taskLines: [{ rowGUID: 'x' }] };
+    expect(() => parseProjectExchangeFile(JSON.stringify(bad))).toThrow('broken task line');
+    expect(() => parseProjectExchangeFile(JSON.stringify({ ...file, taskLines: 5 }))).toThrow('not a list');
+    const ok = { ...file, taskLines: [LINE('11111111-aaaa-4aaa-8aaa-000000000001', file.tasks[2].rowGUID)] };
+    expect(parseProjectExchangeFile(JSON.stringify(ok)).taskLines).toHaveLength(1);
+  });
+
+  it('the plan puts the lines on the NEW task ids with new line ids, unposted; a line of a task that is not in the file is dropped', () => {
+    const { demo, P1, P2 } = setup();
+    const file = { ...buildProjectExchangeFile(P1, demo.tasks, demo.deps), taskLines: [] as any[] };
+    const leaf = file.tasks.filter((t) => t.rowJSON.rowKind !== 'stage')[0];
+    file.taskLines = [LINE('11111111-aaaa-4aaa-8aaa-000000000001', leaf.rowGUID), LINE('11111111-aaaa-4aaa-8aaa-000000000002', leaf.rowGUID, 'materialGenus'), LINE('11111111-aaaa-4aaa-8aaa-000000000003', 'deadbeef-0000-4000-8000-000000000000')];
+    const plan = planProjectImport(file, P2, OWNER, newId);
+    expect(plan.taskLines).toHaveLength(2);
+    expect(plan.skippedLines).toBe(1);
+    const newTask = plan.idMap[leaf.rowGUID];
+    for (const l of plan.taskLines) {
+      expect(l.rowOwnerGUID).toBe(newTask);
+      expect(file.taskLines!.some((o) => o.rowGUID === l.rowGUID)).toBe(false);
+      expect(l.rowJSON).toMatchObject({ taskIsPosted: false, baseOfDistribution: null, qtyTaskLine: 2, description: 'Confectioner' });
+    }
+    expect(plan.taskLines.map((l) => l.rowParentGUID)).toEqual(['timeGenus', 'materialGenus']);
+    expect(plan.taskLines[0].rowJSON.taskIsPosted).toBe(false);
+  });
+});
+
 describe('planProjectImport', () => {
   it('new ids, tree paths rebuilt under the target, dependencies follow, target keeps its name', () => {
     const { demo, P1, P2 } = setup();
@@ -124,6 +157,42 @@ describe('exportProjectToFile -> importProjectFromFile (API on the in-memory Sup
     const file = JSON.parse(saved.text);
     expect(file.tasks).toHaveLength(db.rows('project_task_table').filter((t) => t.projectGUID === P1.rowGUID).length);
     expect(file.uxuiSettings).toEqual({ showCriticalPath: false });
+  });
+
+  it('the tasks go in through the RPC project_import_tasks, 500 a chunk (one progress calculation per chunk, not per row)', async () => {
+    const { saved, api, db, P2 } = await exported();
+    const out = await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, saved.text), async () => true);
+    expect(out.status).toBe('imported');
+    const calls = db.rpcCalls.filter((c) => c.fn === 'project_import_tasks');
+    expect(calls.length).toBe(Math.ceil((out as any).plan.tasks.length / 500));
+    expect(calls[0].args.p_project).toBe(P2.rowGUID);
+    expect(db.calls.filter((c) => c.table === 'project_task_table' && c.op === 'insert')).toHaveLength(0);
+  });
+
+  it('a database without the function (start2 not run yet) falls back to the plain insert; any other error is raised', async () => {
+    const { saved, api, db, P2 } = await exported();
+    db.failNext('Could not find the function public.project_import_tasks(p_project, p_rows) in the schema cache', { table: 'project_import_tasks', op: 'rpc' });
+    const out = await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, saved.text), async () => true);
+    expect(out.status).toBe('imported');
+    expect(db.calls.filter((c) => c.table === 'project_task_table' && c.op === 'insert').length).toBeGreaterThan(0);
+    const again = await exported();
+    again.db.failNext('permission denied for table project_task_table', { table: 'project_import_tasks', op: 'rpc' });
+    await expect(importProjectFromFile(again.api, again.P2, OWNER, asDropped(again.saved.name, again.saved.text), async () => true)).rejects.toThrow('permission denied');
+  });
+
+  it('the task lines of the file are written after the tasks and the links (250 a chunk), on the new tasks, NOT posted', async () => {
+    const { saved, api, db, P2 } = await exported();
+    const file = JSON.parse(saved.text);
+    const leaves = file.tasks.filter((t: any) => t.rowJSON.rowKind !== 'stage');
+    file.taskLines = Array.from({ length: 1200 }, (_, i) => ({ rowGUID: `11111111-aaaa-4aaa-8aaa-${String(i).padStart(12, '0')}`, rowOwnerGUID: leaves[i % leaves.length].rowGUID, rowParentGUID: 'materialGenus', orderInList: i, rowJSON: { qtyTaskLine: 1, sumForBudget: 3, taskIsPosted: true } }));
+    const out = await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, JSON.stringify(file)), async () => true);
+    expect(out.status).toBe('imported');
+    expect((out as any).plan.taskLines).toHaveLength(1200);
+    const rows = db.rows('task_line_table');
+    expect(rows).toHaveLength(1200);
+    const taskIds = new Set(db.rows('project_task_table').filter((t) => t.projectGUID === P2.rowGUID).map((t) => t.rowGUID));
+    expect(rows.every((r) => taskIds.has(r.rowOwnerGUID) && r.rowJSON.taskIsPosted === false)).toBe(true);
+    expect(db.calls.filter((c) => c.table === 'task_line_table' && c.op === 'insert')).toHaveLength(5); // 250 x 4 + 200
   });
 
   it('import into a project WITH data: asks; "no" changes nothing, "yes" deletes and replaces', async () => {

@@ -144,6 +144,11 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   projectSettingsRequest: null,
   openProjectSettings: (projectGUID) =>
     set((s) => ({ projectSettingsRequest: projectGUID ? { guid: projectGUID, nonce: (s.projectSettingsRequest?.nonce ?? 0) + 1 } : null })),
+  projectAssistantSeed: null,
+  setProjectAssistantSeed: (seed) => set({ projectAssistantSeed: seed }),
+  projectAssistantResult: null,
+  applyProjectAssistant: (result) =>
+    set((s) => ({ projectAssistantResult: result ? { ...result, nonce: (s.projectAssistantResult?.nonce ?? 0) + 1 } : null })),
   treeColumnsOrder: [...PM_TREE_COLUMNS_DEFAULT_ORDER],
   treeColumnsWidths: {},
   customColumns: [],

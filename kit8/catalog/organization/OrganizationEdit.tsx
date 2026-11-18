@@ -43,15 +43,27 @@ import {
 } from './currencies/organizationCurrenciesModel';
 import { useOrganizationCurrencyRecalc } from './currencies/useOrganizationCurrencyRecalc';
 import TabTimesheet, { storedTimesheetSettings, type TimesheetStoredSettings } from '../../documents/timesheet/TabTimesheet';
+import OrganizationConsolidationSection from './consolidation/OrganizationConsolidationSection';
+import {
+  CONSOLIDATION_CHANGE_MESSAGE,
+  CONSOLIDATION_CHANGE_TITLE,
+  CONSOLIDATION_CURRENCY_REQUIRED,
+  changedConsolidation,
+  consolidationChangeLines,
+  consolidationPatchOf,
+  consolidationSettingsOf,
+  type ConsolidationSettings,
+} from './consolidation/consolidationModel';
 
 // Projects -> Settings pulls in the whole project settings UI: loaded only when that tab opens (Jest cannot run import())
 const OrganizationProjectSettings = React.lazy(() => Promise.resolve(require('./OrganizationProjectSettings')));
 
-type OrgTab = 'main' | 'projects' | 'timesheet' | 'files' | 'chat' | 'system';
+type OrgTab = 'main' | 'projects' | 'consolidation' | 'timesheet' | 'files' | 'chat' | 'system';
 type ProjectsTab = 'settings';
 const ORG_TABS: { id: OrgTab; label: string; icon: string }[] = [
   { id: 'main', label: 'Main', icon: 'info' },
   { id: 'projects', label: 'Projects', icon: 'view_timeline' },
+  { id: 'consolidation', label: 'Consolidation', icon: 'currency_exchange' },
   { id: 'timesheet', label: 'Time sheet', icon: 'schedule' },
   { id: 'files', label: 'Files', icon: 'folder' },
   { id: 'chat', label: 'Chat', icon: 'chat' },
@@ -81,6 +93,8 @@ type Form = {
   timesheet: TimesheetStoredSettings;
   /** count the screens the users open (kit8/catalog/user/visit): true unless stored false */
   numberOfVisitsFunctionalityEnabled: boolean;
+  /** consolidation (kit8/catalog/organization/consolidation): the obligatory currency + the rate type + the two VAT switches; the database owns the state */
+  consolidation: ConsolidationSettings;
   /** the base currency of the exchange rates the database converts with (the cost of a time sheet hour); '' = EUR */
   baseCurrency: string;
   /** the chat attachment limit in MB (kit8/chat): saved by the RPC of the Chat tab; kept here so the form save does not drop it */
@@ -111,6 +125,8 @@ const toForm = (j?: Partial<OrganizationRowJSON>, defaultUserEmail = ''): Form =
     defaultProjectSettings: v.defaultProjectSettings,
     timesheet: storedTimesheetSettings(v as Record<string, any>),
     numberOfVisitsFunctionalityEnabled: v.numberOfVisitsFunctionalityEnabled !== false,
+    // a NEW organization starts with EUR (the administrator picks another); an existing one shows what the database holds
+    consolidation: j ? consolidationSettingsOf(v as Record<string, any>) : { ...consolidationSettingsOf({}), currency: 'EUR' },
     baseCurrency: v.baseCurrency || '',
     maximumChatAttachmentFileSize: v.maximumChatAttachmentFileSize,
     organizationFilesStorageProvider: filesProviderOfOrganization(v),
@@ -132,6 +148,7 @@ const fromForm = (f: Form): OrganizationRowJSON =>
     defaultProjectSettings: f.defaultProjectSettings,
     ...f.timesheet,
     numberOfVisitsFunctionalityEnabled: f.numberOfVisitsFunctionalityEnabled,
+    ...consolidationPatchOf(f.consolidation),
     baseCurrency: f.baseCurrency,
     maximumChatAttachmentFileSize: f.maximumChatAttachmentFileSize,
     organizationFilesStorageProvider: f.organizationFilesStorageProvider,
@@ -201,6 +218,13 @@ export default function OrganizationEdit() {
       setErrors(check.errors);
       return;
     }
+    // the currency for consolidation is OBLIGATORY: no save without it
+    // (an organization whose row has no currency yet - made before the feature - is filled by the database on this save)
+    if (!form.consolidation.currency && (isNew || existing?.rowJSON?.currencyForConsolidation)) {
+      setErrors({ currencyForConsolidation: CONSOLIDATION_CURRENCY_REQUIRED });
+      setTopTab('consolidation');
+      return;
+    }
 
     const actions = SystemMetaData[ORGANIZATION_ENTITY]?.actions;
     if (!actions) {
@@ -210,6 +234,20 @@ export default function OrganizationEdit() {
 
     // a changed currency of the organization: the administrator approves; Yes = save + recalculate ALL its projects, No = save only, Cancel = save nothing
     let recalculate = false;
+    // a changed consolidation currency / rate type: the database recalculates every project - the administrator approves (Yes / Cancel; the VAT switches need no approval)
+    if (!isNew) {
+      const cc = changedConsolidation(existing?.rowJSON?.currencyForConsolidation ? consolidationSettingsOf(existing.rowJSON as Record<string, any>) : null, form.consolidation);
+      if (cc.recalculates) {
+        const answer = await askPMApprove({
+          title: pmT(CONSOLIDATION_CHANGE_TITLE),
+          message: `${consolidationChangeLines(cc).map((l) => pmT(l)).join('\n')}\n\n${pmT(CONSOLIDATION_CHANGE_MESSAGE)}`,
+          yesLabel: pmT('Yes, recalculate'),
+          hideNo: true,
+          icon: 'currency_exchange',
+        });
+        if (answer !== 'yes') return;
+      }
+    }
     if (!isNew) {
       const changes = changedOrganizationCurrencies(existing?.rowJSON?.defaultProjectSettings, json.defaultProjectSettings);
       if (changes.length) {
@@ -380,6 +418,16 @@ export default function OrganizationEdit() {
       )}
 
       {/* Time sheet: the default switches of every user (a person may set his own: Person edit) */}
+      {topTab === 'consolidation' && (
+        <OrganizationConsolidationSection
+          value={form.consolidation}
+          onChange={(patch) => update('consolidation', { ...form.consolidation, ...patch })}
+          disabled={!canEdit}
+          error={errors.currencyForConsolidation}
+          statusEnabled={!isNew}
+        />
+      )}
+
       {topTab === 'timesheet' && (
         <View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]} testID="organization-timesheet-tab-content">
           <TabTimesheet testID="organization-timesheet-settings" values={form.timesheet} disabled={!canEdit} onChange={(next) => update('timesheet', next)} />

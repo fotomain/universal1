@@ -58,6 +58,14 @@ export interface OrganizationRowJSON {
    * Edited in Organization edit -> Projects -> Settings, or saved from the Project settings window (three dots menu).
    */
   defaultProjectSettings?: Record<string, any>;
+  /** CONSOLIDATION (kit8/catalog/organization/consolidation, SQL PART 52): the OBLIGATORY currency in which all projects are added (a missing key keeps the stored value) */
+  currencyForConsolidation?: string;
+  exchangeRateTypeForConsolidation?: string;
+  /** purchase / sale VAT included into the consolidated amounts (default false) */
+  consolidationIncludePurchaseVAT?: boolean;
+  consolidationIncludeSaleVAT?: boolean;
+  /** ready | recalculating | gaps - written by the database only, never sent by a form */
+  consolidationState?: string;
   /** the biggest chat attachment in MB (whole number 1..100; default 10): kit8/chat - changed through the RPC chat_set_max_attachment_size (administrator or project manager) */
   maximumChatAttachmentFileSize?: number;
   /** time sheet defaults of every user (Organization edit -> Time sheet): a Person may set his own (kit8/documents/timesheet/TabTimesheet). A missing key = the built-in default (false / true). */
@@ -159,6 +167,11 @@ export function normalizeOrganization(raw: Partial<OrganizationRowJSON>): Organi
     ...(typeof raw.numberOfVisitsFunctionalityEnabled === 'boolean' ? { numberOfVisitsFunctionalityEnabled: raw.numberOfVisitsFunctionalityEnabled } : {}),
     // the storage of the files of the organization: only a known storage is kept
     ...(raw.organizationFilesStorageProvider === 'googleDrive' || raw.organizationFilesStorageProvider === 'oneDrive' ? { organizationFilesStorageProvider: raw.organizationFilesStorageProvider } : {}),
+    // consolidation: a 3 letter currency (upper case), a non empty rate type, stored booleans; the state is the database's and is never sent
+    ...(/^[A-Za-z]{3}$/.test(String(raw.currencyForConsolidation ?? '').trim()) ? { currencyForConsolidation: String(raw.currencyForConsolidation).trim().toUpperCase() } : {}),
+    ...(String(raw.exchangeRateTypeForConsolidation ?? '').trim() ? { exchangeRateTypeForConsolidation: String(raw.exchangeRateTypeForConsolidation).trim() } : {}),
+    ...(typeof raw.consolidationIncludePurchaseVAT === 'boolean' ? { consolidationIncludePurchaseVAT: raw.consolidationIncludePurchaseVAT } : {}),
+    ...(typeof raw.consolidationIncludeSaleVAT === 'boolean' ? { consolidationIncludeSaleVAT: raw.consolidationIncludeSaleVAT } : {}),
     // a 3 letter currency code (upper case); anything else is dropped: the database then uses EUR
     ...(/^[A-Za-z]{3}$/.test(String(raw.baseCurrency ?? '').trim()) ? { baseCurrency: String(raw.baseCurrency).trim().toUpperCase() } : {}),
   };

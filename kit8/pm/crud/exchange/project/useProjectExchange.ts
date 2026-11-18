@@ -86,7 +86,7 @@ export function useProjectExchange(ownerGUID: string) {
         setStatus({
           kind: 'done',
           text:
-            `Imported ${plural(plan.tasks.length, 'task')} and ${deps(plan.dependencies.length)} from "${plan.sourceProjectName}".` +
+            `Imported ${plural(plan.tasks.length, 'task')}, ${deps(plan.dependencies.length)}${plan.taskLines.length > 0 ? ` and ${plural(plan.taskLines.length, 'task line')}` : ''} from "${plan.sourceProjectName}".` +
             (plan.budgetNotTaken.length > 0 ? ` Budget settings not taken: ${plan.budgetNotTaken.join('; ')}.` : ''),
         });
         return plan;

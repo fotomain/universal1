@@ -21,9 +21,15 @@ export function useFactTasks(projectGUID: string): FactTaskItem[] {
     enabled: !!projectGUID,
     staleTime: 30_000,
     queryFn: async () => {
-      const { data, error } = await supabase.from('project_task_table').select('rowGUID,rowOwnerGUID,treePath,rowJSON').eq('projectGUID', projectGUID);
-      if (error) throw new Error(error.message || String(error));
-      return leafTasks(data || []);
+      // ALL pages: a request returns 1000 rows at most
+      const rows: any[] = [];
+      for (let from = 0; ; from += 1000) {
+        const { data, error } = await supabase.from('project_task_table').select('rowGUID,rowOwnerGUID,treePath,rowJSON').eq('projectGUID', projectGUID).order('rowGUID', { ascending: true }).range(from, from + 999);
+        if (error) throw new Error(error.message || String(error));
+        rows.push(...(data || []));
+        if (!data || data.length < 1000) break;
+      }
+      return leafTasks(rows);
     },
   });
   return useMemo(() => q.data ?? [], [q.data]);

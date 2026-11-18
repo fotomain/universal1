@@ -203,6 +203,12 @@ export interface PMStoreState {
   /** "Open the Project settings window of this project" (⇅ button on the Gantt bar); consumed by the projects bar. */
   projectSettingsRequest: { guid: string; nonce: number } | null;
   openProjectSettings: (projectGUID: string | null) => void;
+  /** Project assistant (kit8/ui/project/assistant): the answers the window of the project (toolbar) hands to the assistant when it is called from the three dots menu */
+  projectAssistantSeed: { target: string; values: Record<string, any> } | null;
+  setProjectAssistantSeed: (seed: { target: string; values: Record<string, any> } | null) => void;
+  /** Project assistant: the result - `patch` is merged into the New project / Project settings window of `target` ('new' or a project GUID); createNow = save it at once */
+  projectAssistantResult: { target: string; patch: Record<string, any>; createNow: boolean; nonce: number } | null;
+  applyProjectAssistant: (result: { target: string; patch: Record<string, any>; createNow: boolean } | null) => void;
   /** Row / bar context menu (onRightClickMenuMode): task + window point + where it was opened. */
   rowMenu: PMRowMenuState | null;
   setRowMenu: (menu: PMRowMenuState | null) => void;

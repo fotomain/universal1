@@ -3,6 +3,7 @@
 --   monitor01_tick          every monitor01_refresh_interval_seconds() seconds (2 s): CALL public.monitor01_process_dirty()   (drains the queue monitor01_dirty)
 --   monitor01_housekeeping  daily 03:17:                                           SELECT public.monitor01_housekeeping()
 --   cash_ledger_tick        every 10 seconds (PART 38, payment fact):             SELECT public.cash_ledger_process_dirty()   (drains the exchange rate changes queued in cash_account_ledger_dirty)
+--   consolidation_tick      every 10 seconds (PART 52, consolidation): SELECT public.consolidation_process_dirty()   (recalculates sumForConsolidation after a currency / rate type / project currency changed or a missing rate arrived)
 --   files_cleanup_tick      every minute (PART 49, file attachments):             SELECT public.files_cleanup_poke()   (asks the Edge Function files-drive to delete queued Google Drive items; needs pg_net + two database settings, see the function)
 -- Only the cron.schedule calls live here (they were the last DO block of PART 25 of start2_sql_code.sql). The functions they call are in start2.
 -- Needs the extension pg_cron (Supabase: Database -> Extensions -> pg_cron; start1_sql_tables.sql tries CREATE EXTENSION and only prints a NOTICE when it cannot).
@@ -32,11 +33,14 @@ BEGIN
     IF to_regprocedure('public.cash_ledger_process_dirty(integer)') IS NOT NULL THEN
       PERFORM cron.schedule('cash_ledger_tick', '10 seconds', 'SELECT public.cash_ledger_process_dirty()');
     END IF;
+    IF to_regprocedure('public.consolidation_process_dirty(integer, text)') IS NOT NULL THEN
+      PERFORM cron.schedule('consolidation_tick', '10 seconds', 'SELECT public.consolidation_process_dirty()');
+    END IF;
     IF to_regprocedure('public.files_cleanup_poke()') IS NOT NULL THEN
       PERFORM cron.schedule('files_cleanup_tick', '* * * * *', 'SELECT public.files_cleanup_poke()');
     END IF;
     -- a job that run_sql_cli.command paused for the install of start2 is switched on again (cron.schedule keeps an inactive job inactive)
-    PERFORM cron.alter_job(j.jobid, active := true) FROM cron.job j WHERE j.jobname IN ('monitor01_tick', 'monitor01_housekeeping', 'cash_ledger_tick', 'files_cleanup_tick') AND NOT j.active;
+    PERFORM cron.alter_job(j.jobid, active := true) FROM cron.job j WHERE j.jobname IN ('monitor01_tick', 'monitor01_housekeeping', 'cash_ledger_tick', 'consolidation_tick', 'files_cleanup_tick') AND NOT j.active;
   EXCEPTION WHEN OTHERS THEN
     RAISE NOTICE 'pg_cron refused the schedule (%): the "N seconds" form needs pg_cron 1.5 or newer. Run by hand or schedule it in the dashboard: CALL public.monitor01_process_dirty()', SQLERRM;
   END;

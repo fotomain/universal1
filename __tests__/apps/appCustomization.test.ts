@@ -49,12 +49,12 @@ describe('app customization registry', () => {
     });
   });
 
-  it('New Project: signed in = the dashboard in THIS window with the New project window requested; a guest signs in first', () => {
+  it('New Project: signed in = the Create New Project Assistant (first screen); a guest signs in first', () => {
     const [newProject] = getAppCustomization('appPM80').fabExtraActions;
     const router = { push: jest.fn() };
     newProject.run({ router, signedIn: true });
-    expect(mockOpenProjectSettings).toHaveBeenCalledWith('new');
-    expect(router.push).toHaveBeenCalledWith('/pm/project/dashboard');
+    expect(mockOpenProjectSettings).not.toHaveBeenCalled(); // the assistant's "Manual input" asks for the window, not the FAB
+    expect(router.push).toHaveBeenCalledWith('/pm/project/assistant');
 
     mockOpenProjectSettings.mockClear();
     const guestRouter = { push: jest.fn() };

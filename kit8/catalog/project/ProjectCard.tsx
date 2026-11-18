@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
@@ -7,6 +7,13 @@ import type { CardItem } from '../../ui/components/list/web/lib/types';
 import type { PMProjectRow, PMRowJSON } from '../../pm/model/types';
 import { usePMStore } from '../../pm/store/store_pm';
 import { formatDateShort } from '../../pm/view/project/scheduling';
+import PMContextMenu from '../../pm/inner/menu/PMContextMenu';
+import type { PMMenuItemProps } from '../../pm/inner/menu/PMMenuItem';
+import { useProjectCardActions } from './copy/ProjectCardActionsContext';
+
+/** a card narrower than this puts its buttons on a second row, so the title keeps the whole first row */
+export const PROJECT_CARD_COMPACT_WIDTH = 460;
+export const isCompactProjectCard = (width: number | null | undefined): boolean => !!width && width < PROJECT_CARD_COMPACT_WIDTH;
 
 export interface ProjectCardProps {
   card: CardItem;
@@ -53,6 +60,43 @@ export default function ProjectCard({
     onSelect?.(id);
   };
 
+  // the menu of the card: right click (web), long press (phone), the three dots at the right corner
+  const { onCopy, onCopyWithTasks } = useProjectCardActions();
+  const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
+  const dotsRef = useRef<View>(null);
+  const [cardWidth, setCardWidth] = useState<number | null>(null);
+  const compact = isCompactProjectCard(cardWidth);
+  const hasMenu = !!(onCopy || onCopyWithTasks || onDelete);
+  const openMenuAt = (x: number, y: number) => hasMenu && setMenu({ x, y });
+  const openMenuFromDots = () => {
+    // opens at once (a first guess), then moves under the dots as soon as the window position is measured
+    openMenuAt(8, 56);
+    const node: any = dotsRef.current;
+    node?.measureInWindow?.((x: number, y: number, _w: number, h: number) => setMenu({ x: x - 150, y: y + h + 2 }));
+  };
+  const pick = (fn: () => void) => () => {
+    setMenu(null);
+    fn();
+  };
+  const menuItems: PMMenuItemProps[] = [
+    ...(onCopy ? [{ testID: `project-menu-copy-${id}`, label: 'Copy', icon: 'content_copy', onPress: pick(() => onCopy(id)) }] : []),
+    ...(onCopyWithTasks ? [{ testID: `project-menu-copy-tasks-${id}`, label: 'Copy with Tasks', icon: 'control_point_duplicate', onPress: pick(() => onCopyWithTasks(id)) }] : []),
+    ...(onDelete ? [{ testID: `project-menu-delete-${id}`, label: 'Delete', icon: 'delete', danger: true, onPress: pick(() => onDelete(id)) }] : []),
+  ];
+
+  const dotsButton = hasMenu ? (
+    <Pressable
+      ref={dotsRef as any}
+      testID={`project-menu-${id}`}
+      onPress={openMenuFromDots}
+      accessibilityRole="button"
+      accessibilityLabel="Project menu"
+      style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, padding: 6 }]}
+    >
+      <IconApp name="more_vert" size={20} color={c.text} />
+    </Pressable>
+  ) : null;
+
   const handleDashboardPress = () => {
     // Select project and navigate to full PM Gantt dashboard
     const s = usePMStore.getState();
@@ -64,6 +108,17 @@ export default function ProjectCard({
   return (
     <View
       testID={testID || `project-card-${id}`}
+      onLayout={(e) => setCardWidth(e.nativeEvent.layout.width)}
+      {...(Platform.OS === 'web'
+        ? ({
+            onContextMenu: (e: any) => {
+              if (!hasMenu) return;
+              e.preventDefault?.();
+              const ev = e.nativeEvent || e;
+              openMenuAt(ev.clientX ?? ev.pageX ?? 8, ev.clientY ?? ev.pageY ?? 56);
+            },
+          } as any)
+        : {})}
       style={[
         styles.card,
         {
@@ -92,6 +147,7 @@ export default function ProjectCard({
         testID={testID ? `${testID}-main` : `project-card-main-${id}`}
         style={styles.main}
         onPress={handleCardPress}
+        onLongPress={Platform.OS === 'web' ? undefined : (e: any) => openMenuAt(e?.nativeEvent?.pageX ?? 8, e?.nativeEvent?.pageY ?? 56)}
         accessibilityRole="button"
         accessibilityLabel={`Select ${j.name || 'project'}`}
       >
@@ -101,7 +157,7 @@ export default function ProjectCard({
 
         <View style={{ flex: 1 }}>
           <View style={styles.titleRow}>
-            <Text style={[styles.name, { color: c.text }]} numberOfLines={1}>
+            <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
               {j.name || 'Unnamed Project'}
             </Text>
             {isCurrentGantt && (
@@ -120,7 +176,12 @@ export default function ProjectCard({
         </View>
       </Pressable>
 
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}>
+      {compact && dotsButton}
+
+      <View
+        testID={`project-card-actions-${id}`}
+        style={compact ? styles.actionsCompact : { flexDirection: 'row', alignItems: 'center', gap: 6, marginLeft: 8 }}
+      >
         <Pressable
           testID={`project-dashboard-${id}`}
           onPress={handleDashboardPress}
@@ -158,7 +219,11 @@ export default function ProjectCard({
             <IconApp name="delete" size={18} color="#ef4444" />
           </Pressable>
         )}
+
+        {!compact && dotsButton}
       </View>
+
+      {menu && <PMContextMenu x={menu.x} y={menu.y} caption={j.name || 'Project'} items={menuItems} onClose={() => setMenu(null)} testID={`project-menu-popup-${id}`} />}
     </View>
   );
 }
@@ -166,11 +231,21 @@ export default function ProjectCard({
 const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 10,
     paddingVertical: 8,
+  },
+  // narrow card: the buttons go to their own row under the title
+  actionsCompact: {
+    flexBasis: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 6,
+    marginTop: 6,
   },
   dragging: {
     elevation: 8,

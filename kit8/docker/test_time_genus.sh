@@ -16,7 +16,7 @@ PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c clien
 PGOPTIONS="-c client_min_messages=warning" docker exec -i -e PGOPTIONS="-c client_min_messages=warning" "$C" psql -U postgres -d "$DB" -v ON_ERROR_STOP=1 -q -f /sql/start4_sql_insert_missing.sql >/dev/null
 
 fail=0
-for f in tests/[0-9][0-9]_*.sql; do
+for f in tests/[0-9][0-9]_*.sql tests/[0-9][0-9][0-9]_*.sql; do
   case "$f" in tests/00_*) continue;; esac
   if [ $# -gt 0 ] && [[ "$f" != tests/$1_* ]]; then continue; fi
   echo "== $f"

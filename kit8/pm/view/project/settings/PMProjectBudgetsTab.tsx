@@ -6,8 +6,10 @@
 //   project_table.rowJSON:
 //     currencyForBudget / currencyForAccounting / currencyForContract (default currency for contracts)
 //       = ISO 4217 codes of the currency catalog (same shape as contract.contractCurrency: "EUR")
-//       CHANGED ONLY IN THE ORGANIZATION (Organization edit -> Projects -> Settings -> Budgets -> Main; the organization's defaultProjectSettings are what a NEW project
-//       starts with): the Project settings window shows them READ ONLY with a message (currenciesEditable = false, the default); the organization screen passes true
+//       EDITABLE PER PROJECT (2026-11-17, documentation/CONSOLIDATION_WBS.html section 1): a project owns its currencies; the organization's defaultProjectSettings (Organization edit
+//       -> Projects -> Settings -> Budgets -> Main, currenciesScope 'organization') are what a NEW project starts with. A change of a project asks an approval window (Yes = save +
+//       recalculate THIS project, Cancel) in the Project settings window; the database refuses the budget / accounting currency while the project has posted documents.
+//       currenciesEditable = false shows them read only (kept for a caller that wants it); organizationCurrencies = the ones of the organization (the mark "own currencies")
 //     exchangeRateTypeForAccounting / exchangeRateTypeForBudget = the exchange RATE TYPE (Default | Budget, as D365 FO) used to convert the sums of the
 //       task lines into the accounting / the budget currency (task lines, kit8/pm/view/task/finances/taskLineFx.ts)
 //     projectRevenueBudgetNeeded / projectExpenseBudgetNeeded = "Budgets" checkboxes; while projectExpenseBudgetNeeded is on the INPUT switches appear
@@ -102,19 +104,40 @@ export const CURRENCIES_ORGANIZATION_MESSAGE =
 
 /** the words shown above the currencies where they CAN be changed (the organization) */
 export const CURRENCIES_ORGANIZATION_NOTE =
-  'These currencies are the currencies of every NEW project of the organization. A project shows them read only; they change only in the organization, after an approval that recalculates all its projects.';
+  'These currencies are the currencies of every NEW project of the organization. A project may have its own; a change here asks an approval that recalculates ALL projects (and overwrites their own currencies).';
+
+/** the words above the currencies of ONE project */
+export const CURRENCIES_PROJECT_NOTE =
+  'The currencies of THIS project. A change asks an approval and recalculates this project; the budget and accounting currency cannot change while the project has posted documents (unpost them first). The consolidation currency of the organization is set in Organization edit -> Consolidation.';
+
+/** the currencies of the project that differ from the organization's (the mark "own currencies"): [key, project code, organization code] */
+export const ownCurrencyDifferences = (
+  values: Record<string, any>,
+  organization?: Partial<Record<'currencyForBudget' | 'currencyForAccounting' | 'currencyForContract', string | null | undefined>> | null,
+): { key: string; project: string; organization: string }[] => {
+  if (!organization) return [];
+  return (['currencyForBudget', 'currencyForAccounting', 'currencyForContract'] as const)
+    .map((key) => ({ key, project: String(values?.[key] || '').trim().toUpperCase(), organization: String(organization[key] || '').trim().toUpperCase() }))
+    .filter((d) => d.project && d.organization && d.project !== d.organization);
+};
 
 export default function PMProjectBudgetsTab({
   values,
   onChange,
   subTab,
   onSubTabChange,
-  currenciesEditable = false,
+  currenciesEditable = true,
+  currenciesScope = 'project',
+  organizationCurrencies,
 }: {
   values: PMProjectBudgetsValues;
   onChange: (patch: PMProjectBudgetsValues) => void;
-  /** true ONLY on the organization screen: the currencies are changed there; everywhere else they are read only (default false) */
+  /** the currencies are editable (default true: per project); false = read only */
   currenciesEditable?: boolean;
+  /** 'organization' on the organization screen (the defaults of a NEW project, another note), 'project' everywhere else */
+  currenciesScope?: 'project' | 'organization';
+  /** the currencies of the organization: a project that differs shows the mark "own currencies" */
+  organizationCurrencies?: Partial<Record<'currencyForBudget' | 'currencyForAccounting' | 'currencyForContract', string | null | undefined>> | null;
   /** controlled SubTab (the settings window jumps to TabBusinessUnits on a missing center); uncontrolled when omitted */
   subTab?: BudgetsSubTab;
   onSubTabChange?: (t: BudgetsSubTab) => void;
@@ -167,7 +190,14 @@ export default function PMProjectBudgetsTab({
       {active === 'TabBudgetsMain' && (
         <View testID="pm-project-budgets-main-content">
           {currenciesEditable ? (
-            <Text testID="pm-project-currencies-note" style={[styles.currencyNote, { color: themeColors.text }]}>{pmT(CURRENCIES_ORGANIZATION_NOTE)}</Text>
+            <>
+              <Text testID="pm-project-currencies-note" style={[styles.currencyNote, { color: themeColors.text }]}>{pmT(currenciesScope === 'organization' ? CURRENCIES_ORGANIZATION_NOTE : CURRENCIES_PROJECT_NOTE)}</Text>
+              {currenciesScope === 'project' && ownCurrencyDifferences(values, organizationCurrencies).length > 0 && (
+                <Text testID="pm-project-currencies-own" style={[styles.currencyNote, { color: themeColors.primary, fontWeight: '700' }]}>
+                  {pmT('Own currencies: {{list}}', { list: ownCurrencyDifferences(values, organizationCurrencies).map((d) => `${d.key.replace('currencyFor', '')} ${d.project} (organization: ${d.organization})`).join(' · ') })}
+                </Text>
+              )}
+            </>
           ) : (
             <View testID="pm-project-currencies-readonly" style={[styles.currencyBox, { borderColor: withAlpha(themeColors.text, 0.2), backgroundColor: withAlpha(themeColors.primary, 0.06) }]}>
               {PM_PROJECT_CURRENCY_FIELDS.map(({ key, label }) => {

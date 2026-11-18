@@ -122,6 +122,12 @@ Ctrl/⌘+Z undo.
 Task page: any way back (in-page arrow, header arrow, Android back, browser back) returns to the dashboard and
 activates the task in the tree (parents expanded, row selected + scrolled into view: `store.requestFocus`).
 
+**Last task of the dashboard** (`view/project/useLastTask.ts`): the task the user clicked last is saved per user AND project in
+`project_user_settings_table.rowJSON.uxuiSettings.lastTaskGUID` (next to the main view Gantt / Edit / ..., `ganttVsNetworkView`), 0.8 s
+after the click. When the project opens again (after its rows and saved view settings are in) the task is focused with `store.requestFocus`
+(parents expanded, selected, scrolled). Not restored: in a picker, with a deep link (`?projectGUID&taskGUID`), when the user already
+selected a task, when the task no longer exists. Test `__tests__/pm/view/project/useLastTask.test.tsx`.
+
 ## Custom tree columns (AddCustomProjectTaskColumn)
 
 Right-click (touch: long-press) the Task name header or any other tree header → **Add custom column** ▸ Text · Date ·

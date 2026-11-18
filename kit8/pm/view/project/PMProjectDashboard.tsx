@@ -2,6 +2,7 @@
 //   PMRecentProjectsToolbar - pick (recent ribbon + search) / create / edit projects (project_table)
 //   PMProjectTasksTree  - Skia task tree + container & hover CRUD panels  ┐ one shared
 //   PMProjectGanttChart - Skia Gantt + hover CRUD panel                   ┘ viewport
+//   last task (useLastTask): the task clicked last is saved per user + project and scrolled to when the project opens again
 //   deep link (useDashboardDeepLink): ?projectGUID&taskGUID&genus&lineGUID opens the Finances view at that task line
 //   Gantt | Kanban | Network | Versions | Finances | Plan switch (uxuiSettings.ganttVsNetworkView, remembered per user AND project): Kanban = tree + view/kanban/PMKanbanDashboard,
 //   Network = view/network/PMNetworkView, Versions = tree + version/view/version/PMProjectVersionsList
@@ -41,6 +42,7 @@ import { useRecentProjects } from './recent/recentProjects';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
 import { PMDialogButton, PMTipIcon } from '../../inner/buttons';
 import { usePMStore } from '../../store/store_pm';
+import { PM_SPLITTER_WIDTH } from '../../model/constants';
 import { useProjectSubprojectMarks } from '../../subproject/useProjectSubprojectMarks';
 import { usePMOwnerGUID, useReadProjectDataQuery, useProjectRealtime, useReadProjectsQuery, useReadProjectUserSettingsQuery, useScheduleWriteBack, useSeedDemoMutation } from '../../crud/queries';
 import { usePMCrud } from '../../crud/usePMCrud';
@@ -52,6 +54,7 @@ import { openFillFromTemplate, openSaveToTemplate, openSavedTemplates, PMTaskTem
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 import { useDashboardDeepLink } from './useDashboardDeepLink';
+import { useLastTask } from './useLastTask';
 import { PMPicker, PMPickerScope } from './pick/pmPickerContext';
 import PMProjectSummaryRow from '../../extended/PMProjectSummaryRow';
 import { useExtendedKeys } from '../../extended/useExtendedKeys';
@@ -109,6 +112,8 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   // /pm/project/dashboard?projectGUID=…&taskGUID=…&genus=…&lineGUID=… (a click on a transaction of a source window): project, Finances view, task, tab, line
   // (a picker is opened from a page whose own route params may look like a link: no deep link there)
   useDashboardDeepLink(ownerGUID, projectsQuery.isSuccess && !picker);
+  // the last clicked task is remembered per user AND project (next to the main view) and scrolled to when the project opens again (not in a picker)
+  useLastTask(!picker && !!ownerGUID && projectsQuery.isSuccess, crud.setProjectUxUiSettings);
   useExternalDates();
   useExtendedKeys(crud);
 
@@ -135,6 +140,10 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   const hideGanttToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideGanttToolBar);
   const hideGanttChartNode = useSafeSelector((s) => !!s?.uxuiState?.hideGanttChartNode);
   const hideTreeNode = useSafeSelector((s) => !!s?.uxuiState?.hideTreeNode);
+  // where the Gantt chart starts (the same width rule as PMGanttSurface: the tree takes at most 45%, at least 160 px) - the empty-project button is centered there
+  const storeTreeWidth = usePMStore((s) => s.treeWidth);
+  const [overlayWidth, setOverlayWidth] = React.useState(0);
+  const emptyChartLeft = hideGanttChartNode || hideTreeNode || !overlayWidth ? 0 : Math.round(Math.min(storeTreeWidth, Math.max(160, overlayWidth * 0.45)) + PM_SPLITTER_WIDTH);
   /** uxui.refreshProjectData: a counter - every change re-reads projects, the project, Kanban, settings, versions */
   const refreshNonce = useSafeSelector((s) => Number(s?.uxuiState?.refreshProjectData) || 0);
   const queryClient = useQueryClient();
@@ -309,7 +318,8 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
           </View>
           {!picker && ganttVsNetworkView === 'showGanttChart' && <PMDetailsPane crud={crud} />}
           {!picker && rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
-            <View pointerEvents="box-none" style={styles.emptyOverlay}>
+            // the button stands in the CENTER OF THE GANTT CHART (the pane right of the tree), not of the whole window
+            <View pointerEvents="box-none" style={[styles.emptyOverlay, { paddingLeft: emptyChartLeft }]} onLayout={(e) => setOverlayWidth(Math.round(e.nativeEvent.layout.width))}>
               <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} style={styles.cta} onPress={() => crud.createStage()} />
             </View>
           )}
@@ -409,5 +419,5 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 17, fontWeight: '700', marginTop: 10, marginBottom: 6 },
   cta: { marginTop: 14, marginLeft: 0 },
   banner: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 8, borderWidth: StyleSheet.hairlineWidth, margin: 6, borderRadius: 8 },
-  emptyOverlay: { ...StyleSheet.absoluteFill, top: 120, alignItems: 'center' },
+  emptyOverlay: { ...StyleSheet.absoluteFill, top: 60, alignItems: 'center', justifyContent: 'center' },
 });

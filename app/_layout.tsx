@@ -423,6 +423,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/currency/exchange/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rate' }} />
               <Drawer.Screen name="pm/kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
               <Drawer.Screen name="pm/kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
+              <Drawer.Screen name="pm/project/assistant/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New project assistant' }} />
+              <Drawer.Screen name="pm/project/assistant/import/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Import project' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />
@@ -447,6 +449,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/reports/monitor01/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor01' }} />
               <Drawer.Screen name="pm/reports/monitor02/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor02' }} />
               <Drawer.Screen name="pm/reports/monitor03/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor03' }} />
+              <Drawer.Screen name="pm/reports/monitor08/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor08 Consolidation' }} />
               <Drawer.Screen name="pm/reports/monitor07/customer/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Customer balance' }} />
               <Drawer.Screen name="pm/reports/monitor07/vendor/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Monitor07 Vendor balance' }} />
               <Drawer.Screen name="user/calendar/index" options={{ title: 'Calendar', drawerLabel: 'Calendar' }} />

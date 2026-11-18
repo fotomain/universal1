@@ -1,6 +1,7 @@
 // ImportExportProject - "Import / Export" section of the Project settings window
 // (view/project/recent/PMRecentProjectsToolbar; opened also by the ⇅ button after "Show task progress").
 // Top tabs: TabImport (default) · TabExport
+// Above the title: the project GUID with a button that copies it to the clipboard (the label says "Copied" for two seconds).
 //   TabImport: drop the file on the zone (or "Choose file…") - asks before deleting the current data
 //   TabExport: three buttons of equal size (outlined):
 //                Export to JSON        project_data_<rowGUID>.json with the project and ALL its tasks - downloaded at once
@@ -10,7 +11,8 @@
 //              PDF / MS Project export what the dashboard shows: enabled for the project that is open there.
 // Logic: useProjectExchange.ts · export/ · import/ · projectExchangeFormat.ts
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import * as Clipboard from 'expo-clipboard';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useTheme } from 'react-native-paper';
 import { ReceiveDraggableFilesComponent } from '../../../../ui/components/common/ReceiveDraggableFilesComponent';
@@ -51,9 +53,37 @@ export default function ImportExportProject({
   const primaryColor = paperTheme.colors?.primary || colors.primary;
   const onDashboard = usePMStore((s) => s.loadedProjectGUID === projectGUID);
   const [msProjectOpen, setMsProjectOpen] = useState(false);
+  // the project GUID on the clipboard
+  const [copied, setCopied] = useState(false);
+  const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (copiedTimer.current) clearTimeout(copiedTimer.current); }, []);
+  const copyGuid = async () => {
+    try {
+      await Clipboard.setStringAsync(projectGUID);
+      setCopied(true);
+      if (copiedTimer.current) clearTimeout(copiedTimer.current);
+      copiedTimer.current = setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+    }
+  };
 
   return (
     <View style={[styles.box, { borderColor: colors.border }]} testID="pm-project-exchange">
+      {/* ---- the project GUID + copy ---- */}
+      <View style={styles.guidRow} testID="pm-project-guid-row">
+        <Text style={[styles.guidLabel, { color: colors.text }]}>{pmT('Project GUID')}</Text>
+        <Text selectable numberOfLines={1} style={[styles.guidValue, { color: colors.text }]} testID="pm-project-guid">{projectGUID}</Text>
+        <Pressable
+          testID="pm-project-guid-copy"
+          accessibilityRole="button"
+          accessibilityLabel={pmT('Copy project GUID')}
+          onPress={copyGuid}
+          style={[styles.guidCopy, { borderColor: primaryColor }]}
+        >
+          <Text style={{ color: primaryColor, fontWeight: '700', fontSize: 12 }}>{copied ? pmT('Copied') : pmT('Copy')}</Text>
+        </Pressable>
+      </View>
       <Text style={[styles.title, { color: colors.text }]}>{pmT('Import / Export')}</Text>
 
       {/* ---- top tabs ---- */}
@@ -185,6 +215,10 @@ const styles = StyleSheet.create({
   // fills the rest of the (fixed height) Project settings window; the Import drop zone takes all of it
   box: { flexGrow: 1, borderTopWidth: StyleSheet.hairlineWidth, marginTop: 14, paddingTop: 10 },
   title: { fontWeight: '700', fontSize: 14, marginBottom: 6 },
+  guidRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 },
+  guidLabel: { fontSize: 12, opacity: 0.7 },
+  guidValue: { flex: 1, fontSize: 12, fontFamily: 'monospace' },
+  guidCopy: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 12, paddingVertical: 4 },
   tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth, marginBottom: 8 },
   tab: { flex: 1, alignItems: 'center', paddingVertical: 8, borderBottomWidth: 2 },
   panel: { flexGrow: 1, minHeight: 110, justifyContent: 'center' },

@@ -29,6 +29,10 @@ export interface SignInWithEmailOtpProps {
   confirmationWay?: EmailConfirmationWay;
   showTitle?: boolean;
   testIDPrefix?: string;
+  /** another way of signing in (Google, Microsoft, password) is running: every input and button of this form is disabled */
+  disabled?: boolean;
+  /** this form is sending / verifying a code (the screen disables the other ways of signing in meanwhile); false again when it goes away */
+  onBusyChange?: (busy: boolean) => void;
 }
 
 export default function SignInWithEmailOtp({
@@ -37,6 +41,8 @@ export default function SignInWithEmailOtp({
   confirmationWay,
   showTitle = true,
   testIDPrefix = 'email-otp',
+  disabled = false,
+  onBusyChange,
 }: SignInWithEmailOtpProps) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -59,6 +65,15 @@ export default function SignInWithEmailOtp({
   }, [dispatch, onSignedIn]);
 
   const otp = useEmailOtpSignIn(supabase, { onSignedIn: handleSignedIn, shouldCreateUser, confirmationWay });
+  const off = disabled;
+
+  // tell the screen while a code is being sent / verified (and that it is over when this form goes away)
+  const busyRef = React.useRef(onBusyChange);
+  busyRef.current = onBusyChange;
+  useEffect(() => {
+    busyRef.current?.(otp.busy);
+  }, [otp.busy]);
+  useEffect(() => () => busyRef.current?.(false), []);
 
   // Every time the screen appears (drawer screens stay mounted), the radio starts on "One-time PIN code".
   const initialWay = confirmationWay ?? 'otpCode';
@@ -107,19 +122,20 @@ export default function SignInWithEmailOtp({
             textContentType="emailAddress"
             returnKeyType="send"
             onSubmitEditing={() => { if (otp.canSend) otp.sendCode(); }}
-            editable={!otp.sending}
+            editable={!otp.sending && !off}
+            disabled={off}
             inputMode="nativePaper"
           />
           <EmailConfirmationWayRadio
             testID={id('way')}
             value={otp.confirmationWay}
             onChange={(w) => { clearLinkError(); otp.setConfirmationWay(w); }}
-            disabled={otp.sending}
+            disabled={otp.sending || off}
           />
           <ButtonPrimaryApp
             testID={id('send')}
             onPress={() => { clearLinkError(); otp.sendCode(); }}
-            disabled={!otp.canSend}
+            disabled={!otp.canSend || off}
             loading={otp.sending}
             color={theme.colors.primary}
             style={styles.button}
@@ -130,7 +146,7 @@ export default function SignInWithEmailOtp({
           <ButtonTextApp
             testID={id('have-code')}
             onPress={otp.enterCode}
-            disabled={!otp.canSend}
+            disabled={!otp.canSend || off}
             style={styles.button}
           >
             {t('screens.haveCode')}
@@ -158,16 +174,16 @@ export default function SignInWithEmailOtp({
             <ButtonTextApp
               testID={id('resend-link')}
               onPress={otp.resendCode}
-              disabled={!otp.canResend}
+              disabled={!otp.canResend || off}
               loading={otp.sending}
             >
               {otp.secondsLeft > 0 ? t('screens.resendLinkIn', { seconds: otp.secondsLeft }) : t('screens.resendLink')}
             </ButtonTextApp>
-            <ButtonTextApp testID={id('change-email')} onPress={otp.changeEmail} disabled={otp.busy}>
+            <ButtonTextApp testID={id('change-email')} onPress={otp.changeEmail} disabled={otp.busy || off}>
               {t('screens.changeEmail')}
             </ButtonTextApp>
           </View>
-          <ButtonTextApp testID={id('link-enter-code')} onPress={otp.enterCode} style={styles.button}>
+          <ButtonTextApp testID={id('link-enter-code')} onPress={otp.enterCode} disabled={off} style={styles.button}>
             {t('screens.enterCodeInstead')}
           </ButtonTextApp>
         </View>
@@ -189,13 +205,14 @@ export default function SignInWithEmailOtp({
             returnKeyType="done"
             autoFocus
             onSubmitEditing={() => { if (otp.canVerify) otp.verifyCode(); }}
-            editable={!otp.verifying}
+            editable={!otp.verifying && !off}
+            disabled={off}
             inputMode="nativePaper"
           />
           <ButtonPrimaryApp
             testID={id('verify')}
             onPress={() => otp.verifyCode()}
-            disabled={!otp.canVerify}
+            disabled={!otp.canVerify || off}
             loading={otp.verifying}
             color={theme.colors.primary}
             style={styles.button}
@@ -206,12 +223,12 @@ export default function SignInWithEmailOtp({
             <ButtonTextApp
               testID={id('resend')}
               onPress={otp.resendCode}
-              disabled={!otp.canResend}
+              disabled={!otp.canResend || off}
               loading={otp.sending}
             >
               {otp.secondsLeft > 0 ? t('screens.resendCodeIn', { seconds: otp.secondsLeft }) : t('screens.resendCode')}
             </ButtonTextApp>
-            <ButtonTextApp testID={id('change-email')} onPress={otp.changeEmail} disabled={otp.busy}>
+            <ButtonTextApp testID={id('change-email')} onPress={otp.changeEmail} disabled={otp.busy || off}>
               {t('screens.changeEmail')}
             </ButtonTextApp>
           </View>

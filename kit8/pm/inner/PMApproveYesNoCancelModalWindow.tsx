@@ -29,6 +29,8 @@ export interface PMApproveRequest {
   cancelLabel?: string; // default 'Cancel'
   /** Yes is drawn in the error color (deletes). */
   destructive?: boolean;
+  /** no "No" button: the question is Yes / Cancel only (consolidation, a currency of a project) */
+  hideNo?: boolean;
 }
 
 interface ApproveState {
@@ -136,7 +138,7 @@ export default function PMApproveYesNoCancelModalWindow() {
           <View style={styles.actions}>
             <PMDialogButton testID="pm-approve-cancel" kind="text" title={request.cancelLabel || 'Cancel'} color={c.text} style={{ marginLeft: 0 }} onPress={() => answer('cancel')} />
             <View style={{ flex: 1 }} />
-            <PMDialogButton testID="pm-approve-no" kind="secondary" title={request.noLabel || 'No'} color={c.text} onPress={() => answer('no')} />
+            {!request.hideNo && <PMDialogButton testID="pm-approve-no" kind="secondary" title={request.noLabel || 'No'} color={c.text} onPress={() => answer('no')} />}
             <PMDialogButton
               testID="pm-approve-yes"
               kind={request.destructive ? 'dangerContained' : 'primary'}

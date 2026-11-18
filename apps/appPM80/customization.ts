@@ -1,6 +1,5 @@
 // appPM80 - what "Project Budget Management" adds to the shared app (registry: apps/appCustomization.ts; rules: documentation/APP_CUSTOMIZATION_RULES.html).
 import type { AppCustomization } from '../../kit8/providers/AppCustomizationProvider';
-import { usePMStore } from '../../kit8/pm/store/store_pm';
 import HomeAppPM80 from './home/HomeAppPM80';
 
 /** the home FAB: the items it has anyway (Record Video, Record Audio, Scroll Top) + these three, nearest the button */
@@ -15,13 +14,13 @@ export const appPM80Customization: AppCustomization = {
       icon: 'folder-plus-outline',
       routes: PM80_FAB_ROUTES,
       run: ({ router, signedIn }) => {
-        // a guest signs in first and comes back Home; the request of the New project window lives in memory: SAME window
+        // a guest signs in first and comes back Home
         if (!signedIn) {
           router.push({ pathname: '/user/signin', params: { returnTo: '/home' } });
           return;
         }
-        usePMStore.getState().openProjectSettings('new'); // the project bar of the dashboard opens the New project window
-        router.push('/pm/project/dashboard');
+        // the Create New Project Assistant: Assistant mode | Manual input (the New project window) | Import Project
+        router.push('/pm/project/assistant');
       },
     },
     {

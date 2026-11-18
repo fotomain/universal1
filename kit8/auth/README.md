@@ -16,3 +16,4 @@ Rules
 - A new sign-in way (Microsoft, Apple …) gets its own folder with the same shape; what two ways share goes to `session/`.
 - `session/` imports `otp/` and `password/` only for URL parsing (`useAuthRedirectHandler`); `otp/` and `password/` import the redirect publishers from `session/`. Do not import a screen component from `session/`.
 - Tests mirror the folders: `__tests__/auth/{otp,password,user}`.
+- **One sign-in at a time** (`app/user/signin/index.tsx`): `busy` = Google loading OR Microsoft loading OR the email code being sent / verified (`SignInWithEmailOtp` reports it through `onBusyChange`) OR the password sign-in running. While `busy`, every other button and input of the screen is disabled (the Google / Microsoft buttons, the email form through its `disabled` prop, the password inputs, Sign in, Forgot password, the mode toggle). Tests: `__tests__/auth/signinBusy.test.tsx`, `__tests__/auth/otp/signInWithEmailOtpDisabled.test.tsx`.

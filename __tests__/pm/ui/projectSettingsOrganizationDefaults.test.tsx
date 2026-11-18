@@ -106,7 +106,7 @@ describe('Project settings window - organization default project settings', () =
     expect(switchChecked('pm-project-plan-hour')).toBe(false);
   });
 
-  it('the currencies of a new project are the organization\'s and READ ONLY in the window, with the message where to change them', () => {
+  it('the currencies of a new project start as the organization\'s and are EDITABLE in the window (each project owns its currencies)', () => {
     mockDefaults = { currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' };
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
@@ -115,17 +115,20 @@ describe('Project settings window - organization default project settings', () =
     expect(textOf('pm-project-currencyForBudget')).toContain('USD');
     expect(textOf('pm-project-currencyForAccounting')).toContain('EUR');
     expect(textOf('pm-project-currencyForContract')).toContain('GBP');
-    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).toBeNull());
-    expect(textOf('pm-project-currencies-message')).toContain('Catalogs → Organization → Projects → Settings → Budgets');
+    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).not.toBeNull());
+    expect(q('pm-project-currencies-readonly')).toBeNull();
+    expect(q('pm-project-currencies-message')).toBeNull();
+    expect(textOf('pm-project-currencies-note')).toContain('THIS project');
+    expect(q('pm-project-currencies-own')).toBeNull(); // the same as the organization: no mark "own currencies"
   });
 
-  it('an organization without currencies: the window says "Not set" (and still tells where to set them)', () => {
+  it('an organization without currencies: the pickers ask for a currency', () => {
     seedStore();
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     openNewWindow();
     press('pm-project-tab-TabBudgets');
-    expect(textOf('pm-project-currencyForBudget')).toBe('Not set');
-    expect(q('pm-project-currencies-message')).not.toBeNull();
+    expect(textOf('pm-project-currencyForBudget')).toContain('Select currency');
+    expect(q('pm-project-currencyForBudget-trigger')).not.toBeNull();
   });
 
   it('"Save settings to organization" keeps the currencies of the organization: they are changed only on the organization screen', async () => {

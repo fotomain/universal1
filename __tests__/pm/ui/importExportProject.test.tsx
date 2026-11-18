@@ -55,6 +55,19 @@ describe('ImportExportProject', () => {
     expect(q('pm-project-import-drop')).not.toBeNull();
   });
 
+  it('the project GUID stands above Import / Export with a button that copies it to the clipboard', async () => {
+    const { demo } = seedStore();
+    const P = demo.projects[0].rowGUID;
+    renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} />);
+    expect(textOf('pm-project-guid')).toBe(P);
+    expectInOrder(['pm-project-guid-row', 'pm-project-exchange-tab-TabImport']);
+    expect(textOf('pm-project-exchange').indexOf(P)).toBeLessThan(textOf('pm-project-exchange').indexOf('Import / Export'));
+    press('pm-project-guid-copy');
+    await act(async () => { await Promise.resolve(); });
+    expect(require('expo-clipboard').setStringAsync).toHaveBeenCalledWith(P); // (mocked by pmUiTestKit)
+    expect(textOf('pm-project-guid-copy')).toBe('Copied');
+  });
+
   it('Export -> exportProject(project); shows project_data_<rowGUID>.json', () => {
     const { demo } = seedStore();
     const P = demo.projects[0].rowGUID;

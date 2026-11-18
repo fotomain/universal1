@@ -3,10 +3,10 @@
 // Gantt always needs both at once (one round-trip, one cache entry).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { pmRpcApplySchedule, pmRpcSetTaskLastEditPlace, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
+import { pmRpcApplySchedule, pmRpcImportTasks, pmRpcSetTaskLastEditPlace, pmTaskLineTable, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
 import { PMLastEditPlace, PMProjectData, PMTaskRow } from '../../model/types';
 import { buildTreePath, projectTreePath } from '../../view/project/scheduling';
-import { check, newGUID, normalizeDep, normalizeTask } from './apiUtils';
+import { check, newGUID, normalizeDep, normalizeTask, readAllPages } from './apiUtils';
 
 export interface PMScheduleWrite {
   rowGUID: string;
@@ -18,14 +18,16 @@ export interface PMScheduleWrite {
 export function createTaskApi(sb: SupabaseClient) {
   /** Everything the Gantt of one project needs: its tasks (ordered) + dependencies. */
   async function readProjectData(projectGUID: string): Promise<PMProjectData> {
-    const [tasksRes, depsRes] = await Promise.all([
-      sb.from(projectTaskTable).select('*').eq('projectGUID', projectGUID).order('orderInList', { ascending: true }),
-      sb.from(projectTaskDependenciesTable).select('*').eq('projectGUID', projectGUID),
+    // ALL pages: one request returns at most 1000 rows, a bigger project lost its tail (and the parents of the rows that were left)
+    const [tasks, deps] = await Promise.all([
+      readAllPages((from, to) =>
+        sb.from(projectTaskTable).select('*').eq('projectGUID', projectGUID).order('orderInList', { ascending: true }).order('rowGUID', { ascending: true }).range(from, to)
+      ),
+      readAllPages((from, to) =>
+        sb.from(projectTaskDependenciesTable).select('*').eq('projectGUID', projectGUID).order('rowGUID', { ascending: true }).order('rowDependsOnGUID', { ascending: true }).range(from, to)
+      ),
     ]);
-    return {
-      tasks: (check(tasksRes) || []).map(normalizeTask),
-      deps: (check(depsRes) || []).map(normalizeDep),
-    };
+    return { tasks: tasks.map(normalizeTask), deps: deps.map(normalizeDep) };
   }
 
   /** One task by id, or null. */
@@ -63,6 +65,40 @@ export function createTaskApi(sb: SupabaseClient) {
     const clean = rows.map(({ created_at: _c, updated_at: _u, ...r }) => r);
     const data = check(await sb.from(projectTaskTable).insert(clean).select());
     return (data || []).map(normalizeTask);
+  }
+
+  /**
+   * The tasks of ONE chunk of an imported project file (parents before children). Through the RPC project_import_tasks: ONE progress calculation per chunk instead of one per row -
+   * a project of 2 000 tasks does not fit the 8 s statement limit of Supabase any other way. A database without the function (start2_sql_code.sql not run yet) gets the old plain insert.
+   */
+  async function importTasks(projectGUID: string, rows: PMTaskRow[]): Promise<void> {
+    if (!rows.length) return;
+    const clean = rows.map(({ created_at: _c, updated_at: _u, ...r }) => r);
+    const res = await sb.rpc(pmRpcImportTasks, { p_project: projectGUID, p_rows: clean });
+    if (!res.error) return;
+    const e: any = res.error;
+    const missing = e.code === 'PGRST202' || e.code === '42883' || (/project_import_tasks/.test(`${e.message} ${e.details}`) && /(schema cache|does not exist|Could not find)/i.test(`${e.message} ${e.details}`));
+    if (!missing) check(res as any);
+    await createTasks(rows);
+  }
+
+  /**
+   * The task lines of ONE chunk of an imported project file (the tasks exist already). rowProjectGUID is set by the database from the task, the line is NOT posted
+   * (taskIsPosted false: "Post unposted tasks" posts it). The rows are plain data of the file: the app writes nothing it computed.
+   */
+  async function createTaskLines(rows: { rowGUID: string; rowOwnerGUID: string; rowParentGUID: string; orderInList: number; rowJSON: Record<string, any> }[]): Promise<void> {
+    if (!rows.length) return;
+    check(await sb.from(pmTaskLineTable).insert(rows));
+  }
+
+  /**
+   * ALL finance lines of ONE project (Time / Material / Expense / Revenue), the columns an exchange file carries (project copy, export). Paged: a request answers at most 1000 rows.
+   */
+  async function readProjectTaskLines(projectGUID: string): Promise<{ rowGUID: string; rowOwnerGUID: string; rowParentGUID: string; orderInList: number; rowJSON: Record<string, any> }[]> {
+    const rows = await readAllPages<any>((from, to) =>
+      sb.from(pmTaskLineTable).select('rowGUID,rowOwnerGUID,rowParentGUID,orderInList,rowJSON').eq('rowProjectGUID', projectGUID).order('rowGUID', { ascending: true }).range(from, to)
+    );
+    return rows.map((r) => ({ ...r, orderInList: Number(r.orderInList) || 0, rowJSON: r.rowJSON || {} }));
   }
 
   /** Inserts one stage / task / milestone (its parent must exist). */
@@ -119,6 +155,9 @@ export function createTaskApi(sb: SupabaseClient) {
     deleteProjectTasks,
     // batch / per project / helpers
     createTasks,
+    importTasks,
+    createTaskLines,
+    readProjectTaskLines,
     readProjectData,
     buildTaskRow,
     applySchedule,

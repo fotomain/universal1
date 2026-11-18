@@ -118,12 +118,12 @@ describe('main FAB + app customization', () => {
     expect(mockPush).toHaveBeenCalledWith('/media/record/video');
   });
 
-  it('a press runs the action of the app: a signed in user -> the New project window of the dashboard; a guest -> sign in', () => {
+  it('a press runs the action of the app: a signed in user -> the Create New Project Assistant; a guest -> sign in', () => {
     mockUserState = { userGUID: '11111111-1111-4111-8111-111111111111' };
     mount('appPM80');
     click('fabapp-folder-plus-outline');
-    expect(mockOpenProjectSettings).toHaveBeenCalledWith('new');
-    expect(mockPush).toHaveBeenCalledWith('/pm/project/dashboard');
+    expect(mockOpenProjectSettings).not.toHaveBeenCalled();
+    expect(mockPush).toHaveBeenCalledWith('/pm/project/assistant');
     act(() => root.unmount());
     host.remove();
     mockPush.mockClear();
@@ -187,8 +187,8 @@ describe('a press on the TEXT of an FAB item does the same call as a press on it
     });
   });
 
-  it('the texts lead to the real places (New Project asks for its window, All Projects, the calendar event, the recorders)', () => {
-    expect(pressAndRecord('label', items[3])).toMatchObject({ push: [['/pm/project/dashboard']], openProjectSettings: [['new']] });
+  it('the texts lead to the real places (New Project opens the assistant, All Projects, the calendar event, the recorders)', () => {
+    expect(pressAndRecord('label', items[3])).toMatchObject({ push: [['/pm/project/assistant']], openProjectSettings: [] });
     expect(pressAndRecord('label', items[4]).push).toEqual([['/catalog/project']]);
     expect(pressAndRecord('label', items[5]).push).toEqual([[{ pathname: '/user/calendar', params: { new: 'event' } }]]);
     expect(pressAndRecord('label', items[0]).push).toEqual([['/media/record/video']]);

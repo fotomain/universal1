@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CAKE1 - eco supercakes, January 2026 - init stage</title>
+<style>
+  :root { --bg:#f8fafc; --card:#fff; --border:#e2e8f0; --text:#0f172a; --muted:#64748b; --accent:#0d9488; --warn:#b45309; --soft:#f1f5f9; --font:-apple-system,BlinkMacSystemFont,'Segoe UI',Inter,sans-serif; --mono:ui-monospace,SFMono-Regular,Menlo,monospace; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0f172a; --card:#1e293b; --border:#334155; --text:#e2e8f0; --muted:#94a3b8; --soft:#273449; --accent:#2dd4bf; --warn:#fbbf24; } }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font:15px/1.6 var(--font); }
+  main { max-width:1060px; margin:0 auto; padding:24px 16px 80px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { margin:34px 0 8px; font-size:19px; border-bottom:1px solid var(--border); padding-bottom:4px; }
+  .lead, .muted { color:var(--muted); } .small { font-size:12.5px; }
+  code { font:13px var(--mono); background:var(--soft); padding:1px 6px; border-radius:6px; overflow-wrap:anywhere; }
+  pre { font:13px/1.5 var(--mono); background:var(--soft); border:1px solid var(--border); border-radius:10px; padding:12px 14px; white-space:pre-wrap; margin:10px 0; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:10px; overflow:hidden; margin:10px 0; }
+  th, td { text-align:left; padding:7px 10px; border-bottom:1px solid var(--border); vertical-align:top; font-size:14px; } th { background:var(--soft); }
+  .note { background:var(--soft); border-left:4px solid var(--accent); padding:10px 14px; border-radius:8px; margin:12px 0; }
+  .warn { border-left-color:var(--warn); }
+  .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin:14px 0; }
+  .kpi { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px 12px; } .kpi b { display:block; font-size:22px; color:var(--accent); } .kpi span { color:var(--muted); font-size:12.5px; }
+  .op { display:inline-block; background:var(--soft); border:1px solid var(--border); border-radius:6px; padding:0 6px; margin:1px 0; font-size:12.5px; } .op i { color:var(--muted); font-style:normal; }
+  .op.p { border-style:dashed; color:var(--muted); }
+  @media (max-width:700px) { table { display:block; overflow-x:auto; } }
+</style>
+</head>
+<body>
+<main>
+<h1>CAKE1 · eco supercakes · January 2026</h1>
+<p class="lead">Init stage of the manufacturing plan: the task, how it was read, the OR-Tools model, the numbers, the import into appPM80 (project <code>8e3e5544-5d86-4831-b116-420e6f9bde87</code>) and what is not built. The file carries the task lines, so it can be Posted. Everything in this page comes from <code>cake_v1_optimization.py</code> and was re-counted by <code>check_cake1_plan.py</code>.</p>
+
+<div class="kpis">
+  <div class="kpi"><b>9</b><span>confectioners found by OR-Tools (Early 6 + Late 3) + buyer + 2 warehouse keepers</span></div>
+  <div class="kpi"><b>1 600</b><span>cakes of 5 kg = 8 t (8 positions × 200)</span></div>
+  <div class="kpi"><b>953 h</b><span>worker time, 72-83 % of the net shift time of every person</span></div>
+  <div class="kpi"><b>30 Jan 17:15</b><span>the last cake is packed (31 Jan = dispatch + reserve)</span></div>
+  <div class="kpi"><b>24 POs</b><span>68 order lines, 46 427 EUR, every order ≥ 2 days before delivery</span></div>
+  <div class="kpi"><b>1 958 / 2 878</b><span>rows / links of the WBS file</span></div>
+  <div class="kpi"><b>3 252 lines</b><span>64 632 EUR plan: 20 548 time + 44 085 material, posted and checked</span></div>
+</div>
+
+<h2>1. The task (as given)</h2>
+<pre>make /Users/mgtimber/UNIVERSAL1/expo-app/documentation/CAKE1/INIT_STAGE.html with the info below.
+put result code into .../CAKE1/cake_v1_optimization.py.
+Make installation files global for my MacBook - do not use installations into .../CAKE1.
+adapt and modify import from json to current data structures if needed.
+
+You are an advanced cake confectioner expert. You need to prepare the supercakes manufacturing plan for: from 2026-01-01 for 1 month.
+The plan must be very realistic and professional.
+Take a list of the cakes from: https://claude.ai/share/a5c88c05-bbdb-4dad-992b-66bc0e1e9c6e .
+But use not a small cake size - but x5 size - for 5kg cakes.
+You must produce 200 cakes per each position per month.
+You must calculate how many workers you need and prepare WBS for their work: use OR-Tools for it.
+Each cake must be organized as 1 stage - you can organize more stages if needed.
+use no more 10 of time worker operations per 1 cake.
+make fake workers' people Names.
+The plan must have the days, hours and minutes.
+take into account the periods of the relaxation of the workers.
+You must generate the purchase plan: you must take into account the 2 days purchase order delay.
+The cakes must have fully ecology components.
+
+Result: .../CAKE1/cake1_plan_json.json - ready to import into appPM80 into a project with GUID=8e3e5544-5d86-4831-b116-420e6f9bde87.</pre>
+
+<h2>2. How the task was read (decisions taken without asking)</h2>
+<table>
+<tr><th>Point of the task</th><th>Decision</th></tr>
+<tr><td>The list of cakes (the shared chat is rendered by JavaScript, it was read in the built-in browser)</td><td>8 cakes of the table "World favorite ecology supercakes": vegan chocolate, carrot, lemon-olive oil, banana-oat, plant-based cheesecake, beetroot "red velvet", vegan tiramisu, apple-cinnamon. The chat gives time, price and the NUMBER of components, not the recipes: the recipes below are mine and have exactly that number of components.</td></tr>
+<tr><td>x5 size, 5 kg cakes</td><td>One cake = 5.0 kg (the chat's cake is about 1 kg, 8 servings). Ingredient quantities are ×5 of a home cake, rounded to a plant recipe of 5 kg.</td></tr>
+<tr><td>200 cakes per position</td><td>8 × 200 = 1 600 cakes = 8 000 kg, made in <b>160 batches of 10 cakes</b> (20 per position).</td></tr>
+<tr><td>"Each cake must be organized as 1 stage"</td><td>One stage per cake <b>position</b> (a stage per each of 1 600 individual cakes would be 1 600 rows that are identical ten by ten). "More stages if needed": inside it one sub-stage per batch of 10 cakes. A cake's route has ≤ 10 worker operations (6 to 9).</td></tr>
+<tr><td>"≤ 10 time worker operations per cake"</td><td>Worker operations are the ones a person does (weigh, mix, load ...). Baking, cooling and chilling are <b>passive steps</b> (machine only, no worker) and are separate tasks marked "(machine)". Every operation ≤ 80 minutes.</td></tr>
+<tr><td>Days, hours and minutes</td><td>Every operation has its day (pinned start), start / finish hour and minute (columns Hour S / Min S / Hour F / Min F, project planning units day + hour + minute) and the text columns From / To. The Gantt of the app schedules in days, the clock times are data of the row.</td></tr>
+<tr><td>Relaxation of the workers</td><td>Shifts of 8 h with 45 min of breaks (rest 15 + lunch 30 + rest 15, fixed windows - no operation touches a break); one day off a week for everybody (max 5 shifts a week); the plant is closed on Sundays and on 1 January; 16 h between two shifts (a person keeps one shift for the whole month); net work ≤ 7 h 15 min a day.</td></tr>
+<tr><td>2 days purchase order delay</td><td>Delivery = order + at least 2 calendar days (the plan has 2 or 3). Orders go out on working days Mon-Fri (1 January: online order on holiday duty - there is no stock before the plan starts), deliveries on Mon-Sat. First delivery 3 January, first production 3 January 10:00 after the goods receipt.</td></tr>
+<tr><td>Fully ecology components</td><td>Every food component is certified organic (EU 2018/848), tropical ones Fairtrade, plant-based (no eggs, no dairy), no palm oil, no artificial colour (the red of the beetroot cake is beetroot), compostable packaging (EN 13432, FSC). Suppliers are fictional.</td></tr>
+<tr><td>"Install globally"</td><td><code>python3 -m pip install --upgrade ortools</code> (OR-Tools 9.15, Homebrew Python 3.11, <code>/usr/local/...</code>). Nothing is installed in the CAKE1 folder.</td></tr>
+<tr><td>"Adapt the import"</td><td>The file is the format the app reads (<code>kit8.pm.project</code> version 1) plus an OPTIONAL list <code>taskLines</code> (old files have none and import as before). Two things had to change in the importer: HOW the tasks are written (bulk RPC) and that it now writes the task lines. See section 8.</td></tr>
+</table>
+
+<h2>3. The cakes and their recipes (one 5 kg cake, organic, plant-based)</h2>
+<table>
+<tr><th>Cake</th><th>Comp.</th><th>Mass</th><th>EUR ingredients + packaging</th><th>Components</th><th>Worker time per batch of 10</th></tr>
+<tr><td><b>Vegan chocolate cake</b><br><span class="muted">table of the chat: 9 components, 6-8 EUR small cake</span></td><td>9</td><td>5.01 kg</td><td>24.64 + 1.99</td><td class="small">wholegrain spelt flour 1&nbsp;kg, FT cane sugar 0.9&nbsp;kg, FT cocoa powder 0.35&nbsp;kg, cold-pressed sunflower oil 0.5&nbsp;l, oat drink (barista) 1.3&nbsp;l, apple cider vinegar 0.1&nbsp;l, baking powder (tartrate, phosphate-free) 0.05&nbsp;kg, Unrefined sea salt (solar evaporated) 0.01&nbsp;kg, FT dark chocolate 70 % 0.8&nbsp;kg</td><td>385 min</td></tr>
+<tr><td><b>Carrot cake (whole-grain, local carrots)</b><br><span class="muted">table of the chat: 11 components, 6-9 EUR small cake</span></td><td>11</td><td>5.02 kg</td><td>24.26 + 1.99</td><td class="small">wholegrain spelt flour 0.8&nbsp;kg, carrots 1.2&nbsp;kg, walnuts, shelled 0.4&nbsp;kg, FT cane sugar 0.7&nbsp;kg, cold-pressed sunflower oil 0.45&nbsp;l, oat drink (barista) 0.5&nbsp;l, apple purée, unsweetened 0.3&nbsp;kg, FT Ceylon cinnamon, ground 0.02&nbsp;kg, baking powder (tartrate, phosphate-free) 0.04&nbsp;kg, Unrefined sea salt (solar evaporated) 0.01&nbsp;kg, FT cashew nuts 0.6&nbsp;kg</td><td>445 min</td></tr>
+<tr><td><b>Lemon-olive oil cake</b><br><span class="muted">table of the chat: 8 components, 7-10 EUR small cake</span></td><td>8</td><td>4.96 kg</td><td>19.91 + 1.99</td><td class="small">wholegrain spelt flour 1.2&nbsp;kg, FT cane sugar 1&nbsp;kg, extra-virgin olive oil 0.6&nbsp;l, lemons (Naturland, Spain / Italy) 0.8&nbsp;kg, oat drink (barista) 1&nbsp;l, ground almonds 0.3&nbsp;kg, baking powder (tartrate, phosphate-free) 0.05&nbsp;kg, Unrefined sea salt (solar evaporated) 0.01&nbsp;kg</td><td>330 min</td></tr>
+<tr><td><b>Banana-oat cake</b><br><span class="muted">table of the chat: 7 components, 4-6 EUR small cake</span></td><td>7</td><td>4.97 kg</td><td>11.36 + 1.99</td><td class="small">rolled oats 1.2&nbsp;kg, FT bananas 2&nbsp;kg, FT cane sugar 0.5&nbsp;kg, cold-pressed sunflower oil 0.4&nbsp;l, oat drink (barista) 0.8&nbsp;l, baking powder (tartrate, phosphate-free) 0.05&nbsp;kg, FT Ceylon cinnamon, ground 0.02&nbsp;kg</td><td>245 min</td></tr>
+<tr><td><b>Plant-based cheesecake (cashew, no-bake)</b><br><span class="muted">table of the chat: 8 components, 10-14 EUR small cake</span></td><td>8</td><td>5.03 kg</td><td>46.57 + 1.99</td><td class="small">FT cashew nuts 1.7&nbsp;kg, FT coconut cream 0.8&nbsp;kg, lemons (Naturland, Spain / Italy) 0.6&nbsp;kg, FT cane sugar 0.5&nbsp;kg, FT dates, pitted 0.6&nbsp;kg, rolled oats 0.5&nbsp;kg, FT virgin coconut oil 0.3&nbsp;kg, agar-agar powder 0.03&nbsp;kg</td><td>365 min</td></tr>
+<tr><td><b>Beetroot &quot;red velvet&quot; cake</b><br><span class="muted">table of the chat: 12 components, 7-10 EUR small cake</span></td><td>12</td><td>5.06 kg</td><td>30.18 + 1.99</td><td class="small">wholegrain spelt flour 0.9&nbsp;kg, cooked beetroot, vacuum-packed 1.2&nbsp;kg, FT cane sugar 0.8&nbsp;kg, FT cocoa powder 0.12&nbsp;kg, cold-pressed sunflower oil 0.4&nbsp;l, oat drink (barista) 0.5&nbsp;l, apple cider vinegar 0.08&nbsp;l, baking powder (tartrate, phosphate-free) 0.04&nbsp;kg, Unrefined sea salt (solar evaporated) 0.01&nbsp;kg, FT vanilla powder 0.01&nbsp;kg, FT cashew nuts 0.8&nbsp;kg, FT virgin coconut oil 0.2&nbsp;kg</td><td>435 min</td></tr>
+<tr><td><b>Vegan tiramisu</b><br><span class="muted">table of the chat: 9 components, 9-12 EUR small cake</span></td><td>9</td><td>5.03 kg</td><td>35.43 + 1.99</td><td class="small">wholegrain spelt flour 0.7&nbsp;kg, FT cane sugar 0.6&nbsp;kg, cold-pressed sunflower oil 0.2&nbsp;l, oat drink (barista) 0.7&nbsp;l, FT espresso coffee, ground 0.1&nbsp;kg, FT cashew nuts 1.1&nbsp;kg, FT coconut cream 1.5&nbsp;kg, FT cocoa powder 0.1&nbsp;kg, baking powder (tartrate, phosphate-free) 0.03&nbsp;kg</td><td>360 min</td></tr>
+<tr><td><b>Apple-cinnamon cake (local apples)</b><br><span class="muted">table of the chat: 8 components, 5-7 EUR small cake</span></td><td>8</td><td>4.99 kg</td><td>12.16 + 1.99</td><td class="small">wholegrain spelt flour 1&nbsp;kg, apples (stored) 2.1&nbsp;kg, FT cane sugar 0.7&nbsp;kg, cold-pressed sunflower oil 0.4&nbsp;l, oat drink (barista) 0.7&nbsp;l, FT Ceylon cinnamon, ground 0.03&nbsp;kg, baking powder (tartrate, phosphate-free) 0.05&nbsp;kg, Unrefined sea salt (solar evaporated) 0.01&nbsp;kg</td><td>295 min</td></tr>
+</table>
+<p class="small muted">Prices are illustrative wholesale prices of organic goods (the chat's home cake costs 4-14 EUR, ×5 = 20-70 EUR). Average cost of a cake in the purchase plan: 29 EUR incl. packaging and waste.</p>
+
+<h2>4. The route of a batch (minutes of worker time; dashed = passive machine step with its minimum)</h2>
+<table>
+<tr><th>Cake</th><th>Worker ops</th><th>Route</th></tr>
+<tr><td><b>Vegan chocolate cake</b></td><td>8</td><td><span class="op w">Weigh &amp; stage ingredients <i>45</i></span> → <span class="op w">Mix batter <i>30</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>85+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>75+&nbsp;min · Rack</i></span> → <span class="op w">Prepare ganache (dark chocolate + oat drink) <i>45</i></span> → <span class="op w">Assemble: level, fill, coat <i>75</i></span> → <span class="op w">Decorate with eco toppings <i>60</i></span> → <span class="op p">Chill &amp; set <i>90+&nbsp;min · Chiller</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Carrot cake</b></td><td>9</td><td><span class="op w">Weigh &amp; stage ingredients <i>50</i></span> → <span class="op w">Grate carrots, chop walnuts <i>45</i></span> → <span class="op w">Mix batter <i>35</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>95+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>75+&nbsp;min · Rack</i></span> → <span class="op w">Prepare cashew-coconut frosting <i>50</i></span> → <span class="op w">Assemble: layer &amp; frost <i>75</i></span> → <span class="op w">Decorate (walnut halves, carrot curls) <i>60</i></span> → <span class="op p">Chill &amp; set <i>120+&nbsp;min · Chiller</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Lemon-olive oil cake</b></td><td>8</td><td><span class="op w">Weigh &amp; stage ingredients <i>40</i></span> → <span class="op w">Mix batter (zest and juice of lemons) <i>30</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>75+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>60+&nbsp;min · Rack</i></span> → <span class="op w">Prepare lemon glaze <i>35</i></span> → <span class="op w">Glaze the cakes <i>50</i></span> → <span class="op w">Decorate (zest, almond flakes) <i>45</i></span> → <span class="op p">Set the glaze <i>60+&nbsp;min · Chiller</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Banana-oat cake</b></td><td>6</td><td><span class="op w">Weigh &amp; stage ingredients <i>35</i></span> → <span class="op w">Mash bananas &amp; mix batter <i>35</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>80+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>75+&nbsp;min · Rack</i></span> → <span class="op w">Decorate (oat crumble, banana chips) <i>45</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Plant-based cheesecake</b></td><td>7</td><td><span class="op w">Weigh &amp; stage ingredients <i>40</i></span> → <span class="op w">Prepare crust (dates, oats, coconut oil) &amp; press <i>55</i></span> → <span class="op w">Blend cashew-coconut filling <i>50</i></span> → <span class="op w">Fill moulds &amp; level <i>60</i></span> → <span class="op p">Chill &amp; set (agar) <i>360+&nbsp;min · Chiller</i></span> → <span class="op w">Unmould &amp; glaze (agar-lemon) <i>55</i></span> → <span class="op p">Set the glaze <i>45+&nbsp;min · Chiller</i></span> → <span class="op w">Decorate (fruit, seeds) <i>45</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Beetroot &quot;red velvet&quot; cake</b></td><td>9</td><td><span class="op w">Weigh &amp; stage ingredients <i>55</i></span> → <span class="op w">Purée the cooked beetroot <i>30</i></span> → <span class="op w">Mix batter <i>35</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>90+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>75+&nbsp;min · Rack</i></span> → <span class="op w">Prepare cashew frosting (vanilla) <i>50</i></span> → <span class="op w">Assemble: layer &amp; frost <i>75</i></span> → <span class="op w">Decorate (crumb, edible flowers) <i>60</i></span> → <span class="op p">Chill &amp; set <i>120+&nbsp;min · Chiller</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Vegan tiramisu</b></td><td>8</td><td><span class="op w">Weigh &amp; stage ingredients <i>45</i></span> → <span class="op w">Mix sponge batter <i>25</i></span> → <span class="op w">Fill sheet pans &amp; load oven <i>30</i></span> → <span class="op p">Bake <i>40+&nbsp;min · Oven</i></span> → <span class="op w">Unload &amp; rack the sponge <i>20</i></span> → <span class="op p">Cool on racks <i>45+&nbsp;min · Rack</i></span> → <span class="op w">Brew coffee &amp; make cashew-coconut cream <i>60</i></span> → <span class="op w">Assemble: dip sponge, two layers of cream <i>80</i></span> → <span class="op p">Chill &amp; set <i>240+&nbsp;min · Chiller</i></span> → <span class="op w">Dust with cocoa &amp; decorate <i>40</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+<tr><td><b>Apple-cinnamon cake</b></td><td>7</td><td><span class="op w">Weigh &amp; stage ingredients <i>40</i></span> → <span class="op w">Core &amp; slice the apples <i>45</i></span> → <span class="op w">Mix batter <i>30</i></span> → <span class="op w">Fill pans &amp; load oven <i>40</i></span> → <span class="op p">Bake <i>85+&nbsp;min · Oven</i></span> → <span class="op w">Unload, demould &amp; rack <i>30</i></span> → <span class="op p">Cool on racks <i>75+&nbsp;min · Rack</i></span> → <span class="op w">Decorate (cinnamon crumble, apple slices) <i>50</i></span> → <span class="op w">QC, pack in compostable box, label <i>60</i></span></td></tr>
+</table>
+<p class="small muted">Resources: 2 mixers, 2 kettles / blenders, 3 assembly benches, 2 pack lines, 2 rack ovens (busy from the start of loading to the start of unloading), 6 cooling racks, 4 chiller places. A passive step may wait longer than its minimum (cooling ≤ 6 h, chilling ≤ 36 h, the oven ≤ 45 min), never shorter.</p>
+
+<h2>5. The OR-Tools model (CP-SAT, 5-minute grid, 31 days)</h2>
+<table>
+<tr><th>Part</th><th>How it is modelled</th></tr>
+<tr><td>Decision variables</td><td>start of every one of the 1 660 steps of the 160 batches (domain = the work windows of the shifts, so a worker operation never crosses a break or the change of shift); size of every passive step (min..max); how many workers of a crew have which weekday off.</td></tr>
+<tr><td>People</td><td>One cumulative resource: capacity = the largest crew; fixed "blocker" intervals reduce it in every window to the number of people on duty that weekday (crew size − those with the day off). Names are given afterwards by an interval-colouring pass (the least loaded free person of the crew), which is exact because overlap ≤ people on duty.</td></tr>
+<tr><td>Machines</td><td>Cumulative constraints with the capacities of section 4; units (Oven 1, Oven 2 ...) are given afterwards the same way.</td></tr>
+<tr><td>Time</td><td>A batch is released at 06:00 of the first plant day of its week (3 Jan 10:00) and must be packed by 22:00 of the last plant day of the week (weekly dispatch): 6 + 5 + 5 + 4 batches per position in the weeks of 7 + 6 + 6 + 5 plant days.</td></tr>
+<tr><td>Search for the crew</td><td>Lower bound = 953 h ÷ (24 plant days × 5/6 × 435 min) = <b>7 workers</b> (that would need 94 % of every net minute). The script tries 7, 8, 9 ... workers with three splits Early / Late; 90 s per try. 7 and 8 workers found no plan in 90 s (UNKNOWN - <b>not proved impossible</b>); <b>9 workers (Early 6 + Late 3)</b> is the first feasible crew. A longer run (<code>--max-time-search 600</code>) may find 8.</td></tr>
+<tr><td>Objective</td><td>With the crew fixed: minimise the sum of the packing times of all batches (everything as early as possible, 240 s of search: 764 853 against the bound 660 535).</td></tr>
+</table>
+
+<h2>6. Result: the people</h2>
+<table>
+<tr><th>Person</th><th>Shift</th><th>Day off</th><th>Work in the month</th><th>Detail</th></tr>
+<tr><td>Aiko Castillo</td><td>Early 06:00-14:00</td><td>day off Fri</td><td>106 h 50</td><td class="small">20 shifts, 142 operations, 106 h 50 min of work (74 % of the net shift time)</td></tr>
+<tr><td>Ingrid Ziegler</td><td>Early 06:00-14:00</td><td>day off Wed</td><td>104 h 35</td><td class="small">20 shifts, 141 operations, 104 h 35 min of work (72 % of the net shift time)</td></tr>
+<tr><td>Lena Tanaka</td><td>Early 06:00-14:00</td><td>day off Mon</td><td>104 h 35</td><td class="small">20 shifts, 136 operations, 104 h 35 min of work (72 % of the net shift time)</td></tr>
+<tr><td>Marco Marchetti</td><td>Early 06:00-14:00</td><td>day off Thu</td><td>104 h 40</td><td class="small">20 shifts, 140 operations, 104 h 40 min of work (72 % of the net shift time)</td></tr>
+<tr><td>Priya Santos</td><td>Early 06:00-14:00</td><td>day off Sat</td><td>107 h 00</td><td class="small">19 shifts, 146 operations, 107 h 0 min of work (78 % of the net shift time)</td></tr>
+<tr><td>Tomas Dubois</td><td>Early 06:00-14:00</td><td>day off Tue</td><td>105 h 10</td><td class="small">20 shifts, 137 operations, 105 h 10 min of work (73 % of the net shift time)</td></tr>
+<tr><td>Elif Novak</td><td>Late 14:00-22:00</td><td>day off Thu</td><td>105 h 50</td><td class="small">18 shifts, 133 operations, 105 h 50 min of work (81 % of the net shift time)</td></tr>
+<tr><td>Jonas Demir</td><td>Late 14:00-22:00</td><td>day off Tue</td><td>106 h 10</td><td class="small">20 shifts, 127 operations, 106 h 10 min of work (73 % of the net shift time)</td></tr>
+<tr><td>Mateo Larsen</td><td>Late 14:00-22:00</td><td>day off Fri</td><td>108 h 30</td><td class="small">18 shifts, 138 operations, 108 h 30 min of work (83 % of the net shift time)</td></tr>
+</table>
+<p>Besides them: <b>Oskar Veldt</b>, purchasing manager (orders Mon-Fri 09:00, 10 min a line), and two warehouse keepers, <b>Marta Lindqvist</b> (day off Monday) and <b>Ravi Anand</b> (day off Thursday): goods receipt from 06:00, 15 + 5 min a line. All names are made up.</p>
+
+<h2>7. Result: the purchase plan</h2>
+<p>Each ingredient is bought in <b>lots</b>: one delivery covers the days of use that fit its cover time (bananas 3 days, fresh fruit and vegetables 7, plant drink 7, dry goods 14, spices 31) and never more than its shelf life; the quantity is the use of those days + 2 % waste, rounded up to the pack size. Delivery = the last plant day before the first use (3 January at the earliest), order = the last buyer day ≥ 2 calendar days before.</p>
+<table>
+<tr><th>Order</th><th>Supplier (fictional)</th><th>Order → delivery</th><th>Lines, money</th></tr>
+<tr><td>PO-2026-001</td><td>EcoPack Compostables</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">3 lines, 1,795 EUR</td></tr>
+<tr><td>PO-2026-002</td><td>GreenMill Organic Mills</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">2 lines, 1,490 EUR</td></tr>
+<tr><td>PO-2026-003</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">5 lines, 9,548 EUR</td></tr>
+<tr><td>PO-2026-004</td><td>OatLand Plant Drinks</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">1 lines, 574 EUR</td></tr>
+<tr><td>PO-2026-005</td><td>Pantry Minerals &amp; Baking Aids</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">3 lines, 1,180 EUR</td></tr>
+<tr><td>PO-2026-006</td><td>Pressed &amp; Pure Oils</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">3 lines, 2,137 EUR</td></tr>
+<tr><td>PO-2026-007</td><td>Sweet Earth Fairtrade Trading</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">9 lines, 7,582 EUR</td></tr>
+<tr><td>PO-2026-008</td><td>Valley Orchard Growers Co-op</td><td>order Thu 01 Jan → delivery Sat 03 Jan</td><td class="small">4 lines, 684 EUR</td></tr>
+<tr><td>PO-2026-009</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Thu 08 Jan → delivery Sat 10 Jan</td><td class="small">2 lines, 454 EUR</td></tr>
+<tr><td>PO-2026-010</td><td>OatLand Plant Drinks</td><td>order Thu 08 Jan → delivery Sat 10 Jan</td><td class="small">1 lines, 475 EUR</td></tr>
+<tr><td>PO-2026-011</td><td>Valley Orchard Growers Co-op</td><td>order Thu 08 Jan → delivery Sat 10 Jan</td><td class="small">3 lines, 506 EUR</td></tr>
+<tr><td>PO-2026-012</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Mon 12 Jan → delivery Wed 14 Jan</td><td class="small">1 lines, 79 EUR</td></tr>
+<tr><td>PO-2026-013</td><td>EcoPack Compostables</td><td>order Wed 14 Jan → delivery Fri 16 Jan</td><td class="small">3 lines, 1,600 EUR</td></tr>
+<tr><td>PO-2026-014</td><td>GreenMill Organic Mills</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">2 lines, 1,225 EUR</td></tr>
+<tr><td>PO-2026-015</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">5 lines, 7,779 EUR</td></tr>
+<tr><td>PO-2026-016</td><td>OatLand Plant Drinks</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">1 lines, 475 EUR</td></tr>
+<tr><td>PO-2026-017</td><td>Pressed &amp; Pure Oils</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">2 lines, 1,658 EUR</td></tr>
+<tr><td>PO-2026-018</td><td>Sweet Earth Fairtrade Trading</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">6 lines, 4,231 EUR</td></tr>
+<tr><td>PO-2026-019</td><td>Valley Orchard Growers Co-op</td><td>order Thu 15 Jan → delivery Sat 17 Jan</td><td class="small">4 lines, 569 EUR</td></tr>
+<tr><td>PO-2026-020</td><td>Sweet Earth Fairtrade Trading</td><td>order Fri 16 Jan → delivery Mon 19 Jan</td><td class="small">1 lines, 1,088 EUR</td></tr>
+<tr><td>PO-2026-021</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Mon 19 Jan → delivery Wed 21 Jan</td><td class="small">1 lines, 119 EUR</td></tr>
+<tr><td>PO-2026-022</td><td>Nutwood Organic Nuts &amp; Fruit</td><td>order Thu 22 Jan → delivery Sat 24 Jan</td><td class="small">2 lines, 390 EUR</td></tr>
+<tr><td>PO-2026-023</td><td>OatLand Plant Drinks</td><td>order Thu 22 Jan → delivery Sat 24 Jan</td><td class="small">1 lines, 376 EUR</td></tr>
+<tr><td>PO-2026-024</td><td>Valley Orchard Growers Co-op</td><td>order Thu 22 Jan → delivery Sat 24 Jan</td><td class="small">3 lines, 413 EUR</td></tr>
+</table>
+<p class="small muted">The 68 lines buy 5.3 % more than the recipes need (waste 2 % + the pack size: e.g. salt 15 kg for 10 kg, labels 2 000 for 1 600) - the rest stays in the warehouse at the end of the month.</p>
+
+<h2>8. The import into appPM80 (what had to be adapted)</h2>
+<div class="note warn"><b>Found by importing the file into the real schema (Docker Postgres 15, role <code>authenticated</code>, statement limit 8 s as on Supabase):</b> the importer inserted 500 tasks per call, and every inserted task recalculates the progress of the WHOLE project (cost grows with the square of the rows). The first chunk took 4 s, the second 8 s and was cancelled: a project of 1 958 rows could not be imported at all (any large project file had this limit; the old demos are small). The 2 878 links then failed because their tasks were missing.</div>
+<table>
+<tr><th>Change</th><th>Where</th></tr>
+<tr><td>New RPC <code>project_import_tasks(project, rows)</code>: the tasks of one chunk with the bulk switch <code>app.task_bulk</code> on (the way <code>task_template_fill</code> works), parents first by depth, the calendar rows of tasks / milestones in one statement, the progress of the project calculated once per chunk. <code>SECURITY INVOKER</code>: the row policies and the read-only guard decide.</td><td><code>start2_sql_code.sql</code> end of PART 40 · drop in <code>delete_sql_structure.sql</code> · Docker <code>tests/42_project_import.sql</code> (12 checks)</td></tr>
+<tr><td><code>importTasks()</code> in the task API calls the RPC; a database without it (start2 not run yet) gets the old insert.</td><td><code>kit8/pm/crud/api/taskApi.ts</code>, <code>import/importProjectFromFile.ts</code>, <code>model/constants.ts</code> · Jest <code>projectExchange.test.ts</code> (RPC used, fallback, error raised)</td></tr>
+<tr><td>The links keep the ordinary insert (cycle check + closure): 1.1-1.8 s for 500.</td><td>unchanged</td></tr>
+<tr><td><b>Task lines</b>: the file may carry <code>taskLines</code> (rowOwnerGUID = a task of the file, rowParentGUID = the genus, rowJSON = the line). The planner gives them new ids on the new task ids and sets them <b>unposted</b>; a line of a task that is not in the file is dropped; they are written after the tasks and links, 250 a chunk (500 took 2.4-2.9 s locally - the line triggers). Export does not write lines yet (the open-project export reads the store, which has no lines).</td><td><code>projectExchangeFormat.ts</code> (<code>PMExchangeTaskLine</code>, validation), <code>planProjectImport.ts</code>, <code>taskApi.createTaskLines</code>, <code>importProjectFromFile.ts</code> · Jest <code>projectExchange.test.ts</code></td></tr>
+</table>
+<p><b>Measured on the real schema</b> (local Postgres 15, role <code>authenticated</code>, statement limit 8 s): the whole file - 1 958 tasks, 2 878 links (58 352 closure rows), 3 252 lines - imports in <b>about 28 s</b>, the slowest statement <b>1.7-2.9 s</b>.</p>
+<p><b>How to import:</b> Project settings → Import / Export → Import → drop <code>cake1_plan_json.json</code> (or Choose file) in the project <code>8e3e5544-5d86-4831-b116-420e6f9bde87</code>. The project keeps its name; the file sets the start (1 Jan 2026), the planning units (day + hour + minute) and 14 custom columns: Worker, Role, From, To, Minutes, Machine, Cakes, Qty, Unit, EUR, Supplier, Order date, Delivery date, PO. The tree opens with the columns Task name · Worker · Start · Hour · Min · Finish · Hour · Min · Duration. The file also sets the project to post in <b>EUR</b>, with the plan / fact scenarios of the standard seed and the calendar <code>sixDayWeekCalendar</code> (Mon-Sat): Post counts the days of that calendar, and the default Working days calendar (Mon-Fri, no 1 January) would refuse the 111 Saturday tasks and the three orders of 1 January.</p>
+<p><b>How the rows are written:</b> the Gantt of the app counts in whole days, so every operation is pinned to its day (<code>manualStartAt</code>); its clock time is in <code>startHourStart / planMinuteStart / startHourFinish / planMinuteFinish</code>; the links are start-to-start (same day, lag 0) or finish-to-start with the day gap as lag, and the orders are linked to their goods receipt with lag 1 or 2 days (the purchase delay). The app's own scheduler was run on the file (Jest): every one of the 1 764 operations lands on the intended day, no cycle.</p>
+
+<div class="note warn"><b>Found after the first import into the real Supabase (2026-11-18):</b> the project showed hundreds of tasks at its ROOT. The database was right (10 root stages, 196 at depth 2, 1 752 at depth 3) - the <b>app read only the first 1000 of the 1 958 tasks</b> (one Supabase request returns at most 1000 rows) and 732 of them had their parent stage in the lost part, so they were drawn at the root; 958 tasks and 1 878 links were missing. <code>readProjectData</code> (and the template reader, the time sheet and fact task lists) now read ALL pages (<code>readAllPages</code>); regression test <code>readProjectDataPaging.test.ts</code>. The importer also writes the links 250 a chunk now (500 took 5-7 s on the hosted server).</div>
+<h2>9. The task lines (what Post takes)</h2>
+<table>
+<tr><th>Lines</th><th>Where</th><th>Quantity × price</th><th>Budget item</th></tr>
+<tr><td><b>Time</b> - 1 332 lines (1 240 operations of the confectioners, 68 order lines of the buyer, 24 goods receipts)</td><td>on the task of the person; the description names role, person and clock time</td><td>hours = minutes ÷ 60 × the hourly rate: confectioner 21.00, purchasing manager 28.00, warehouse keeper 18.00 EUR (illustrative, fully loaded) = <b>20 547.56 EUR</b>, 976.6 h</td><td>Employee wages (<code>employeeWagesBudgetItem</code>)</td></tr>
+<tr><td><b>Material</b> - 1 440 ingredient lines</td><td>on the <i>weighing</i> of every batch (the batch eats the ingredients), 10 cakes × the recipe</td><td>kg / l × the price of the ingredient = <b>40 900.60 EUR</b>; the description names the ingredient and the supplier</td><td>Raw materials (<code>rawMaterialsBudgetItem</code>)</td></tr>
+<tr><td><b>Material</b> - 480 packaging lines (box, board, label)</td><td>on the <i>packing</i> of every batch, 10 pieces each</td><td>pcs × price = <b>3 184.00 EUR</b></td><td>Consumables (<code>consumablesBudgetItem</code>)</td></tr>
+</table>
+<p class="small muted">The passive steps, the stages and the month-long rows of the workforce have no lines (no double counting); the purchase orders carry no cost lines either - the plan is booked where the goods are USED, and the orders are the supply plan for it (they buy 5.3 % more: waste + pack sizes). The lines use only what exists in every database after <code>start4</code>: the genus, the units (hour, kg, l, pcs), the budget items, the uniform distribution; they are priced by hand (<code>priceSourceTaskLine = manual</code>), VAT is not modelled (0 %). <b>No roles, persons, work centers or products are made</b> (they are catalogs of the organization): the Role / Resource columns of the lines stay empty and the Monitor01 role column is blank; the names are in the line description.</p>
+
+<h2>10. Checks</h2>
+<table>
+<tr><th>What</th><th>By</th><th>Result</th></tr>
+<tr><td>Inside the optimizer: window of every operation, worker overlaps, 5 shifts a week, ≤ 435 min a day, precedence, passive min / max, due dates, machine peaks, order delay, stock never below zero at any use</td><td><code>verify()</code> of the script</td><td>all OK (machine peaks: mixer 2, oven 2, rack 3, kettle 2, bench 3, chiller 4, pack line 2)</td></tr>
+<tr><td>Independent re-count from the JSON alone: 1 600 cakes / 8 000 kg, 160 batches ≤ 10 worker ops, worker time 57 200 min, rests of all 9 people, 18 machine units without overlap, 2 878 links exact, purchase quantities ≥ need and ≤ need + 2 % + packs, money, order delays, everything inside January</td><td><code>check_cake1_plan.py</code></td><td>ALL CHECKS OK</td></tr>
+<tr><td><b>Post of every task</b>: the app's own <code>calculateTaskLinePlan</code> on the dates of the app scheduler and the days of the six day calendar; the payloads go to the real procedure <code>create_task_line_plan</code> in Docker; the Monitor01 worker runs</td><td>Jest <code>cake1PostPlan.test.ts</code> + <code>kit8/docker/test_cake1.sh</code></td><td>1 332 tasks posted without a refusal (8 ms each), 3 252 plan rows = <b>64 632.16 EUR = the lines</b>; by genus (time 20 547.56, material 44 084.60) and by budget item equal; 3 252 register rows; <code>monitor01_view</code> 1 792 rows = 64 632.16 EUR, 13 790.62 units; <code>monitor01_verify</code> finds no difference</td></tr>
+<tr><td>The importer + the app scheduler on the file</td><td>Jest <code>__tests__/pm/crud/exchange/cake1Plan.test.ts</code> (9 tests)</td><td>passed</td></tr>
+<tr><td>The file imported in the real schema as <code>authenticated</code> (tasks by the RPC, links, lines)</td><td><code>test_cake1.sh</code></td><td>1 958 tasks, 2 878 links, 3 252 lines; slowest statement under 3 s</td></tr>
+<tr><td>The new RPC</td><td>Docker <code>tests/42_project_import.sql</code>, <code>test_sql.sh</code> (install twice, delete)</td><td>12 checks + ALL OK</td></tr>
+</table>
+
+<h2>11. What is NOT in the file</h2>
+<div class="note">Posting works: the plan, the register and Monitor01 take the lines (section 9). <b>Not in the file:</b> roles, persons, work centers and products (catalogs of the organization - the lines are priced by hand and named in the description, so there is no capacity check against calendars, no time sheets for the 12 people, and no Material line is linked to a product / supplier for purchase orders and vendor invoices); energy and machine cost; VAT; cleaning and changeover time. The <b>export</b> of a project does not write task lines yet.</div>
+<p class="small muted">Also not built: a second oven shift / night baking, product receipt and vendor-invoice documents for the purchase orders, the cakes' sale (customer orders, revenue), cleaning / changeover time between cakes (it is inside the operation minutes), holidays other than 1 January (6 January is worked), the real recipes of the chat's cakes (only the component counts are given there).</p>
+
+<h2>12. Files and how to run</h2>
+<table>
+<tr><th>File</th><th>What</th></tr>
+<tr><td><code>cake_v1_optimization.py</code></td><td>the model and the generator. <code>python3 cake_v1_optimization.py</code> (about 17 min; <code>--quick</code> about 5 min, may give a bigger crew; <code>--lines-only</code> adds the task lines to an existing file in seconds). Same names → same row GUIDs; the CP-SAT search is multi-threaded, so a new run can give another (equally valid) plan.</td></tr>
+<tr><td><code>cake1_plan_json.json</code></td><td>the result, 2.8 MB, <code>kit8.pm.project</code> v1, project <code>8e3e5544-…</code></td></tr>
+<tr><td><code>check_cake1_plan.py</code></td><td>the independent re-count of the file (8 sections, the lines included)</td></tr>
+<tr><td><code>kit8/docker/test_cake1.sh</code> + <code>cake1_import_check.py</code></td><td>import → Post → Monitor01 in the real schema with assertions on every sum</td></tr>
+<tr><td><code>README.md</code></td><td>short map</td></tr>
+</table>
+<pre>python3 -m pip install --upgrade ortools        # once, global
+cd documentation/CAKE1
+python3 cake_v1_optimization.py                  # writes cake1_plan_json.json
+python3 check_cake1_plan.py                      # ALL CHECKS OK
+npx jest __tests__/pm/crud/exchange/cake1Plan.test.ts __tests__/pm/crud/exchange/cake1PostPlan.test.ts
+kit8/docker/test_cake1.sh                        # Docker: import + Post + Monitor01, ALL OK
+python3 cake_v1_optimization.py --lines-only     # only the task lines of the existing json (seconds)</pre>
+</main>
+</body>
+</html>

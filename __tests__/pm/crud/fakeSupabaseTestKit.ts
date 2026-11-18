@@ -51,6 +51,7 @@ export class FakeSupabase {
     project_task_table: [],
     project_task_dependencies_table: [],
     project_task_dependency_closure_table: [],
+    task_line_table: [],
     project_user_settings_table: [],
     templates_project_table: [],
     templates_project_task_table: [],
@@ -113,6 +114,11 @@ export class FakeSupabase {
       }
       return { data: (args.p_rows || []).length, error: null };
     }
+    if (fn === 'project_import_tasks') {
+      // SQL PART 40: the tasks of one chunk of an imported file, bulk insert (the project is the one given, the rows keep their tree paths)
+      for (const r of args.p_rows || []) this.tables[TASKS].push({ ...clone([r])[0], projectGUID: args.p_project });
+      return { data: (args.p_rows || []).length, error: null };
+    }
     if (fn === 'pm_set_task_last_edit_place') {
       const t = this.task(args.p_task_guid);
       if (!t) return { data: 0, error: null };
@@ -147,6 +153,8 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
   private filters: [string, string, any][] = [];
   private orders: { col: string; asc: boolean }[] = [];
   private max: number | null = null;
+  private rangeFrom: number | null = null;
+  private rangeTo: number | null = null;
   private returning = false;
   private mode: 'many' | 'single' | 'maybeSingle' = 'many';
 
@@ -195,6 +203,12 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
     this.max = n;
     return this;
   }
+  /** like PostgREST: rows from..to (inclusive) of the ordered result, and the server never answers more than 1000 rows to one request (its max-rows) */
+  range(from: number, to: number) {
+    this.rangeFrom = from;
+    this.rangeTo = to;
+    return this;
+  }
   single() {
     this.mode = 'single';
     return this;
@@ -233,7 +247,9 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
           return o.asc ? c : -c;
         });
       }
+      if (this.rangeFrom !== null) rows = rows.slice(this.rangeFrom, (this.rangeTo as number) + 1);
       if (this.max !== null) rows = rows.slice(0, this.max);
+      rows = rows.slice(0, 1000);
       return this.shape(rows);
     }
 

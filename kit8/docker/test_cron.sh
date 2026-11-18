@@ -32,6 +32,9 @@ echo "$j" | grep -q "^monitor01_housekeeping 17 3 \* \* \* true" && ok "job moni
 cj() { psqlc -At -c "select jobname||' '||schedule||' '||active from cron.job where jobname = 'cash_ledger_tick'"; }
 [ "$(cj)" = "cash_ledger_tick 10 seconds true" ] && ok "job cash_ledger_tick = 10 seconds, active (PART 38: the exchange rate changes of the cash ledger)" || bad "cash_ledger_tick: [$(cj)]"
 
+kj() { psqlc -At -c "select jobname||' '||schedule||' '||active from cron.job where jobname = 'consolidation_tick'"; }
+[ "$(kj)" = "consolidation_tick 10 seconds true" ] && ok "job consolidation_tick = 10 seconds, active (PART 52: sumForConsolidation)" || bad "consolidation_tick: [$(kj)]"
+
 echo "== a second install changes nothing"
 install
 [ "$(jobs | wc -l | tr -d ' ')" = "2" ] && ok "still 2 jobs" || bad "jobs after the 2nd install: $(jobs | wc -l)"
@@ -58,12 +61,18 @@ sleep 11    # cash_ledger_tick runs every 10 seconds
 cruns=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='cash_ledger_tick' and d.status='succeeded'")
 cfailed=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='cash_ledger_tick' and d.status='failed'")
 [ "$cruns" -ge 1 ] && [ "$cfailed" = "0" ] && ok "cash_ledger_tick ran $cruns times, succeeded, no failed run" || bad "cash_ledger_tick: $cruns succeeded, $cfailed failed"
+# consolidation: a queued project that does not exist is taken from the queue by the tick alone
+psqlc -c "insert into public.consolidation_dirty (\"rowProjectGUID\", \"reason\") values (gen_random_uuid(), 'cron test')" >/dev/null
+sleep 11
+[ "$(psqlc -At -c "select count(*) from public.consolidation_dirty")" = "0" ] && ok "consolidation_tick drained its queue by itself" || bad "consolidation_dirty is not empty after the tick"
+konf=$(psqlc -At -c "select count(*) from cron.job_run_details d join cron.job j using (jobid) where j.jobname='consolidation_tick' and d.status='failed'")
+[ "$konf" = "0" ] && ok "consolidation_tick: no failed run" || bad "consolidation_tick: $konf failed runs"
 log=$(psqlc -At -c "select count(*) from public.monitor01_refresh_log")
 [ "$log" -ge 1 ] && ok "monitor01_refresh_log has $log batch rows" || bad "monitor01_refresh_log is empty"
 
 echo "== delete_sql_structure.sql unschedules the jobs"
 psqlc -f /sql/delete_sql_structure.sql >/dev/null
-[ "$(psqlc -At -c "select count(*) from cron.job where jobname like 'monitor01%' or jobname = 'cash_ledger_tick'")" = "0" ] && ok "no monitor01 / cash ledger job left" || bad "jobs left after the delete"
+[ "$(psqlc -At -c "select count(*) from cron.job where jobname like 'monitor01%' or jobname in ('cash_ledger_tick', 'consolidation_tick')")" = "0" ] && ok "no monitor01 / cash ledger job left" || bad "jobs left after the delete"
 echo "== install again"
 install
 [ "$(jobs | wc -l | tr -d ' ')" = "2" ] && [ "$(cj)" != "" ] && ok "2 + 1 jobs again" || bad "jobs after reinstall: $(jobs | wc -l)"

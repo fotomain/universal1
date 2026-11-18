@@ -34,6 +34,10 @@ export const pmRpcKanbanEnsureProjectStages = 'pm_kanban_ensure_project_stages';
 
 // SQL functions (see kit8/sql/init/create_pm_tables.sql)
 export const pmRpcApplySchedule = 'pm_apply_schedule';
+/** bulk insert of the tasks of an imported project file (SQL PART 40): the progress of the project is calculated once per chunk, not once per row */
+export const pmRpcImportTasks = 'project_import_tasks';
+/** the finance lines of a task (Time / Material / Expense / Revenue); an imported project file may carry them */
+export const pmTaskLineTable = 'task_line_table';
 export const pmRpcDependencyCreatesCycle = 'pm_dependency_creates_cycle';
 /** RPC: saves project_task_table.rowJSON.lastEditPlace only (kit8/sql/init/create_pm_task_line_table.sql) */
 export const pmRpcSetTaskLastEditPlace = 'pm_set_task_last_edit_place';

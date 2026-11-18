@@ -148,9 +148,15 @@ export async function fetchTimesheetProjects(client: Client): Promise<TitledRow[
 }
 /** the NORMAL tasks (not stages, not milestones) of a project */
 export async function fetchProjectTasks(client: Client, projectGUID: string): Promise<TitledRow[]> {
-  const { data, error } = await client.from('project_task_table').select('rowGUID,rowJSON,orderInList').eq('projectGUID', projectGUID).order('orderInList', { ascending: true }).limit(2000);
-  if (error) fail(error);
-  return (data || []).filter((r: any) => (r?.rowJSON?.rowKind ?? 'task') === 'task');
+  // ALL pages (a request returns 1000 rows at most; .limit(2000) did not lift that)
+  const rows: any[] = [];
+  for (let from = 0; ; from += 1000) {
+    const { data, error } = await client.from('project_task_table').select('rowGUID,rowJSON,orderInList').eq('projectGUID', projectGUID).order('orderInList', { ascending: true }).order('rowGUID', { ascending: true }).range(from, from + 999);
+    if (error) fail(error);
+    rows.push(...(data || []));
+    if (!data || data.length < 1000) break;
+  }
+  return rows.filter((r: any) => (r?.rowJSON?.rowKind ?? 'task') === 'task');
 }
 /** the work centers that can be selected: the user's own Person work center, or every one when `all` */
 export async function fetchSelectableWorkCenters(client: Client, all: boolean): Promise<TitledRow[]> {

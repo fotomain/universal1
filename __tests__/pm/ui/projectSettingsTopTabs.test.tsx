@@ -277,10 +277,10 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectROIIncludePurchaseVAT).toBe(false);
   });
 
-  it('on the ORGANIZATION screen the same Budgets tab edits the 3 currencies (the only place where they change)', () => {
+  it('on the ORGANIZATION screen the same Budgets tab edits the 3 currencies = the defaults of a NEW project', () => {
     const PMProjectBudgetsTab = require('../../../kit8/pm/view/project/settings/PMProjectBudgetsTab').default;
     const onChange = jest.fn();
-    renderUI(<PMProjectBudgetsTab values={{}} onChange={onChange} currenciesEditable />);
+    renderUI(<PMProjectBudgetsTab values={{}} onChange={onChange} currenciesEditable currenciesScope="organization" />);
     expect(q('pm-project-currencies-readonly')).toBeNull();
     expect(q('pm-project-currencies-message')).toBeNull();
     expect(textOf('pm-project-currencies-note')).toContain('every NEW project');
@@ -292,9 +292,24 @@ describe('Project settings window TopTabs', () => {
     expect(onChange).toHaveBeenCalledWith({ currencyForContract: 'EUR' });
   });
 
-  it('TabBudgets: the 3 currencies are READ ONLY (with the message where to change them); the budget checkboxes are saved, the currencies stay as stored', () => {
+  it('a project that differs from its organization shows the mark "own currencies"; the same currencies show none', () => {
+    const PMProjectBudgetsTab = require('../../../kit8/pm/view/project/settings/PMProjectBudgetsTab').default;
+    renderUI(<PMProjectBudgetsTab values={{ currencyForBudget: 'JPY', currencyForAccounting: 'EUR' }} onChange={jest.fn()} organizationCurrencies={{ currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' }} />);
+    expect(textOf('pm-project-currencies-own')).toContain('Budget JPY (organization: USD)');
+    expect(textOf('pm-project-currencies-own')).not.toContain('Accounting');
+  });
+
+  it('currenciesEditable = false still shows the three currencies read only (with the message)', () => {
+    const PMProjectBudgetsTab = require('../../../kit8/pm/view/project/settings/PMProjectBudgetsTab').default;
+    renderUI(<PMProjectBudgetsTab values={{ currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' }} onChange={jest.fn()} currenciesEditable={false} />);
+    expect(q('pm-project-currencies-readonly')).not.toBeNull();
+    expect(textOf('pm-project-currencyForBudget')).toContain('USD');
+    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).toBeNull());
+  });
+
+  it('TabBudgets: the 3 currencies are EDITABLE per project; the budget checkboxes are saved, an unchanged currency is saved as stored (no approval asked)', () => {
     const { demo, store } = seedStore();
-    // the project has the currencies of its organization (made when it was created)
+    // the project has its currencies
     act(() => store.getState().setProjects(demo.projects.map((p: any, i: number) => (i === 0 ? { ...p, rowJSON: { ...p.rowJSON, currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' } } : p))));
     renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
     press('pm-project-edit');
@@ -303,14 +318,13 @@ describe('Project settings window TopTabs', () => {
     expect(q('pm-project-tab-budgets-content')).not.toBeNull();
     expect(q('pm-project-tab-main-content')).toBeNull();
 
-    // read only: the codes are shown, there is no picker, the message says where to change them
-    expect(q('pm-project-currencies-readonly')).not.toBeNull();
+    // editable: the pickers are there, the note speaks of THIS project
+    expect(q('pm-project-currencies-readonly')).toBeNull();
     expect(textOf('pm-project-currencyForBudget')).toContain('USD');
     expect(textOf('pm-project-currencyForAccounting')).toContain('EUR');
     expect(textOf('pm-project-currencyForContract')).toContain('GBP');
-    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).toBeNull());
-    expect(textOf('pm-project-currencies-message')).toContain('Catalogs → Organization → Projects → Settings → Budgets');
-    expect(textOf('pm-project-currencies-message')).toContain('administrator of the organization');
+    ['currencyForBudget', 'currencyForAccounting', 'currencyForContract'].forEach((k) => expect(q(`pm-project-${k}-trigger`)).not.toBeNull());
+    expect(textOf('pm-project-currencies-note')).toContain('THIS project');
 
     toggleSwitch('pm-project-revenue-budget-needed');
 

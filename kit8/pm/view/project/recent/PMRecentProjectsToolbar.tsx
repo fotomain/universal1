@@ -101,6 +101,10 @@ import { useMyOrganization } from "../../../../catalog/organization/useMyOrganiz
 import { defaultProjectSettingsOf, newProjectPatchFrom } from "../../../../catalog/organization/defaultProjectSettings";
 import { appDispatch } from "../../../../redux/storeRef";
 import { showSnackbar } from "../../../../redux/uxuiSlice";
+import { askPMApprove } from "../../../inner/PMApproveYesNoCancelModalWindow";
+import { showErrorModal } from "../../../../ui/components/common/ErrorModalWindow";
+import { PROJECT_CURRENCY_CHANGE_MESSAGE, PROJECT_CURRENCY_CHANGE_TITLE, changedOrganizationCurrencies, currencyChangeLines, organizationCurrenciesOf, recalcSummary } from "../../../../catalog/organization/currencies/organizationCurrenciesModel";
+import { useProjectCurrencyRecalc } from "../../../../catalog/organization/currencies/useOrganizationCurrencyRecalc";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
 export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabChat' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabMembers';
@@ -174,6 +178,8 @@ export default function PMRecentProjectsToolbar({
   /** Project settings window: FIXED height (new / edit, any Import / Export tab) - the body scrolls */
   const settingsHeight = Math.max(320, Math.min(PM_PROJECT_SETTINGS_HEIGHT, Math.round(win.height * 0.92)));
   const [draft, setDraft] = useState<Draft | null>(null);
+  // the currencies of a project are its own (documentation/CONSOLIDATION_WBS.html section 1): a change asks an approval and recalculates THIS project
+  const recalcProject = useProjectCurrencyRecalc(!!draft?.rowGUID);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('TabMain');
   const [budgetsSubTab, setBudgetsSubTab] = useState<BudgetsSubTab>('TabBudgetsMain');
@@ -392,6 +398,38 @@ export default function PMRecentProjectsToolbar({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsRequest]);
 
+  // the Project assistant (kit8/ui/project/assistant) hands its answers over: they fill the New project window ('new') or the Project settings window of a project;
+  // createNow = the user pressed "Create project": the window saves at once (a refusal - e.g. the business units - stays visible in the window)
+  const assistantResult = usePMStore((s) => s.projectAssistantResult);
+  const assistantSaveRef = useRef(false);
+  useEffect(() => {
+    if (!assistantResult) return;
+    const s = usePMStore.getState();
+    const { target, patch, createNow } = assistantResult;
+    s.applyProjectAssistant(null);
+    if (target === 'new') openNew();
+    else openEditFor(s.projectsById[target]);
+    setDraft((d) => (d ? { ...d, ...patch } : d));
+    assistantSaveRef.current = createNow;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assistantResult]);
+  useEffect(() => {
+    if (!assistantSaveRef.current || !draft) return;
+    assistantSaveRef.current = false;
+    saveDraft();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft]);
+
+  /** the three dots menu of the settings window: call the assistant for this window (a new project or the project being edited) */
+  const openAssistantFromWindow = () => {
+    setSettingsMenuCoords(null);
+    if (!draft) return;
+    const target = draft.rowGUID || 'new';
+    usePMStore.getState().setProjectAssistantSeed({ target, values: draft as unknown as Record<string, any> });
+    setDraft(null);
+    router.push({ pathname: '/pm/project/assistant', params: { mode: 'assistant', target } } as any);
+  };
+
   /** after an import the project's start / calendar come from the file: show them (Save keeps them) */
   const onImported = (json: PMRowJSON) => {
     const newStart = json.projectStartAt ? formatDateISO(Date.parse(json.projectStartAt)) : undefined;
@@ -442,7 +480,7 @@ export default function PMRecentProjectsToolbar({
     );
   };
 
-  const saveDraft = () => {
+  const saveDraft = (currenciesApproved = false) => {
     if (!draft) return;
     // a READ-ONLY project (as stored): the ONE thing that is saved is the switch itself - nothing else of the window is sent (the database would refuse it)
     if (settingsLocked && draft.rowGUID) {
@@ -469,6 +507,18 @@ export default function PMRecentProjectsToolbar({
     const ganttCmdMode = draft.projectGanttChartContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
     if (draft.rowGUID) {
       const cur = projectsById[draft.rowGUID];
+      // a changed currency of the project: the user approves (Yes = save + recalculate THIS project, Cancel = save nothing)
+      const currencyChanges = changedOrganizationCurrencies(cur.rowJSON, draft as any);
+      if (currencyChanges.length && currenciesApproved !== true) {
+        void askPMApprove({
+          title: pmT(PROJECT_CURRENCY_CHANGE_TITLE),
+          message: `${currencyChangeLines(currencyChanges).map((l) => pmT(l)).join("\n")}\n\n${pmT(PROJECT_CURRENCY_CHANGE_MESSAGE)}`,
+          yesLabel: pmT("Yes, recalculate"),
+          hideNo: true,
+          icon: "currency_exchange",
+        }).then((answer) => { if (answer === "yes") saveDraft(true); });
+        return;
+      }
       updateProject.mutate({
         rowGUID: draft.rowGUID,
         patch: {
@@ -512,7 +562,24 @@ export default function PMRecentProjectsToolbar({
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
-      }, { onSettled: () => { projectPermissions.refresh(); } });
+      }, {
+        onSettled: () => { projectPermissions.refresh(); },
+        ...(currencyChanges.length ? {
+          // the database may refuse (posted documents): say why; after a save recalculate this project
+          onError: (err: any) => showErrorModal(err?.message || String(err), pmT("Currencies of the project")),
+          onSuccess: () => {
+            const projectGUID = draft.rowGUID as string;
+            recalcProject(projectGUID, organizationCurrenciesOf(draft as any))
+              .then((r) => {
+                const summary = recalcSummary([r]);
+                appDispatch(showSnackbar({ message: summary.message, isError: summary.isError }));
+                const problems = [...(r.status === "done" ? [] : [`${r.name}: ${r.reason}`]), ...r.postProblems.map((m) => `${r.name} · ${m}`)];
+                if (problems.length) showErrorModal(problems.slice(0, 20).join("\n"), pmT("Recalculation of the project"));
+              })
+              .catch((err: any) => showErrorModal(err?.message || String(err), pmT("Recalculation of the project")));
+          },
+        } : {}),
+      });
       // the user's own settings row overrides the project's: without this a mode saved earlier there keeps winning
       saveUxuiSettings(draft.rowGUID, { projectTreeContextCommandsMode: treeCmdMode, projectGanttChartContextCommandsMode: ganttCmdMode });
     } else {
@@ -742,6 +809,15 @@ export default function PMRecentProjectsToolbar({
           width={200}
           onClose={() => setAddMenuCoords(null)}
           items={[
+            {
+              testID: "pm-project-add-menu-assistant",
+              label: "Assistant",
+              icon: "support_agent",
+              onPress: () => {
+                setAddMenuCoords(null);
+                router.push('/pm/project/assistant' as any);
+              },
+            },
             {
               testID: "pm-project-add-menu-new",
               label: "New",
@@ -1008,6 +1084,8 @@ export default function PMRecentProjectsToolbar({
                     onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
                     subTab={budgetsSubTab}
                     onSubTabChange={setBudgetsSubTab}
+                    currenciesEditable={!settingsLocked}
+                    organizationCurrencies={organization.defaults as any}
                   />
                 )}
 
@@ -1343,6 +1421,13 @@ export default function PMRecentProjectsToolbar({
               width={240}
               onClose={() => setSettingsMenuCoords(null)}
               items={[
+                {
+                  testID: "pm-project-settings-assistant",
+                  label: "Project assistant",
+                  icon: "support_agent",
+                  disabled: settingsLocked,
+                  onPress: openAssistantFromWindow,
+                },
                 {
                   testID: "pm-project-settings-save-to-organization",
                   label: "Save settings to organization",
