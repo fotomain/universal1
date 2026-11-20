@@ -30,7 +30,7 @@ python server.py                               # development mode: no login, chu
 SUPABASE_URL=https://xxxx.supabase.co SUPABASE_ANON_KEY=... python server.py     # Supabase mode
 docker build -t bim-server . && docker run -p 8765:8765 -e SUPABASE_URL=... -e SUPABASE_ANON_KEY=... bim-server
 ```
-Environment: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BIM_URL_ALLOWLIST` (default `raw.githubusercontent.com`: the only hosts an IFC may be fetched from), `BIM_MAX_IFC_MB` (200), `BIM_SERVER_PORT` (8765), `BIM_CORS_ORIGINS` (`*`), `BIM_DEV_OUT`.
+Environment: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BIM_URL_ALLOWLIST` (default `raw.githubusercontent.com,media.githubusercontent.com` - the second one serves Git LFS files such as the Duplex of example 2, raw gives only the pointer: the only hosts an IFC may be fetched from), `BIM_MAX_IFC_MB` (200), `BIM_SERVER_PORT` (8765), `BIM_CORS_ORIGINS` (`*`), `BIM_DEV_OUT`.
 **Supabase mode**: the user's JWT comes in the `Authorization` header; the server asks Supabase Auth who it is and uploads every chunk to the private bucket `bim` as `<project>/<model>/<sha256>.bimc` **with the user's own token** -
 the Storage policy of PART 55 (`bim_storage_upload_ok`: the caller started this import, the folder is the model's, the project is writable) decides. The server holds no service key and writes nothing to the database.
 

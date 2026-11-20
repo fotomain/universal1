@@ -1,7 +1,8 @@
-// BimExampleDemo - BIM example 1 (Structure Walls) WITHOUT a database: the converted chunks + the WBS of kit8/pm/bim/examples/example1/example1.demo.json (made by py/bim/server/make_demo_bundle.py).
-// Route /pm/bim/example. The task list stands at the left (stages and tasks), the 3D view at the right: a press on a list row lights its walls, a press on a wall selects its row - the same
+// BimExampleDemo - BIM example 1 (Structure Walls) or example 2 (Duplex Apartment) WITHOUT a database: the converted chunks + the WBS of kit8/pm/bim/examples/example<N>/example<N>.demo.json (made by py/bim/server/make_demo_bundle.py).
+// Route /pm/bim/example (example 1) or /pm/bim/example?example=2; two buttons above the list switch between them. The task list stands at the left (stages and tasks), the 3D view at the right: a press on a list row lights its walls, a press on a wall selects its row - the same
 // two-way highlight as the BIM view of a project, with the same viewer (BimViewer) and the same bridge functions, but nothing is read from or written to Supabase.
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
 import { Pressable, ScrollView, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { parseBimc } from '../bimc/bimcReader';
 import { base64ToArrayBuffer } from '../bimc/base64';
@@ -14,9 +15,18 @@ import { createBimLocalDb } from '../local/bimLocalDb';
 import type { BimManifest } from '../model/bimModel';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const DEMO = require('../examples/example1/example1.demo.json');
+const DEMOS: Record<number, any> = { 1: require('../examples/example1/example1.demo.json'), 2: require('../examples/example2/example2.demo.json') };
+const EXAMPLE_TITLES: Record<number, string> = { 1: 'Structure Walls', 2: 'Duplex Apartment' };
 
 export default function BimExampleDemo() {
+  const params = useLocalSearchParams<{ example?: string }>();
+  const fromRoute = Number(Array.isArray(params.example) ? params.example[0] : params.example) === 2 ? 2 : 1;
+  const [n, setN] = useState<number>(fromRoute);
+  return <BimExampleView key={n} n={n} onSwitch={setN} />;
+}
+
+function BimExampleView({ n, onSwitch }: { n: number; onSwitch: (n: number) => void }) {
+  const DEMO = DEMOS[n];
   const win = useWindowDimensions();
   const wide = win.width >= 760;
   const listW = wide ? 300 : win.width;
@@ -38,12 +48,12 @@ export default function BimExampleDemo() {
     (async () => {
       try {
         const db = await createBimLocalDb('demo');
-        const before = await db.cachedModel('example1');
-        const manifest: BimManifest = { model: { modelGUID: 'demo-example1', revision: before ? before.revision + 1 : 1, sourceName: DEMO.model.sourceName, originShift: DEMO.model.originShift, bbox: DEMO.model.bbox, counts: DEMO.model.counts }, storeys: [], chunks: [] };
+        const before = await db.cachedModel(`example${n}`);
+        const manifest: BimManifest = { model: { modelGUID: `demo-example${n}`, revision: before ? before.revision + 1 : 1, sourceName: DEMO.model.sourceName, originShift: DEMO.model.originShift, bbox: DEMO.model.bbox, counts: DEMO.model.counts }, storeys: [], chunks: [] };
         const rows = DEMO.elements.map((e: any) => ({ ...e, storeyGUID: e.storeyIfcGuid }));
-        await db.saveModel('example1', manifest, rows);
-        const back = await db.loadElements('demo-example1');
-        const of = await db.elementsOfTasks('demo-example1', [rows[0].taskGUID]);
+        await db.saveModel(`example${n}`, manifest, rows);
+        const back = await db.loadElements(`demo-example${n}`);
+        const of = await db.elementsOfTasks(`demo-example${n}`, [rows[0].taskGUID]);
         if (!off) setLocalInfo(`local database: ${db.kind} · ${before ? `cached before (revision ${before.revision} -> ${manifest.model.revision})` : 'first run'} · ${back.length} elements read back · ${of.length} for the first task`);
       } catch (e) {
         if (!off) setLocalInfo(`local database failed: ${(e as Error).message}`);
@@ -52,7 +62,7 @@ export default function BimExampleDemo() {
     return () => {
       off = true;
     };
-  }, []);
+  }, [n, DEMO]);
   // a press on a wall scrolls the list to its row (in a project the tree does it: requestFocus)
   const listRef = useRef<ScrollView>(null);
   const rowY = useRef<Record<string, number>>({});
@@ -70,8 +80,15 @@ export default function BimExampleDemo() {
   return (
     <View testID="bim-example" style={[styles.page, { flexDirection: wide ? 'row' : 'column' }]}>
       <ScrollView ref={listRef} testID="bim-example-list" style={{ width: listW, maxHeight: wide ? undefined : win.height - 56 - viewH }} contentContainerStyle={{ padding: 8 }}>
-        <Text style={styles.title}>BIM example 1 - Structure Walls</Text>
-        <Text style={styles.sub}>{DEMO.model.counts.elements} walls · {DEMO.model.counts.stages} stages · {DEMO.model.counts.tasks} tasks · unit scale {DEMO.model.unitScale}</Text>
+        <View style={{ flexDirection: 'row', gap: 6, marginBottom: 6 }}>
+          {[1, 2].map((k) => (
+            <Pressable key={k} testID={`bim-example-switch-${k}`} onPress={() => onSwitch(k)} style={[styles.switch, { backgroundColor: n === k ? '#ffe2b8' : '#eee' }]}>
+              <Text style={{ fontSize: 12, color: '#222' }}>Example {k}</Text>
+            </Pressable>
+          ))}
+        </View>
+        <Text style={styles.title}>BIM example {n} - {EXAMPLE_TITLES[n]}</Text>
+        <Text style={styles.sub}>{DEMO.model.counts.elements} {n === 1 ? 'walls' : 'elements'} · {DEMO.model.counts.stages} stages · {DEMO.model.counts.tasks} tasks · unit scale {DEMO.model.unitScale}</Text>
         <Text testID="bim-example-local" style={styles.sub}>{localInfo}</Text>
         {rows.map((t: any) => (
           <Pressable key={t.guid} testID={`bim-example-row-${t.kind}`} onLayout={(e) => { rowY.current[t.guid] = e.nativeEvent.layout.y; }} onPress={() => select(selected === t.guid ? null : t.guid)} style={[styles.row, { paddingLeft: t.kind === 'task' ? 22 : 6, backgroundColor: selected === t.guid ? '#ffe2b8' : 'transparent' }]}>
@@ -122,6 +139,7 @@ const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#fff' },
   title: { fontWeight: '700', fontSize: 15, color: '#222' },
   sub: { fontSize: 12, color: '#666', marginBottom: 8 },
+  switch: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 12 },
   row: { paddingVertical: 6, paddingRight: 6, borderRadius: 4 },
   panel: { position: 'absolute', left: 112, bottom: 8, right: 8, padding: 8, borderRadius: 8, backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: '#ddd' },
 });

@@ -226,6 +226,7 @@ class ServerTest(unittest.TestCase):
         self.assertIn('not allowed', b['error'])
         self.assertFalse(srv.allowed_host('http://raw.githubusercontent.com/x.ifc'))
         self.assertTrue(srv.allowed_host('https://raw.githubusercontent.com/x.ifc'))
+        self.assertTrue(srv.allowed_host('https://media.githubusercontent.com/media/x/y/main/a.ifc'))  # Git LFS files (example 2)
 
 
 if __name__ == '__main__':

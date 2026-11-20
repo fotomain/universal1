@@ -12,7 +12,7 @@ What it does with the user's JWT: asks Supabase Auth who the user is, then uploa
 <projectGUID>/<modelGUID>/<sha256>.bimc WITH THE USER'S OWN TOKEN - so the Storage policy (kit8/sql/start/start2_sql_code.sql PART 55) decides, the server holds no service key.
 The server writes nothing else to the database: the app writes the rows through the RPCs bim_import_begin / _add_rows / _commit. No SUPABASE_URL = development mode:
 no login, the chunks go to BIM_DEV_OUT (default ./out) and the result lists them.
-Environment: SUPABASE_URL, SUPABASE_ANON_KEY, BIM_URL_ALLOWLIST (default raw.githubusercontent.com), BIM_MAX_IFC_MB (200), BIM_SERVER_PORT (8765), BIM_CORS_ORIGINS (*), BIM_DEV_OUT.
+Environment: SUPABASE_URL, SUPABASE_ANON_KEY, BIM_URL_ALLOWLIST (default raw.githubusercontent.com,media.githubusercontent.com), BIM_MAX_IFC_MB (200), BIM_SERVER_PORT (8765), BIM_CORS_ORIGINS (*), BIM_DEV_OUT.
 """
 from __future__ import annotations
 
@@ -51,7 +51,7 @@ def max_bytes() -> int:
 
 def allowed_host(url: str) -> bool:
     p = urllib.parse.urlparse(url)
-    hosts = [h.strip().lower() for h in cfg('BIM_URL_ALLOWLIST', 'raw.githubusercontent.com').split(',') if h.strip()]
+    hosts = [h.strip().lower() for h in cfg('BIM_URL_ALLOWLIST', 'raw.githubusercontent.com,media.githubusercontent.com').split(',') if h.strip()]
     return p.scheme == 'https' and (p.hostname or '').lower() in hosts
 
 

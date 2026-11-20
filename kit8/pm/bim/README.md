@@ -3,7 +3,7 @@
 Plan and decisions: `documentation/BIM_WBS.html`. Converter service: `py/bim/server` (README there). SQL: PART 55 (`start1` tables, `start2` code, `delete_bim_data.sql` removes the data).
 
 ## What it does
-1. **Import** (`import/`, route `/pm/bim/import`, component `BIMToProjectImport.tsx`): an IFC (BIM example 1, a file, or an https address) is converted on the **converter service**
+1. **Import** (`import/`, route `/pm/bim/import`, component `BIMToProjectImport.tsx`): an IFC (BIM example 1, BIM example 2 = the Duplex Apartment, a file, or an https address; example 2 is a Git LFS file, so its address is on `media.githubusercontent.com`, a host the converter allows by default) is converted on the **converter service**
    into chunks (BIMC v1, one per storey) + the stages / tasks of the project (minimum data: no lines, no costs, no links) + the rows of the `bim_` tables. The project GUID of
    example 1 is `aabd1dde-97e6-4359-97e4-0efcb847589b`; a project that does not exist is made; a project with tasks that is **not** a BIM project is refused; a BIM project asks before its tasks are replaced.
 2. **The BIM button** (`view/PMProjectBimView.tsx`): the LAST button of the view switch (Gantt, Edit, ... Budgets, **BIM**), shown only while `projectIsBIMBased` is true (the import turns it on, the user can switch it).
@@ -39,13 +39,13 @@ python py/bim/server/server.py                          # the converter, port 87
 npm run bim:copy-wasm                                   # the SQLite WASM next to the worker (web), after npm install
 ```
 `.env` (the owner edits it): `EXPO_PUBLIC_BIM_SERVER_URL=http://localhost:8765` (a phone needs the LAN address of the Mac). The converter in Supabase mode needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` in ITS environment.
-**Without a login or a database**: `/pm/bim/example` shows example 1 in 3D from the converted files of the repository (the same viewer and the same two-way highlight; it also saves the model into the local database and reads it back).
+**Without a login or a database**: `/pm/bim/example` shows example 1 (and `?example=2` the Duplex Apartment, two buttons switch) in 3D from the converted files of the repository (the same viewer and the same two-way highlight; it also saves the model into the local database and reads it back).
 
 ## Tests
-`npm test -- __tests__/bim __tests__/sql/bimSql`; Python: `cd py/bim/server && python -m unittest discover -s tests`; Docker: `kit8/docker/test_time_genus.sh 104` (84 checks) and `kit8/docker/test_bim_example1.sh` (example 1 through the real database flow).
+`npm test -- __tests__/bim __tests__/sql/bimSql`; Python: `cd py/bim/server && python -m unittest discover -s tests`; Docker: `kit8/docker/test_time_genus.sh 104` (84 checks) `kit8/docker/test_bim_example1.sh` and `test_bim_example2.sh` (the examples through the real database flow).
 
 ## Not built / not tried
 * Not tried on a real iPhone / Android (expo-gl, expo-sqlite, files): the code is written, nothing of it was seen on a phone. WebGL2 + normalized Uint16 attributes on the dev client is the open question (the spike A3 of the plan).
 * The converter was run on the owner's Mac only (CLI + HTTP, development mode); the Supabase mode (JWT check + Storage upload with the user's token) is tested in Docker for the SQL and the Storage policy helpers, not against a real Supabase.
 * Instancing of repeated geometry, normals, meshopt / brotli on the wire, ID-buffer picking, the BIM view of a project version, colour by status, section planes, measuring: not built (the BIMC header has room for them).
-* Example 2 (Archicad Vacation Home): dropped by the owner (Q15: one example).
+* Example 2 = the buildingSMART Duplex Apartment (2026-11-20, `examples/example2`); the Archicad Vacation Home `.pla` cannot be read without ArchiCAD (needs an IFC export).

@@ -1,5 +1,5 @@
 // BIMToProjectImport - imports a BIM model (IFC) into a project as stages + tasks + a 3D model (route /pm/bim/import; documentation/BIM_WBS.html).
-//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
+//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | BIM example 2 (Duplex Apartment, buildingSMART) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
 //   options    one task per element / per (storey, class, type) group / automatic · skip the storeys without elements · the first working day of the plan
 //   target     the project GUID (example 1: aabd1dde-97e6-4359-97e4-0efcb847589b); a project that does not exist is made; a project with tasks that is NOT a BIM project is refused
 //   then       progress, the result, and "Open the BIM view" (the project is selected and the BIM button is shown)
@@ -12,13 +12,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { pmT } from '../../i18n/pmT';
 import { usePMStore } from '../../store/store_pm';
 import { usePMOwnerGUID } from '../../crud/queries';
-import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_URL } from '../model/bimModel';
+import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_URL, BIM_EXAMPLE2_NAME, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_URL } from '../model/bimModel';
 import { DEFAULT_BIM_IMPORT_OPTIONS, type BimGranularity } from './bimImportModel';
 import type { BimConvertSource } from './bimServerClient';
 import { bimServerUrl } from './bimServerClient';
 import { useBimImport } from './useBimImport';
 
-type SourceKind = 'example1' | 'file' | 'url';
+type SourceKind = 'example1' | 'example2' | 'file' | 'url';
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface BIMToProjectImportProps {
@@ -54,6 +54,15 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
     return null;
   }, [projectGUID, startDate, source, file, url, converterUrl, ownerGUID]);
 
+  // an example brings its own project GUID and name; only a project of the route that EXISTS keeps its GUID (it is the target of the import)
+  const chooseSource = (v: SourceKind) => {
+    setSource(v);
+    if (v !== 'example1' && v !== 'example2') return;
+    const keepGuid = !!given && !!usePMStore.getState().projectsById[given];
+    if (!keepGuid) setProjectGUID(v === 'example2' ? BIM_EXAMPLE2_PROJECT_GUID : BIM_EXAMPLE1_PROJECT_GUID);
+    setProjectName(v === 'example2' ? BIM_EXAMPLE2_NAME : BIM_EXAMPLE1_NAME);
+  };
+
   const pick = async () => {
     const r = await DocumentPicker.getDocumentAsync({ type: ['*/*'], copyToCacheDirectory: false, multiple: false });
     if (r.canceled || !r.assets?.[0]) return;
@@ -65,6 +74,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
     if (problem) return;
     let src: BimConvertSource;
     if (source === 'example1') src = { kind: 'url', url: BIM_EXAMPLE1_URL };
+    else if (source === 'example2') src = { kind: 'url', url: BIM_EXAMPLE2_URL };
     else if (source === 'url') src = { kind: 'url', url: url.trim() };
     else {
       const blob: Blob = file!.file ?? (await (await fetch(file!.uri)).blob());
@@ -93,8 +103,9 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
         <Card.Title title={pmT('Import a BIM model (IFC)')} subtitle={pmT('Stages and tasks only - no costs, no lines. The 3D model is kept next to them.')} />
         <Card.Content style={{ gap: 12 }}>
           <Text variant="titleSmall">{pmT('Source')}</Text>
-          <RadioButton.Group value={source} onValueChange={(v) => setSource(v as SourceKind)}>
+          <RadioButton.Group value={source} onValueChange={(v) => chooseSource(v as SourceKind)}>
             <RadioButton.Item testID="bim-import-source-example1" label={pmT('BIM example 1 - Structure Walls (58 walls, 4 storeys)')} value="example1" />
+            <RadioButton.Item testID="bim-import-source-example2" label={pmT('BIM example 2 - Duplex Apartment (215 elements, 4 storeys)')} value="example2" />
             <RadioButton.Item testID="bim-import-source-file" label={pmT('An IFC file of this device')} value="file" />
             <RadioButton.Item testID="bim-import-source-url" label={pmT('The address (https) of an IFC file')} value="url" />
           </RadioButton.Group>

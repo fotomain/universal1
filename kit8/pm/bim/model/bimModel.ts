@@ -9,6 +9,10 @@ export const PROJECT_IS_BIM_BASED_KEY = 'projectIsBIMBased';
 export const BIM_EXAMPLE1_PROJECT_GUID = 'aabd1dde-97e6-4359-97e4-0efcb847589b';
 export const BIM_EXAMPLE1_URL = 'https://raw.githubusercontent.com/viktor-platform/ifc-sample-models/main/sample-models/Structure%20Walls.ifc';
 export const BIM_EXAMPLE1_NAME = 'BIM example 1 - Structure Walls';
+/** the BIM example 2: the buildingSMART Duplex Apartment (IFC2X3, Revit, CC BY 4.0). The file is a Git LFS file: raw.githubusercontent.com would give the 132 byte pointer, so the address is on media.githubusercontent.com (allowed by the converter, py/bim/server). */
+export const BIM_EXAMPLE2_PROJECT_GUID = 'a1800750-c76d-401b-b866-e4aaf1998a7c';
+export const BIM_EXAMPLE2_URL = 'https://media.githubusercontent.com/media/buildingsmart-community/Community-Sample-Test-Files/main/IFC%202.3.0.1%20(IFC%202x3)/Duplex%20Apartment/Duplex_A_20110907.ifc';
+export const BIM_EXAMPLE2_NAME = 'BIM example 2 - Duplex Apartment';
 
 export const projectIsBimBased = (rowJSON: Record<string, any> | undefined | null): boolean => rowJSON?.[PROJECT_IS_BIM_BASED_KEY] === true;
 export const projectRowIsBimBased = (project: Pick<PMProjectRow, 'rowJSON'> | undefined | null): boolean => projectIsBimBased(project?.rowJSON);
