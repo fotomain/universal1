@@ -557,6 +557,8 @@ export const reusableRootSaga = (p: any) => {
                             yield race({done: take([actions.readDataSuccess.type, actions.readDataFailure.type]), timeout: delay(8000)});
                         }
                         yield put(catchUpRead());
+                        // a bulk write goes on: at most one read every 1.5 s, the changes that come meanwhile wait in the channel and are read together
+                        if (changes.length > REALTIME_BULK_LIMIT) yield delay(1500);
                     } else {
                         for (const msg of changes) {
                             const change = scopeRealtimeChange(msg.payload, match);

@@ -87,6 +87,8 @@ jest.mock('react-native-paper', () => {
     Card: Stub,
     Text: Stub,
     Avatar: Stub,
+    // a bar: a View that keeps its testID and says its progress
+    ProgressBar: (p: any) => require('react').createElement(require('react-native').View, { testID: p.testID, accessibilityValue: { now: Math.round((p.progress ?? 0) * 100) } }),
     useTheme: () => ({ colors: {} }),
     MD3LightTheme: { colors: {} },
     MD3DarkTheme: { colors: {} },

@@ -49,10 +49,14 @@ jest.mock('../../../kit8/pm/crud/exchange/project/ImportExportProject', () => {
   const { View } = require('react-native');
   return {
     __esModule: true,
-    default: () => R.createElement(View, { testID: 'pm-project-exchange' }),
+    default: ({ initialTab }: { initialTab?: string }) => R.createElement(View, { testID: `pm-project-exchange-${initialTab}` }),
   };
 });
 
+// the Export window has its own test suite (exportProjectWindow.test.tsx) and needs the exchange hook
+jest.mock('../../../kit8/pm/crud/exchange/project/useProjectExchange', () => ({
+  useProjectExchange: () => ({ exportProject: jest.fn(), importProject: jest.fn(), status: { kind: 'idle' }, busy: false }),
+}));
 jest.mock('../../../kit8/pm/view/kanban/PMKanbanStagesModalWindow', () => {
   const R = require('react');
   const { View } = require('react-native');
@@ -174,6 +178,32 @@ describe('Project settings window TopTabs', () => {
     cleanupUI();
     delete (globalThis as any).__pmTestReduxState;
     jest.clearAllMocks();
+  });
+
+  it('the Import / Export button (before Settings) has the menu Import, Export: Import opens the settings window on its panel, Export its own window', async () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    const ids = Array.from(document.querySelectorAll('[data-testid="pm-project-import-export"],[data-testid="pm-project-edit"]')).map((e: any) => e.getAttribute('data-testid'));
+    expect(ids).toEqual(['pm-project-import-export', 'pm-project-edit']);
+
+    // the menu opens when measureInWindow answers (react-native-web: a timer)
+    const wait = (ms: number) => act(async () => { await new Promise((r) => setTimeout(r, ms)); });
+    press('pm-project-import-export');
+    await wait(80);
+    expect(q('pm-project-import-export-menu')).not.toBeNull();
+    expect(q('pm-project-import-export-import')).not.toBeNull();
+    expect(q('pm-project-import-export-export')).not.toBeNull();
+    press('pm-project-import-export-export');
+    // Export = its own window (options + progress bar), not the settings window
+    expect(q('pm-export-project-window')).not.toBeNull();
+    expect(q('pm-project-settings-window')).toBeNull();
+    press('pm-export-project-cancel');
+    expect(q('pm-export-project-window')).toBeNull();
+
+    press('pm-project-import-export');
+    await wait(80);
+    press('pm-project-import-export-import');
+    expect(q('pm-project-exchange-TabImport')).not.toBeNull();
   });
 
   it('renders all 5 TopTabs and defaults to TabMain', () => {

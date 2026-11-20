@@ -6,7 +6,7 @@
 //                 tasks:        project_task_table rows (stages / tasks / milestones, ltree treePath)
 //                 dependencies: project_task_dependencies_table rows
 //                 taskLines:    OPTIONAL task_line_table rows (Time / Material / ... lines of the tasks; rowOwnerGUID = the task of the file, rowParentGUID = the genus).
-//                               The importer writes them; a file without them (every file exported so far) imports as before. Export does not write them yet.
+//                               The importer writes them (UNPOSTED); a file without them imports as before. The export writes them since 2026-11-20 (option "task lines", default on).
 //                 uxuiSettings: the exporting user's Gantt settings of the project (project_user_settings_table) }
 // Pure (no React / Supabase) - unit-tested in __tests__/pm/crud/exchange/projectExchange.test.ts.
 
@@ -53,7 +53,8 @@ export function buildProjectExchangeFile(
   tasks: PMTaskRow[],
   dependencies: PMTaskDependencyRow[],
   uxuiSettings?: PMUxUiSettings,
-  now: Date = new Date()
+  now: Date = new Date(),
+  taskLines?: PMExchangeTaskLine[]
 ): PMProjectExchangeFile {
   return {
     format: PM_PROJECT_EXCHANGE_FORMAT,
@@ -62,6 +63,7 @@ export function buildProjectExchangeFile(
     project: strip(project),
     tasks: tasks.filter((t) => t.projectGUID === project.rowGUID).map(strip),
     dependencies: dependencies.filter((d) => d.projectGUID === project.rowGUID).map(strip),
+    ...(taskLines ? { taskLines: taskLines.map(({ rowGUID, rowOwnerGUID, rowParentGUID, orderInList, rowJSON }) => ({ rowGUID, rowOwnerGUID, rowParentGUID, orderInList, rowJSON })) } : {}),
     ...(uxuiSettings ? { uxuiSettings } : {}),
   };
 }

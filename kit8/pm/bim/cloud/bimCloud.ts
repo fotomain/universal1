@@ -24,6 +24,11 @@ export interface BimElementsPage {
   next: string | null;
 }
 
+export interface BimPropertiesPage {
+  rows: { ifcGuid: string; rowJSON: Record<string, any> }[];
+  next: string | null;
+}
+
 export interface BimCloud {
   begin(projectGUID: string, sourceName: string, sha256?: string | null, options?: Record<string, any>): Promise<BimBegin>;
   addRows(modelGUID: string, kind: 'storeys' | 'chunks' | 'elements' | 'properties', rows: Record<string, any>[]): Promise<number>;
@@ -40,6 +45,10 @@ export interface BimCloud {
   property(modelGUID: string, ifcGuid: string): Promise<Record<string, any> | null>;
   /** the bytes of one chunk file */
   downloadChunk(storagePath: string): Promise<ArrayBuffer>;
+  /** uploads one chunk file into the folder of a model that THIS user has open (bim_import_begin): the project package import */
+  uploadChunk(storagePath: string, bytes: Uint8Array): Promise<void>;
+  /** the IFC properties of a model in pages by ifcGuid (keyset: `after` = the last ifcGuid of the page before); next = null on the last page. The project package export */
+  propertiesPage(modelGUID: string, after: string | null, limit?: number): Promise<BimPropertiesPage>;
   /** Storage API remove + the confirmation of the queue */
   removeFiles(paths: string[]): Promise<void>;
   /** the files that wait for removal and that this user may remove (a deleted project's files stay with the service script) */
@@ -81,6 +90,19 @@ export function createBimCloud(sb: SupabaseClient): BimCloud {
       const res = await fetch(data!.signedUrl);
       if (!res.ok) throw new Error(`The chunk could not be downloaded (${res.status}).`);
       return res.arrayBuffer();
+    },
+    uploadChunk: async (path, bytes) => {
+      const { error } = await sb.storage.from(BIM_BUCKET).upload(path, bytes, { contentType: 'application/octet-stream', upsert: true });
+      raise(error);
+    },
+    propertiesPage: async (m, after, limit = 300) => {
+      // a table read: the policy bim_property_table_select lets the members of the project read; the key is the unique (model, ifcGuid)
+      let q = sb.from('bim_property_table').select('ifcGuid,rowJSON').eq('rowModelGUID', m).order('ifcGuid', { ascending: true }).limit(limit);
+      if (after) q = q.gt('ifcGuid', after);
+      const { data, error } = await q;
+      raise(error);
+      const rows = ((data as any[]) ?? []).map((r) => ({ ifcGuid: String(r.ifcGuid), rowJSON: r.rowJSON || {} }));
+      return { rows, next: rows.length >= limit ? rows[rows.length - 1].ifcGuid : null };
     },
     removeFiles: async (paths) => {
       if (!paths.length) return;

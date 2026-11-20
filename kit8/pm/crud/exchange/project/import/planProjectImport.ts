@@ -99,8 +99,10 @@ export function planProjectImport(
 
   // project settings from the file, identity of the target (name, kind); per-user settings travel separately
   const { name: _n, rowKind: _k, uxuiSettings: _u, ...fileJSON } = file.project.rowJSON || ({} as PMRowJSON);
+  // projectIsBIMBased is the target's own: only a restored BIM model sets it (bim_import_commit); a file of a BIM project without its model must not switch a BIM button on
+  const { projectIsBIMBased: _bim, ...fileJSONWithoutBim } = fileJSON as Record<string, any>;
   const { rowJSON: projectRowJSON, notTaken: budgetNotTaken } = applyBudgetSettingsOfImport(
-    { ...target.rowJSON, ...fileJSON, name: target.rowJSON.name, rowKind: 'project' },
+    { ...target.rowJSON, ...fileJSONWithoutBim, name: target.rowJSON.name, rowKind: 'project' },
     target.rowJSON,
     budgetCatalogs
   );

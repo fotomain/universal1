@@ -9,6 +9,11 @@ let mockStatus: any = { kind: 'idle' };
 jest.mock('../../../kit8/pm/crud/exchange/project/useProjectExchange', () => ({
   useProjectExchange: () => ({ exportProject: mockExport, importProject: mockImport, status: mockStatus, busy: mockStatus.kind === 'busy' }),
 }));
+// the switches of the Export tab: a press toggles (the real switch is a native control)
+jest.mock('../../../kit8/ui/components/common/SwitchApp', () => ({
+  __esModule: true,
+  default: (p: any) => require('react').createElement(require('react-native').Pressable, { testID: p.testID, onPress: () => !p.disabled && p.onValueChange(!p.value) }, null),
+}));
 // the drop zone: a button that "drops" a file (drag & drop itself is the browser's job)
 const mockDropProps = jest.fn();
 jest.mock('../../../kit8/ui/components/common/ReceiveDraggableFilesComponent', () => {
@@ -75,11 +80,47 @@ describe('ImportExportProject', () => {
     expect(q('pm-project-exchange')).not.toBeNull();
     press('pm-project-exchange-tab-TabExport');
     press('pm-project-export');
-    expect(mockExport).toHaveBeenCalledWith(P);
+    expect(mockExport).toHaveBeenCalledWith(P, { taskLines: true, bim: false, bimProperties: false });
     expect(textOf('pm-project-exchange')).toContain(`project_data_${P}.json`);
     // centered: button, description and file name
     expect(getComputedStyle(q('pm-project-export-panel')!).alignItems).toBe('center');
     expect(getComputedStyle(q('pm-project-export-file-name')!).textAlign).toBe('center');
+  });
+
+  it('Export tab: task lines switch (on); BIM switches only on a BIM project; the zip button + file name follow the BIM switch', () => {
+    const { demo } = seedStore();
+    const P = demo.projects[0].rowGUID;
+    renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} />);
+    press('pm-project-exchange-tab-TabExport');
+    expect(q('pm-project-export-opt-lines')).not.toBeNull();
+    expect(q('pm-project-export-opt-bim')).toBeNull();                       // a plain project has no model to export
+    expect(textOf('pm-project-export')).toContain('Export to JSON');
+    press('pm-project-export-opt-lines');                                    // task lines off
+    press('pm-project-export');
+    expect(mockExport).toHaveBeenLastCalledWith(P, { taskLines: false, bim: false, bimProperties: false });
+  });
+
+  it('a BIM project: package export (zip) by default, properties are an option, switching the model off gives the JSON again', () => {
+    const { demo } = seedStore();
+    const P = demo.projects[0].rowGUID;
+    const { usePMStore } = require('../../../kit8/pm/store/store_pm');
+    usePMStore.setState((s: any) => ({ projectsById: { ...s.projectsById, [P]: { ...s.projectsById[P], rowJSON: { ...s.projectsById[P].rowJSON, projectIsBIMBased: true } } } }));
+    renderUI(<ImportExportProject ownerGUID="o" projectGUID={P} colors={colors} />);
+    press('pm-project-exchange-tab-TabExport');
+    expect(q('pm-project-export-opt-bim')).not.toBeNull();
+    expect(textOf('pm-project-export')).toContain('Export package (zip)');
+    expect(textOf('pm-project-export-file-name')).toBe(`project_package_${P}.zip`);
+    expect(q('pm-project-export-opt-bim-props')).not.toBeNull();
+    // BIM properties are ON by default (owner 2026-11-20): the first export carries them, the switch turns them off
+    press('pm-project-export');
+    expect(mockExport).toHaveBeenLastCalledWith(P, { taskLines: true, bim: true, bimProperties: true });
+    press('pm-project-export-opt-bim-props');
+    press('pm-project-export');
+    expect(mockExport).toHaveBeenLastCalledWith(P, { taskLines: true, bim: true, bimProperties: false });
+    press('pm-project-export-opt-bim');
+    expect(q('pm-project-export-opt-bim-props')).toBeNull();                 // no properties without the model
+    expect(textOf('pm-project-export')).toContain('Export to JSON');
+    expect(textOf('pm-project-export-file-name')).toBe(`project_data_${P}.json`);
   });
 
   it('import drop zone: compact + "Choose file…" for .json; a drop imports into THIS project and reports back', async () => {
@@ -92,7 +133,7 @@ describe('ImportExportProject', () => {
         compact: true,
         pickable: true,
         pickButtonWidth: PM_EXPORT_BUTTON_WIDTH,
-        accept: '.json,application/json',
+        accept: '.json,.zip,application/json,application/zip',
         testID: 'pm-project-import-drop',
       })
     );

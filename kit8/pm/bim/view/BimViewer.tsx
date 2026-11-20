@@ -7,7 +7,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import type { BimcChunk } from '../bimc/bimcReader';
 import BimCanvas from './BimCanvas';
 import BimSceneContent from './BimSceneContent';
-import { BIM_TAP_MAX_MOVE_PX, BIM_TAP_MAX_MS, fitBox, orbitBy, panBy, zoomBy, type BimOrbit } from './bimCamera';
+import { BIM_TAP_MAX_MOVE_PX, BIM_TAP_MAX_MS, fitBox, orbitBy, panBy, zoomBy, zoomByPercent, zoomPercentOf, type BimOrbit } from './bimCamera';
 import type { BimSceneController } from './bimCanvasTypes';
 import type { BimStateColors } from './bimSceneBuilder';
 
@@ -26,12 +26,17 @@ export interface BimViewerProps {
   zoomNonce?: number;
   /** a change makes the camera fit the whole model again */
   fitNonce?: number;
+  /** a change of the nonce zooms the camera by `zoomPercent` (+ bigger, - smaller; see zoomByPercent) */
+  zoomPercentNonce?: number;
+  zoomPercent?: number;
+  /** told after every camera move: the zoom level in whole percent (100 = the whole model fits) */
+  onZoomLevel?: (percent: number) => void;
   onElementPress: (ifcGuid: string) => void;
   onEmptyPress?: () => void;
   testID?: string;
 }
 
-export default function BimViewer({ width, height, chunks, modelBox, highlighted, dimRest, colors, background, zoomBox, zoomNonce = 0, fitNonce = 0, onElementPress, onEmptyPress, testID }: BimViewerProps) {
+export default function BimViewer({ width, height, chunks, modelBox, highlighted, dimRest, colors, background, zoomBox, zoomNonce = 0, fitNonce = 0, zoomPercentNonce = 0, zoomPercent = 0, onZoomLevel, onElementPress, onEmptyPress, testID }: BimViewerProps) {
   const aspect = width > 0 && height > 0 ? width / height : 1;
   const orbitRef = useRef<BimOrbit>(fitBox(modelBox, 45, aspect));
   const controllerRef = useRef<BimSceneController | null>(null);
@@ -43,9 +48,18 @@ export default function BimViewer({ width, height, chunks, modelBox, highlighted
 
   // the orientation scheme (XYZ gizmo) turns with the camera
   const [angles, setAngles] = useState({ yaw: orbitRef.current.yaw, pitch: orbitRef.current.pitch });
+  const fitDistance = useMemo(() => fitBox(modelBox, 45, aspect).distance, [modelBox, aspect]);
+  const levelRef = useRef({ fitDistance, onZoomLevel, last: -1 });
+  levelRef.current.fitDistance = fitDistance;
+  levelRef.current.onZoomLevel = onZoomLevel;
   const render = () => {
     controllerRef.current?.render();
     const o = orbitRef.current;
+    const level = Math.round(zoomPercentOf(o, levelRef.current.fitDistance));
+    if (level !== levelRef.current.last) {
+      levelRef.current.last = level;
+      levelRef.current.onZoomLevel?.(level);
+    }
     setAngles((a) => (Math.abs(a.yaw - o.yaw) < 1e-4 && Math.abs(a.pitch - o.pitch) < 1e-4 ? a : { yaw: o.yaw, pitch: o.pitch }));
   };
 
@@ -64,6 +78,14 @@ export default function BimViewer({ width, height, chunks, modelBox, highlighted
     render();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoomNonce]);
+
+  // the + / - buttons and the percent field
+  useEffect(() => {
+    if (!zoomPercentNonce) return;
+    orbitRef.current = zoomByPercent(orbitRef.current, zoomPercent);
+    render();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomPercentNonce]);
 
   const gesture = useMemo(() => {
     const orbit = Gesture.Pan().minPointers(1).maxPointers(1).runOnJS(true).onChange((e) => {

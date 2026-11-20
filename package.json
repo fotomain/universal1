@@ -19,6 +19,7 @@
     "save_to_github": "./save_to_github.command"
   },
   "dependencies": {
+    "fflate": "^0.8.3",
     "@ant-design/icons-react-native": "^2.3.2",
     "@ant-design/react-native": "^5.4.3",
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",

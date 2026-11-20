@@ -17,6 +17,31 @@ export const orbitBy = (o: BimOrbit, dx: number, dy: number, radiansPerPixel = 0
 
 export const zoomBy = (o: BimOrbit, factor: number, maxDistance = 5000): BimOrbit => ({ ...o, distance: clamp(o.distance * factor, BIM_MIN_DISTANCE, maxDistance) });
 
+// ZOOM IN PERCENT. The zoom level = how big the model looks: 100 % = the whole model fits (`fitBox`), 200 % = twice as big (half the distance).
+// A CHANGE in percent is relative to what is on the screen: +50 = 1.5 times bigger, -50 = half as big, +100 = twice, -100 or less is refused (the model would vanish).
+// scale = 1 + p / 100, the distance is divided by it; the buttons use the inverse pair (+25 % / the reverse of it), so + then - lands on the same view.
+export const BIM_ZOOM_STEP_PERCENT = 25;
+
+/** the zoom level of an orbit in percent (100 = the whole model in view) */
+export const zoomPercentOf = (o: BimOrbit, fitDistance: number): number => (o.distance > 0 && fitDistance > 0 ? (fitDistance / o.distance) * 100 : 100);
+
+/** the size factor of a percent change (1 + p/100), or null for a value that is not a number or is -100 or less */
+export const scaleOfPercent = (p: number): number | null => (Number.isFinite(p) && p > -100 ? 1 + p / 100 : null);
+
+/** the orbit after a change of p percent (+ bigger, - smaller); a refused value returns the same orbit */
+export const zoomByPercent = (o: BimOrbit, p: number, maxDistance = 5000): BimOrbit => {
+  const s = scaleOfPercent(p);
+  return s === null || s === 1 ? o : zoomBy(o, 1 / s, maxDistance);
+};
+
+/** the text typed in the percent field ("50", "+50", "-30", "50 %", "12,5") -> a number, or null when it is not one */
+export function parseZoomPercent(text: string): number | null {
+  const t = (text || '').trim().replace('%', '').trim().replace(',', '.');
+  if (!/^[+-]?(\d+(\.\d*)?|\.\d+)$/.test(t)) return null;
+  const n = Number(t);
+  return scaleOfPercent(n) === null ? null : n;
+}
+
 /** the position of the camera (it looks at the target) */
 export function orbitPosition(o: BimOrbit): [number, number, number] {
   const cp = Math.cos(o.pitch);

@@ -1,5 +1,6 @@
 // importAssistantModel - the pure rules of the Import New Project Assistant: the three steps, what a project file says, the notes of the name.
-import { parseProjectExchangeFile } from '../../../../pm/crud/exchange/project/projectExchangeFormat';
+import { parseProjectExchangeFile, type PMProjectExchangeFile } from '../../../../pm/crud/exchange/project/projectExchangeFormat';
+import { readPackage } from '../../../../pm/crud/exchange/project/package/packageModel';
 
 export type ImportStepId = 'file' | 'name' | 'import';
 
@@ -7,7 +8,7 @@ export const IMPORT_STEPS: { id: ImportStepId; title: string; tip: string }[] = 
   {
     id: 'file',
     title: 'File',
-    tip: 'Choose a project file exported by this application (project_data_….json). It carries the stages, tasks, dependencies and the planning settings; money, documents and people are not part of it.',
+    tip: 'Choose a project file exported by this application: project_data_….json or a project package project_package_….zip (with the BIM model). It carries the stages, tasks, dependencies, the task lines (when exported) and the planning settings; documents and the catalogs the lines point to (people, products, suppliers) are not part of it.',
   },
   {
     id: 'name',
@@ -31,28 +32,44 @@ export interface ImportFileSummary {
   startDate: string;
   /** start of the project in the file, ms (NaN-free: 0 = none) */
   startMs: number;
+  /** the task lines of the file (0 = none) */
+  taskLines?: number;
+  /** a project package with a BIM model: the elements of the model (0 / missing = none) */
+  bimElements?: number;
 }
+
+const summaryOf = (f: PMProjectExchangeFile, fileName: string, bimElements = 0): ImportFileSummary => {
+  const startAt = f.project?.rowJSON?.projectStartAt;
+  const ms = startAt ? Date.parse(startAt) : NaN;
+  return {
+    fileName,
+    sourceProjectName: String(f.project?.rowJSON?.name || ''),
+    tasks: f.tasks.length,
+    dependencies: f.dependencies.length,
+    exportedAt: f.exportedAt || '',
+    startDate: Number.isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, 10),
+    startMs: Number.isNaN(ms) ? 0 : ms,
+    taskLines: (f.taskLines ?? []).length,
+    bimElements,
+  };
+};
 
 /** the text of a file -> what it holds, or the reason it cannot be imported */
 export function summarizeProjectFile(text: string, fileName: string): { ok: true; summary: ImportFileSummary } | { ok: false; error: string } {
   try {
-    const f = parseProjectExchangeFile(text);
-    const startAt = f.project?.rowJSON?.projectStartAt;
-    const ms = startAt ? Date.parse(startAt) : NaN;
-    return {
-      ok: true,
-      summary: {
-        fileName,
-        sourceProjectName: String(f.project?.rowJSON?.name || ''),
-        tasks: f.tasks.length,
-        dependencies: f.dependencies.length,
-        exportedAt: f.exportedAt || '',
-        startDate: Number.isNaN(ms) ? '' : new Date(ms).toISOString().slice(0, 10),
-        startMs: Number.isNaN(ms) ? 0 : ms,
-      },
-    };
+    return { ok: true, summary: summaryOf(parseProjectExchangeFile(text), fileName) };
   } catch (e: any) {
     return { ok: false, error: e?.message || 'The file is not a project file.' };
+  }
+}
+
+/** the bytes of a project package (zip) -> what it holds, or the reason it cannot be imported */
+export function summarizeProjectPackage(bytes: Uint8Array, fileName: string): { ok: true; summary: ImportFileSummary } | { ok: false; error: string } {
+  try {
+    const pkg = readPackage(bytes);
+    return { ok: true, summary: summaryOf(pkg.file, fileName, pkg.bim?.bundle.elements.length ?? 0) };
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'The file is not a project package.' };
   }
 }
 

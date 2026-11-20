@@ -36,18 +36,34 @@ export function toRealtimeRowChange<T = any>(p: any): RealtimeRowChange<T> {
   };
 }
 
+/** row changes that arrive within this many ms are delivered together (a bulk write sends one event per row: one redux update each froze the screen, 2026-11-20) */
+export const REALTIME_BURST_MS = 150;
+
 export function createSupabaseTableChannel<T = any>(supabase: any, options: SupabaseChannelOptions): EventChannel<SupabaseChannelMessage<T>> {
   const { table, schema = 'public', filter, channelName = `realtime:${schema}:${table}:${filter || 'all'}` } = options;
   return eventChannel<SupabaseChannelMessage<T>>((emit) => {
+    // the changes of one burst are held back and handed over in one go, so the saga's flush sees them all (and turns a big burst into ONE read)
+    let pending: SupabaseChannelMessage<T>[] = [];
+    let timer: any = null;
+    const flushPending = () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      const batch = pending;
+      pending = [];
+      for (const m of batch) emit(m);
+    };
     const channel = supabase
       .channel(channelName)
       .on('postgres_changes', { event: '*', schema, table, ...(filter ? { filter } : {}) }, (payload: any) => {
-        emit({ kind: 'change', payload: toRealtimeRowChange<T>(payload) });
+        pending.push({ kind: 'change', payload: toRealtimeRowChange<T>(payload) });
+        if (!timer) timer = setTimeout(flushPending, REALTIME_BURST_MS);
       })
       .subscribe((status: string, err?: any) => {
+        flushPending();                 // the changes that came before the status keep their place
         emit({ kind: 'status', status, ...(err ? { error: String(err?.message || err) } : {}) });
       });
     return () => {
+      if (timer) { clearTimeout(timer); timer = null; }
+      pending = [];
       supabase.removeChannel(channel);
     };
   }, buffers.expanding(64));

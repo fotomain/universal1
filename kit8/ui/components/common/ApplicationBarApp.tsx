@@ -233,7 +233,7 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuRow} onPress={handleSignUp}>
-              <IconApp testID="db916245-4ig2-9jk1-3ty5-678901234f36" name="account-plus" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <IconApp testID="db916245-4ig2-9jk1-3ty5-678901234f36" name="person_add" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
               <Text style={{ fontSize: 15, color: themeColors.text }}>{t('menu.signUp')}</Text>
             </TouchableOpacity>
 

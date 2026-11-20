@@ -1,5 +1,5 @@
 // The Import New Project Assistant: what a project file says, the notes of its steps (pure).
-import { IMPORT_STEPS, importHasError, importNameNotes, importStepNotes, summarizeProjectFile } from '../../../../kit8/ui/project/assistant/import/importAssistantModel';
+import { IMPORT_STEPS, importHasError, importNameNotes, importStepNotes, summarizeProjectFile, summarizeProjectPackage } from '../../../../kit8/ui/project/assistant/import/importAssistantModel';
 import { buildProjectExchangeFile } from '../../../../kit8/pm/crud/exchange/project/projectExchangeFormat';
 
 const project: any = { rowGUID: 'p1', rowOwnerGUID: 'o', rowParentGUID: 'org', orderInList: 1, rowJSON: { name: 'Plant 7', projectStartAt: '2026-12-01T00:00:00.000Z' } };
@@ -16,6 +16,22 @@ describe('summarizeProjectFile', () => {
     expect(r.ok).toBe(false);
     expect((r as any).error).toBeTruthy();
     expect(summarizeProjectFile('not json', 'x.json').ok).toBe(false);
+  });
+});
+
+describe('summarizeProjectPackage', () => {
+  const { buildPackageEntries, packZip } = require('../../../../kit8/pm/crud/exchange/project/package/packageModel');
+  it('counts tasks, task lines and the BIM elements of a package; refuses a zip that is no package', () => {
+    const lines = [{ rowGUID: 'l1', rowOwnerGUID: 'a', rowParentGUID: 'timeGenus', orderInList: 1, rowJSON: {} }];
+    const file = buildProjectExchangeFile(project, [task('a'), task('b')], [], undefined, new Date('2026-11-20T00:00:00Z'), lines);
+    const bim: any = {
+      model: { sourceName: 'x.ifc', originShift: [0, 0, 0], bbox: [0, 0, 0, 1, 1, 1], counts: {} }, storeys: [], chunks: [{ hash: 'h1', byteSize: 3, storeyIfcGuid: null, part: 0, formatVersion: 1, vertexCount: 3, elementCount: 1, bboxMin: [], bboxSize: [], storagePath: '' }],
+      elements: [{ ifcGuid: 'e1', ifcClass: 'IfcWall', name: 'w', typeName: 't', storeyIfcGuid: null, chunkHash: 'h1', elementNumber: 1, bbox: [0, 0, 0, 1, 1, 1], taskGUID: 'a' }],
+      properties: [], propertiesIncluded: false, chunkBytes: new Map([['h1', new Uint8Array([1, 2, 3])]]),
+    };
+    const r = summarizeProjectPackage(packZip(buildPackageEntries(file, bim)), 'project_package_p1.zip');
+    expect(r).toMatchObject({ ok: true, summary: { sourceProjectName: 'Plant 7', tasks: 2, taskLines: 1, bimElements: 1, startDate: '2026-12-01' } });
+    expect(summarizeProjectPackage(new Uint8Array([1, 2, 3]), 'x.zip').ok).toBe(false);
   });
 });
 

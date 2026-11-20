@@ -14,6 +14,7 @@ import { useBuildProjectRow, useCreateProjectMutation, useDeleteProjectMutation,
 import { useProjectExchange } from '../../../../pm/crud/exchange/project/useProjectExchange';
 import { pickProjectDataFile } from '../../../../pm/crud/exchange/project/import/importProjectFromFile';
 import { readDroppedFileText } from '../../../../pm/crud/exchange/project/import/readDroppedFileText';
+import { readDroppedFileBytes } from '../../../../pm/crud/exchange/project/package/binaryFiles';
 import { useMyOrganization } from '../../../../catalog/organization/useMyOrganization';
 import { newProjectPatchFrom } from '../../../../catalog/organization/defaultProjectSettings';
 import { useBusinessUnitData } from '../../../../catalog/business_unit/useBusinessUnitData';
@@ -24,7 +25,7 @@ import { ReceiveDraggableFilesComponent } from '../../../components/common/Recei
 import type { DroppedFileItem } from '../../../components/common/ReceiveDraggableFilesComponent.types';
 import AssistantNavigationBar, { type AssistantNavStep } from '../components/AssistantNavigationBar';
 import ExpertTipCard from '../components/ExpertTipCard';
-import { IMPORT_STEPS, importHasError, importStepNotes, summarizeProjectFile, type ImportFileSummary, type ImportStepId } from './importAssistantModel';
+import { IMPORT_STEPS, importHasError, importStepNotes, summarizeProjectFile, summarizeProjectPackage, type ImportFileSummary, type ImportStepId } from './importAssistantModel';
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -58,7 +59,8 @@ export default function ImportNewProjectAssistant() {
     const picked = pickProjectDataFile(dropped);
     if (!picked) return setFileError(pmT('No file.'));
     try {
-      const r = summarizeProjectFile(await readDroppedFileText(picked), picked.name);
+      const isZip = /\.zip$/i.test(picked.name) || /zip/i.test(picked.mimeType || '');
+      const r = isZip ? summarizeProjectPackage(await readDroppedFileBytes(picked), picked.name) : summarizeProjectFile(await readDroppedFileText(picked), picked.name);
       if (!r.ok) return setFileError(r.error);
       setFiles([picked]);
       setSummary(r.summary);
@@ -128,7 +130,7 @@ export default function ImportNewProjectAssistant() {
 
         {step === 'file' && (
           <View>
-            <ReceiveDraggableFilesComponent folderName={pmT('the new project')} onFilesDropped={onFiles} compact pickable accept=".json,application/json" pickMimeTypes={['application/json']} title={pmT('Drop the project file here')} testID="import-assistant-drop" />
+            <ReceiveDraggableFilesComponent folderName={pmT('the new project')} onFilesDropped={onFiles} compact pickable accept=".json,.zip,application/json,application/zip" pickMimeTypes={['application/json', 'application/zip', 'application/x-zip-compressed']} title={pmT('Drop the project file here')} testID="import-assistant-drop" />
             {!!fileError && <HelperText type="error" visible testID="import-assistant-file-error">{fileError}</HelperText>}
             {summary && (
               <Card mode="outlined" style={{ marginTop: 12 }} testID="import-assistant-summary">
@@ -136,6 +138,8 @@ export default function ImportNewProjectAssistant() {
                 <Card.Content>
                   <List.Item title={pmT('Tasks')} description={String(summary.tasks)} />
                   <List.Item title={pmT('Dependencies')} description={String(summary.dependencies)} />
+                  {!!summary.taskLines && <List.Item title={pmT('Task lines')} description={String(summary.taskLines)} testID="import-assistant-summary-lines" />}
+                  {!!summary.bimElements && <List.Item title={pmT('BIM model')} description={pmT('{{n}} elements', { n: summary.bimElements })} testID="import-assistant-summary-bim" />}
                   {!!summary.startDate && <List.Item title={pmT('Start')} description={summary.startDate} />}
                 </Card.Content>
               </Card>

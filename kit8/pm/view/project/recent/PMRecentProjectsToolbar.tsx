@@ -59,7 +59,9 @@ import { projectCostBudgetOn } from "../../../model/taskInputScope";
 import { usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import OrganizationFilter from "../../../../catalog/organization/switch/OrganizationFilter";
-import ImportExportProject from "../../../crud/exchange/project/ImportExportProject";
+import ImportExportProject, { type PMExchangeTab } from "../../../crud/exchange/project/ImportExportProject";
+import PMProjectImportExportButton from "../buttons/PMProjectImportExportButton";
+import PMExportProjectWindow from "../../../crud/exchange/project/PMExportProjectWindow";
 import SwitchApp from "../../../../ui/components/common/SwitchApp";
 import { projectIsReadonly } from "../../../model/projectReadonly";
 import TextInputApp from "../../../../ui/components/common/TextInputApp";
@@ -184,6 +186,10 @@ export default function PMRecentProjectsToolbar({
   const recalcProject = useProjectCurrencyRecalc(!!draft?.rowGUID);
   const [draftError, setDraftError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<ProjectSettingsTab>('TabMain');
+  /** the panel of the Import / Export block shown when the Project settings window opens (the Import / Export button of the bar picks one) */
+  const [exchangeTab, setExchangeTab] = useState<PMExchangeTab>('TabImport');
+  /** the Export window of the Import / Export button (options + progress bar) */
+  const [exportOpen, setExportOpen] = useState(false);
   const [budgetsSubTab, setBudgetsSubTab] = useState<BudgetsSubTab>('TabBudgetsMain');
   /** "Kanban Stages" window of the project being edited (opened from the Project settings window) */
   const [kanbanStagesOpen, setKanbanStagesOpen] = useState(false);
@@ -298,6 +304,7 @@ export default function PMRecentProjectsToolbar({
   const openNew = () => {
     setDraftError(null);
     setActiveTab('TabMain');
+    setExchangeTab('TabImport');
     setBudgetsSubTab('TabBudgetsMain');
     setDraft({
       rowGUID: null,
@@ -341,6 +348,7 @@ export default function PMRecentProjectsToolbar({
     if (!project) return;
     setDraftError(null);
     setActiveTab('TabMain');
+    setExchangeTab('TabImport');
     setBudgetsSubTab('TabBudgetsMain');
     const startStr = project.rowJSON.projectStartDate || (project.rowJSON.projectStartAt
       ? formatDateISO(Date.parse(project.rowJSON.projectStartAt))
@@ -803,6 +811,17 @@ export default function PMRecentProjectsToolbar({
         width={PM_SETTINGS_BUTTON_WIDTH}
         size={PM_SETTINGS_ICON_SIZE}
       />
+      <PMProjectImportExportButton
+        color={themeColors.text}
+        disabled={!selected}
+        width={PM_SETTINGS_BUTTON_WIDTH}
+        size={PM_SETTINGS_ICON_SIZE}
+        onPick={(tab) => {
+          // Import = the Project settings window on the Import panel; Export = its own window with the options and a progress bar
+          if (tab === 'TabExport') setExportOpen(true);
+          else { openEdit(); setExchangeTab(tab); }
+        }}
+      />
       <PMIconButton
         testID="pm-project-edit"
         icon="settings"
@@ -878,6 +897,20 @@ export default function PMRecentProjectsToolbar({
           ]}
         />
       )}
+
+      <PMExportProjectWindow
+        visible={exportOpen}
+        projectGUID={selectedProjectGUID}
+        ownerGUID={ownerGUID}
+        onClose={() => setExportOpen(false)}
+        onExportPdf={(guid) => {
+          // the window must not be in the picture: close it, then export the dashboard
+          setExportOpen(false);
+          exportProjectDashboardToPdf(guid, { delayMs: 450 }).catch((e: any) =>
+            usePMStore.getState().setError(e?.message || pmT('PDF export failed')),
+          );
+        }}
+      />
 
       {!!draft && (
         <Modal
@@ -1066,6 +1099,8 @@ export default function PMRecentProjectsToolbar({
                     />
                     {!!draft?.rowGUID && (
                       <ImportExportProject
+                        key={exchangeTab}
+                        initialTab={exchangeTab}
                         ownerGUID={ownerGUID}
                         projectGUID={draft.rowGUID}
                         colors={{ text: themeColors.text, primary: themeColors.primary, error: themeColors.error, border: themeColors.border }}

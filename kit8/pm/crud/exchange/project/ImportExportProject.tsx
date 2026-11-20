@@ -2,9 +2,10 @@
 // (view/project/recent/PMRecentProjectsToolbar; opened also by the ⇅ button after "Show task progress").
 // Top tabs: TabImport (default) · TabExport
 // Above the title: the project GUID with a button that copies it to the clipboard (the label says "Copied" for two seconds).
-//   TabImport: drop the file on the zone (or "Choose file…") - asks before deleting the current data
-//   TabExport: three buttons of equal size (outlined):
-//                Export to JSON        project_data_<rowGUID>.json with the project and ALL its tasks - downloaded at once
+//   TabImport: drop the file on the zone (or "Choose file…") - a project_data_….json or a project_package_….zip (with the BIM model) - asks before deleting the current data
+//   TabExport: three switches (Task lines · BIM model + BIM properties of a BIM project) and three buttons of equal size (outlined):
+//                Export to JSON        project_data_<rowGUID>.json with the project, ALL its tasks and the task lines - downloaded at once;
+//                                      with "BIM model" on: Export package (zip) = project_package_<rowGUID>.zip (the same JSON + the 3D model, package/README.md)
 //                Export to PDF         the dashboard (task tree + Gantt chart) with the project name and dates; the
 //                                      settings window closes first (onExportPdf) so that it is not in the picture
 //                Export to MS Project  opens PMExportToMSProject (Microsoft Project XML)
@@ -23,6 +24,9 @@ import PMExportToMSProject from '../msproject/PMExportToMSProject';
 import { PMRowJSON } from '../../../model/types';
 import { usePMStore } from '../../../store/store_pm';
 import { projectDataFileName } from './projectExchangeFormat';
+import { DEFAULT_EXPORT_OPTIONS, projectPackageFileName, type PMExportOptions } from './package/packageModel';
+import { projectIsBimBased } from '../../../bim/model/bimModel';
+import SwitchApp from '../../../../ui/components/common/SwitchApp';
 import { useProjectExchange } from './useProjectExchange';
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
@@ -34,7 +38,10 @@ export default function ImportExportProject({
   onExportPdf,
   onSaveAsTemplate,
   onImportBim,
+  initialTab = 'TabImport',
 }: {
+  /** the panel shown first (the Import / Export button of the project bar picks one) */
+  initialTab?: PMExchangeTab;
   ownerGUID: string;
   projectGUID: string;
   colors: { text: string; primary: string; error: string; border: string };
@@ -49,8 +56,12 @@ export default function ImportExportProject({
 }) {
   const { exportProject, importProject, status, busy } = useProjectExchange(ownerGUID);
   const name = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON.name ?? '');
-  const fileName = projectDataFileName(projectGUID);
-  const [tab, setTab] = useState<PMExchangeTab>('TabImport');
+  // the BIM switches only for a project that has a model; "package" = the zip with the model
+  const bimBased = usePMStore((s) => projectIsBimBased(s.projectsById[projectGUID]?.rowJSON));
+  const [options, setOptions] = useState<PMExportOptions>(DEFAULT_EXPORT_OPTIONS);
+  const withBim = bimBased && options.bim;
+  const fileName = withBim ? projectPackageFileName(projectGUID) : projectDataFileName(projectGUID);
+  const [tab, setTab] = useState<PMExchangeTab>(initialTab);
   // PDF / MS Project export the project that is open on the dashboard
   const paperTheme = useTheme();
   const primaryColor = paperTheme.colors?.primary || colors.primary;
@@ -119,10 +130,10 @@ export default function ImportExportProject({
             pickable
             pickLabel={pmT('Choose file…')}
             pickButtonWidth={PM_EXPORT_BUTTON_WIDTH}
-            accept=".json,application/json"
-            pickMimeTypes={['application/json', 'text/plain']}
-            allowedMimeTypes={['application/json', 'text/plain', /json/]}
-            title={pmT('Drop a project_data_….json here')}
+            accept=".json,.zip,application/json,application/zip"
+            pickMimeTypes={['application/json', 'text/plain', 'application/zip', 'application/x-zip-compressed']}
+            allowedMimeTypes={['application/json', 'text/plain', /json/, 'application/zip', 'application/x-zip-compressed', /zip/]}
+            title={pmT('Drop a project_data_….json or a project_package_….zip here')}
             subtitle={pmT('Replaces the tasks of "{{name}}" (asks first)', { name })}
             disabled={busy}
             style={styles.dropZone}
@@ -142,7 +153,17 @@ export default function ImportExportProject({
             <Text style={[styles.hint, { color: colors.text }]}>
               {pmT('The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).')}
             </Text>
-            <View style={{ height: 10 }} />
+            <View style={{ height: 8 }} />
+            <View testID="pm-project-export-options" style={styles.options}>
+              <SwitchApp testID="pm-project-export-opt-lines" label={pmT('Task lines (Time, Material, Expense)')} value={options.taskLines} disabled={busy} onValueChange={(v: boolean) => setOptions((o) => ({ ...o, taskLines: v }))} />
+              {bimBased && (
+                <SwitchApp testID="pm-project-export-opt-bim" label={pmT('BIM model (3D geometry) - makes a zip package')} value={options.bim} disabled={busy} onValueChange={(v: boolean) => setOptions((o) => ({ ...o, bim: v }))} />
+              )}
+              {withBim && (
+                <SwitchApp testID="pm-project-export-opt-bim-props" label={pmT('BIM properties (large)')} value={options.bimProperties} disabled={busy} onValueChange={(v: boolean) => setOptions((o) => ({ ...o, bimProperties: v }))} />
+              )}
+            </View>
+            <View style={{ height: 8 }} />
             <View testID="pm-project-export-button-group" style={styles.exportButtonGroup}>
               {!!onExportPdf && (
                 <PMDialogButton
@@ -161,11 +182,11 @@ export default function ImportExportProject({
                 testID="pm-project-export"
                 kind="secondary"
                 icon="data_object"
-                title={pmT('Export to JSON')}
+                title={withBim ? pmT('Export package (zip)') : pmT('Export to JSON')}
                 disabled={busy}
                 width={PM_EXPORT_BUTTON_WIDTH}
                 style={styles.exportButton}
-                onPress={() => exportProject(projectGUID)}
+                onPress={() => exportProject(projectGUID, { taskLines: options.taskLines, bim: withBim, bimProperties: withBim && options.bimProperties })}
               />
               <PMDialogButton
                 testID="pm-project-export-msproject"
@@ -238,6 +259,7 @@ const styles = StyleSheet.create({
   exportButtonGroup: { alignItems: 'center', gap: 2 },
   exportButton: { marginLeft: 0, marginTop: 0, marginBottom: 0, marginVertical: 0, alignSelf: 'center' },
   hint: { fontSize: 12, opacity: 0.75, textAlign: 'center' },
+  options: { alignSelf: 'stretch', gap: 2, paddingHorizontal: 8 },
   fileName: { fontSize: 11, opacity: 0.6, marginTop: 8, textAlign: 'center' },
   status: { marginTop: 6, fontSize: 12, textAlign: 'center' },
 });

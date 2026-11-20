@@ -1,9 +1,11 @@
 // PMProjectBimView - the BIM view (right pane of PMGanttSurface when uxuiSettings.ganttVsNetworkView = 'showBimView'; the task tree stays on the left).
-//   toolbar   BIM · Fit · Dim the rest · Zoom to selection · the state of the loading
+//   toolbar   BIM · Fit · Dim the rest · Zoom to selection · − [± %] Zoom + level · the state of the loading
+//             − / + = 25 % smaller / bigger; the field takes a change in percent (50 = 1.5x bigger, -50 = half; Enter or Zoom applies); the level shows 100 % = the whole model fits
 //   3D        the model of the last import (chunks per storey), a press on an element scrolls the tree to its task or stage
 //   under it  the element that was pressed: name, class, type, and its IFC properties (read from the cloud when asked: bim_property_table)
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { BIM_ZOOM_STEP_PERCENT, parseZoomPercent } from './bimCamera';
 import type { PMPalette } from '../../view/theme';
 import type { PMCrud } from '../../crud/usePMCrud';
 import { pmT } from '../../i18n/pmT';
@@ -45,6 +47,19 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
   const [dimRest, setDimRest] = useState(true);
   const [zoomToSelection, setZoomToSelection] = useState(true);
   const [fitNonce, setFitNonce] = useState(0);
+  // zoom: the buttons + / - and the percent field send a command (nonce + percent) to the viewer, the viewer tells the level back (100 = the whole model fits)
+  const [zoomCmd, setZoomCmd] = useState({ nonce: 0, percent: 0 });
+  const [zoomLevel, setZoomLevel] = useState(100);
+  const [zoomText, setZoomText] = useState('');
+  const [zoomBad, setZoomBad] = useState(false);
+  const zoomByStep = (percent: number) => setZoomCmd((c) => ({ nonce: c.nonce + 1, percent: percent > 0 ? percent : (1 / (1 + BIM_ZOOM_STEP_PERCENT / 100) - 1) * 100 }));
+  const applyZoomText = () => {
+    const p = parseZoomPercent(zoomText);
+    setZoomBad(p === null);
+    if (p === null || p === 0) return;
+    setZoomCmd((c) => ({ nonce: c.nonce + 1, percent: p }));
+    setZoomText('');
+  };
   const [pressed, setPressed] = useState<string | null>(null);
   const [props, setProps] = useState<{ guid: string; json: Record<string, any> | null } | null>(null);
   const selectedGUID = usePMStore((s) => s.selectedGUID);
@@ -83,13 +98,30 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
 
   return (
     <View testID="pm-bim-view" style={{ width, height, backgroundColor: palette.background }}>
-      <View style={[styles.toolbar, { height: TOOLBAR_H, borderBottomColor: palette.border }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ flexGrow: 0, height: TOOLBAR_H, borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: palette.border }} contentContainerStyle={styles.toolbar}>
         <Text style={{ color: palette.text, fontWeight: '700', marginRight: 8 }}>{pmT('BIM')}</Text>
         <Chip testID="pm-bim-fit" label={pmT('Fit')} onPress={() => setFitNonce((n) => n + 1)} palette={palette} />
         <Chip testID="pm-bim-dim" label={pmT('Dim the rest')} on={dimRest} onPress={() => setDimRest((v) => !v)} palette={palette} />
         <Chip testID="pm-bim-zoom" label={pmT('Zoom to selection')} on={zoomToSelection} onPress={() => setZoomToSelection((v) => !v)} palette={palette} />
+        <Chip testID="pm-bim-zoom-out" label="−" onPress={() => zoomByStep(-BIM_ZOOM_STEP_PERCENT)} palette={palette} />
+        <TextInput
+          testID="pm-bim-zoom-input"
+          accessibilityLabel={pmT('Zoom change in percent: + bigger, - smaller')}
+          value={zoomText}
+          onChangeText={setZoomText}
+          onSubmitEditing={applyZoomText}
+          onBlur={() => !zoomText.trim() && setZoomBad(false)}
+          placeholder="± %"
+          placeholderTextColor={palette.textMuted}
+          keyboardType="numbers-and-punctuation"
+          returnKeyType="done"
+          style={[styles.zoomInput, { color: palette.text, borderColor: zoomBad ? '#dc2626' : palette.border }]}
+        />
+        <Chip testID="pm-bim-zoom-apply" label={pmT('Zoom')} onPress={applyZoomText} palette={palette} />
+        <Chip testID="pm-bim-zoom-in" label="+" onPress={() => zoomByStep(BIM_ZOOM_STEP_PERCENT)} palette={palette} />
+        <Text testID="pm-bim-zoom-level" style={{ color: palette.textMuted, fontSize: 12 }}>{`${zoomLevel}%`}</Text>
         <Text testID="pm-bim-status" style={{ color: palette.textMuted, fontSize: 12, marginLeft: 8 }}>{status}</Text>
-      </View>
+      </ScrollView>
       {model.state === 'none' ? (
         <Centered palette={palette} text={pmT('This project has no BIM model. Import one: Project settings -> BIM, or Import / Export -> Import BIM (IFC).')} />
       ) : model.state === 'error' ? (
@@ -111,6 +143,9 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
             zoomBox={bridge.zoomBox}
             zoomNonce={bridge.zoomNonce}
             fitNonce={fitNonce}
+            zoomPercentNonce={zoomCmd.nonce}
+            zoomPercent={zoomCmd.percent}
+            onZoomLevel={setZoomLevel}
             onElementPress={onElementPress}
             onEmptyPress={() => {
               setPressed(null);
@@ -155,7 +190,8 @@ function Centered({ palette, text, action }: { palette: PMPalette; text: string;
 }
 
 const styles = StyleSheet.create({
-  toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6, borderBottomWidth: StyleSheet.hairlineWidth },
+  toolbar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, gap: 6, minHeight: TOOLBAR_H },
+  zoomInput: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 8, paddingVertical: 2, minHeight: 28, width: 64, fontSize: 12, textAlign: 'center' },
   chip: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, minHeight: 28, justifyContent: 'center' },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 16 },
   panel: { padding: 8, borderTopWidth: StyleSheet.hairlineWidth },

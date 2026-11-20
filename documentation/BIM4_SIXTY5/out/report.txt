@@ -1,0 +1,47 @@
+SIXTY5 plan report
+project 6c70450d-4e27-4a56-8e7f-4698e30e2ac4  2026-12-10 .. 2028-05-18  (375 working days)
+tasks 1639, lines 14468 (Time 6280, Material 3280, Expense 4908), persons 63, suppliers 20, products 114
+money EUR excl. VAT: time 1829075.27  material 5501195.15  expense 272193.40  total 7602463.82
+hours by role:
+   frame-fitter       10566.3 h  persons 12  rate 54.00
+   drywaller           4654.7 h  persons 6  rate 49.00
+   labourer            3596.7 h  persons 4  rate 41.00
+   carpenter           2729.4 h  persons 3  rate 52.00
+   foreman             2507.7 h  persons 7  rate 59.00
+   kitchen-fitter      1834.0 h  persons 2  rate 53.00
+   bricklayer          1507.7 h  persons 2  rate 51.00
+   electrician         1052.0 h  persons 2  rate 57.00
+   concrete-fitter     1002.2 h  persons 2  rate 55.00
+   site-manager         967.8 h  persons 5  rate 74.00
+   plumber              856.9 h  persons 2  rate 58.00
+   screeder             736.8 h  persons 2  rate 47.00
+   tiler                569.8 h  persons 2  rate 50.00
+   roofer               560.9 h  persons 2  rate 52.00
+   facade-fitter        466.1 h  persons 2  rate 56.00
+   steel-fitter         431.6 h  persons 2  rate 58.00
+   insulator            406.7 h  persons 2  rate 48.00
+   cs-fitter            322.0 h  persons 2  rate 52.00
+   painter               63.1 h  persons 2  rate 46.00
+peak people on site on one day: 51
+max hours of a person on one day: 7.59
+storeys:
+   -1 fundering           time       930.63  material      2712.29  expense     472.05
+   00 begane grond        time    145214.05  material    427718.23  expense   22078.55
+   01 eerste verdieping   time    125816.09  material    369787.04  expense   17937.43
+   02 tweede verdieping   time    138665.33  material    427013.93  expense   20794.44
+   03 derde verdieping    time    138678.14  material    426752.56  expense   20901.35
+   04 vierde verdieping   time    131630.50  material    395493.80  expense   19736.28
+   05 vijfde verdieping   time    131787.37  material    395990.63  expense   19857.58
+   06 zesde verdieping    time    133194.61  material    401249.75  expense   20142.73
+   07 zevende verdieping  time    133218.90  material    375009.26  expense   19129.16
+   08 achtste verdieping  time    124553.63  material    367932.04  expense   17735.27
+   09 negende verdieping  time    104113.94  material    307380.54  expense   15040.62
+   10 tiende verdieping   time    102227.18  material    305062.97  expense   14720.03
+   11 elfde verdieping    time     83128.34  material    248890.50  expense   12290.12
+   12 twaalfde verdieping time     81013.68  material    241864.79  expense   11656.10
+   13 dertiende verdieping time     73953.43  material    231431.45  expense   10982.86
+   14 veertiende verdieping time     60583.04  material    188311.69  expense    9995.80
+   15 vijftiende verdieping time     58086.50  material    189531.08  expense    9181.74
+   16 zestiende verdieping time     48135.96  material    158381.11  expense    8009.43
+   17 dak                 time     14143.95  material     40681.49  expense    1531.86
+files: 01_catalog.sql 02_calendar.sql 03_project_tasks.sql 04_lines_001..058.sql 05_post_001..041.sql

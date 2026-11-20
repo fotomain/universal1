@@ -3,6 +3,7 @@ import { configureStore } from '@reduxjs/toolkit';
 import createSagaMiddleware from 'redux-saga';
 import { reusableCrudSlice } from '../../kit8/redux/reusable/reusableCrudSlice';
 import { reusableRootSaga } from '../../kit8/redux/reusable/reusableRootSaga';
+import { REALTIME_BURST_MS } from '../../kit8/redux/reusable/createSupabaseTableChannel';
 import { applyRealtimeChangeToList, removeRow, upsertRow } from '../../kit8/redux/reusable/realtimeRows';
 import { toRealtimeRowChange } from '../../kit8/redux/reusable/createSupabaseTableChannel';
 
@@ -122,6 +123,7 @@ describe('reusableRootSaga realtime worker', () => {
     ch.emit({ eventType: 'INSERT', table: 'currencyTable', new: row('c', 3), old: {} });
     ch.emit({ eventType: 'UPDATE', table: 'currencyTable', new: row('a', 1, 'renamed elsewhere'), old: { rowGUID: 'a' } });
     ch.emit({ eventType: 'DELETE', table: 'currencyTable', new: {}, old: { rowGUID: 'b' } });
+    await new Promise((r) => setTimeout(r, REALTIME_BURST_MS + 80));      // the channel hands a burst of changes over together
     await t.flush();
     const list = t.state().entityDataFromServer;
     expect(list.map((r: any) => r.rowGUID)).toEqual(['a', 'c']);
