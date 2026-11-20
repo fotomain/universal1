@@ -85,6 +85,9 @@ organization** (they share their resources: `project_table.rowParentGUID`). **Da
 Tests: `__tests__/pm/view/task/plan/{busyControl,runTaskPostBusy,busyConflictsWindow,timeGenusSql}.test.*` · SQL on a real Postgres 15: `kit8/docker/test_time_genus.sh` (behaviour, tests/*.sql) and
 `test_time_genus_race.sh` (two sessions at once).
 
+## Tabs of the Budgets view
+Time · Material · Expenses · All · Timeline · **Total** (`PMTaskLinePlanTotal.tsx`, `totalTaskLinePlanByGenus`): the posted plan summed per genus of the line (only genera with posted lines) + a Total row (lines, days, sum for budget / contract / accounting; summed in cents). The Time / Material / Expenses tabs sort the plan rows by the genus of the LINE, so the view also reads the lines of the task into redux (a hidden read-only `ReusableTable`, same scope as the Finances table) - without it they stayed empty until Finances had been opened.
+
 ## One task line - "Go to > Timeline data"
 
 The menu **Go to > Timeline data** (task menu and the line menu of the Finances table, `useTaskRelatedMenu`) opens the dashboard in a NEW browser window on the **Budgets** view of the task, on the **Timeline** tab:

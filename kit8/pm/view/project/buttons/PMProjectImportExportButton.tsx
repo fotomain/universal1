@@ -23,7 +23,7 @@ export default function PMProjectImportExportButton({ color, disabled, width, si
   return (
     <>
       <View ref={ref} collapsable={false}>
-        <PMIconButton
+        <PMIconButton tipScope="app"
           testID="pm-project-import-export"
           icon="import_export"
           title={pmT('Import / Export the project')}

@@ -142,6 +142,37 @@ export function summarizeTaskLinePlan(planRows: TaskLinePlanRow[], lines: TaskLi
   });
 }
 
+export interface TaskLinePlanGenusTotal {
+  /** the genus of the lines (timeGenus ...); null = the Total row (all genera) */
+  genus: string | null;
+  lines: number;
+  days: number;
+  sumForBudget: number;
+  sumForContract: number;
+  sumForAccounting: number;
+}
+
+/**
+ * The Total tab: the posted plan summed per genus of the line (only genera that have posted lines, in the order of the tabs) + one Total row.
+ * The plan rows are summed per line first (summarizeTaskLinePlan) and in cents, so the Total row is exactly the sum of the rows above it.
+ */
+export function totalTaskLinePlanByGenus(summaries: TaskLinePlanLineSummary[], genusOfLine: (lineGUID: string) => string | null | undefined, genusOrder: string[]): TaskLinePlanGenusTotal[] {
+  const cents0 = (v: number | null) => (v === null ? 0 : Math.round(v * 100));
+  const acc = new Map<string | null, { lines: number; days: number; b: number; c: number; a: number }>();
+  const add = (g: string | null, s: TaskLinePlanLineSummary) => {
+    const t = acc.get(g) ?? { lines: 0, days: 0, b: 0, c: 0, a: 0 };
+    t.lines += 1; t.days += s.days; t.b += cents0(s.sumForBudget); t.c += cents0(s.sumForContract); t.a += cents0(s.sumForAccounting);
+    acc.set(g, t);
+  };
+  for (const s of summaries) { add(genusOfLine(s.lineGUID) ?? '', s); add(null, s); }
+  const rank = (g: string) => { const i = genusOrder.indexOf(g); return i < 0 ? genusOrder.length : i; };
+  const keys = [...acc.keys()].filter((k): k is string => k !== null).sort((x, y) => rank(x) - rank(y));
+  return [...keys, null].filter((k) => acc.has(k)).map((k) => {
+    const t = acc.get(k)!;
+    return { genus: k, lines: t.lines, days: t.days, sumForBudget: t.b / 100, sumForContract: t.c / 100, sumForAccounting: t.a / 100 };
+  });
+}
+
 // ---- the Timeline of the plan: the posted days of all the lines, summed per calendar day -------------------------------------------
 
 export interface TaskLinePlanTimelineDay {

@@ -22,7 +22,8 @@ import type { TaskLineRow } from '../finances/taskLineModel';
 import { useTaskLineCatalogs } from '../finances/useTaskLineCatalogs';
 import { buildPlanColumns, planLineLabel } from './planColumns';
 import PMTaskLinePlanTimeline from './PMTaskLinePlanTimeline';
-import { buildTaskLinePlanTimeline, summarizeTaskLinePlan, TASK_LINE_PLAN_ENTITY, TaskLinePlanRow } from './taskLinePlanModel';
+import PMTaskLinePlanTotal from './PMTaskLinePlanTotal';
+import { buildTaskLinePlanTimeline, summarizeTaskLinePlan, totalTaskLinePlanByGenus, TASK_LINE_PLAN_ENTITY, TaskLinePlanRow } from './taskLinePlanModel';
 
 export const PLAN_BUDGET_TABS = [
   { id: 'TabPlanTime', genus: MANAGEMENT_GENUS.time, label: 'Time' },
@@ -30,6 +31,7 @@ export const PLAN_BUDGET_TABS = [
   { id: 'TabPlanExpencies', genus: MANAGEMENT_GENUS.expense, label: 'Expenses' },
   { id: 'TabPlanAll', genus: 'all', label: 'All' },
   { id: 'TabPlanTimeline', genus: 'timeline', label: 'Timeline' },
+  { id: 'TabPlanTotal', genus: 'total', label: 'Total' },
 ] as const;
 
 export type PlanBudgetTabId = (typeof PLAN_BUDGET_TABS)[number]['id'];
@@ -48,6 +50,8 @@ export interface PMProjectTaskTimelinePlanCRUDProps {
 
 const NO_LINES: TaskLineRow[] = [];
 const NO_ROWS: TaskLinePlanRow[] = [];
+/** the hidden reader of the task lines shows nothing: it only fills redux */
+const NO_COLUMNS: React.ComponentProps<typeof ReusableTable>['visualColumns'] = [];
 /** one task can have thousands of days (lines × days): the page of the read (the server may cap it lower) */
 const READ_PARAMS = { paginationSize: 5000 };
 
@@ -72,10 +76,16 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
   }, [taskPlanRows, taskLines]);
 
   const isTimeline = activeTab === 'TabPlanTimeline';
+  const isTotal = activeTab === 'TabPlanTotal';
+  // the Total tab: the posted plan per genus of the line + the sum of all
+  const genusTotals = useMemo(
+    () => (isTotal ? totalTaskLinePlanByGenus(summaries, (lineGUID) => linesById.get(lineGUID)?.rowParentGUID, TASK_LINE_GENUS.map((g) => g.genus)) : []),
+    [isTotal, summaries, linesById],
+  );
   const timelineDays = useMemo(() => (isTimeline ? buildTaskLinePlanTimeline(taskPlanRows) : []), [isTimeline, taskPlanRows]);
 
   const filteredSummaries = useMemo(() => {
-    if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return summaries;
+    if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline' || activeTabDef.genus === 'total') return summaries;
     return summaries.filter((s) => {
       const line = linesById.get(s.lineGUID);
       return line?.rowParentGUID === activeTabDef.genus;
@@ -86,7 +96,7 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
   const rowFilter = useCallback(
     (row: ReusableTableRow) => {
       if (lineGUID && row.rowParentGUID !== lineGUID) return false;
-      if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline') return true;
+      if (!activeTabDef || activeTabDef.genus === 'all' || activeTabDef.genus === 'timeline' || activeTabDef.genus === 'total') return true;
       const line = linesById.get(row.rowParentGUID ?? '');
       return line?.rowParentGUID === activeTabDef.genus;
     },
@@ -121,11 +131,11 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
           </View>
         </View>
       )}
-      {/* Budgets sub-tabs: TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll, TabPlanTimeline */}
+      {/* Budgets sub-tabs: TabPlanTime, TabPlanMaterial, TabPlanExpencies, TabPlanAll, TabPlanTimeline, TabPlanTotal */}
       <View style={[styles.tabs, { borderBottomColor: c.border }]} testID={`${testID}-tabs`}>
         {PLAN_BUDGET_TABS.map((tab) => {
           const isSelected = activeTab === tab.id;
-          const count = tab.genus === 'timeline'
+          const count = tab.genus === 'timeline' || tab.genus === 'total'
             ? 0
             : tab.genus === 'all'
             ? taskLines.length
@@ -161,7 +171,7 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
         })}
       </View>
 
-      {!isTimeline && filteredSummaries.length > 0 && (
+      {!isTimeline && !isTotal && filteredSummaries.length > 0 && (
         <View testID={`${testID}-summary`} style={[styles.summary, { borderColor: c.border, backgroundColor: c.surface }]}>
           {filteredSummaries.map((s) => {
             const line = linesById.get(s.lineGUID);
@@ -178,10 +188,32 @@ export default function PMProjectTaskTimelinePlanCRUD({ projectGUID: _projectGUI
         </View>
       )}
       {isTimeline && <PMTaskLinePlanTimeline testID={`${testID}-timeline`} days={timelineDays} />}
+      {isTotal && <PMTaskLinePlanTotal testID={`${testID}-total`} totals={genusTotals} />}
+      {/* the task lines of this task are read into redux HERE too: the tabs Time / Material / Expenses (and their counts) sort the plan rows by the genus of the LINE.
+          Without this read they stayed empty (only "All" showed the days) until the Finances view of the task had been opened once. Same scope as the Finances table = one read. */}
+      <View style={styles.hidden} pointerEvents="none">
+        <ReusableTable
+          testID={`${testID}-lines-reader`}
+          entityName={TASK_LINE_ENTITY}
+          crudListTitle={pmT('Budgets')}
+          itemLabel="Line"
+          listOwnerGUID={taskGUID}
+          listParentGUID={REUSABLE_TABLE_ALL}
+          visualColumns={NO_COLUMNS}
+          reorderEnabled={false}
+          crudPanelEnabled={false}
+          selectionEnabled={false}
+          contextMenuEnabled={false}
+          addEnabled={false}
+          deleteEnabled={false}
+          readOnly
+          realtime
+        />
+      </View>
       {/* the table stays mounted (hidden on Timeline): it is the one that reads the plan rows into redux */}
-      <View style={isTimeline ? styles.hidden : undefined}>
+      <View style={isTimeline || isTotal ? styles.hidden : undefined}>
       <ReusableTable
-        key={isTimeline ? 'TabPlanAll' : activeTab}
+        key={isTimeline || isTotal ? 'TabPlanAll' : activeTab}
         testID={`${testID}-table`}
         entityName={TASK_LINE_PLAN_ENTITY}
         crudListTitle={pmT('Budgets')}

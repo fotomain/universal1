@@ -52,3 +52,5 @@ Run order on a database: `01_catalog` -> `02_calendar` -> `03_project_tasks` -> 
 Undo: `DELETE FROM public.task_line_table WHERE "rowProjectGUID" = '<project>'` (the plan rows go with the lines), the catalog rows all have ids `bld-*` (persons: e-mail `@bouwteam-sixty5.example`).
 
 Test: `kit8/docker/test_sixty5.sh` (fresh database, start1 + start2 + start4, the 1 658 rows, the five steps above, 25 assertions: catalog references, prices, sums, no busy person, plan = lines per genus, Monitor01 register) - `ALL OK`.
+
+**fx snapshot (2026-11-20):** every line carries `fxSnapshotTaskLine` (EUR -> EUR, rate 1; day = contract date, else task start). Without it the task window made the snapshot on opening and set `taskIsPosted = false` = "Post needed" on every task the user opened. `out/06_fx_snapshot.sql` adds it to lines of a database made with the older files (idempotent, does not touch `taskIsPosted`); re-running `04_lines_*` resets the lines to unposted, so run `05_post_*` after it.

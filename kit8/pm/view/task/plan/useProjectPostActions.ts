@@ -60,9 +60,9 @@ export function useProjectPostActions(projectGUID: string | null | undefined) {
     }
     if (which === 'all' && !only) {
       const ok = await approvePM({
-        title: pmT('Repost all tasks?'),
+        title: pmT('Post all tasks?'),
         message: pmT('The posted days of {{count}} task(s) will be calculated again and replaced.', { count: ids.length }),
-        yesLabel: pmT('Repost'),
+        yesLabel: pmT('Post'),
         icon: 'cloud_upload',
       });
       if (!ok) return;

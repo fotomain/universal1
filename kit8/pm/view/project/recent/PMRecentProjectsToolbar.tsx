@@ -698,7 +698,7 @@ export default function PMRecentProjectsToolbar({
         contentContainerStyle={styles.barContent}
         onLayout={(e: LayoutChangeEvent) => setBarW(e.nativeEvent.layout.width)}
       >
-      <PMIconButton
+      <PMIconButton tipScope="app"
         compact
         testID="pm-project-ribbon-left"
         icon="chevron_left"
@@ -755,7 +755,7 @@ export default function PMRecentProjectsToolbar({
           </Text>
         )}
       </ScrollView>
-      <PMIconButton
+      <PMIconButton tipScope="app"
         compact
         testID="pm-project-ribbon-right"
         icon="chevron_right"
@@ -775,7 +775,7 @@ export default function PMRecentProjectsToolbar({
           {formatDateShort(projectFinishMs - 1)}
         </Text>
       )}
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-project-delete"
         icon="delete"
         title={pmT('Delete project')}
@@ -783,7 +783,7 @@ export default function PMRecentProjectsToolbar({
         disabled={!selected || selectedReadonly}
         onPress={remove}
       />
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-create-template-btn"
         icon="bookmark_add"
         title={pmT('Create template from project')}
@@ -791,7 +791,7 @@ export default function PMRecentProjectsToolbar({
         disabled={!selected}
         onPress={() => setCreateTemplateOpen(true)}
       />
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-create-from-template-btn"
         icon="library_add"
         title={pmT('Create project from template')}
@@ -802,7 +802,7 @@ export default function PMRecentProjectsToolbar({
       {/* project versions: Save project version · Restore project from version (kit8/pm/version) */}
       <PMGanttVersionButtons palette={{ text: themeColors.text }} />
       <PMToolbarDivider color={themeColors.border} />
-      {/* Actions (before the settings): Post unposted tasks · Repost all tasks · Refresh the project */}
+      {/* Actions (before the settings): Post all tasks · Post unposted tasks · Refresh the project */}
       <PMProjectActionsButton
         projectGUID={selectedProjectGUID}
         costBudgetOn={projectCostBudgetOn(selected?.rowJSON)}
@@ -822,7 +822,7 @@ export default function PMRecentProjectsToolbar({
           else { openEdit(); setExchangeTab(tab); }
         }}
       />
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-project-edit"
         icon="settings"
         title={pmT('Project settings')}

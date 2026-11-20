@@ -1,6 +1,6 @@
 // PMProjectActionsButton - the "Actions" icon button of the project bar (right before the Project settings button). It opens a menu:
-//   1. Post unposted tasks   - post every task that is not posted now (never posted, or changed after posting)
-//   2. Repost all tasks      - post EVERY task with a budget item again (asks first)
+//   1. Post all tasks        - post EVERY task with a budget item again (asks first)
+//   2. Post unposted tasks   - post every task that is not posted now (never posted, or changed after posting)
 //   3. Update project cost   - only while a cost budget is on: the database applies the queued tasks and rebuilds costTotalForBudget of every task and stage (update_project_cost_total, kit8/pm/cost)
 //   4. Refresh the project   - re-read the project, its tasks, lines, Kanban, settings and versions (the last place)
 // The posting itself is useProjectPostActions (kit8/pm/view/task/plan); refresh bumps the redux counter uxui.refreshProjectData that the dashboard watches.
@@ -59,10 +59,10 @@ export default function PMProjectActionsButton({ projectGUID, color, disabled, w
     <>
       <PMExtendedActionsHost projectGUID={projectGUID} />
       <View ref={ref} collapsable={false}>
-        <PMIconButton
+        <PMIconButton tipScope="app"
           testID="pm-project-actions"
           icon="bolt"
-          title={pmT('Actions: post unposted tasks, repost all tasks, refresh the project')}
+          title={pmT('Actions: post all tasks, post unposted tasks, refresh the project')}
           color={color}
           disabled={disabled}
           width={width}
@@ -81,8 +81,8 @@ export default function PMProjectActionsButton({ projectGUID, color, disabled, w
           caption={pmT('Actions')}
           onClose={() => setMenu(null)}
           items={[
+            { testID: 'pm-project-actions-repost-all', label: 'Post all tasks', icon: 'sync', disabled: busy, onPress: pick(repostAll) },
             { testID: 'pm-project-actions-post-unposted', label: 'Post unposted tasks', icon: 'cloud_upload', disabled: busy, onPress: pick(postUnposted) },
-            { testID: 'pm-project-actions-repost-all', label: 'Repost all tasks', icon: 'sync', disabled: busy, onPress: pick(repostAll) },
             ...(costBudgetOn ? [{ testID: 'pm-project-actions-update-cost', label: 'Update project cost', icon: 'calculate', disabled: busy || costBusy, onPress: pick(() => { void updateCost(); }) }] : []),
             ...extendedItems,
             { testID: 'pm-project-actions-refresh', label: 'Refresh the project', icon: 'refresh', onPress: pick(() => dispatch(refreshProjectData())) },

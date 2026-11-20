@@ -29,7 +29,7 @@ export default function PMGanttVersionButtons({ palette, showLabels = false }: {
   };
   return (
     <>
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-version-save"
         icon="bookmark_add"
         label={showLabels ? 'Save version' : undefined}
@@ -38,7 +38,7 @@ export default function PMGanttVersionButtons({ palette, showLabels = false }: {
         disabled={!projectGUID || busy || readonly}
         onPress={openSave}
       />
-      <PMIconButton
+      <PMIconButton tipScope="app"
         testID="pm-version-restore"
         icon="settings_backup_restore"
         label={showLabels ? 'Restore' : undefined}

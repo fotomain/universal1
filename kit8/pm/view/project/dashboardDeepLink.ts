@@ -19,7 +19,7 @@ export interface DashboardLink {
   taskGUID: string;
   /** 'budgets' = the Budgets view (default 'finances') */
   view?: DashboardLinkView;
-  /** the Budgets view: the tab (TabPlanTime | TabPlanMaterial | TabPlanExpencies | TabPlanAll | TabPlanTimeline) */
+  /** the Budgets view: the tab (TabPlanTime | TabPlanMaterial | TabPlanExpencies | TabPlanAll | TabPlanTimeline | TabPlanTotal) */
   tab?: string;
   /** the Finances tab = managementGenusTable.rowGUID of the line */
   genus?: string;

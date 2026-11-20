@@ -24,6 +24,15 @@ const itemIds = () => qa('pm-project-actions-').filter((id) => ITEMS.includes(id
 const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
 afterEach(() => { cleanupUI(); resetCostRefreshScheduler(); jest.clearAllMocks(); });
 
+it('the menu starts with "Post all tasks", then "Post unposted tasks"', async () => {
+  renderUI(<PMProjectActionsButton projectGUID="p1" color="#000" costBudgetOn={false} />);
+  await open();
+  const ids = qa('pm-project-actions-').filter((id) => ITEMS.includes(id));
+  expect(ids.slice(0, 2)).toEqual(['pm-project-actions-repost-all', 'pm-project-actions-post-unposted']);
+  expect(q('pm-project-actions-repost-all')!.textContent).toContain('Post all tasks');
+  expect(q('pm-project-actions-post-unposted')!.textContent).toContain('Post unposted tasks');
+});
+
 it('is not offered while no cost budget is on', async () => {
   renderUI(<PMProjectActionsButton projectGUID="p1" color="#000" costBudgetOn={false} />);
   await open();

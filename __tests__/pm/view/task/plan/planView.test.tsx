@@ -21,7 +21,7 @@ import GanttToggleButtons, { GANTT_VS_NETWORK_VIEW_OPTIONS } from '../../../../.
 import PMTaskLinePlanView from '../../../../../kit8/pm/view/task/plan/PMTaskLinePlanView';
 import PMProjectTaskTimelinePlanCRUD, { PLAN_BUDGET_TABS } from '../../../../../kit8/pm/view/task/plan/PMProjectTaskTimelinePlanCRUD';
 import { buildPlanColumns, planLineLabel, planPeriodText } from '../../../../../kit8/pm/view/task/plan/planColumns';
-import { TASK_LINE_PLAN_ENTITY, buildTaskLinePlanTimeline } from '../../../../../kit8/pm/view/task/plan/taskLinePlanModel';
+import { TASK_LINE_PLAN_ENTITY, buildTaskLinePlanTimeline, totalTaskLinePlanByGenus } from '../../../../../kit8/pm/view/task/plan/taskLinePlanModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
 import { emptyTaskLineCatalogs } from '../../../../../kit8/pm/view/task/finances/taskLineCatalogs';
 import { REUSABLE_TABLE_ALL } from '../../../../../kit8/ui/components/table/reusable/reusableTableTypes';
@@ -255,9 +255,9 @@ describe('PMProjectTaskTimelinePlanCRUD', () => {
     const t = buildTaskLinePlanTimeline(rows);
     expect(t.map((d) => d.sumForAccounting)).toEqual([40.1, 59.9]);
   });
-  it('is the last tab and shows the days instead of the line summaries', () => {
+  it('Timeline is the tab before Total and shows the days instead of the line summaries', () => {
     mount({ lines: [lineRow('l1', 'timeGenus', {})], plan: [planRow('a', 'l1', 1, 1, 10, 100, 100)] });
-    expect(PLAN_BUDGET_TABS[PLAN_BUDGET_TABS.length - 1].id).toBe('TabPlanTimeline');
+    expect(PLAN_BUDGET_TABS.map((t) => t.id)).toEqual(['TabPlanTime', 'TabPlanMaterial', 'TabPlanExpencies', 'TabPlanAll', 'TabPlanTimeline', 'TabPlanTotal']);
     expect(q('tp-timeline')).toBeNull();
     press('tp-tab-TabPlanTimeline');
     expect(q('tp-timeline')).not.toBeNull();
@@ -265,6 +265,35 @@ describe('PMProjectTaskTimelinePlanCRUD', () => {
     press('tp-tab-TabPlanAll');
     expect(q('tp-timeline')).toBeNull();
     expect(q('tp-summary-l1')).not.toBeNull();
+  });
+
+  it('the Total tab: the posted plan per genus (only genera with posted lines, tab order) and the Total row = their sum; no line summaries, no table rows', () => {
+    mount({
+      lines: [lineRow('l1', 'timeGenus', {}), lineRow('l2', 'materialGenus', {}), lineRow('l3', 'materialGenus', {})],
+      plan: [planRow('a', 'l1', 1, 1, 10, 100.1, 100.1), planRow('b', 'l2', 2, 1, 5, 50.2, 50.2), planRow('c', 'l2', 3, 1, 5, 25.3, 25.3), planRow('d', 'l3', 4, 1, 5, 10.01, 10.01)],
+    });
+    press('tp-tab-TabPlanTotal');
+    expect(q('tp-total')).not.toBeNull();
+    expect(q('tp-summary-l1')).toBeNull();
+    expect(q('tp-total-timeGenus')).not.toBeNull();
+    expect(q('tp-total-materialGenus')).not.toBeNull();
+    expect(q('tp-total-expenseGenus')).toBeNull();                       // no Expense line posted: no row
+    const txt = (id: string) => textOf(id).replace(/\s+/g, ' ');
+    expect(txt('tp-total-timeGenus')).toContain('100.10');
+    expect(txt('tp-total-materialGenus')).toContain('85.51');            // 50.20 + 25.30 + 10.01
+    expect(txt('tp-total-total')).toContain('185.61');
+    press('tp-tab-TabPlanAll');
+    expect(q('tp-total')).toBeNull();
+  });
+
+  it('totalTaskLinePlanByGenus sums in cents, orders by the tab order and puts the Total last', () => {
+    const sm = (lineGUID: string, days: number, b: number | null) => ({ lineGUID, days, coefficient: 1, qtyTaskLine: null, sumForBudget: b, sumForContract: b, sumForAccounting: null, ok: true });
+    const g: Record<string, string> = { a: 'materialGenus', b: 'timeGenus', c: 'materialGenus' };
+    const out = totalTaskLinePlanByGenus([sm('a', 2, 0.1), sm('b', 1, 1), sm('c', 3, 0.2)], (l) => g[l], ['timeGenus', 'materialGenus', 'expenseGenus']);
+    expect(out.map((t) => t.genus)).toEqual(['timeGenus', 'materialGenus', null]);
+    expect(out[1]).toMatchObject({ lines: 2, days: 5, sumForBudget: 0.3, sumForAccounting: 0 });
+    expect(out[2]).toMatchObject({ lines: 3, days: 6, sumForBudget: 1.3 });
+    expect(totalTaskLinePlanByGenus([], () => null, [])).toEqual([]);
   });
 
   describe('ONE task line (the link "Go to > Timeline data" of a line)', () => {

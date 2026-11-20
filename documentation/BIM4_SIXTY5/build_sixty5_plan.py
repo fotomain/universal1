@@ -230,6 +230,16 @@ for t in tasks:
         n += 1
         by_task[tg].append((guid('line', tg, 'exp', k), 'expenseGenus', 1024 * n, j))
 
+# the fx snapshot of every line, made the way the app does it (kit8/pm/view/task/finances/taskLineFx.ts). Without it the task window gives the line a snapshot
+# on opening and sets taskIsPosted = false ("Post needed"). EUR -> EUR, rate 1; the day is the date of the contract of the line (signed), else the start of the task.
+SUPPLIER_CONTRACT_DAY = '2026-10-15'      # contractSignedDate of the supplier contracts below
+for t in tasks:
+    tday = t['_start'].isoformat()
+    for (_lid, _genus, _order, j) in by_task[t['guid']]:
+        cday = SUPPLIER_CONTRACT_DAY if j.get('taskLinePartnerContract') else None
+        j['fxSnapshotTaskLine'] = {'from': 'EUR', 'day': cday or tday, 'dayFrom': 'contract' if cday else 'task', 'inputs': '%s|%s' % (cday or '', tday),
+                                   'accounting': {'to': 'EUR', 'rateType': 'Budget', 'rate': 1}, 'budget': {'to': 'EUR', 'rateType': 'Budget', 'rate': 1}}
+
 # ---------------------------------------------------------------------------------------------------------------- SQL 01: catalog
 def write(name, text):
     with open(os.path.join(OUT, name), 'w', encoding='utf8') as f: f.write(text)
