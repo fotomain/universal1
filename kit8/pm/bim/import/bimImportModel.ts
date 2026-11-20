@@ -130,3 +130,17 @@ export function bundleSummary(b: BimBundle): { storeys: number; stages: number; 
   const g = b.project.tasks.some((t) => (t.rowJSON as any).bimGroupKey) ? 'one task per group (storey, class, type)' : 'one task per element';
   return { storeys: b.storeys.length, stages, tasks, elements: b.elements.length, chunks: b.chunks.length, bytes: b.chunks.reduce((n, c) => n + c.byteSize, 0), granularity: g };
 }
+
+/** The progress line shown UNDER the progress bar: "Step text (42%)". The percent is a whole number clamped to 0..100,
+ *  an empty text still gives a readable line, a trailing dots / spaces of the step text are dropped. */
+export function bimProgressLabel(percent: number, text: string): string {
+  const p = Math.min(100, Math.max(0, Math.round(Number.isFinite(percent) ? percent : 0)));
+  const t = String(text ?? '').trim().replace(/[.\u2026\s]+$/, '');
+  return `${t || 'Working'} (${p}%)`;
+}
+
+/** The fill of the progress bar, 0..1; never an invisible bar (at least 2 %). */
+export function bimProgressFraction(percent: number): number {
+  const p = Number.isFinite(percent) ? percent : 0;
+  return Math.min(1, Math.max(0.02, p / 100));
+}

@@ -614,8 +614,24 @@ describe('Project settings window TopTabs', () => {
 
     // the window is still open and now works like Project settings of that project
     expect(q('pm-project-name')).not.toBeNull();
-    expect(q('pm-project-save-stay')).toBeNull();
-    expect(textOf('pm-project-save')).toContain('Save');
+    expect(q('pm-project-save-stay')).not.toBeNull();
+    expect(textOf('pm-project-save-stay')).toContain('Save');
+    expect(textOf('pm-project-save')).toContain('OK');
     expect(q('pm-project-tab-TabBIM')).not.toBeNull();
+  });
+  it('Saved project: Save saves and the window stays open, OK saves and closes', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    expect(textOf('pm-project-save-stay')).toContain('Save');
+    expect(textOf('pm-project-save')).toContain('OK');
+
+    press('pm-project-save-stay');
+    expect(mockUpdate).toHaveBeenCalledTimes(1);
+    expect(q('pm-project-name')).not.toBeNull(); // still open
+
+    press('pm-project-save');
+    expect(mockUpdate).toHaveBeenCalledTimes(2);
+    expect(q('pm-project-name')).toBeNull(); // closed
   });
 });

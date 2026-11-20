@@ -10,7 +10,7 @@ import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {PaperProvider} from 'react-native-paper';
 import {useMaterial3Theme} from '@pchmn/expo-material3-theme';
 import {useTranslation} from 'react-i18next';
-import {useDispatch, useSelector} from 'react-redux';
+import {useDispatch, useSelector, useStore} from 'react-redux';
 import '../kit8/i18n/i18n';
 import ApplicationBarApp from '../kit8/ui/components/common/ApplicationBarApp';
 import CustomDrawerContent from '../kit8/ui/components/CustomDrawerContent';
@@ -20,7 +20,8 @@ import { useAuthRedirectHandler } from '../kit8/auth/session/useAuthRedirectHand
 import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
 import WithState from '../kit8/redux/WithState';
 import BusyConflictsWindow from '../kit8/pm/view/task/plan/BusyConflictsWindow';
-import {formatTo32CharGUID, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
+import {clearActiveUser, formatTo32CharGUID, selectIsLoggedIn, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
+import { dropSavedUserWhenSessionGone } from '../kit8/auth/session/sessionGuard';
 import * as Crypto from 'expo-crypto';
 import {saveUserData} from '../kit8/lib/localSecureStorage';
 import { loginUserTable, readDatabaseUserGUID } from '../kit8/auth/user/userTableLogin';
@@ -184,12 +185,25 @@ function ThemeStoreSyncManager() {
 function SupabaseAuthSync() {
   const { supabase } = useSupabase();
   const dispatch = useDispatch();
+  const store = useStore();
   // email "confirm via web link": deep link -> session (native), link errors (web)
   useAuthRedirectHandler(supabase);
 
   useEffect(() => {
     let cancelled = false;
     const { data: authListener } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!session) {
+        // the saved user (profile page, menu) must not claim "signed in" when Supabase has no session any more
+        setTimeout(() => {
+          dropSavedUserWhenSessionGone(
+            supabase,
+            event,
+            session,
+            () => selectIsLoggedIn(store.getState()),
+            () => dispatch(clearActiveUser()),
+          );
+        }, 0);
+      }
       if (session?.user) {
         const sessionUser = session.user;
         // Run after the auth event (Supabase must not be called from inside its own auth callback).

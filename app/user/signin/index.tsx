@@ -11,6 +11,7 @@ import SignInWithMicrosoftButton from '../../../kit8/auth/microsoft/SignInWithMi
 import { useAuthWithMicrosoft } from '../../../kit8/auth/microsoft/useAuthWithMicrosoft';
 import SignInWithEmailOtp from '../../../kit8/auth/otp/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../../kit8/auth/google/useAuth';
+import { checkSupabaseAvailable } from '../../../kit8/auth/session/supabaseAvailability';
 import { useSupabase } from '../../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../../kit8/lib/localSecureStorage';
 import { setActiveUser, formatTo32CharGUID } from '../../../kit8/redux/activeUserSlice';
@@ -29,16 +30,33 @@ export default function SignInScreen() {
   // (token refresh, the tab coming back to the front) reached the redirects below and threw the user from the dashboard to /user/userprofile. Redirect only while this screen is the one shown.
   const leaveToReturnTo = () => { if (navigation.isFocused()) router.replace(returnTo as any); };
 
-  const { user: googleUser, loading: googleLoading, signIn: signInWithGoogle } = useAuthWithGoogle();
+  const { user: googleUser, loading: googleLoading, signIn: signInWithGoogleRaw } = useAuthWithGoogle();
   // Microsoft keeps no user here: the session raises SIGNED_IN, which the Google hook above also hears (it reacts to any provider)
-  const { loading: microsoftLoading, error: microsoftError, signIn: signInWithMicrosoft } = useAuthWithMicrosoft(supabase);
+  const { loading: microsoftLoading, error: microsoftError, signIn: signInWithMicrosoftRaw } = useAuthWithMicrosoft(supabase);
+
+  // Google / Microsoft send the whole page to Supabase: ask it FIRST, so a restarting / hanging project gives a message here instead of a bare Cloudflare 522 page
+  const [availabilityMessage, setAvailabilityMessage] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const afterAvailabilityCheck = async (start: () => unknown) => {
+    setChecking(true);
+    setAvailabilityMessage(null);
+    const answer = await checkSupabaseAvailable({ url: (supabase as any)?.supabaseUrl ?? '', key: (supabase as any)?.supabaseKey ?? '' });
+    setChecking(false);
+    if (!answer.ok) {
+      setAvailabilityMessage(answer.message);
+      return;
+    }
+    start();
+  };
+  const signInWithGoogle = () => afterAvailabilityCheck(signInWithGoogleRaw);
+  const signInWithMicrosoft = () => afterAvailabilityCheck(signInWithMicrosoftRaw);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   // ONE sign-in at a time: while any way of signing in works (Google, Microsoft, the email code being sent / verified, the password), every other button and input is disabled
   const [otpBusy, setOtpBusy] = useState(false);
-  const busy = googleLoading || microsoftLoading || loading || otpBusy;
+  const busy = googleLoading || microsoftLoading || loading || otpBusy || checking;
   // Email sign-in: one-time code (Supabase OTP, default) or the old email + password
   const [emailMode, setEmailMode] = useState<'otp' | 'password'>('otp');
 
@@ -143,6 +161,12 @@ export default function SignInScreen() {
         <Text variant="headlineMedium" style={{ color: theme.colors.primary, marginBottom: 24, textAlign: 'center', fontWeight: 'bold' }}>
           {t('menu.signIn')}
         </Text>
+
+        {availabilityMessage ? (
+          <Text testID="signin-supabase-unavailable" style={{ color: theme.colors.error, marginBottom: 12, textAlign: 'center' }}>
+            {availabilityMessage}
+          </Text>
+        ) : null}
 
         <View style={styles.buttonWrapper}>
           {googleLoading ? (

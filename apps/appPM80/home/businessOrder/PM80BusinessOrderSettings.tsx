@@ -3,6 +3,8 @@
 //   (drag the handle on the web, the move buttons / the row menu elsewhere). A step that is not shown keeps its place in the order.
 //   "Defaults" puts the default setup (all steps, the order of the app, all shown) into the table; "Save" writes it (businessOrderModel.ts:
 //   one project -> it, some -> each of them, all -> the organization and each project).
+//   The look of the home (items in the first row, form of the items = PM80HomeSettingsPanel) is set at the top of this screen too:
+//   it applies and is saved at once on this device (there is no separate Home settings button on the home any more).
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { useDesignSystem } from '../../../../kit8/providers/WithDesignSystem';
@@ -11,6 +13,8 @@ import ReusableTable from '../../../../kit8/ui/components/table/reusable/Reusabl
 import type { ReusableTableRow, VisualColumn } from '../../../../kit8/ui/components/table/reusable/reusableTableTypes';
 import { pmT } from '../../../../kit8/pm/i18n/pmT';
 import { PM80_STAGES, normalizeProjectSelection } from '../pm80HomeModel';
+import PM80HomeSettingsPanel from '../homeSettings/PM80HomeSettingsPanel';
+import { saveHomeSettingsLocal, useHomeSettings } from '../homeSettings/homeSettingsLocal';
 import {
   BusinessOrderSelection,
   BusinessOrderSettings,
@@ -68,6 +72,7 @@ export default function PM80BusinessOrderSettings({ selection, testID = 'pm80-bu
   const allIds = useMemo(() => src.projects.map((p) => p.id), [src.projects]);
   const stored = useBusinessOrderFor(sel, src.rows);
   const save = useSaveBusinessOrder(src.rows, src.ownerGUID, allIds);
+  const homeSettings = useHomeSettings();
 
   const [draft, setDraft] = useState<BusinessOrderSettings>(stored);
   const [saving, setSaving] = useState(false);
@@ -131,6 +136,15 @@ export default function PM80BusinessOrderSettings({ selection, testID = 'pm80-bu
   return (
     <View testID={testID} style={styles.root}>
       <View style={styles.head}>
+        <PM80HomeSettingsPanel
+          testID={`${testID}-home-settings`}
+          settings={homeSettings}
+          onChange={saveHomeSettingsLocal}
+          textStrong={c.text}
+          textMuted={c.text}
+          accent={c.primary}
+          borderColor={c.border}
+        />
         <Text testID={`${testID}-scope`} style={[styles.scope, { color: c.text }]}>
           {pmT(scopeText)}
         </Text>

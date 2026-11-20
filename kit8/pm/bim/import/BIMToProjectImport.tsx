@@ -1,10 +1,10 @@
 // BIMToProjectImport - imports a BIM model (IFC) into a project as stages + tasks + a 3D model (route /pm/bim/import; documentation/BIM_WBS.html).
-//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | BIM example 2 (Duplex Apartment, buildingSMART) | BIM example 3 (Schependomlaan residential building, 49 MB, about 3 500 elements: grouped tasks) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
+//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | BIM example 2 (Duplex Apartment, buildingSMART) | BIM example 3 (Schependomlaan residential building, 49 MB, about 3 500 elements: grouped tasks) | BIM example 4 (Sixty5, 343 MB, about 16 600 elements: the large model) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
 //   options    one task per element / per (storey, class, type) group / automatic · skip the storeys without elements · the first working day of the plan
 //   target     the project GUID (example 1: aabd1dde-97e6-4359-97e4-0efcb847589b); a project that does not exist is made; a project with tasks that is NOT a BIM project is refused
 //   then       progress, the result, and "Open the BIM view" (the project is selected and the BIM button is shown)
 // The conversion runs on the converter service (py/bim/server, .env EXPO_PUBLIC_BIM_SERVER_URL); the app writes the rows through the bim_ RPCs. React Native Paper, like the assistants.
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Button, Card, HelperText, ProgressBar, RadioButton, Switch, Text, TextInput, useTheme } from 'react-native-paper';
 import * as DocumentPicker from 'expo-document-picker';
@@ -12,13 +12,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { pmT } from '../../i18n/pmT';
 import { usePMStore } from '../../store/store_pm';
 import { usePMOwnerGUID } from '../../crud/queries';
-import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_URL, BIM_EXAMPLE2_NAME, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_URL, BIM_EXAMPLE3_NAME, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_URL } from '../model/bimModel';
-import { DEFAULT_BIM_IMPORT_OPTIONS, type BimGranularity } from './bimImportModel';
+import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLES } from '../model/bimModel';
+import { DEFAULT_BIM_IMPORT_OPTIONS, bimProgressFraction, bimProgressLabel, type BimGranularity } from './bimImportModel';
 import type { BimConvertSource } from './bimServerClient';
 import { bimServerUrl } from './bimServerClient';
 import { useBimImport } from './useBimImport';
 
-type SourceKind = 'example1' | 'example2' | 'example3' | 'file' | 'url';
+type SourceKind = keyof typeof BIM_EXAMPLES | 'file' | 'url';
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface BIMToProjectImportProps {
@@ -36,6 +36,10 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
   const [source, setSource] = useState<SourceKind>('example1');
   const [projectGUID, setProjectGUID] = useState(given || BIM_EXAMPLE1_PROJECT_GUID);
   const [projectName, setProjectName] = useState(BIM_EXAMPLE1_NAME);
+  // a Drawer screen stays mounted: when the importer is opened again for ANOTHER project (Project settings -> BIM -> Import ...), the GUID of the route wins over the one of the last visit
+  useEffect(() => {
+    if (given) setProjectGUID(given);
+  }, [given]);
   const [url, setUrl] = useState('');
   const [file, setFile] = useState<{ name: string; uri: string; file?: any } | null>(null);
   const [granularity, setGranularity] = useState<BimGranularity>(DEFAULT_BIM_IMPORT_OPTIONS.granularity);
@@ -51,18 +55,18 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
     if (source === 'file' && !file) return pmT('Choose an IFC file.');
     if (source === 'url' && !/^https:\/\/\S+$/i.test(url.trim())) return pmT('Give the https address of an IFC file.');
     if (!converterUrl) return pmT('The converter is not set up: add EXPO_PUBLIC_BIM_SERVER_URL to .env and restart Expo (see kit8/pm/bim/README.md).');
-    if (!ownerGUID) return pmT('Sign in first.');
+    if (!ownerGUID) return pmT('There is no valid Supabase session on this device (the sign-in expired, or Supabase could not be reached to renew it). Sign in again.');
     return null;
   }, [projectGUID, startDate, source, file, url, converterUrl, ownerGUID]);
 
   // an example brings its own project GUID and name; only a project of the route that EXISTS keeps its GUID (it is the target of the import)
   const chooseSource = (v: SourceKind) => {
     setSource(v);
-    if (v !== 'example1' && v !== 'example2' && v !== 'example3') return;
+    const ex = BIM_EXAMPLES[v as keyof typeof BIM_EXAMPLES];
+    if (!ex) return;
     const keepGuid = !!given && !!usePMStore.getState().projectsById[given];
-    const ex = v === 'example3' ? [BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_NAME] : v === 'example2' ? [BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_NAME] : [BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_NAME];
-    if (!keepGuid) setProjectGUID(ex[0]);
-    setProjectName(ex[1]);
+    if (!keepGuid) setProjectGUID(ex.projectGUID);
+    setProjectName(ex.name);
   };
 
   const pick = async () => {
@@ -75,9 +79,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
   const start = async () => {
     if (problem) return;
     let src: BimConvertSource;
-    if (source === 'example1') src = { kind: 'url', url: BIM_EXAMPLE1_URL };
-    else if (source === 'example2') src = { kind: 'url', url: BIM_EXAMPLE2_URL };
-    else if (source === 'example3') src = { kind: 'url', url: BIM_EXAMPLE3_URL };
+    if (source in BIM_EXAMPLES) src = { kind: 'url', url: BIM_EXAMPLES[source as keyof typeof BIM_EXAMPLES].url };
     else if (source === 'url') src = { kind: 'url', url: url.trim() };
     else {
       const blob: Blob = file!.file ?? (await (await fetch(file!.uri)).blob());
@@ -106,12 +108,15 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
       <View testID="bim-import-bar" style={[styles.bar, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.outlineVariant }]}>
         <View style={styles.barInner}>
           {problem ? <HelperText testID="bim-import-problem" type="error" visible>{problem}</HelperText> : null}
+          {!ownerGUID ? (
+            <Button testID="bim-import-signin" mode="contained-tonal" onPress={() => router.push({ pathname: '/user/signin', params: { returnTo: '/pm/bim/import' } } as any)}>{pmT('Sign in')}</Button>
+          ) : null}
           <Button testID="bim-import-start-button" mode="contained" disabled={busy || !!problem} onPress={start}>{pmT('Import')}</Button>
 
           {status.kind === 'busy' ? (
-            <View testID="bim-import-progress" style={{ gap: 6 }}>
-              <ProgressBar progress={Math.max(0.02, status.percent / 100)} />
-              <Text>{status.text} ({status.percent}%)</Text>
+            <View testID="bim-import-progress" style={styles.progress}>
+              <View style={styles.progressTrack}><ProgressBar progress={bimProgressFraction(status.percent)} /></View>
+              <Text testID="bim-import-progress-text" style={styles.progressText}>{bimProgressLabel(status.percent, status.text)}</Text>
             </View>
           ) : null}
           {status.kind === 'error' ? <HelperText testID="bim-import-error" type="error" visible>{status.text}</HelperText> : null}
@@ -133,6 +138,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
             <RadioButton.Item testID="bim-import-source-example1" label={pmT('BIM example 1 - Structure Walls (58 walls, 4 storeys)')} value="example1" />
             <RadioButton.Item testID="bim-import-source-example2" label={pmT('BIM example 2 - Duplex Apartment (215 elements, 4 storeys)')} value="example2" />
             <RadioButton.Item testID="bim-import-source-example3" label={pmT('BIM example 3 - Schependomlaan, residential building (49 MB, about 3 500 elements: grouped tasks; takes about a minute)')} value="example3" />
+            <RadioButton.Item testID="bim-import-source-example4" label={pmT('BIM example 4 - Sixty5, a large ArchiCAD model (343 MB, about 16 600 elements, 19 storeys: grouped tasks; takes about 3 minutes)')} value="example4" />
             <RadioButton.Item testID="bim-import-source-file" label={pmT('An IFC file of this device')} value="file" />
             <RadioButton.Item testID="bim-import-source-url" label={pmT('The address (https) of an IFC file')} value="url" />
           </RadioButton.Group>
@@ -176,8 +182,12 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
-  bar: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  bar: { flexShrink: 0, alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
   barInner: { width: '100%', maxWidth: 720, gap: 8 },
+  progress: { flexShrink: 0, paddingBottom: 4 },
+  // the bar has a box of its own with a fixed height; the text follows it with a margin (a gap + a shrinking bar put the text OVER the divider line)
+  progressTrack: { height: 6, flexShrink: 0, overflow: 'hidden', justifyContent: 'center' },
+  progressText: { flexShrink: 0, marginTop: 8 },
   scroll: { flex: 1 },
   page: { padding: 16, alignItems: 'center' },
   card: { width: '100%', maxWidth: 720 },

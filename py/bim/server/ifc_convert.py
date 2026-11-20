@@ -1,7 +1,9 @@
 """IFC -> BIM bundle: the chunks (BIMC v1, one per storey), the rows of the bim_ tables, the properties and the WBS (project exchange file).
 
 IfcOpenShell does the geometry (the geometry iterator, many threads). Everything here is deterministic: the same IFC gives the same bytes and ids.
-Memory: the vertices of all elements are held as float64 until the model origin is known (a 450 KB IFC = a few MB; 100 MB IFC = a few GB: see README, limit BIM_MAX_IFC_MB).
+Memory (converter 2): the file is hashed in blocks (never read whole), the vertices of an element are kept as float32 relative to the first element (a model of 5 km keeps 0.3 mm) and the faces as int32,
+the scene coordinates are made per chunk (float64, then freed), an element's arrays are freed as soon as its chunk is written, the IFC entities are not kept (properties are read by GlobalId).
+What stays: the IfcOpenShell model itself (about 8-10 x the file size) - see README.
 """
 from __future__ import annotations
 
@@ -22,7 +24,7 @@ import ifcopenshell.util.unit as uu
 from bimc import MAX_ELEMENTS_PER_CHUNK, Chunk, ChunkElement, write_chunk
 from wbs import build_wbs
 
-CONVERTER_VERSION = 'bim-converter-1'
+CONVERTER_VERSION = 'bim-converter-2'
 SKIP_CLASSES = {'IfcOpeningElement', 'IfcSpace', 'IfcAnnotation', 'IfcGrid', 'IfcVirtualElement', 'IfcSite', 'IfcBuilding', 'IfcBuildingStorey'}
 # grey per class when the model has no colour (RGB 0..255)
 CLASS_COLOURS = {
@@ -48,6 +50,15 @@ class ConvertResult:
     def to_json(self) -> dict:
         return {'model': self.model, 'storeys': self.storeys, 'chunks': self.chunks, 'elements': self.elements, 'properties': self.properties,
                 'project': self.project_file, 'wbs': {k: v for k, v in self.wbs.items() if k != 'file'}}
+
+
+def _sha256_file(path: str) -> str:
+    """sha256 of a file read in 1 MB blocks (a 340 MB IFC is never in memory as bytes)"""
+    h = hashlib.sha256()
+    with open(path, 'rb') as fh:
+        for block in iter(lambda: fh.read(1 << 20), b''):
+            h.update(block)
+    return h.hexdigest()
 
 
 def _json_safe(v):
@@ -121,8 +132,7 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
             progress(p, text)
 
     say(2, 'Reading the IFC')
-    with open(path, 'rb') as fh:
-        raw_sha = hashlib.sha256(fh.read()).hexdigest()
+    raw_sha = _sha256_file(path)
     f = ifcopenshell.open(path)
     unit_scale = float(uu.calculate_unit_scale(f))
     proj = (f.by_type('IfcProject') or [None])[0]
@@ -139,7 +149,8 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
     settings = ifcopenshell.geom.settings()
     settings.set('use-world-coords', True)
     it = ifcopenshell.geom.iterator(settings, f, threads or max(1, (os.cpu_count() or 2)))
-    shapes = []   # (guid, class, name, typeName, tag, storeyGuid, verts, faces, face_mat_idx_local, local_palette, props)
+    shapes = []   # one dict per element: guid, class, name, typeName, tag, storey, verts (float32, relative to `origin`), faces (int32), mat (int32), colours
+    origin = None  # the world position the float32 vertices are relative to: the first corner met
     if it.initialize():
         n = 0
         while True:
@@ -151,11 +162,14 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
             if (cls not in SKIP_CLASSES or (is_opening and include_openings)) and not product.is_a('IfcSpace'):
                 gm = sh.geometry
                 verts = np.array(gm.verts, dtype=np.float64).reshape(-1, 3)
-                faces = np.array(gm.faces, dtype=np.int64).reshape(-1, 3)
+                faces = np.array(gm.faces, dtype=np.int32).reshape(-1, 3)
                 if len(verts) and len(faces):
-                    mat_ids = np.array(gm.material_ids, dtype=np.int64).reshape(-1)
+                    if origin is None:
+                        origin = verts.min(axis=0)
+                    verts = (verts - origin).astype(np.float32)
+                    mat_ids = np.array(gm.material_ids, dtype=np.int32).reshape(-1)
                     if len(mat_ids) != len(faces):
-                        mat_ids = np.zeros(len(faces), dtype=np.int64)
+                        mat_ids = np.zeros(len(faces), dtype=np.int32)
                     colours = [_material_colour(m, cls) for m in gm.materials] or [(*CLASS_COLOURS.get(cls, DEFAULT_COLOUR), 255)]
                     if is_opening:
                         colours = [OPENING_COLOUR] * len(colours)
@@ -169,30 +183,38 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
                     shapes.append({
                         'guid': product.GlobalId, 'cls': cls, 'name': ((('Opening in ' + (getattr(host, 'Name', None) or host.is_a())) if host is not None else (getattr(product, 'Name', None) or '')).strip() if is_opening else (getattr(product, 'Name', None) or '').strip()), 'typeName': ('Opening' if is_opening else ((typ.Name if typ is not None else None) or getattr(product, 'ObjectType', None) or '').strip()),
                         'tag': (getattr(product, 'Tag', None) or '').strip(), 'storey': storey.GlobalId if storey is not None else None,
-                        'verts': verts, 'faces': faces, 'mat': mat_ids, 'colours': colours, 'product': product})
+                        'verts': verts, 'faces': faces, 'mat': mat_ids, 'colours': colours})
             if not it.next():
                 break
             if n % 50 == 0:
-                say(8 + min(50, n // 10), f'Geometry of {n} shapes')
+                try:
+                    pct = int(it.progress())
+                except Exception:  # noqa: BLE001 - an older IfcOpenShell has no progress()
+                    pct = min(99, n // 10)
+                say(8 + int(pct * 0.5), f'Geometry of {n} shapes ({pct}%)')
     if not shapes:
         raise ValueError('The IFC has no element with geometry.')
     # a stable order: by storey elevation, then class, then guid (the same file gives the same chunks)
     shapes.sort(key=lambda s: (storey_info[s['storey']]['elevation'] if s['storey'] in storey_info else 1e9, s['cls'], s['guid']))
 
     say(60, 'Placing the model')
-    all_v = np.concatenate([s['verts'] for s in shapes], axis=0)
-    mn, mx = all_v.min(axis=0), all_v.max(axis=0)
+    lo = np.full(3, np.inf)
+    hi = np.full(3, -np.inf)
+    for s in shapes:   # the box of the model without joining all vertices into one array
+        lo = np.minimum(lo, s['verts'].min(axis=0).astype(np.float64))
+        hi = np.maximum(hi, s['verts'].max(axis=0).astype(np.float64))
+    mn, mx = lo + origin, hi + origin   # world coordinates (metres)
     cx, cy, cz = float((mn[0] + mx[0]) / 2), float((mn[1] + mx[1]) / 2), float(mn[2])
     shift = np.array([cx, cy, cz])
 
-    def to_scene(v: np.ndarray) -> np.ndarray:
+    def to_scene_world(w: np.ndarray) -> np.ndarray:
         # IFC: X east, Y north, Z up (metres).  Scene: X east, Y up, Z south: (x, y, z) -> (x, z, -y), the origin shifted; a rotation, the winding stays
-        return np.stack([v[:, 0] - cx, v[:, 2] - cz, -(v[:, 1] - cy)], axis=1)
+        return np.stack([w[:, 0] - cx, w[:, 2] - cz, -(w[:, 1] - cy)], axis=1)
 
-    for s in shapes:
-        s['scene'] = to_scene(s['verts'])
-    bbox = [round(float(x), 4) for x in (*to_scene(mn.reshape(1, 3))[0], *to_scene(mx.reshape(1, 3))[0])]
-    sb = to_scene(np.array([mn, mx]))
+    def to_scene(rel: np.ndarray) -> np.ndarray:
+        return to_scene_world(rel.astype(np.float64) + origin)
+
+    sb = to_scene_world(np.array([mn, mx]))
     bbox = [round(float(x), 4) for x in (*sb.min(axis=0), *sb.max(axis=0))]
 
     say(66, 'Writing the chunks')
@@ -203,7 +225,6 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
     if None in groups:
         storey_order.append(None)
     chunks_json, chunk_bytes, elements, storeys_json = [], {}, [], []
-    el_by_guid = {}
     for si, sg in enumerate(storey_order):
         members = groups[sg]
         part = 0
@@ -221,7 +242,7 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
                             pal_index[c] = len(palette)
                             palette.append(c)
                     local.append(pal_index[c])
-                ces.append(ChunkElement(s['guid'], s['scene'], s['faces'], np.array(local, dtype=np.int64)[s['mat']]))
+                ces.append(ChunkElement(s['guid'], to_scene(s['verts']), s['faces'], np.array(local, dtype=np.int64)[s['mat']]))
             ch: Chunk = write_chunk(ces, palette)
             chunk_bytes[ch.sha256] = ch.data
             chunks_json.append({'hash': ch.sha256, 'byteSize': len(ch.data), 'storeyIfcGuid': sg, 'part': part, 'formatVersion': 1, 'vertexCount': ch.vertex_count,
@@ -230,7 +251,8 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
                 el = {'ifcGuid': s['guid'], 'ifcClass': s['cls'], 'name': s['name'], 'typeName': s['typeName'], 'tag': s['tag'], 'storeyIfcGuid': sg,
                       'chunkHash': ch.sha256, 'elementNumber': i, 'bbox': list(ch.element_bboxes[i])}
                 elements.append(el)
-                el_by_guid[s['guid']] = s
+                s['verts'] = s['faces'] = s['mat'] = None   # this chunk is written: free the arrays of its elements
+            del ces
             part += 1
         if sg is not None:
             storeys_json.append({**storey_info[sg], 'orderInList': si + 1, 'chunkHashes': [c['hash'] for c in chunks_json if c['storeyIfcGuid'] == sg]})
@@ -244,7 +266,7 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
     if with_properties:
         say(90, 'Reading the properties')
         for el in elements:
-            p = el_by_guid[el['ifcGuid']]['product']
+            p = f.by_guid(el['ifcGuid'])
             data = {'attributes': {'Class': el['ifcClass'], 'GlobalId': el['ifcGuid'], 'Name': el['name'], 'Type': el['typeName'], 'Tag': el['tag']}, 'sets': _props(p)}
             properties.append({'ifcGuid': el['ifcGuid'], 'rowJSON': data})
 

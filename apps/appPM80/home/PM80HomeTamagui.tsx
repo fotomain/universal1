@@ -14,9 +14,8 @@ import PM80CircularProgress from './PM80CircularProgress';
 import PM80BrandLogo, { pm80LogoWithBackground, PM80_LOGO_DARK_BACKGROUND } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
 import { usePM80Layout } from './pm80Layout';
-import { useHomeSettings, saveHomeSettingsLocal } from './homeSettings/homeSettingsLocal';
+import { useHomeSettings } from './homeSettings/homeSettingsLocal';
 import { gridRows, itemRadius } from './homeSettings/homeSettingsModel';
-import PM80HomeSettingsModal from './homeSettings/PM80HomeSettingsModal';
 import { usePM80FlowScroll } from './pm80FlowScroll';
 import { usePM80Projects, useBusinessOrderFor } from './businessOrder/useBusinessOrder';
 import PM80RoiInfoModal from './roiInfo/PM80RoiInfoModal';
@@ -64,7 +63,6 @@ export default function PM80HomeTamagui({
   const router = useRouter();
   // the look of the home (items in the first row of the grid, form of the items): kept on this device
   const homeSettings = useHomeSettings();
-  const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
   const L = usePM80Layout(50, homeSettings.itemsPerRow);
   const flow = usePM80FlowScroll(L.isMobile);
   const [flowActiveId, setFlowActiveId] = useState<string | null>(null);
@@ -530,14 +528,6 @@ export default function PM80HomeTamagui({
                   color={textMuted}
                 />
               </TouchableOpacity></PM80Tip>
-            <PM80Tip tip="Home settings: items in the first row, form of the items"><TouchableOpacity
-              testID={`${testID}-settings-btn`}
-              onPress={() => setHomeSettingsOpen(true)}
-              style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}
-              accessibilityLabel="Home settings"
-            >
-              <MaterialCommunityIcons name="tune-variant" size={22} color={textMuted} />
-            </TouchableOpacity></PM80Tip>
             </View>
           </View>
 
@@ -732,18 +722,6 @@ export default function PM80HomeTamagui({
         id={kpiInfoId}
         snapshot={baseSnapshot}
         onClose={() => setKpiInfoId(null)}
-        isDark={isDark}
-        textStrong={textStrong}
-        textMuted={textMuted}
-        accent={primaryToken}
-        borderColor={cardBorder}
-      />
-      <PM80HomeSettingsModal
-        testID={`${testID}-settings`}
-        visible={homeSettingsOpen}
-        settings={homeSettings}
-        onChange={saveHomeSettingsLocal}
-        onClose={() => setHomeSettingsOpen(false)}
         isDark={isDark}
         textStrong={textStrong}
         textMuted={textMuted}

@@ -7,6 +7,8 @@ let mockGoogleLoading = false;
 let mockMicrosoftLoading = false;
 let mockOtpBusyCallback: ((b: boolean) => void) | undefined;
 let mockOtpDisabled: boolean | undefined;
+const mockGoogleSignIn = jest.fn();
+let mockAvailability: any = { ok: true };
 
 jest.mock('expo-router', () => ({
   useRouter: () => ({ replace: jest.fn(), push: jest.fn() }),
@@ -21,7 +23,7 @@ jest.mock('react-native-paper', () => {
   return {
     useTheme: () => ({ colors: new Proxy({}, { get: () => '#888' }) }),
     Surface: ({ children }: any) => R.createElement(View, null, children),
-    Text: ({ children }: any) => R.createElement(RNText, null, children),
+    Text: ({ children, testID }: any) => R.createElement(RNText, { testID }, children),
   };
 });
 jest.mock('../../kit8/ui/components/common', () => {
@@ -59,9 +61,10 @@ jest.mock('../../kit8/auth/otp/SignInWithEmailOtp', () => {
     },
   };
 });
-jest.mock('../../kit8/auth/google/useAuth', () => ({ useAuthWithGoogle: () => ({ user: null, loading: mockGoogleLoading, signIn: jest.fn() }) }));
+jest.mock('../../kit8/auth/google/useAuth', () => ({ useAuthWithGoogle: () => ({ user: null, loading: mockGoogleLoading, signIn: mockGoogleSignIn }) }));
+jest.mock('../../kit8/auth/session/supabaseAvailability', () => ({ checkSupabaseAvailable: async () => mockAvailability }));
 jest.mock('../../kit8/auth/microsoft/useAuthWithMicrosoft', () => ({ useAuthWithMicrosoft: () => ({ loading: mockMicrosoftLoading, error: null, signIn: jest.fn() }) }));
-jest.mock('../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: { auth: { signInWithPassword: jest.fn(), signUp: jest.fn() } } }) }));
+jest.mock('../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: { supabaseUrl: 'https://x.supabase.co', supabaseKey: 'k', auth: { signInWithPassword: jest.fn(), signUp: jest.fn() } } }) }));
 jest.mock('../../kit8/lib/localSecureStorage', () => ({ saveUserData: jest.fn(), getUserData: () => Promise.resolve({}) }));
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
@@ -85,7 +88,7 @@ async function mount() {
   act(() => root.render(<SignInScreen />));
   await flush();
 }
-beforeEach(() => { mockGoogleLoading = false; mockMicrosoftLoading = false; mockOtpBusyCallback = undefined; mockOtpDisabled = undefined; });
+beforeEach(() => { mockGoogleLoading = false; mockMicrosoftLoading = false; mockOtpBusyCallback = undefined; mockOtpDisabled = undefined; mockGoogleSignIn.mockClear(); mockAvailability = { ok: true }; });
 afterEach(() => { act(() => root.unmount()); host.remove(); });
 
 it('nothing is disabled while nothing works', async () => {
@@ -136,4 +139,29 @@ it('the password form: inputs, buttons and the forgot link follow the same rule'
   await flush();
   // the toggle is disabled while Microsoft works, so the password mode cannot even be opened
   expect(off('signin-toggle-email-mode')).toBe(true);
+});
+
+
+it('Supabase restarting: pressing Sign in with Google shows the message and does NOT start the sign-in', async () => {
+  mockAvailability = { ok: false, reason: 'http', status: 522, message: 'Supabase is not available right now (HTTP 522). If the project is restarting, wait 2-5 minutes and try again.' };
+  await mount();
+  expect(q('signin-supabase-unavailable')).toBeNull();
+  click('signin-with-google');
+  await flush();
+  expect(q('signin-supabase-unavailable')?.textContent).toContain('HTTP 522');
+  expect(mockGoogleSignIn).not.toHaveBeenCalled();
+  expect(off('signin-with-google')).toBe(false); // free to try again
+});
+
+it('Supabase answering: pressing Sign in with Google starts it and clears an old message', async () => {
+  mockAvailability = { ok: false, reason: 'timeout', message: 'down' };
+  await mount();
+  click('signin-with-google');
+  await flush();
+  expect(q('signin-supabase-unavailable')).not.toBeNull();
+  mockAvailability = { ok: true };
+  click('signin-with-google');
+  await flush();
+  expect(mockGoogleSignIn).toHaveBeenCalledTimes(1);
+  expect(q('signin-supabase-unavailable')).toBeNull();
 });

@@ -61,7 +61,7 @@ describe('BIM import model on the converted example 1', () => {
 });
 
 import { DEFAULT_BIM_IMPORT_OPTIONS } from '../../kit8/pm/bim/import/bimImportModel';
-import { BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_URL, BIM_EXAMPLE3_NAME } from '../../kit8/pm/bim/model/bimModel';
+import { BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_URL, BIM_EXAMPLE3_NAME, BIM_EXAMPLE4_NAME, BIM_EXAMPLE4_PROJECT_GUID, BIM_EXAMPLE4_SHA256, BIM_EXAMPLE4_URL, BIM_EXAMPLES } from '../../kit8/pm/bim/model/bimModel';
 
 describe('the importer defaults and the examples', () => {
   it('openings are elements by default in the importer; the three examples have three different projects', () => {
@@ -73,5 +73,19 @@ describe('the importer defaults and the examples', () => {
     expect(BIM_EXAMPLE3_URL.startsWith('https://raw.githubusercontent.com/')).toBe(true);
     expect(BIM_EXAMPLE3_URL).not.toMatch(/ /);
     expect(decodeURIComponent(BIM_EXAMPLE3_URL).endsWith('IFC Schependomlaan.ifc')).toBe(true);
+  });
+  it('example 4 = Sixty5 (large): its own project, a pinned https address on a host the converter allows, the sha256 of the file', () => {
+    expect(new Set([BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE4_PROJECT_GUID]).size).toBe(4);
+    expect(BIM_EXAMPLE4_NAME).toContain('Sixty5');
+    expect(BIM_EXAMPLE4_URL.startsWith('https://huggingface.co/datasets/')).toBe(true);
+    expect(BIM_EXAMPLE4_URL).toMatch(/\/resolve\/[0-9a-f]{40}\//); // pinned to a revision, not to a branch
+    expect(BIM_EXAMPLE4_URL.endsWith('/sixty5/arc.ifc')).toBe(true);
+    expect(BIM_EXAMPLE4_SHA256).toMatch(/^[0-9a-f]{64}$/);
+  });
+  it('the table of examples has one entry per example and the same values as the constants', () => {
+    expect(Object.keys(BIM_EXAMPLES)).toEqual(['example1', 'example2', 'example3', 'example4']);
+    expect(BIM_EXAMPLES.example3).toEqual({ projectGUID: BIM_EXAMPLE3_PROJECT_GUID, name: BIM_EXAMPLE3_NAME, url: BIM_EXAMPLE3_URL });
+    expect(BIM_EXAMPLES.example4).toEqual({ projectGUID: BIM_EXAMPLE4_PROJECT_GUID, name: BIM_EXAMPLE4_NAME, url: BIM_EXAMPLE4_URL });
+    for (const e of Object.values(BIM_EXAMPLES)) expect(e.url).toMatch(/^https:\/\/\S+$/);
   });
 });

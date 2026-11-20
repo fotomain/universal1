@@ -484,7 +484,7 @@ export default function PMRecentProjectsToolbar({
     );
   };
 
-  /** keepOpen (the Save button of the New project window): the project is created and the window STAYS OPEN as the Project settings window of it (rowGUID set -> Save, the BIM tab ...) */
+  /** keepOpen: the Save button. New project: it is created and the window STAYS OPEN as the Project settings window of it (rowGUID set -> Save + OK, the BIM tab ...). Saved project: it is saved and the window STAYS OPEN (the OK button saves and closes) */
   const saveDraft = (currenciesApproved = false, keepOpen = false) => {
     if (!draft) return;
     // a READ-ONLY project (as stored): the ONE thing that is saved is the switch itself - nothing else of the window is sent (the database would refuse it)
@@ -492,7 +492,7 @@ export default function PMRecentProjectsToolbar({
       if (!draft.projectIsReadonly) {
         setProjectReadonly.mutate({ rowGUID: draft.rowGUID, readonly: false }, { onSettled: () => { projectPermissions.refresh(); } });
       }
-      setDraft(null);
+      if (!keepOpen) setDraft(null);
       return;
     }
     const name = draft.name.trim();
@@ -522,7 +522,7 @@ export default function PMRecentProjectsToolbar({
           yesLabel: pmT("Yes, recalculate"),
           hideNo: true,
           icon: "currency_exchange",
-        }).then((answer) => { if (answer === "yes") saveDraft(true); });
+        }).then((answer) => { if (answer === "yes") saveDraft(true, keepOpen); });
         return;
       }
       updateProject.mutate({
@@ -590,6 +590,7 @@ export default function PMRecentProjectsToolbar({
       });
       // the user's own settings row overrides the project's: without this a mode saved earlier there keeps winning
       saveUxuiSettings(draft.rowGUID, { projectTreeContextCommandsMode: treeCmdMode, projectGanttChartContextCommandsMode: ganttCmdMode });
+      if (keepOpen) return;
     } else {
       const row = buildRow(name, startMs);
       row.rowJSON.projectStartDate = startDateVal;
@@ -1430,21 +1431,19 @@ export default function PMRecentProjectsToolbar({
                   width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={() => setDraft(null)}
                 />
-                {/* New project: Save = create and stay (the window turns into Project settings, the BIM tab appears); Create = create and close */}
-                {!draft?.rowGUID && (
-                  <PMDialogButton
-                    testID="pm-project-save-stay"
-                    kind="secondary"
-                    title={pmT('Save')}
-                    width={PM_DIALOG_BUTTON_WIDTH}
-                    onPress={() => saveDraft(false, true)}
-                  />
-                )}
+                {/* Save = save and stay (a new project is created and the window turns into Project settings, the BIM tab appears); OK / Create = save and close */}
+                <PMDialogButton
+                  testID="pm-project-save-stay"
+                  kind="secondary"
+                  title={pmT('Save')}
+                  width={PM_DIALOG_BUTTON_WIDTH}
+                  onPress={() => saveDraft(false, true)}
+                />
                 <PMDialogButton
                   testID="pm-project-save"
                   kind="primary"
                   color={themeColors.primary}
-                  title={pmT(draft?.rowGUID ? 'Save' : 'Create')}
+                  title={pmT(draft?.rowGUID ? 'OK' : 'Create')}
                   width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={() => saveDraft()}
                 />

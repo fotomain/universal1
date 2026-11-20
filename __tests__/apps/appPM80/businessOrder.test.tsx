@@ -195,6 +195,18 @@ describe('PM80BusinessOrderSettings screen', () => {
     expect(p.columnSortAndFilter).toBe(false);
   });
 
+  it('the Home settings radio sets (items in the first row, items form) are at the top of the screen', () => {
+    renderUI(<PM80BusinessOrderSettings selection={null} />);
+    const { getHomeSettingsLocal, resetHomeSettingsLocal } = require('../../../apps/appPM80/home/homeSettings/homeSettingsLocal');
+    resetHomeSettingsLocal();
+    expect(q('pm80-business-order-home-settings')).not.toBeNull();
+    press('pm80-business-order-home-settings-perRow-4');
+    expect(getHomeSettingsLocal().itemsPerRow).toBe(4);
+    press('pm80-business-order-home-settings-shape-square');
+    expect(getHomeSettingsLocal().itemShape).toBe('square');
+    resetHomeSettingsLocal();
+  });
+
   it('a phone: two columns that fit the width (Show, Step)', () => {
     setWidth(369);
     renderUI(<PM80BusinessOrderSettings selection={null} />);

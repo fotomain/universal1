@@ -236,11 +236,83 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(j['result']['model']['counts']['elements'], 6)
         self.assertTrue(all(c['storagePath'].startswith(f'{PROJECT}/22222222-2222-4222-8222-222222222222/') for c in j['result']['chunks']))
 
+    def _run(self, data, query=''):
+        s, b = self.call('POST', f'/convert?projectGUID={PROJECT}&modelGUID=44444444-4444-4444-8444-444444444444{query}', data, {'Content-Type': 'application/octet-stream'})
+        self.assertEqual(s, 202, b)
+        for _ in range(150):
+            s, j = self.call('GET', '/jobs/' + b['jobId'])
+            if j['state'] in ('done', 'failed'):
+                return j
+            time.sleep(0.2)
+        self.fail('the job did not end')
+
+    def test_the_conversion_runs_in_its_own_process_and_the_bundle_is_in_the_dev_folder(self):
+        with open(self.ifc, 'rb') as fh:
+            j = self._run(fh.read(), '&startDate=2026-11-23')
+        self.assertEqual(j['state'], 'done', j)
+        folder = j['result']['devFolder']
+        self.assertTrue(os.path.isfile(folder['bundle']) and os.path.isfile(folder['project']))
+        self.assertEqual(len(os.listdir(os.path.join(os.path.dirname(folder['bundle']), 'chunks'))), folder['chunks'])
+        self.assertEqual(j['result']['project']['project']['rowGUID'], PROJECT)
+
+    def test_a_broken_ifc_fails_the_job_with_a_text_and_the_server_goes_on(self):
+        j = self._run(b'ISO-10303-21;\nHEADER;\nENDSEC;\nDATA;\n#1=IFCPROJECT(;;;\nENDSEC;\nEND-ISO-10303-21;\n')
+        self.assertEqual(j['state'], 'failed', j)
+        self.assertTrue(j['error'])
+        self.assertEqual(self.call('GET', '/health')[0], 200)
+
+    def test_a_killed_worker_says_why(self):
+        job = {'progress': 0, 'stepText': ''}
+        old = srv.sys.executable
+        try:
+            srv.sys.executable = sys.executable  # the real python; the worker is killed by its own signal below
+            import subprocess
+            real = subprocess.Popen
+
+            class Killer(real):
+                def __init__(self, args, **kw):
+                    super().__init__([sys.executable, '-c', 'import os,signal; os.kill(os.getpid(), signal.SIGKILL)'], **kw)
+
+            srv.subprocess.Popen = Killer
+            with self.assertRaises(RuntimeError) as cm:
+                srv.convert_in_process(job, self.ifc, tempfile.mkdtemp(), {'projectGUID': PROJECT})
+            self.assertIn('out of memory', str(cm.exception))
+        finally:
+            srv.subprocess.Popen = real
+            srv.sys.executable = old
+
     def test_refuses_bad_input(self):
         self.assertEqual(self.call('POST', f'/convert?projectGUID=x&modelGUID=y', b'abc')[0], 400)
         self.assertEqual(self.call('POST', f'/convert?projectGUID={PROJECT}&modelGUID=22222222-2222-4222-8222-222222222222', b'not an ifc file at all')[0], 400)
         self.assertEqual(self.call('POST', f'/convert?projectGUID={PROJECT}&modelGUID=22222222-2222-4222-8222-222222222222&granularity=zzz', b'ISO-10303-21;')[0], 400)
         self.assertEqual(self.call('GET', '/jobs/' + 'a' * 32)[0], 404)
+
+    def test_streaming_copy_helpers(self):
+        import io
+        out = io.BytesIO()
+        self.assertEqual(srv.copy_limited(io.BytesIO(b'x' * 3000), out, 5000, block=1024), 3000)
+        self.assertEqual(len(out.getvalue()), 3000)
+        with self.assertRaises(srv.TooBig):
+            srv.copy_limited(io.BytesIO(b'x' * 3000), io.BytesIO(), 2999, block=1024)
+        out = io.BytesIO()
+        srv.copy_exact(io.BytesIO(b'y' * 2500), out, 2500, block=1000)
+        self.assertEqual(len(out.getvalue()), 2500)
+        with self.assertRaises(IOError):
+            srv.copy_exact(io.BytesIO(b'y' * 10), io.BytesIO(), 11)
+
+    def test_big_files_and_hosts_are_allowed_by_default(self):
+        self.assertEqual(srv.max_bytes(), 500 * 1024 * 1024)
+        self.assertTrue(srv.allowed_host('https://huggingface.co/datasets/x/resolve/abc/arc.ifc'))
+        self.assertFalse(srv.allowed_host('https://huggingface.co.evil.example/arc.ifc'))
+
+    def test_a_file_that_is_not_ifc_is_refused_and_no_temp_file_is_left(self):
+        import glob
+        import tempfile
+        before = set(glob.glob(os.path.join(tempfile.gettempdir(), '*.ifc')))
+        s, b = self.call('POST', f'/convert?projectGUID={PROJECT}&modelGUID=22222222-2222-4222-8222-222222222222', b'this is not a step file' * 10, {'Content-Type': 'application/octet-stream'})
+        self.assertEqual(s, 400)
+        self.assertIn('not an IFC', b['error'])
+        self.assertEqual(set(glob.glob(os.path.join(tempfile.gettempdir(), '*.ifc'))) - before, set())
 
     def test_url_host_must_be_allowed(self):
         body = json.dumps({'url': 'https://evil.example.com/x.ifc'}).encode()

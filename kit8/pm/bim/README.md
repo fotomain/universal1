@@ -39,6 +39,8 @@ python py/bim/server/server.py                          # the converter, port 87
 npm run bim:copy-wasm                                   # the SQLite WASM next to the worker (web), after npm install
 ```
 `.env` (the owner edits it): `EXPO_PUBLIC_BIM_SERVER_URL=http://localhost:8765` (a phone needs the LAN address of the Mac). The converter in Supabase mode needs `SUPABASE_URL` and `SUPABASE_ANON_KEY` in ITS environment.
+**Import again** (Project settings -> BIM, or the Import tab of the project window) opens `/pm/bim/import?projectGUID=<this project>`; the importer is a Drawer screen that stays mounted, so it follows the parameter every time it changes (test `__tests__/bim/bimImportScreen.test.tsx`).
+
 **Without a login or a database**: `/pm/bim/example` shows example 1 (and `?example=2` the Duplex Apartment, two buttons switch) in 3D from the converted files of the repository (the same viewer and the same two-way highlight; it also saves the model into the local database and reads it back).
 
 ## Tests

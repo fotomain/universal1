@@ -17,4 +17,4 @@ export { default as PM80RoiInfoModal } from './roiInfo/PM80RoiInfoModal';
 export { default as PM80KpiInfoModal } from './kpiInfo/PM80KpiInfoModal';
 export { default as PM80InfoModal } from './infoModal/PM80InfoModal';
 export * from './homeSettings/homeSettingsModel';
-export { default as PM80HomeSettingsModal } from './homeSettings/PM80HomeSettingsModal';
+export { default as PM80HomeSettingsPanel } from './homeSettings/PM80HomeSettingsPanel';

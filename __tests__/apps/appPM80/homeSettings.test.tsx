@@ -33,6 +33,26 @@ jest.doMock('expo-router', () => ({
 
 const PM80HomePaper = require('../../../apps/appPM80/home/PM80HomePaper').default;
 const PM80HomeTamagui = require('../../../apps/appPM80/home/PM80HomeTamagui').default;
+const PM80HomeSettingsPanel = require('../../../apps/appPM80/home/homeSettings/PM80HomeSettingsPanel').default;
+const { useHomeSettings } = require('../../../apps/appPM80/home/homeSettings/homeSettingsLocal');
+
+// the radio sets live on the Business order screen (PM80BusinessOrderSettings mounts this panel); here the panel is wired
+// the same way next to a home, so the choice is seen on the home at once
+function PanelOnBusinessOrderScreen() {
+  const settings = useHomeSettings();
+  return (
+    <PM80HomeSettingsPanel
+      testID="pm80-business-order-home-settings"
+      settings={settings}
+      onChange={saveHomeSettingsLocal}
+      textStrong="#000"
+      textMuted="#666"
+      accent="#6750A4"
+      borderColor="#ccc"
+    />
+  );
+}
+const SP = 'pm80-business-order-home-settings';
 
 afterEach(() => {
   resetHomeSettingsLocal();
@@ -122,34 +142,31 @@ describe.each([
     expect(q(`${id}-hub-slot`)!.compareDocumentPosition(q(`${id}-grid`)!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('the radio set changes the first row to 2 and 4 at once, and the choice is kept', () => {
+  it('the home has no Home settings button any more (it is on the Business order screen)', () => {
     renderUI(<Home />);
+    expect(q(`${id}-settings-btn`)).toBeNull();
     expect(q(`${id}-settings`)).toBeNull();
-    press(`${id}-settings-btn`);
-    expect(q(`${id}-settings`)).not.toBeNull();
+  });
 
-    press(`${id}-settings-perRow-2`);
+  it('the radio set changes the first row to 2 and 4 at once, and the choice is kept', () => {
+    renderUI(<><Home /><PanelOnBusinessOrderScreen /></>);
+    press(`${SP}-perRow-2`);
     expect(rowSizes(id)).toEqual([2, 2, 2, 2]);
-    press(`${id}-settings-perRow-4`);
+    press(`${SP}-perRow-4`);
     expect(rowSizes(id)).toEqual([4, 4]);
     expect(getHomeSettingsLocal().itemsPerRow).toBe(4);
-
-    press(`${id}-settings-close`);
-    expect(q(`${id}-settings`)).toBeNull();
-    expect(rowSizes(id)).toEqual([4, 4]);
   });
 
   it('the form radio set makes the items square', () => {
-    renderUI(<Home />);
+    renderUI(<><Home /><PanelOnBusinessOrderScreen /></>);
     const orb = () => q(`${id}-satellite-orders-step`)!.parentElement as HTMLElement;
     const radius = () => cssRadiusOf(orb());
     const before = radius();
     expect(before).toBeGreaterThan(20); // a circle: half of the side
-    press(`${id}-settings-btn`);
-    press(`${id}-settings-shape-square`);
+    press(`${SP}-shape-square`);
     expect(getHomeSettingsLocal().itemShape).toBe('square');
     expect(radius()).toBeLessThan(before);
-    press(`${id}-settings-shape-circle`);
+    press(`${SP}-shape-circle`);
     expect(radius()).toBe(before);
   });
 
