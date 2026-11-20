@@ -1,0 +1,3407 @@
+{
+ "model": {
+  "sourceName": "Structure_Walls.ifc",
+  "sourceSha256": "977caeec95de35acd5038489fa04a01a1a542554c5edfa7e02663f69b7ea56aa",
+  "ifcSchema": "IFC4",
+  "converterVersion": "bim-converter-1",
+  "unitScale": 0.3048,
+  "originShift": [
+   417615.76945,
+   78698.65635,
+   230.9114
+  ],
+  "bbox": [
+   -29.8928,
+   0.0,
+   -35.4264,
+   29.8928,
+   28.575,
+   35.4264
+  ],
+  "projectName": "BIM example 1 - Structure Walls",
+  "counts": {
+   "storeys": 4,
+   "elements": 58,
+   "chunks": 4,
+   "tasks": 58,
+   "stages": 4,
+   "properties": 58
+  }
+ },
+ "storeys": [
+  {
+   "ifcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "name": "Elevator Pit",
+   "elevation": -6.985,
+   "orderInList": 1,
+   "chunkHashes": [
+    "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38"
+   ],
+   "stageGUID": "da0be61f-7593-5289-badc-a189fefb9dc1"
+  },
+  {
+   "ifcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "name": "L1_35_Low",
+   "elevation": -1.8034,
+   "orderInList": 2,
+   "chunkHashes": [
+    "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f"
+   ],
+   "stageGUID": "5926255d-af07-51ee-b2bb-14ddfe517ee2"
+  },
+  {
+   "ifcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "name": "L1_37_Med",
+   "elevation": -1.0541,
+   "orderInList": 3,
+   "chunkHashes": [
+    "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd"
+   ],
+   "stageGUID": "767a88fd-5940-5817-b8c0-e2a805f939b9"
+  },
+  {
+   "ifcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "name": "L1_43_High",
+   "elevation": -0.0,
+   "orderInList": 4,
+   "chunkHashes": [
+    "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0"
+   ],
+   "stageGUID": "3903ad66-da84-5037-9231-f10681606304"
+  }
+ ],
+ "chunks": [
+  {
+   "hash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "byteSize": 8880,
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "part": 0,
+   "formatVersion": 1,
+   "vertexCount": 414,
+   "elementCount": 31,
+   "bboxMin": [
+    -29.89282,
+    0.0,
+    -35.42637
+   ],
+   "bboxSize": [
+    59.78564,
+    28.575,
+    43.01804
+   ]
+  },
+  {
+   "hash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "byteSize": 8000,
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "part": 0,
+   "formatVersion": 1,
+   "vertexCount": 382,
+   "elementCount": 5,
+   "bboxMin": [
+    -26.40477,
+    5.1816,
+    -12.62648
+   ],
+   "bboxSize": [
+    4.75444,
+    23.3934,
+    6.94789
+   ]
+  },
+  {
+   "hash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "byteSize": 6064,
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "part": 0,
+   "formatVersion": 1,
+   "vertexCount": 284,
+   "elementCount": 5,
+   "bboxMin": [
+    -9.63068,
+    5.9309,
+    -23.50866
+   ],
+   "bboxSize": [
+    14.67789,
+    22.6441,
+    9.70842
+   ]
+  },
+  {
+   "hash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "byteSize": 14144,
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "part": 0,
+   "formatVersion": 1,
+   "vertexCount": 683,
+   "elementCount": 17,
+   "bboxMin": [
+    -29.89282,
+    1.524,
+    -22.9492
+   ],
+   "bboxSize": [
+    53.1519,
+    27.051,
+    58.37557
+   ]
+  }
+ ],
+ "elements": [
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4ile",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":675720",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "675720",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 0,
+   "bbox": [
+    -26.1309,
+    0.0,
+    -7.4064,
+    -23.2254,
+    5.1816,
+    -5.6753
+   ],
+   "taskGUID": "6e0b9a5e-baf2-5f80-9975-41b46ea71d08"
+  },
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4jI2",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":676066",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "676066",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 1,
+   "bbox": [
+    -24.4351,
+    0.0,
+    -8.9129,
+    -23.4259,
+    5.1816,
+    -7.2727
+   ],
+   "taskGUID": "d1a51def-5b64-5e33-98f4-e9ef21c5416f"
+  },
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4jTu",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":676632",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "676632",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 2,
+   "bbox": [
+    -10.0029,
+    1.651,
+    -32.4177,
+    12.075,
+    5.6769,
+    -21.2248
+   ],
+   "taskGUID": "ef46b8d7-10ed-53f5-8df9-9eeed40eac11"
+  },
+  {
+   "ifcGuid": "0CKTlg9k54kxOjOSxML2FF",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":677214",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "677214",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 3,
+   "bbox": [
+    -26.5064,
+    1.651,
+    -20.3188,
+    -12.7144,
+    4.9276,
+    -13.17
+   ],
+   "taskGUID": "46bb96ea-c6c0-59ea-86a7-d99b94309d76"
+  },
+  {
+   "ifcGuid": "0CKTlg9k54kxOjOSxML2Li",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":676861",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "676861",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 4,
+   "bbox": [
+    -23.0929,
+    0.0,
+    -12.7156,
+    -21.4677,
+    5.1816,
+    -10.027
+   ],
+   "taskGUID": "c69037c9-24f5-5c4e-8fdb-90089c4f28d8"
+  },
+  {
+   "ifcGuid": "1EeyRpZt12VOaSa9K3CB_P",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":685938",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "685938",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 5,
+   "bbox": [
+    -9.4905,
+    1.651,
+    -15.3275,
+    -6.9959,
+    5.6769,
+    -13.797
+   ],
+   "taskGUID": "d9b2007b-5823-59e2-ac3a-38199365f131"
+  },
+  {
+   "ifcGuid": "1KpZCW3Gn25x9tpICCoFgG",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":794203",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "794203",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 6,
+   "bbox": [
+    -29.6254,
+    0.0,
+    -12.1238,
+    -25.9303,
+    5.1816,
+    -5.4079
+   ],
+   "taskGUID": "72e0718c-d182-5b47-a2da-d87779d3ebc4"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06G",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":587032",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "587032",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 7,
+   "bbox": [
+    19.8435,
+    1.651,
+    -22.9492,
+    23.2591,
+    6.985,
+    -16.3785
+   ],
+   "taskGUID": "231b4b59-bb13-5521-a187-7339b0df93b6"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06H",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":587033",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "587033",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 8,
+   "bbox": [
+    17.1385,
+    1.651,
+    -22.8155,
+    19.9771,
+    6.985,
+    -21.2214
+   ],
+   "taskGUID": "3583633e-9fbd-5948-8d7b-5c4817e9ee81"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06I",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":587034",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "587034",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 9,
+   "bbox": [
+    17.2722,
+    1.651,
+    -21.4219,
+    21.8696,
+    6.985,
+    -12.5896
+   ],
+   "taskGUID": "c6bbd909-8084-5e11-a393-ef36c23200f7"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC09N",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":587487",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "587487",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 10,
+   "bbox": [
+    -10.4105,
+    1.651,
+    -22.0466,
+    -6.722,
+    5.9309,
+    -14.9166
+   ],
+   "taskGUID": "7ec671e9-4bc4-5f47-8286-d30a7d21c5b5"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC09f",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":587489",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "587489",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 11,
+   "bbox": [
+    -13.1155,
+    1.651,
+    -20.7932,
+    -9.2899,
+    5.9309,
+    -13.5964
+   ],
+   "taskGUID": "26351e68-9204-5bce-aaa7-2ec3b47f9bc3"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0PH",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586457",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586457",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 12,
+   "bbox": [
+    -26.914,
+    0.0,
+    -13.9918,
+    -25.3756,
+    28.575,
+    -11.2673
+   ],
+   "taskGUID": "e8db10c2-a40b-5307-b8db-1bfea04c170e"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1gl",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":585255",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "585255",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 13,
+   "bbox": [
+    -24.5466,
+    0.0,
+    -10.2553,
+    -21.8786,
+    5.1816,
+    -8.7792
+   ],
+   "taskGUID": "cb9ef916-624d-5f03-98b8-55f006a4d023"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1hI",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":585306",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "585306",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 14,
+   "bbox": [
+    -25.6495,
+    0.0,
+    -11.401,
+    -24.2726,
+    28.575,
+    -9.0075
+   ],
+   "taskGUID": "7e0ed44e-25f6-5b3b-8235-3049b01c7221"
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7e",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":691308",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "691308",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 15,
+   "bbox": [
+    2.1966,
+    0.0,
+    -21.1374,
+    4.9081,
+    5.9309,
+    -19.5011
+   ],
+   "taskGUID": "ec646bd2-74f8-5cf5-ac7d-1c767df0bb9d"
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7f",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":691309",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "691309",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 16,
+   "bbox": [
+    1.0937,
+    0.0,
+    -22.2832,
+    2.4249,
+    5.9309,
+    -19.9119
+   ],
+   "taskGUID": "bd85373f-4ae8-5a49-b393-141f4110e4a5"
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7g",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":691310",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "691310",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 17,
+   "bbox": [
+    1.322,
+    0.0,
+    -23.5978,
+    4.1269,
+    5.9309,
+    -22.0549
+   ],
+   "taskGUID": "981211fc-5f57-5c71-a7dd-782901afd04b"
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7h",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":691311",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "691311",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 18,
+   "bbox": [
+    3.716,
+    0.0,
+    -23.3695,
+    5.3189,
+    5.9309,
+    -20.7266
+   ],
+   "taskGUID": "a52b0da3-677f-58de-9707-20a6b1100d89"
+  },
+  {
+   "ifcGuid": "2auDUxuIb8D9gZ1Abf$ul8",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":801835",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "801835",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 19,
+   "bbox": [
+    20.5574,
+    1.651,
+    -16.6524,
+    22.9852,
+    6.985,
+    -15.2588
+   ],
+   "taskGUID": "6fe080b4-2261-5b83-ae7c-9c43db280bd9"
+  },
+  {
+   "ifcGuid": "2y$xKBMWH9JhKyZNsuaKnM",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":759479",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "759479",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 20,
+   "bbox": [
+    -25.3756,
+    0.0,
+    -12.5151,
+    -22.9815,
+    5.1816,
+    -11.1727
+   ],
+   "taskGUID": "c50caae3-f2ed-51fc-8cbd-d8266a56d440"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseChf",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":603528",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "603528",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 21,
+   "bbox": [
+    -3.6235,
+    1.651,
+    -5.0885,
+    4.7244,
+    5.9309,
+    -0.5968
+   ],
+   "taskGUID": "0697fd93-16b8-565a-ad15-0ebefe9d7b50"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseCjz",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":603164",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "603164",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 22,
+   "bbox": [
+    -12.7046,
+    1.651,
+    -21.9129,
+    -10.1432,
+    5.9309,
+    -20.2454
+   ],
+   "taskGUID": "4335b259-257d-55e4-8edd-4438d20d1a77"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseCnq",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":602901",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "602901",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 23,
+   "bbox": [
+    11.8076,
+    1.651,
+    -35.4264,
+    18.3115,
+    6.731,
+    -31.8699
+   ],
+   "taskGUID": "43db10a9-b66a-58e0-9e3c-707a25ba2c77"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDBX",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":601472",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "601472",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 24,
+   "bbox": [
+    21.4851,
+    1.651,
+    -17.5983,
+    29.3846,
+    6.985,
+    -12.037
+   ],
+   "taskGUID": "005c2682-1a07-577a-8e08-99da439fbd6a"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDCx",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":601178",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "601178",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 25,
+   "bbox": [
+    4.4571,
+    1.651,
+    -5.3559,
+    5.5786,
+    5.9309,
+    -3.913
+   ],
+   "taskGUID": "be478d2e-5d49-5bed-b6e1-8268de8550e3"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDDe",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":601097",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "601097",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 26,
+   "bbox": [
+    -19.853,
+    1.651,
+    -1.1447,
+    -3.3561,
+    4.9276,
+    7.3243
+   ],
+   "taskGUID": "2af982d6-0924-57c3-86b9-921451297198"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDFV",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":601278",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "601278",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 27,
+   "bbox": [
+    5.3113,
+    1.651,
+    -12.7133,
+    21.9752,
+    5.9309,
+    -4.1803
+   ],
+   "taskGUID": "06084f85-bd3b-56dd-b09d-bb801246a2d1"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDG0",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":600929",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "600929",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 28,
+   "bbox": [
+    -26.4782,
+    1.651,
+    -5.6753,
+    -19.5856,
+    4.9276,
+    7.5917
+   ],
+   "taskGUID": "50730f7b-bbc9-583d-b934-166d86c0b313"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDHr",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":600852",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "600852",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 29,
+   "bbox": [
+    17.759,
+    1.651,
+    -34.9137,
+    29.8928,
+    6.731,
+    -17.09
+   ],
+   "taskGUID": "9b61124e-f391-5d11-b2d7-2b96ae0b17c1"
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDMe",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":600777",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "600777",
+   "storeyIfcGuid": "2RjzvSKvLEZOEkn56Wpars",
+   "chunkHash": "b62e7f8e95e8471110860cabe283624e41c6a3b80d9808b664de90819e854a38",
+   "elementNumber": 30,
+   "bbox": [
+    -29.8928,
+    0.0,
+    -13.8581,
+    -26.6466,
+    5.1816,
+    -11.8564
+   ],
+   "taskGUID": "cf4afb7c-ea5b-5255-bdd4-ae7fd5bcde3e"
+  },
+  {
+   "ifcGuid": "1KpZCW3Gn25x9tpICCoCL_",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":795061",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "795061",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "chunkHash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "elementNumber": 0,
+   "bbox": [
+    -24.5466,
+    5.1816,
+    -10.2553,
+    -21.6503,
+    28.575,
+    -8.7792
+   ],
+   "taskGUID": "855856f4-6ffc-5f26-9716-06d345caff0d"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0L7",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586191",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586191",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "chunkHash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "elementNumber": 1,
+   "bbox": [
+    -24.4351,
+    5.1816,
+    -8.9129,
+    -23.2922,
+    28.575,
+    -6.9988
+   ],
+   "taskGUID": "a54ad7ff-d0db-5e0c-b94f-b25e1b397758"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0Qx",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586291",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586291",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "chunkHash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "elementNumber": 2,
+   "bbox": [
+    -26.4048,
+    5.1816,
+    -7.2727,
+    -23.5662,
+    28.575,
+    -5.6786
+   ],
+   "taskGUID": "141c423b-bc69-50e0-9112-ed503b4a376e"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1bU",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":585174",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "585174",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "chunkHash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "elementNumber": 3,
+   "bbox": [
+    -22.9815,
+    5.1816,
+    -12.3982,
+    -21.6503,
+    28.575,
+    -10.1384
+   ],
+   "taskGUID": "2e31d536-8d02-507e-a833-607a7b0c4800"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1du",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":585072",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "585072",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXVn",
+   "chunkHash": "6eb87691bebdac19ee6f274a09daf8a3aef0f93f7b47108e563304e5c8b08f6f",
+   "elementNumber": 4,
+   "bbox": [
+    -25.6495,
+    5.1816,
+    -12.6265,
+    -22.7533,
+    28.575,
+    -11.039
+   ],
+   "taskGUID": "6c66aa20-cffb-588e-8ef9-5de9659136f3"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0Az",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":587317",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "587317",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "chunkHash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "elementNumber": 0,
+   "bbox": [
+    -9.6307,
+    5.9309,
+    -15.3275,
+    -6.7888,
+    28.575,
+    -13.8002
+   ],
+   "taskGUID": "27b123f2-fbe8-5866-adc3-4e54a3188af5"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NB",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":586051",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "586051",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "chunkHash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "elementNumber": 1,
+   "bbox": [
+    1.0937,
+    5.9309,
+    -23.5087,
+    3.9443,
+    28.575,
+    -21.9435
+   ],
+   "taskGUID": "21072405-380d-528a-8f4e-28e8aa510726"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NC",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":586052",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "586052",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "chunkHash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "elementNumber": 2,
+   "bbox": [
+    3.716,
+    5.9309,
+    -23.2804,
+    5.0472,
+    28.575,
+    -20.9092
+   ],
+   "taskGUID": "70b9b12a-77b9-5aeb-a9ca-0e27362d7429"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0ND",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":586053",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "586053",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "chunkHash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "elementNumber": 3,
+   "bbox": [
+    2.1966,
+    5.9309,
+    -21.1374,
+    4.8189,
+    28.575,
+    -19.6837
+   ],
+   "taskGUID": "65965cd2-6971-59d0-9d03-6461b07d1729"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NE",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 10\":586054",
+   "typeName": "Basic Wall:Concrete 10\"",
+   "tag": "586054",
+   "storeyIfcGuid": "3eRW_mgkzCZQysdnuCHXSs",
+   "chunkHash": "834ba12f51bc1afa5944a07270ad3e20b53910983ccf5ec820c7f7e0063b0afd",
+   "elementNumber": 4,
+   "bbox": [
+    1.2051,
+    5.9309,
+    -22.0549,
+    2.4249,
+    28.575,
+    -19.9119
+   ],
+   "taskGUID": "d8ee86e9-d47e-59b6-a317-3f7a4b317f85"
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2Iu",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":596480",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "596480",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 0,
+   "bbox": [
+    17.2755,
+    6.985,
+    -21.6959,
+    20.5574,
+    28.575,
+    -15.3991
+   ],
+   "taskGUID": "b00225ae-9209-59fd-b448-2a05a7391c6a"
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2S_",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":596358",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "596358",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 1,
+   "bbox": [
+    17.5494,
+    6.985,
+    -22.9492,
+    20.2511,
+    28.575,
+    -21.4219
+   ],
+   "taskGUID": "67e49394-2da2-5f60-a190-7713e9a87c95"
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2Sz",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":596357",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "596357",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 2,
+   "bbox": [
+    20.2835,
+    6.985,
+    -16.7861,
+    23.2591,
+    28.575,
+    -15.1251
+   ],
+   "taskGUID": "1694f873-a5c0-5297-bdd6-b4b5e6d946ec"
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2T7",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":596479",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "596479",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 3,
+   "bbox": [
+    19.9771,
+    6.985,
+    -22.6753,
+    23.1254,
+    28.575,
+    -16.6524
+   ],
+   "taskGUID": "b2bb2692-f083-5a62-b995-616e4203dbdc"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHm",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":935926",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "935926",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 4,
+   "bbox": [
+    -2.0534,
+    1.524,
+    12.4599,
+    4.0937,
+    6.1214,
+    24.3256
+   ],
+   "taskGUID": "947b9545-f213-55db-89f0-57fa710c6b07"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHn",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 24\":935927",
+   "typeName": "Basic Wall:Concrete 24\"",
+   "tag": "935927",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 5,
+   "bbox": [
+    -8.91,
+    4.2672,
+    12.6484,
+    -1.6974,
+    6.1214,
+    16.3395
+   ],
+   "taskGUID": "2114e8eb-4f6c-538d-85c0-c1bd4398b23e"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHo",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":935924",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "935924",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 6,
+   "bbox": [
+    3.4663,
+    1.524,
+    24.0194,
+    10.3709,
+    6.1214,
+    26.7708
+   ],
+   "taskGUID": "6f75d01d-2666-5a47-b86d-d6b18145c68a"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHp",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":935925",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "935925",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 7,
+   "bbox": [
+    -9.3267,
+    1.524,
+    15.7513,
+    -1.879,
+    6.1214,
+    29.9541
+   ],
+   "taskGUID": "2c0413ad-d10b-5fff-b1f3-c0e6a657a27d"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHq",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":935922",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "935922",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 8,
+   "bbox": [
+    10.2308,
+    1.524,
+    32.3089,
+    13.6206,
+    6.1214,
+    34.4413
+   ],
+   "taskGUID": "fef1e4ac-e509-52ac-83ac-5ea363e60603"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHr",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":935923",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "935923",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 9,
+   "bbox": [
+    -2.5064,
+    1.524,
+    29.6478,
+    10.537,
+    6.1214,
+    35.4264
+   ],
+   "taskGUID": "07223fdb-99e6-5692-96af-72dac3d27075"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEYy",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":936762",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "936762",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 10,
+   "bbox": [
+    -14.7122,
+    1.524,
+    4.6751,
+    -8.6356,
+    4.572,
+    16.26
+   ],
+   "taskGUID": "04d03d82-b660-51c0-a6db-821ccad3d7f9"
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEYz",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 18\":936763",
+   "typeName": "Basic Wall:Concrete 18\"",
+   "tag": "936763",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 11,
+   "bbox": [
+    -7.597,
+    1.524,
+    1.2024,
+    -1.4173,
+    4.572,
+    12.9985
+   ],
+   "taskGUID": "8dbbd630-f951-5ed2-ab81-5c45147097e7"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02v",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586801",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586801",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 12,
+   "bbox": [
+    -10.2768,
+    5.9309,
+    -21.7727,
+    -6.7888,
+    28.575,
+    -15.1873
+   ],
+   "taskGUID": "8bb591de-267a-53a7-ae59-04ca54ec6a1a"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02w",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586802",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586802",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 13,
+   "bbox": [
+    -12.9785,
+    5.9309,
+    -22.0466,
+    -10.0029,
+    28.575,
+    -20.3856
+   ],
+   "taskGUID": "bc6434d9-8499-5e7a-8a0d-c066e8a088cd"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02x",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586803",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586803",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 14,
+   "bbox": [
+    -12.8448,
+    5.9309,
+    -20.5193,
+    -9.4905,
+    28.575,
+    -13.8002
+   ],
+   "taskGUID": "cf8c4553-45e1-53ad-ad5e-736ac17d2160"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0SG",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586648",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586648",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 15,
+   "bbox": [
+    -29.7591,
+    5.1816,
+    -12.264,
+    -26.2711,
+    28.575,
+    -5.5449
+   ],
+   "taskGUID": "bcf57810-9b14-59bd-b883-209408b48ec7"
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0V2",
+   "ifcClass": "IfcWall",
+   "name": "Basic Wall:Concrete 12\":586570",
+   "typeName": "Basic Wall:Concrete 12\"",
+   "tag": "586570",
+   "storeyIfcGuid": "12f1l24kT8d9RBml7$P4Yu",
+   "chunkHash": "0b43967f67d9bf6e9ad43c92e5acced02025e6425191d8c027c297555d445fd0",
+   "elementNumber": 16,
+   "bbox": [
+    -29.8928,
+    5.1816,
+    -13.8581,
+    -26.7803,
+    28.575,
+    -12.1303
+   ],
+   "taskGUID": "4888a32e-04a8-5685-af17-e611cd682c97"
+  }
+ ],
+ "properties": [
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4ile",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0B2YGPanTBc9mM6oEg4ile",
+     "Name": "Basic Wall:Concrete 18\":675720",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "675720"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 9.874999999999805,
+      "Width": 1.5,
+      "GrossFootprintArea": 14.812499999999702,
+      "GrossVolume": 251.81249999998346,
+      "GrossSideArea": 167.87499999998897,
+      "NetSideArea": 167.87499999998897,
+      "NetVolume": 251.8124999999834
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4jI2",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0B2YGPanTBc9mM6oEg4jI2",
+     "Name": "Basic Wall:Concrete 12\":676066",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "676066"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 5.499999999999952,
+      "Width": 1.0,
+      "GrossFootprintArea": 5.499999999999954,
+      "GrossVolume": 93.4999999999949,
+      "GrossSideArea": 93.4999999999949,
+      "NetSideArea": 67.38888888888319,
+      "NetVolume": 67.38888888888317
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0B2YGPanTBc9mM6oEg4jTu",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0B2YGPanTBc9mM6oEg4jTu",
+     "Name": "Basic Wall:Concrete 24\":676632",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "676632"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 13.208333333333329,
+      "Length": 79.625,
+      "Width": 2.0,
+      "GrossFootprintArea": 159.25,
+      "GrossVolume": 2103.427083333332,
+      "GrossSideArea": 1051.713541666666,
+      "NetSideArea": 1051.713541666666,
+      "NetVolume": 2103.4270833333358
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0CKTlg9k54kxOjOSxML2FF",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0CKTlg9k54kxOjOSxML2FF",
+     "Name": "Basic Wall:Concrete 24\":677214",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "677214"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 10.749999999999222,
+      "Length": 49.37499999999993,
+      "Width": 2.0,
+      "GrossFootprintArea": 98.74999999999986,
+      "GrossVolume": 1061.562499999921,
+      "GrossSideArea": 530.7812499999606,
+      "NetSideArea": 530.7812499999607,
+      "NetVolume": 1061.562499999922
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0CKTlg9k54kxOjOSxML2Li",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0CKTlg9k54kxOjOSxML2Li",
+     "Name": "Basic Wall:Concrete 18\":676861",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "676861"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 9.083333333333389,
+      "Width": 1.5,
+      "GrossFootprintArea": 13.625000000000089,
+      "GrossVolume": 231.6249999999908,
+      "GrossSideArea": 154.41666666666052,
+      "NetSideArea": 154.41666666666052,
+      "NetVolume": 231.62499999999073
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1EeyRpZt12VOaSa9K3CB_P",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1EeyRpZt12VOaSa9K3CB_P",
+     "Name": "Basic Wall:Concrete 18\":685938",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "685938"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 13.208333333333329,
+      "Length": 8.375000000000004,
+      "Width": 1.5,
+      "GrossFootprintArea": 12.5625,
+      "GrossVolume": 165.92968749999994,
+      "GrossSideArea": 110.61979166666663,
+      "NetSideArea": 84.50868055555493,
+      "NetVolume": 126.76302083333174
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1KpZCW3Gn25x9tpICCoFgG",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1KpZCW3Gn25x9tpICCoFgG",
+     "Name": "Basic Wall:Concrete 24\":794203",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "794203"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 23.5416666666667,
+      "Width": 2.0,
+      "GrossFootprintArea": 47.08333333333339,
+      "GrossVolume": 800.4166666666313,
+      "GrossSideArea": 400.20833333331564,
+      "NetSideArea": 400.20833333331564,
+      "NetVolume": 800.4166666666312
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06G",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC06G",
+     "Name": "Basic Wall:Concrete 12\":587032",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "587032"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 17.499999999999993,
+      "Length": 23.500000000000004,
+      "Width": 1.0,
+      "GrossFootprintArea": 23.500000000000004,
+      "GrossVolume": 411.24999999999983,
+      "GrossSideArea": 411.24999999999983,
+      "NetSideArea": 411.2499999999999,
+      "NetVolume": 411.2499999999998
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06H",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC06H",
+     "Name": "Basic Wall:Concrete 12\":587033",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "587033"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 17.499999999999993,
+      "Length": 9.875,
+      "Width": 1.0,
+      "GrossFootprintArea": 9.875,
+      "GrossVolume": 172.81249999999983,
+      "GrossSideArea": 172.81249999999983,
+      "NetSideArea": 172.81249999999983,
+      "NetVolume": 172.8124999999998
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC06I",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC06I",
+     "Name": "Basic Wall:Concrete 18\":587034",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "587034"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 32.91666666666746,
+      "Width": 1.5,
+      "NetVolume": 773.8140736064174
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC09N",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC09N",
+     "Name": "Basic Wall:Concrete 12\":587487",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "587487"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 14.04166666666666,
+      "Length": 25.541666666666668,
+      "Width": 1.0,
+      "GrossFootprintArea": 25.541666666666668,
+      "GrossVolume": 357.39756944444423,
+      "GrossSideArea": 357.39756944444423,
+      "NetSideArea": 357.3975694444442,
+      "NetVolume": 357.3975694444439
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC09f",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC09f",
+     "Name": "Basic Wall:Concrete 18\":587489",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "587489"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 23.791666666666664,
+      "Width": 1.5,
+      "NetVolume": 537.3463541666666
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0PH",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0PH",
+     "Name": "Basic Wall:Concrete 12\":586457",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586457"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 93.75000000000155,
+      "Length": 9.458333333333364,
+      "Width": 1.0,
+      "GrossFootprintArea": 9.458333333333364,
+      "GrossVolume": 886.718750000017,
+      "GrossSideArea": 886.718750000017,
+      "NetSideArea": 886.7187500000175,
+      "NetVolume": 884.0798611111278
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1gl",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC1gl",
+     "Name": "Basic Wall:Concrete 10\":585255",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "585255"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 9.333333333333346,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 7.777777777777808,
+      "GrossVolume": 132.22222222221632,
+      "GrossSideArea": 158.66666666665958,
+      "NetSideArea": 126.3749999999921,
+      "NetVolume": 105.31249999999326
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1hI",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC1hI",
+     "Name": "Basic Wall:Concrete 12\":585306",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "585306"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 8.250000000000053,
+      "Width": 1.0,
+      "NetVolume": 709.4791666666822
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7e",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1w7cQHNzPBh8U7J90sHO7e",
+     "Name": "Basic Wall:Concrete 18\":691308",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "691308"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 19.458333333333336,
+      "Length": 9.166666666666355,
+      "Width": 1.5,
+      "GrossFootprintArea": 13.749999999999533,
+      "GrossVolume": 267.5520833333242,
+      "GrossSideArea": 178.3680555555495,
+      "NetSideArea": 146.07638888888206,
+      "NetVolume": 214.0219907407309
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7f",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1w7cQHNzPBh8U7J90sHO7f",
+     "Name": "Basic Wall:Concrete 10\":691309",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "691309"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 19.458333333333332,
+      "Length": 8.250000000000028,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 6.875000000000028,
+      "GrossVolume": 133.7760416666671,
+      "GrossSideArea": 160.53125000000054,
+      "NetSideArea": 160.53125000000057,
+      "NetVolume": 133.77604166666706
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7g",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1w7cQHNzPBh8U7J90sHO7g",
+     "Name": "Basic Wall:Concrete 10\":691310",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "691310"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 19.458333333333332,
+      "Length": 9.833333333333023,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 8.194444444444208,
+      "GrossVolume": 158.9872685185135,
+      "GrossSideArea": 190.7847222222162,
+      "NetSideArea": 190.78472222221623,
+      "NetVolume": 158.9872685185133
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1w7cQHNzPBh8U7J90sHO7h",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1w7cQHNzPBh8U7J90sHO7h",
+     "Name": "Basic Wall:Concrete 18\":691311",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "691311"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 8.583333333333364,
+      "Width": 1.5,
+      "NetVolume": 254.83854166666688
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "2auDUxuIb8D9gZ1Abf$ul8",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "2auDUxuIb8D9gZ1Abf$ul8",
+     "Name": "Basic Wall:Concrete 12\":801835",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "801835"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 17.499999999999993,
+      "Length": 8.375,
+      "Width": 1.0,
+      "GrossFootprintArea": 8.375,
+      "GrossVolume": 146.5624999999999,
+      "GrossSideArea": 146.5624999999999,
+      "NetSideArea": 146.5624999999999,
+      "NetVolume": 146.56249999999986
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "2y$xKBMWH9JhKyZNsuaKnM",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "2y$xKBMWH9JhKyZNsuaKnM",
+     "Name": "Basic Wall:Concrete 10\":759479",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "759479"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 8.333333333333346,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 6.944444444444413,
+      "GrossVolume": 118.0555555555503,
+      "GrossSideArea": 141.66666666666038,
+      "NetSideArea": 141.66666666666038,
+      "NetVolume": 118.05555555555063
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseChf",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseChf",
+     "Name": "Basic Wall:Concrete 24\":603528",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "603528"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 14.041666666666671,
+      "Length": 29.500000000000007,
+      "Width": 2.0,
+      "GrossFootprintArea": 59.000000000000014,
+      "GrossVolume": 779.2916666666666,
+      "GrossSideArea": 389.6458333333333,
+      "NetSideArea": 389.64583333333337,
+      "NetVolume": 779.2916666666666
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseCjz",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseCjz",
+     "Name": "Basic Wall:Concrete 24\":603164",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "603164"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 14.041666666666664,
+      "Length": 8.375,
+      "Width": 2.0,
+      "GrossFootprintArea": 16.75,
+      "GrossVolume": 235.19791666666657,
+      "GrossSideArea": 117.59895833333329,
+      "NetSideArea": 117.59895833333326,
+      "NetVolume": 235.1979166666666
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseCnq",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseCnq",
+     "Name": "Basic Wall:Concrete 24\":602901",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "602901"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.66666666666666,
+      "Length": 22.767924491463987,
+      "Width": 2.0,
+      "GrossFootprintArea": 45.27254398775324,
+      "GrossVolume": 758.9308163821327,
+      "GrossSideArea": 379.46540819106633,
+      "NetSideArea": 379.46540819106633,
+      "NetVolume": 754.5423997958858
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDBX",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDBX",
+     "Name": "Basic Wall:Concrete 24\":601472",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "601472"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 30.091127665018895,
+      "Width": 2.0,
+      "NetVolume": 973.9505395927882
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDCx",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDCx",
+     "Name": "Basic Wall:Concrete 24\":601178",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "601178"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 14.041666666666664,
+      "Length": 4.29166666666667,
+      "Width": 2.0,
+      "GrossFootprintArea": 8.583333333333343,
+      "GrossVolume": 120.52430555555532,
+      "GrossSideArea": 60.26215277777766,
+      "NetSideArea": 60.26215277777766,
+      "NetVolume": 120.52430555555526
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDDe",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDDe",
+     "Name": "Basic Wall:Concrete 24\":601097",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "601097"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 10.749999999999222,
+      "Length": 59.250000000000014,
+      "Width": 2.0,
+      "GrossFootprintArea": 118.50000000000003,
+      "GrossVolume": 1273.874999999908,
+      "GrossSideArea": 636.937499999954,
+      "NetSideArea": 420.9374999999496,
+      "NetVolume": 841.8749999998983
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDFV",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDFV",
+     "Name": "Basic Wall:Concrete 24\":601278",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "601278"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 14.041666666666664,
+      "Length": 59.85978214808119,
+      "Width": 2.0,
+      "GrossFootprintArea": 119.58847737053188,
+      "GrossVolume": 1582.7288819919463,
+      "GrossSideArea": 791.3644409959732,
+      "NetSideArea": 791.3644409959734,
+      "NetVolume": 1580.8882030778846
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDG0",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDG0",
+     "Name": "Basic Wall:Concrete 24\":600929",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "600929"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 10.749999999999222,
+      "Length": 47.458333333334124,
+      "Width": 2.0,
+      "GrossFootprintArea": 94.91666666666825,
+      "GrossVolume": 1020.3541666666097,
+      "GrossSideArea": 510.17708333330484,
+      "NetSideArea": 510.17708333330484,
+      "NetVolume": 1020.3541666666097
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDHr",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDHr",
+     "Name": "Basic Wall:Concrete 24\":600852",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "600852"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.66666666666666,
+      "Length": 69.07692003329389,
+      "Width": 2.0,
+      "GrossFootprintArea": 137.8905350714129,
+      "GrossVolume": 2302.564001109795,
+      "GrossSideArea": 1151.2820005548974,
+      "NetSideArea": 1151.2820005548972,
+      "NetVolume": 2298.175584523548
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "3U9u71_MH84e7LZnQseDMe",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "3U9u71_MH84e7LZnQseDMe",
+     "Name": "Basic Wall:Concrete 24\":600777",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "600777"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 16.999999999999226,
+      "Length": 10.874999999999808,
+      "Width": 2.0,
+      "GrossFootprintArea": 21.749999999999602,
+      "GrossVolume": 369.74999999997635,
+      "GrossSideArea": 184.87499999998818,
+      "NetSideArea": 184.8749999999882,
+      "NetVolume": 369.74999999997635
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1KpZCW3Gn25x9tpICCoCL_",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1KpZCW3Gn25x9tpICCoCL_",
+     "Name": "Basic Wall:Concrete 10\":795061",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "795061"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000236,
+      "Length": 10.16666666666669,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 8.124999999999993,
+      "GrossVolume": 629.4675925926108,
+      "GrossSideArea": 755.361111111133,
+      "NetSideArea": 596.4027777777949,
+      "NetVolume": 467.93402777778283
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0L7",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0L7",
+     "Name": "Basic Wall:Concrete 12\":586191",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586191"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000236,
+      "Length": 6.499999999999952,
+      "Width": 1.0,
+      "GrossFootprintArea": 6.499999999999954,
+      "GrossVolume": 474.4305555555642,
+      "GrossSideArea": 474.4305555555642,
+      "NetSideArea": 376.65277777778374,
+      "NetVolume": 374.5416666666724
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0Qx",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0Qx",
+     "Name": "Basic Wall:Concrete 12\":586291",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586291"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000233,
+      "Length": 9.875000000000117,
+      "Width": 1.0,
+      "GrossFootprintArea": 9.875000000000114,
+      "GrossVolume": 757.9062500000322,
+      "GrossSideArea": 757.9062500000322,
+      "NetSideArea": 757.9062500000322,
+      "NetVolume": 756.98263888892
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1bU",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC1bU",
+     "Name": "Basic Wall:Concrete 10\":585174",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "585174"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000233,
+      "Length": 8.25000000000005,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 6.527777777777793,
+      "GrossVolume": 525.4571759259452,
+      "GrossSideArea": 630.5486111111343,
+      "NetSideArea": 630.5486111111346,
+      "NetVolume": 500.567129629646
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC1du",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC1du",
+     "Name": "Basic Wall:Concrete 10\":585072",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "585072"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000236,
+      "Length": 10.16666666666669,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 8.47222222222219,
+      "GrossVolume": 656.8402777777992,
+      "GrossSideArea": 788.2083333333591,
+      "NetSideArea": 780.2916666666921,
+      "NetVolume": 645.1851851852083
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0Az",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0Az",
+     "Name": "Basic Wall:Concrete 12\":587317",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "587317"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 10.375,
+      "Width": 1.0,
+      "GrossFootprintArea": 9.374999999999986,
+      "GrossVolume": 774.6927083333487,
+      "GrossSideArea": 774.6927083333487,
+      "NetSideArea": 642.7482638889011,
+      "NetVolume": 571.1302083333434
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NB",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0NB",
+     "Name": "Basic Wall:Concrete 10\":586051",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "586051"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 9.999999999999675,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 8.333333333333087,
+      "GrossVolume": 619.0972222222148,
+      "GrossSideArea": 742.9166666666578,
+      "NetSideArea": 742.9166666666578,
+      "NetVolume": 619.0972222222138
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NC",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0NC",
+     "Name": "Basic Wall:Concrete 10\":586052",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "586052"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 8.25000000000006,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 6.875000000000048,
+      "GrossVolume": 510.7552083333475,
+      "GrossSideArea": 612.906250000017,
+      "NetSideArea": 612.906250000017,
+      "NetVolume": 510.75520833334764
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0ND",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0ND",
+     "Name": "Basic Wall:Concrete 10\":586053",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "586053"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 9.166666666666341,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 7.638888888888639,
+      "GrossVolume": 542.3321759259173,
+      "GrossSideArea": 650.7986111111009,
+      "NetSideArea": 499.75694444443025,
+      "NetVolume": 416.464120370358
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0NE",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0NE",
+     "Name": "Basic Wall:Concrete 10\":586054",
+     "Type": "Basic Wall:Concrete 10\"",
+     "Tag": "586054"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 10\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 4.118110236220473,
+      "Reference": "Concrete 10\"",
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 7.4166666666667265,
+      "Width": 0.8333333333333333,
+      "GrossFootprintArea": 6.180555555555612,
+      "GrossVolume": 459.16377314816134,
+      "GrossSideArea": 550.9965277777936,
+      "NetSideArea": 550.9965277777936,
+      "NetVolume": 459.16377314816106
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 10\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2Iu",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0iiRHYyO134A5NMA7XH2Iu",
+     "Name": "Basic Wall:Concrete 12\":596480",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "596480"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 70.83333333333488,
+      "Length": 22.500000000000004,
+      "Width": 1.0,
+      "GrossFootprintArea": 22.5,
+      "GrossVolume": 1593.7500000000348,
+      "GrossSideArea": 1593.7500000000348,
+      "NetSideArea": 1593.750000000035,
+      "NetVolume": 1593.7500000000348
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2S_",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0iiRHYyO134A5NMA7XH2S_",
+     "Name": "Basic Wall:Concrete 12\":596358",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "596358"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 70.83333333333488,
+      "Length": 9.375,
+      "Width": 1.0,
+      "GrossFootprintArea": 9.375,
+      "GrossVolume": 664.0625000000141,
+      "GrossSideArea": 664.0625000000141,
+      "NetSideArea": 541.840277777789,
+      "NetVolume": 541.8402777777887
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2Sz",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0iiRHYyO134A5NMA7XH2Sz",
+     "Name": "Basic Wall:Concrete 12\":596357",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "596357"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 70.83333333333488,
+      "Length": 10.375,
+      "Width": 1.0,
+      "GrossFootprintArea": 10.375,
+      "GrossVolume": 710.4513888889046,
+      "GrossSideArea": 710.4513888889046,
+      "NetSideArea": 602.6076388889076,
+      "NetVolume": 602.6076388889076
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "0iiRHYyO134A5NMA7XH2T7",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "0iiRHYyO134A5NMA7XH2T7",
+     "Name": "Basic Wall:Concrete 12\":596479",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "596479"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 70.83333333333488,
+      "Length": 21.500000000000004,
+      "Width": 1.0,
+      "GrossFootprintArea": 21.500000000000004,
+      "GrossVolume": 1522.9166666667002,
+      "GrossSideArea": 1522.9166666667002,
+      "NetSideArea": 1522.9166666667002,
+      "NetVolume": 1522.9166666666997
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHm",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHm",
+     "Name": "Basic Wall:Concrete 18\":935926",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "935926"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 41.222442718393694,
+      "Width": 1.5,
+      "NetVolume": 1188.5312768017257
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHn",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHn",
+     "Name": "Basic Wall:Concrete 24\":935927",
+     "Type": "Basic Wall:Concrete 24\"",
+     "Tag": "935927"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 24\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 1.7158792650918635,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 24\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 24\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 26.511217457623797,
+      "Width": 2.0,
+      "NetVolume": 300.41487501041286
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHo",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHo",
+     "Name": "Basic Wall:Concrete 18\":935924",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "935924"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 23.885878277371607,
+      "Width": 1.5,
+      "NetVolume": 694.590374294555
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHp",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHp",
+     "Name": "Basic Wall:Concrete 18\":935925",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "935925"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 49.99357894852625,
+      "Width": 1.5,
+      "NetVolume": 1439.219623707192
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHq",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHq",
+     "Name": "Basic Wall:Concrete 18\":935922",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "935922"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 11.257582853947664,
+      "Width": 1.5,
+      "NetVolume": 321.8156449915534
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEHr",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEHr",
+     "Name": "Basic Wall:Concrete 18\":935923",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "935923"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 49.08738521234079,
+      "Width": 1.5,
+      "NetVolume": 1393.7531556887755
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEYy",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEYy",
+     "Name": "Basic Wall:Concrete 18\":936762",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "936762"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 42.30564843021505,
+      "Width": 1.5,
+      "NetVolume": 726.2953270350697
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Kq25REID7kBwpLVZLmEYz",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Kq25REID7kBwpLVZLmEYz",
+     "Name": "Basic Wall:Concrete 18\":936763",
+     "Type": "Basic Wall:Concrete 18\"",
+     "Tag": "936763"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 18\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 2.2878390201224845,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 18\""
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 18\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Length": 43.076784660347386,
+      "Width": 1.5,
+      "NetVolume": 739.8818769336935
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02v",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC02v",
+     "Name": "Basic Wall:Concrete 12\":586801",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586801"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.2916666666682,
+      "Length": 24.04166666666667,
+      "Width": 1.0,
+      "GrossFootprintArea": 23.541666666666686,
+      "GrossVolume": 1791.3732638889255,
+      "GrossSideArea": 1791.3732638889255,
+      "NetSideArea": 1783.456597222259,
+      "NetVolume": 1744.1116898148518
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02w",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC02w",
+     "Name": "Basic Wall:Concrete 12\":586802",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586802"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.29166666666822,
+      "Length": 10.375000000000004,
+      "Width": 1.0,
+      "GrossFootprintArea": 10.375,
+      "GrossVolume": 770.7760416666827,
+      "GrossSideArea": 770.7760416666827,
+      "NetSideArea": 379.6927083333482,
+      "NetVolume": 379.69270833334804
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC02x",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC02x",
+     "Name": "Basic Wall:Concrete 12\":586803",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586803"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 74.2916666666682,
+      "Length": 24.04166666666667,
+      "Width": 1.0,
+      "GrossFootprintArea": 23.541666666666643,
+      "GrossVolume": 1790.8454861111475,
+      "GrossSideArea": 1790.8454861111475,
+      "NetSideArea": 1782.928819444481,
+      "NetVolume": 1745.431134259295
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0SG",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0SG",
+     "Name": "Basic Wall:Concrete 12\":586648",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586648"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000155,
+      "Length": 24.041666666666703,
+      "Width": 1.0,
+      "GrossFootprintArea": 24.041666666666707,
+      "GrossVolume": 1845.197916666706,
+      "GrossSideArea": 1845.197916666706,
+      "NetSideArea": 1845.197916666706,
+      "NetVolume": 1844.0104166667065
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  },
+  {
+   "ifcGuid": "1Z_D8qyun52938MRTkC0V2",
+   "rowJSON": {
+    "attributes": {
+     "Class": "IfcWall",
+     "GlobalId": "1Z_D8qyun52938MRTkC0V2",
+     "Name": "Basic Wall:Concrete 12\":586570",
+     "Type": "Basic Wall:Concrete 12\"",
+     "Tag": "586570"
+    },
+    "sets": {
+     "Pset_ReinforcementBarPitchOfWall": {
+      "Description": "CW",
+      "Reference": "Concrete 12\""
+     },
+     "Pset_WallCommon": {
+      "ThermalTransmittance": 3.431758530183727,
+      "IsExternal": true,
+      "LoadBearing": true,
+      "ExtendToStructure": false,
+      "Reference": "Concrete 12\""
+     },
+     "Qto_WallBaseQuantities": {
+      "Height": 76.75000000000153,
+      "Length": 10.875000000000117,
+      "Width": 1.0,
+      "GrossFootprintArea": 10.875000000000114,
+      "GrossVolume": 834.6562500000255,
+      "GrossSideArea": 834.6562500000255,
+      "NetSideArea": 443.57291666669124,
+      "NetVolume": 443.5729166666905
+     },
+     "Pset_EnvironmentalImpactIndicators": {
+      "Reference": "Concrete 12\""
+     }
+    }
+   }
+  }
+ ],
+ "wbs": {
+  "granularity": "element",
+  "tasks": 58,
+  "stages": 4,
+  "storeyStage": {
+   "2RjzvSKvLEZOEkn56Wpars": "da0be61f-7593-5289-badc-a189fefb9dc1",
+   "3eRW_mgkzCZQysdnuCHXVn": "5926255d-af07-51ee-b2bb-14ddfe517ee2",
+   "3eRW_mgkzCZQysdnuCHXSs": "767a88fd-5940-5817-b8c0-e2a805f939b9",
+   "12f1l24kT8d9RBml7$P4Yu": "3903ad66-da84-5037-9231-f10681606304"
+  }
+ }
+}

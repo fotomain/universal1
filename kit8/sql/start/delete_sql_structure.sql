@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000000000000000000000. delete_bim.sql - PART 55: drops the bim_ tables (data included: the models, storeys, chunk rows, elements, properties and import history of ALL projects), the bim_ functions, the Storage policies of the bucket bim; the files of the bucket and the key projectIsBIMBased stay (use delete_bim_data.sql BEFORE this to remove the data and the files properly; runs very first: it is the newest)
 --  1a-000000000000000000000. delete_application_admin.sql - PART 54: drops application_permission_table (data included: the list of the application administrators) and permission_application_admin / organization_visible, and gives organizationTable its old public SELECT policy back (runs very first: it is the newest)
 --  1a-00000000000000000000. delete_time_of_day_model.sql - PART 53: drops task_line_plan_hour_movements (data included: the hour rows of ALL posted Time lines; the day rows stay), the hm_* / organization_calendar_day_windows* / organization_resource_capacity_windows / organization_resource_busy_check_hours / task_line_plan_hours_write / project_resource_leveling_inputs_hours functions and the triggers of the day windows and of the minute keys (runs very first: it is the newest)
 --  1a-0000000000000000000. delete_consolidation.sql - PART 52: drops consolidation_dirty + consolidation_gap_table (data included), the consolidation_* / fx_consolidation_* functions, the triggers on the organization row, project_table, the exchange rates and the four movement tables, and the sumForConsolidation columns; the organization keys (currencyForConsolidation ...) stay as inert JSON (runs very first: it is the newest)
@@ -47,6 +48,79 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-0000000000000000000000: delete_bim.sql  (PART 55 of the structure file: BIM - runs before everything else, it is the newest)
+-- Storage: the policies of the bucket bim go (the bucket and its files stay: remove them with delete_bim_data.sql first, or in Storage -> bim). Data: ALL bim_ rows of ALL projects.
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('storage.objects') IS NOT NULL THEN
+    DROP POLICY IF EXISTS bim_objects_select ON storage.objects;
+    DROP POLICY IF EXISTS bim_objects_insert ON storage.objects;
+    DROP POLICY IF EXISTS bim_objects_delete ON storage.objects;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime')
+     AND EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'bim_model_table')
+     AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime DROP TABLE public.bim_model_table;
+  END IF;
+END $$;
+
+DROP TRIGGER IF EXISTS ab_project_bim ON public.project_table;
+
+DROP TABLE IF EXISTS public.bim_import_job_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_property_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_element_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_chunk_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_storey_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_model_table CASCADE;
+
+DROP TABLE IF EXISTS public.bim_storage_cleanup_table CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_project_guard() CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_chunk_after_delete() CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_import_begin(uuid, text, text, jsonb) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_import_model(uuid) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_import_add_rows(uuid, text, jsonb) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_import_commit(uuid, jsonb, jsonb) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_import_fail(uuid, text, text[]) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_delete_model(uuid) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_model_manifest(uuid) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_elements_page(uuid, uuid, integer) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_property_get(uuid, text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_elements_of_task(uuid, uuid) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_task_of_element(uuid, text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_storage_project(text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_storage_upload_ok(text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_storage_cleanup_confirm(text[]) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_storage_cleanup_pending(integer) CASCADE;
+
+DROP FUNCTION IF EXISTS public.bim_storage_setup() CASCADE;
+
+NOTIFY pgrst, 'reload schema';
 
 
 -- =====================================================================================

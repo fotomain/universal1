@@ -33,6 +33,7 @@ export default function ImportExportProject({
   onImported,
   onExportPdf,
   onSaveAsTemplate,
+  onImportBim,
 }: {
   ownerGUID: string;
   projectGUID: string;
@@ -43,6 +44,8 @@ export default function ImportExportProject({
   onExportPdf?: (projectGUID: string) => void;
   /** "Save as template" pressed */
   onSaveAsTemplate?: () => void;
+  /** "Import BIM (IFC)…" pressed: the host opens the BIM importer (kit8/pm/bim, route /pm/bim/import) for this project; no button without it */
+  onImportBim?: () => void;
 }) {
   const { exportProject, importProject, status, busy } = useProjectExchange(ownerGUID);
   const name = usePMStore((s) => s.projectsById[projectGUID]?.rowJSON.name ?? '');
@@ -128,7 +131,13 @@ export default function ImportExportProject({
               if (plan) onImported?.(plan.projectRowJSON);
             }}
           />
-        ) : (
+        ) : null}
+        {tab === 'TabImport' && !!onImportBim ? (
+          <View style={{ alignItems: 'center', marginTop: 8 }}>
+            <PMDialogButton testID="pm-project-import-bim" kind="secondary" icon="view_in_ar" title={pmT('Import BIM (IFC)…')} disabled={busy} width={PM_EXPORT_BUTTON_WIDTH} style={styles.exportButton} onPress={onImportBim} />
+          </View>
+        ) : null}
+        {tab !== 'TabImport' ? (
           <View style={styles.exportPanel} testID="pm-project-export-panel">
             <Text style={[styles.hint, { color: colors.text }]}>
               {pmT('The project with all its stages, tasks, milestones and dependencies (+ your Gantt settings).')}
@@ -189,7 +198,7 @@ export default function ImportExportProject({
               </Text>
             )}
           </View>
-        )}
+        ) : null}
       </View>
       <PMExportToMSProject visible={msProjectOpen} projectGUID={projectGUID} onClose={() => setMsProjectOpen(false)} />
       {status.kind !== 'idle' && (

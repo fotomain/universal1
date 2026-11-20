@@ -59,6 +59,7 @@ import { PMPicker, PMPickerScope } from './pick/pmPickerContext';
 import PMProjectSummaryRow from '../../extended/PMProjectSummaryRow';
 import { useExtendedKeys } from '../../extended/useExtendedKeys';
 import { useExternalDates } from '../../crud/extended/useExternalDates';
+import { projectIsBimBased } from '../../bim/model/bimModel';
 
 export interface PMProjectDashboardProps {
   /**
@@ -91,7 +92,10 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   const cycleCount = usePMStore((s) => s.cycleGUIDs.length);
   const rowCount = usePMStore((s) => s.visibleRows.length);
   const projectCount = usePMStore((s) => s.projectOrder.length);
-  const ganttVsNetworkView = usePMStore((s) => s.ganttVsNetworkView);
+  const storedView = usePMStore((s) => s.ganttVsNetworkView);
+  // the BIM view of a project that is not (or no longer) BIM based falls back to the Gantt chart
+  const bimBased = usePMStore((s) => projectIsBimBased(s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : null));
+  const ganttVsNetworkView = storedView === 'showBimView' && !bimBased ? 'showGanttChart' : storedView;
 
   const projectsQuery = useReadProjectsQuery(ownerGUID);
   useReadProjectUserSettingsQuery(ownerGUID); // this user's Gantt / tree settings per project
@@ -309,7 +313,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={picker ? 'finances' : ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : 'gantt'}
+              rightPane={picker ? 'finances' : ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : ganttVsNetworkView === 'showBimView' ? 'bim' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}
@@ -317,7 +321,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
           )}
           </View>
           {!picker && ganttVsNetworkView === 'showGanttChart' && <PMDetailsPane crud={crud} />}
-          {!picker && rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
+          {!picker && ganttVsNetworkView === 'showGanttChart' && rowCount === 0 && loadedProjectGUID === selectedProjectGUID && (
             // the button stands in the CENTER OF THE GANTT CHART (the pane right of the tree), not of the whole window
             <View pointerEvents="box-none" style={[styles.emptyOverlay, { paddingLeft: emptyChartLeft }]} onLayout={(e) => setOverlayWidth(Math.round(e.nativeEvent.layout.width))}>
               <PMDialogButton testID="pm-empty-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} style={styles.cta} onPress={() => crud.createStage()} />

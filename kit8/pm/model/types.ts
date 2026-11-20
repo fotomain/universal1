@@ -145,6 +145,8 @@ export interface PMRowJSON {
   skipWeekends?: boolean;
   /** the read-only switch (model/projectReadonly.ts, SQL PART 51): true = nothing of the project can be changed but this switch; false while never saved */
   projectIsReadonly?: boolean;
+  /** the project has a BIM model / shows the BIM button (kit8/pm/bim). The user can switch it (Project settings -> BIM); the BIM import sets it. */
+  projectIsBIMBased?: boolean;
   /** Planning units: plan in days (default true). */
   planDay?: boolean;
   /** Planning units: plan in hours. */
@@ -487,18 +489,18 @@ export type PMSelectRowCheckBoxForm = 'formRound' | 'formSquare';
 export const PM_SELECT_ROW_CHECK_BOX_FORMS: PMSelectRowCheckBoxForm[] = ['formRound', 'formSquare'];
 export const selectRowCheckBoxFormOf = (v: unknown): PMSelectRowCheckBoxForm => (v === 'formSquare' ? 'formSquare' : 'formRound');
 
-/** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan | Reports (GanttToggleButtons). */
-export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView' | 'showReportsView';
-export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView'];
-/** the button that is ALWAYS the last one of the switch (Budgets), whatever order the user saved */
-export const PM_LAST_VIEW_BUTTON: PMGanttVsNetworkView = 'showPlanView';
+/** Main view switch Gantt | Kanban | Network | Versions | Finances | Plan | Reports | BIM (GanttToggleButtons). showBimView = the 3D model next to the tree (kit8/pm/bim); its button shows only while the project is BIM based. */
+export type PMGanttVsNetworkView = 'showGanttChart' | 'showKanbanView' | 'showNetworkView' | 'showVersionsView' | 'showFinancesView' | 'showPlanView' | 'showReportsView' | 'showBimView';
+export const PM_DEFAULT_VIEW_BUTTONS_ORDER: PMGanttVsNetworkView[] = ['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView', 'showBimView'];
+/** the button that is ALWAYS the last one of the switch (BIM since 2026-11-20; Budgets is the one before it), whatever order the user saved */
+export const PM_LAST_VIEW_BUTTON: PMGanttVsNetworkView = 'showBimView';
 /** the main view that has no button of its own: it is a part of Reports (the Network button sits in the Reports section row: Costs | Revenues | Network) */
 export const PM_REPORTS_PART_VIEW: PMGanttVsNetworkView = 'showNetworkView';
 /** Sections of Reports (PMReportsSectionButtons): Costs, Revenues and Monitor01 (kit8/pm/reports/monitor01) are pages of the Reports view, Network is the network view */
 export type PMReportsSection = 'costs' | 'revenues' | 'monitor01' | 'network';
 export const pmMainViewOf = (v: unknown): PMGanttVsNetworkView =>
-  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' || v === 'showReportsView' ? v : 'showGanttChart';
-/** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order); Budgets (PM_LAST_VIEW_BUTTON) is always the last. */
+  v === 'showNetworkView' || v === 'showKanbanView' || v === 'showVersionsView' || v === 'showFinancesView' || v === 'showPlanView' || v === 'showReportsView' || v === 'showBimView' ? v : 'showGanttChart';
+/** Saved order (unknown / duplicate values dropped, missing buttons appended in the default order); BIM (PM_LAST_VIEW_BUTTON) is always the last. */
 export const viewButtonsOrderOf = (v: unknown): PMGanttVsNetworkView[] => {
   const seen = new Set<PMGanttVsNetworkView>();
   const out: PMGanttVsNetworkView[] = [];

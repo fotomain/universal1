@@ -5,6 +5,7 @@
 // Finances mode (rightPane='finances'): [ tree | splitter | PMTaskEditView ] (the lines of the selected task, view/task/finances).
 // Plan mode (rightPane='plan'): [ tree | splitter | PMTaskLinePlanView ] (the posted days of the lines of the selected task, view/task/plan).
 // Reports mode (rightPane='reports'): [ tree | splitter | PMProjectReportsView ] (project summary, view/reports).
+// BIM mode (rightPane='bim'): [ tree | splitter | PMProjectBimView ] (the 3D model of an IFC import, kit8/pm/bim; a press on a task lights its elements, a press on an element scrolls the tree).
 // On web this module (and everything that imports Skia) is loaded lazily, after
 // CanvasKit has been initialised (see PMGanttSurfaceLoader.web.tsx).
 //
@@ -38,6 +39,7 @@ import { overlaysRange } from '../../version/model/versionCompare';
 import PMTaskEditView from '../task/finances/PMTaskEditView';
 import PMTaskLinePlanView from '../task/plan/PMTaskLinePlanView';
 import PMProjectReportsView from '../reports/PMProjectReportsView';
+import PMProjectBimView from '../../bim/view/PMProjectBimView';
 
 const MIN_CHART_WIDTH = 160;
 const RESIZE_SETTLE_MS = 180;
@@ -46,7 +48,7 @@ export interface PMGanttSurfaceProps {
   ownerGUID: string;
   projectGUID: string;
   /** right pane: the Skia Gantt chart (default), the Kanban board (tree rows can be dragged onto it) or the project versions list */
-  rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances' | 'plan' | 'reports';
+  rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances' | 'plan' | 'reports' | 'bim';
   readOnly?: boolean;
   hideTree?: boolean;
   /** uxui.hideGanttChartNode: only the tree (no splitter, no chart / board / versions list) */
@@ -84,6 +86,7 @@ export default function PMGanttSurface({
   const isFinances = rightPane === 'finances';
   const isPlan = rightPane === 'plan';
   const isReports = rightPane === 'reports';
+  const isBim = rightPane === 'bim';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
   const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
@@ -343,7 +346,9 @@ export default function PMGanttSurface({
               )}
             </>
           )}
-          {hideRight ? null : isReports ? (
+          {hideRight ? null : isBim ? (
+            <PMProjectBimView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
+          ) : isReports ? (
             <PMProjectReportsView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isPlan ? (
             <PMTaskLinePlanView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />

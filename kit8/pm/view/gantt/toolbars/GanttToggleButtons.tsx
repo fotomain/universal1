@@ -8,6 +8,7 @@
 //   ganttVsNetworkView = 'showFinancesView' -> tree + PMTaskEditView (the lines of the selected task: view/task/finances)
 //   ganttVsNetworkView = 'showPlanView' -> tree + PMTaskLinePlanView (the posted days of the lines of the selected task: view/task/plan)
 //   ganttVsNetworkView = 'showReportsView' -> tree + PMProjectReportsView (project summary: view/reports)
+//   ganttVsNetworkView = 'showBimView' -> tree + PMProjectBimView (the 3D model of an IFC import: kit8/pm/bim); the button is the LAST one and shows only while the project is BIM based
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);
 // read-only views pass a local setter instead. The same control sits on the Gantt bar, the Kanban bar
 // and the network view's bar (and in the app bar of the Projects screen), so the user can always switch.
@@ -18,6 +19,7 @@ import React, { useMemo } from 'react';
 import { usePMStore } from '../../../store/store_pm';
 import { PMPalette } from '../../theme';
 import { PMGanttVsNetworkView, PM_REPORTS_PART_VIEW, viewButtonsOrderOf } from '../../../model/types';
+import { projectIsBimBased } from '../../../bim/model/bimModel';
 import PMSegmentedIconButtons, { PMSegmentOption } from '../../network/PMSegmentedIconButtons';
 
 export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView>[] = [
@@ -63,6 +65,12 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     label: 'Budgets',
     title: 'Budgets: the posted days of every line of the selected task',
   },
+  {
+    value: 'showBimView',
+    icon: 'view_in_ar',
+    label: 'BIM',
+    title: 'BIM: the 3D model of the project next to its tasks',
+  },
 ];
 
 export default function GanttToggleButtons({
@@ -80,19 +88,20 @@ export default function GanttToggleButtons({
 }) {
   const view = usePMStore((s) => s.ganttVsNetworkView);
   const order = usePMStore((s) => s.viewButtonsOrder);
+  const bimBased = usePMStore((s) => projectIsBimBased(s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON : null));
   const options = useMemo(() => {
     const byValue = new Map(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => [o.value, o]));
     // Network is not a button of this switch (it is a section of Reports)
-    return viewButtonsOrderOf(order).filter((v) => v !== PM_REPORTS_PART_VIEW).map((v) => {
+    return viewButtonsOrderOf(order).filter((v) => v !== PM_REPORTS_PART_VIEW && (v !== 'showBimView' || bimBased)).map((v) => {
       const o = byValue.get(v)!;
       return compact ? { ...o, label: undefined } : o;
     });
-  }, [order, compact]);
+  }, [order, compact, bimBased]);
   return (
     <PMSegmentedIconButtons
       testID="pm-gantt-vs-network"
       options={options}
-      value={view === PM_REPORTS_PART_VIEW ? 'showReportsView' : view}
+      value={view === PM_REPORTS_PART_VIEW ? 'showReportsView' : view === 'showBimView' && !bimBased ? 'showGanttChart' : view}
       onChange={onChange}
       onReorder={onReorder}
       color={palette.text}

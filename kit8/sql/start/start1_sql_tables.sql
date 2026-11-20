@@ -60,6 +60,7 @@
 --   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the twin columns sumForConsolidation of the four movement tables, the queue consolidation_dirty and the gap table consolidation_gap_table; the code is in start2_sql_code.sql
 --   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): task_line_plan_hour_movements = the hour rows (window slices) of a posted Time line, derived next to the day rows
 --   54. create_application_admin.sql - APPLICATION ADMINISTRATORS (documentation/PERMISSIONS_WBS.html section 13): application_permission_table = the e-mails that hold permissionApplicationAdmin (one row each); the code is in start2_sql_code.sql
+--   55. create_bim.sql - BIM (documentation/BIM_WBS.html): bim_model_table / bim_storey_table / bim_chunk_table / bim_element_table / bim_property_table / bim_import_job_table / bim_storage_cleanup_table = the model of an IFC import (rows only: the geometry is chunk files in the Storage bucket bim), foreign keys to the project and its tasks
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -4051,6 +4052,176 @@ CREATE TABLE IF NOT EXISTS public.application_permission_table (
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_application_permission_email ON public.application_permission_table ("rowOwnerGUID");
+
+-- PART 55: create_bim.sql
+-- BIM (documentation/BIM_WBS.html, code kit8/pm/bim, converter py/bim/server). A project made from an IFC model keeps the model here; the 3D geometry is NOT in the database:
+-- it is chunk files (BIMC v1, one per storey) in the private Storage bucket "bim" (start2 makes the bucket and its policies), the rows only say which chunk holds which element.
+-- ONE set of tables for all projects (no table per project): isolation = the column rowProjectGUID + row level security (start2). A client only READS these tables; every write is a bim_ RPC.
+--   bim_model_table          one row per import (revision); state importing | ready | failed | removed; ONE ready model per project (the one the BIM view shows)
+--   bim_storey_table         one row per storey that holds elements (+ the pseudo storey "Building / Site" with ifcGuid NULL); stageGUID = the stage task of the storey
+--   bim_chunk_table          one row per chunk file: contentHash = sha256 of the bytes = the file name, storagePath = <project>/<model>/<hash>.bimc in the bucket bim
+--   bim_element_table        one row per element with geometry; taskGUID = the task of the element (several elements of a grouped task share it), elementNumber = the index inside its chunk
+--   bim_property_table       the IFC properties of an element as JSON (attributes + property sets), read lazily when an element is pressed
+--   bim_import_job_table     one row per import attempt (history; state, error text)
+--   bim_storage_cleanup_table  the paths of chunk files whose rows are gone: the client / a script removes the files through the Storage API (SQL cannot delete real files), then confirms
+-- The project row keeps the switch rowJSON.projectIsBIMBased (the user can switch it; the import sets it). The device cache (bim_cache_state_table) is in the local SQLite only.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.bim_model_table (
+  "rowGUID"             UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID"      UUID        NOT NULL,
+  "rowOrganizationGUID" TEXT,
+  "revision"            INTEGER     NOT NULL DEFAULT 1,
+  "sourceName"          TEXT        NOT NULL DEFAULT '',
+  "sourceSha256"        TEXT,
+  "ifcSchema"           TEXT,
+  "converterVersion"    TEXT,
+  "unitScale"           NUMERIC,
+  "originShift"         JSONB       NOT NULL DEFAULT '[0,0,0]'::jsonb,
+  "bbox"                JSONB       NOT NULL DEFAULT '[0,0,0,0,0,0]'::jsonb,
+  "counts"              JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "state"               TEXT        NOT NULL DEFAULT 'importing',
+  "errorText"           TEXT,
+  "storagePrefix"       TEXT        NOT NULL,
+  "requestedBy"         UUID,
+  "created_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT bim_model_state_chk CHECK ("state" IN ('importing', 'ready', 'failed', 'removed'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_model_revision ON public.bim_model_table ("rowProjectGUID", "revision");
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_model_ready ON public.bim_model_table ("rowProjectGUID") WHERE "state" = 'ready';
+
+CREATE TABLE IF NOT EXISTS public.bim_storey_table (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL,
+  "rowModelGUID"   UUID        NOT NULL,
+  "ifcGuid"        TEXT,
+  "name"           TEXT        NOT NULL DEFAULT '',
+  "elevation"      NUMERIC,
+  "orderInList"    NUMERIC     NOT NULL DEFAULT 0,
+  "stageGUID"      UUID,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_bim_storey_model ON public.bim_storey_table ("rowModelGUID", "orderInList");
+
+CREATE INDEX IF NOT EXISTS idx_bim_storey_stage ON public.bim_storey_table ("stageGUID") WHERE "stageGUID" IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS public.bim_chunk_table (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL,
+  "rowModelGUID"   UUID        NOT NULL,
+  "rowStoreyGUID"  UUID,
+  "contentHash"    TEXT        NOT NULL,
+  "part"           INTEGER     NOT NULL DEFAULT 0,
+  "byteSize"       INTEGER     NOT NULL DEFAULT 0,
+  "formatVersion"  SMALLINT    NOT NULL DEFAULT 1,
+  "vertexCount"    INTEGER     NOT NULL DEFAULT 0,
+  "elementCount"   INTEGER     NOT NULL DEFAULT 0,
+  "bboxMin"        JSONB,
+  "bboxSize"       JSONB,
+  "storagePath"    TEXT        NOT NULL,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_chunk_hash ON public.bim_chunk_table ("rowModelGUID", "contentHash");
+
+CREATE INDEX IF NOT EXISTS idx_bim_chunk_storey ON public.bim_chunk_table ("rowStoreyGUID");
+
+CREATE TABLE IF NOT EXISTS public.bim_element_table (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL,
+  "rowModelGUID"   UUID        NOT NULL,
+  "rowStoreyGUID"  UUID,
+  "ifcGuid"        TEXT        NOT NULL,
+  "ifcClass"       TEXT        NOT NULL DEFAULT '',
+  "name"           TEXT        NOT NULL DEFAULT '',
+  "typeName"       TEXT        NOT NULL DEFAULT '',
+  "taskGUID"       UUID,
+  "chunkHash"      TEXT        NOT NULL,
+  "elementNumber"  INTEGER     NOT NULL DEFAULT 0,
+  "bbox"           JSONB       NOT NULL DEFAULT '[0,0,0,0,0,0]'::jsonb,
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_element_ifc ON public.bim_element_table ("rowModelGUID", "ifcGuid");
+
+CREATE INDEX IF NOT EXISTS idx_bim_element_task ON public.bim_element_table ("taskGUID") WHERE "taskGUID" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_bim_element_project ON public.bim_element_table ("rowProjectGUID", "rowModelGUID");
+
+CREATE INDEX IF NOT EXISTS idx_bim_element_storey ON public.bim_element_table ("rowStoreyGUID");
+
+CREATE TABLE IF NOT EXISTS public.bim_property_table (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL,
+  "rowModelGUID"   UUID        NOT NULL,
+  "ifcGuid"        TEXT        NOT NULL,
+  "rowJSON"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_property_ifc ON public.bim_property_table ("rowModelGUID", "ifcGuid");
+
+CREATE INDEX IF NOT EXISTS idx_bim_property_project ON public.bim_property_table ("rowProjectGUID");
+
+CREATE TABLE IF NOT EXISTS public.bim_import_job_table (
+  "rowGUID"        UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowProjectGUID" UUID        NOT NULL,
+  "rowModelGUID"   UUID,
+  "state"          TEXT        NOT NULL DEFAULT 'begun',
+  "progress"       INTEGER     NOT NULL DEFAULT 0,
+  "stepText"       TEXT        NOT NULL DEFAULT '',
+  "errorText"      TEXT,
+  "options"        JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "requestedBy"    UUID,
+  "created_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"     TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT bim_import_job_state_chk CHECK ("state" IN ('begun', 'done', 'failed'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_bim_import_job_project ON public.bim_import_job_table ("rowProjectGUID", "created_at" DESC);
+
+CREATE TABLE IF NOT EXISTS public.bim_storage_cleanup_table (
+  "rowGUID"     UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "storagePath" TEXT        NOT NULL,
+  "created_at"  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_bim_storage_cleanup_path ON public.bim_storage_cleanup_table ("storagePath");
+
+-- the links between the tables (a project / model delete takes its rows with it; a task or a storey that goes only empties the link)
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN SELECT * FROM (VALUES
+    ('bim_model_table',       'bim_model_project_fk',   'FOREIGN KEY ("rowProjectGUID") REFERENCES public.project_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_storey_table',      'bim_storey_model_fk',    'FOREIGN KEY ("rowModelGUID") REFERENCES public.bim_model_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_storey_table',      'bim_storey_stage_fk',    'FOREIGN KEY ("stageGUID") REFERENCES public.project_task_table ("rowGUID") ON DELETE SET NULL'),
+    ('bim_chunk_table',       'bim_chunk_model_fk',     'FOREIGN KEY ("rowModelGUID") REFERENCES public.bim_model_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_chunk_table',       'bim_chunk_storey_fk',    'FOREIGN KEY ("rowStoreyGUID") REFERENCES public.bim_storey_table ("rowGUID") ON DELETE SET NULL'),
+    ('bim_element_table',     'bim_element_model_fk',   'FOREIGN KEY ("rowModelGUID") REFERENCES public.bim_model_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_element_table',     'bim_element_storey_fk',  'FOREIGN KEY ("rowStoreyGUID") REFERENCES public.bim_storey_table ("rowGUID") ON DELETE SET NULL'),
+    ('bim_element_table',     'bim_element_task_fk',    'FOREIGN KEY ("taskGUID") REFERENCES public.project_task_table ("rowGUID") ON DELETE SET NULL'),
+    ('bim_property_table',    'bim_property_model_fk',  'FOREIGN KEY ("rowModelGUID") REFERENCES public.bim_model_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_import_job_table',  'bim_import_job_project_fk', 'FOREIGN KEY ("rowProjectGUID") REFERENCES public.project_table ("rowGUID") ON DELETE CASCADE'),
+    ('bim_import_job_table',  'bim_import_job_model_fk',   'FOREIGN KEY ("rowModelGUID") REFERENCES public.bim_model_table ("rowGUID") ON DELETE SET NULL')
+  ) AS v(tbl, cname, def)
+  LOOP
+    IF to_regclass('public.' || r.tbl) IS NOT NULL AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = r.cname AND conrelid = ('public.' || r.tbl)::regclass) THEN
+      EXECUTE format('ALTER TABLE public.%I ADD CONSTRAINT %I %s', r.tbl, r.cname, r.def);
+    END IF;
+  END LOOP;
+END $$;
+
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

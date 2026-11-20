@@ -36,13 +36,16 @@ const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface:
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); (globalThis as any).__pmTestReduxState = undefined; act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the Plan button', () => {
-  it('Budgets is the LAST button, after Reports; Network is not a button of the switch; both are main views that can be remembered', () => {
+  it('Budgets is the last button BUT ONE (BIM is the last, only for a BIM project); Network is not a button of the switch; both are main views that can be remembered', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView']);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('Budgets');
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Reports');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView', 'showBimView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('BIM');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Budgets');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-3)!.label).toBe('Reports');
+    // the BIM button shows only while the project is BIM based
+    expect(document.querySelector('[data-testid="pm-gantt-vs-network-showBimView"]')).toBeNull();
     expect(document.querySelector('[data-testid="pm-gantt-vs-network-showNetworkView"]')).toBeNull();
     press('pm-gantt-vs-network-showPlanView');
     expect(onChange).toHaveBeenCalledWith('showPlanView');
@@ -55,11 +58,11 @@ describe('the Plan button', () => {
 
   it('the saved button order is normalized (unknown / duplicate dropped, missing appended) and reordering by drop works', () => {
     expect(viewButtonsOrderOf(undefined)).toEqual(PM_DEFAULT_VIEW_BUTTONS_ORDER);
-    // Budgets (showPlanView) is always the LAST, wherever it was saved
-    expect(viewButtonsOrderOf(['showPlanView', 'x', 'showPlanView', 'showGanttChart'])).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView']);
-    expect(viewButtonsOrderOf(['showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView', 'showReportsView']).at(-1)).toBe('showPlanView');
+    // BIM (showBimView) is always the LAST, wherever it was saved; Budgets (showPlanView) follows the user's order before it
+    expect(viewButtonsOrderOf(['showBimView', 'x', 'showPlanView', 'showBimView', 'showGanttChart'])).toEqual(['showPlanView', 'showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showBimView']);
+    expect(viewButtonsOrderOf(['showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView', 'showReportsView']).at(-1)).toBe('showBimView');
     expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder[0]).toBe('showReportsView');
-    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder.at(-1)).toBe('showPlanView');
+    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder.at(-1)).toBe('showBimView');
     const layouts = { a: { x: 0, w: 40 }, b: { x: 40, w: 40 }, c: { x: 80, w: 40 } };
     // 'a' dropped with its center over 'c' -> last
     expect(reorderByDrop(['a', 'b', 'c'], 'a', 110, layouts)).toEqual(['b', 'c', 'a']);

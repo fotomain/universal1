@@ -76,7 +76,7 @@
 <header class="top"><div class="top-inner">
   <div class="brand">appPM80 &middot; CapEx / OpEx</div>
   <nav><ul>
-    <li><a href="#goal">Goal</a></li><li><a href="#answer">Answer</a></li><li><a href="#today">What exists</a></li><li><a href="#rules">CFO rules</a></li>
+    <li><a href="#goal">Goal</a></li><li><a href="#answer">Answer</a></li><li><a href="#audiences">CFO / CEO / Investor</a></li><li><a href="#today">What exists</a></li><li><a href="#rules">CFO rules</a></li>
     <li><a href="#flow">Flow</a></li><li><a href="#mock">Mock-ups</a></li><li><a href="#wbs">WBS</a></li><li><a href="#phases">Phases</a></li>
     <li><a href="#decisions">Decisions</a></li><li><a href="#risks">Risks</a></li>
   </ul></nav>
@@ -85,17 +85,18 @@
 <main>
 
 <section id="goal">
-  <h1>appPM80 for a CFO: CapEx and OpEx</h1>
-  <p class="lead">Make <b>Project Budget Management</b> (appPM80) look and behave the way a CFO, a financial controller and a capital committee expect:
+  <h1>appPM80 for a CFO, a CEO and investors: CapEx and OpEx</h1>
+  <p class="lead">Make <b>Project Budget Management</b> (appPM80) look and behave the way a CFO, a CEO, a board / investor and a capital committee expect (CFO = control, CEO = decisions and portfolio, investor = capital efficiency and trust in the numbers; see <a href="#audiences">the three audiences</a>). For the CFO this means:
   every amount knows whether it is <span class="pill capex">CapEx</span> or <span class="pill opex">OpEx</span>, every report can be cut by it,
   capital spending is requested, approved, committed, forecast and finally capitalised in a controlled way.</p>
+  <div class="info"><b>Revised 2026-11-20.</b> The first version (2026-11-17) served the CFO. This revision adds the <b>CEO and investor</b> view: section <a href="#audiences">three audiences</a>, mock-ups of the executive page and the investor KPI strip, work package <b>H</b> (executive and investor layer, H1 - H12), decisions Q13 - Q17 and two new risks. Nothing of the CFO plan (A - G) was removed; its phases were extended.</div>
   <div class="note"><b>Planning document only - no code was written or changed.</b> Written 2026-11-17 after reading the home model (<code>apps/appPM80/home/pm80HomeModel.ts</code>), the app customization, the budget item key (<code>kit8/catalog/budget/item/budgetItemKeyModel.ts</code>), the READMEs of Monitor01 / ROI / business units, and <code>KNOW_HOW.md</code>.
   Not checked: your live Supabase data, and the running screens in a browser or on a phone. Accounting references (IAS / IFRS / US GAAP) are given as orientation, <b>your accountant must confirm them</b> for your jurisdiction.</div>
   <div class="kpi">
     <div><b>3</b><span class="small">answers: reports, inputs, and everything else (home, control, accounting)</span></div>
-    <div><b>7</b><span class="small">work packages A - G</span></div>
+    <div><b>8</b><span class="small">work packages A - H (H = CEO / investor layer)</span></div>
     <div><b>4</b><span class="small">phases, Phase 1 is the visible "professional" step</span></div>
-    <div><b>12</b><span class="small">open decisions with a recommended default</span></div>
+    <div><b>17</b><span class="small">open decisions with a recommended default</span></div>
   </div>
 </section>
 
@@ -126,9 +127,59 @@
         <li><b>Accounting bridge</b>: freeze the class at Post, WIP, asset catalog, depreciation, journal CSV for D365 FO / SAP.</li>
         <li><b>Investment appraisal</b>: NPV, IRR, payback from the payment plan; post-implementation review.</li>
         <li><b>Quality</b>: seeds / demo data, tests, glossary texts, reclassification of old items.</li>
+        <li><b>CEO and investors</b> (new): one "Capital at a glance" page, a decision queue, capital-efficiency KPIs, a closed-period snapshot that does not move, reconciliation to the ledger, a read-only investor profile, a dated pack.</li>
       </ul></div>
   </div>
   <div class="good"><b>The good news.</b> The hardest part of the foundation is done: a budget item already carries an IAS 7 <i>activity</i> (<code>operatingActivity</code> / <code>investingActivity</code> / <code>financingActivity</code>) in its key, with a SQL-checked matrix of 14 allowed cells (PART 32), and the VAT basis already separates "VAT that is cost" (the part of VAT that belongs in a capitalised cost). The work is mostly to <b>use</b> this data, not to invent it.</div>
+</section>
+
+<section id="audiences">
+  <h2>Three audiences, three questions</h2>
+  <p class="sub">"Maximum professional" means something different for each reader. The same data serves all three; what changes is the page, the words and the level of detail.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">CFO / controller <span class="pill capex">control</span></h3>
+      <p class="small" style="margin-top:0">Reads for 30 minutes, checks every number.</p>
+      <ul class="steps">
+        <li>Is the money classified correctly, and does it agree with the books?</li>
+        <li>Budget vs committed vs actual vs forecast, by class, project, fiscal period.</li>
+        <li>Who approved, when, against which limit?</li>
+        <li>What will this do to the P&amp;L (depreciation) and to cash?</li>
+      </ul>
+      <p class="small"><b>Answered by:</b> work packages A - G (Monitor01 by class, Monitor09, capital request, approval, WIP).</p></div>
+    <div class="card"><h3 style="margin-top:0">CEO <span class="pill opex">decisions</span></h3>
+      <p class="small" style="margin-top:0">Reads for 2 minutes, wants to know what to decide.</p>
+      <ul class="steps">
+        <li>How much capital is deployed, committed, still free - and is it going to the strategy?</li>
+        <li>Which projects are red, and what is the money at risk?</li>
+        <li>What waits for my decision (approvals, transfers, over-budget)?</li>
+        <li>Growth spend vs keep-the-lights-on spend: is the split what I intended?</li>
+      </ul>
+      <p class="small"><b>Answered by:</b> H1 executive page, H3 strategic tag, H5 decision queue, D8 / D9 portfolio and exceptions.</p></div>
+    <div class="card"><h3 style="margin-top:0">Investor / board <span class="pill part">trust</span></h3>
+      <p class="small" style="margin-top:0">Reads for 10 minutes a quarter, distrusts anything that moves.</p>
+      <ul class="steps">
+        <li>How capital-intensive is the business (CapEx / revenue), and is the asset base growing or shrinking (CapEx / depreciation)?</li>
+        <li>What return does the capital earn (NPV, IRR, payback), and did past projects deliver what was promised?</li>
+        <li>Is CapEx guidance for the year still intact (forecast vs range)?</li>
+        <li><b>Can I trust these numbers?</b> Same number tomorrow, reconciled to the ledger, every definition stated.</li>
+      </ul>
+      <p class="small"><b>Answered by:</b> H2 efficiency KPIs, H6 period snapshot, H7 reconciliation, H9 guidance, H10 track record, F1, H4 read-only view.</p></div>
+  </div>
+  <h3>What makes an application look professional to these readers (the checklist behind package H)</h3>
+  <div class="card scroll">
+    <table>
+      <tr><th>Principle</th><th>What it means in appPM80</th><th>State today</th></tr>
+      <tr><td><b>Real numbers, labelled</b></td><td>No demo figure without a "Demo data" ribbon; every screen shows currency, VAT basis, consolidation basis, version and an "as of" time (D1, D4).</td><td><span class="pill none">demo on home</span></td></tr>
+      <tr><td><b>Numbers that do not move</b></td><td>A closed period is a stored snapshot ("as reported"); a later correction is a logged restatement, never a silent change (H6, A3).</td><td><span class="pill none">none</span></td></tr>
+      <tr><td><b>Defined terms</b></td><td>Every KPI has one definition, a formula, a source and a "what misleads" line, one tap away (D5, H2 - the pattern of the ROI descriptions already exists).</td><td><span class="pill part">ROI / KPI rings only</span></td></tr>
+      <tr><td><b>Evidence</b></td><td>Approval trail, attached documents (the Files tab), change log, drill-down from any number to the posted document (H8, C3).</td><td><span class="pill part">drill-down + files exist</span></td></tr>
+      <tr><td><b>Reconciles to the ledger</b></td><td>The app total of capital spend per period is compared with the ERP general-ledger total and the difference is shown (H7).</td><td><span class="pill none">none</span></td></tr>
+      <tr><td><b>Comparisons, not isolated numbers</b></td><td>Every figure has a reference: vs budget, vs last forecast, vs prior period, vs prior year, vs guidance; small trend line next to it (H12).</td><td><span class="pill part">budget only</span></td></tr>
+      <tr><td><b>Shareable without editing</b></td><td>A read-only investor / board profile and a dated PDF / Excel pack, no personal cost data (salaries, rates) visible (H4, H5, C9).</td><td><span class="pill none">none</span></td></tr>
+      <tr><td><b>Visual discipline</b></td><td>One number format, one colour rule (cost overrun red, saving green), tabular figures, light and dark theme, tablet landscape, print layout, a calm empty / loading / error state (G2, H12).</td><td><span class="pill part">themes + phone layout exist</span></td></tr>
+      <tr><td><b>Honest about scope</b></td><td>The app knows the money of its <i>projects</i>. Company revenue, EBITDA and total depreciation come from the ERP: a small "company context" input per fiscal year supplies them, and a ratio that needs it says so (H2).</td><td><span class="pill none">none</span></td></tr>
+    </table>
+  </div>
 </section>
 
 <section id="today">
@@ -147,7 +198,11 @@
       <tr><td>Return of a project</td><td><span class="pill have">have</span></td><td>ROI1 - ROI4 (Monitor02 / 03, history). ROI cost = all cost, so a CapEx project and an OpEx project are not separable; no NPV / IRR / payback.</td></tr>
       <tr><td>Planned cash by date</td><td><span class="pill have">have</span></td><td>Payment plan (Outbound / Inbound, dates, with VAT). The tab <b>Cash flow</b> is an empty place "for a later report". The planned cash flow of a project is therefore already in the database - the base of NPV / IRR.</td></tr>
       <tr><td>Roles and permissions</td><td><span class="pill have">have</span></td><td>11 permission profiles, matrix of 146 tables, additive RLS policies, read-only project. A capital approver is one more profile.</td></tr>
-      <tr><td>Home numbers (appPM80)</td><td><span class="pill none">demo</span></td><td>The 8 circles, 4 rings and ROI ring are <b>demo snapshots</b> (<code>PM80_MONTH_INPUTS</code>), consistent with each other but not read from Supabase. A CFO notices this at once; it is the first thing to fix.</td></tr>
+      <tr><td>Home numbers (appPM80)</td><td><span class="pill none">demo</span></td><td>The 8 circles, 4 rings and ROI ring are <b>demo snapshots</b> (<code>PM80_MONTH_INPUTS</code>), consistent with each other but not read from Supabase. A CFO notices this at once; it is the first thing to fix. <i>Checked again 2026-11-20:</i> still demo. Since 2026-11-17 the home gained the real project list in the project filter, the Business order setup, Home settings (items per row, circle / square) and the CFO descriptions of the rings and ROI buttons - the <b>look</b> is far ahead of the <b>data</b>.</td></tr>
+      <tr><td>Executive page, investor KPIs, read-only investor profile</td><td><span class="pill none">none</span></td><td>No page answers "capital deployed / committed / free, projects at risk, decisions waiting". No CapEx intensity, CapEx / depreciation, guidance tracking, track record of past projects. The 11 permission profiles have no read-only external profile.</td></tr>
+      <tr><td>Closed period / snapshot ("as reported")</td><td><span class="pill none">none</span></td><td>Reports are live (Realtime) - good for the project manager, wrong for an investor pack. Closest pieces: project versions (read-only plan copies), the read-only project switch (PART 51), saved report Views (PART 43). None freezes the <i>numbers of a month</i>.</td></tr>
+      <tr><td>Evidence and audit trail</td><td><span class="pill part">part</span></td><td>File attachments on tasks / projects / documents (PART 49), chat, drill-down to documents, Post / Unpost on every document. Missing: one place that shows who approved what, and the history of budget changes.</td></tr>
+      <tr><td>Application administrator / many organizations</td><td><span class="pill have">have</span></td><td>PART 54 (built 2026-11-20): an application administrator sees all organizations, others only their own; reports have the Organization filter. A group-level investor view can build on it.</td></tr>
       <tr><td>Fiscal year, quarters, YTD, life-to-date</td><td><span class="pill none">none</span></td><td>The home has month and year pickers only; no fiscal year setting was found.</td></tr>
       <tr><td>Capital request / approval / delegation of authority</td><td><span class="pill none">none</span></td><td>No document, no limits, no approval trail. Budget changes are not logged as a business event.</td></tr>
       <tr><td>Commitments, forecast (EAC / ETC), contingency</td><td><span class="pill none">none</span></td><td>"Ordered" exists in Monitor01 but there is no committed-vs-approved view; no forecast input; no reserve item.</td></tr>
@@ -261,6 +316,52 @@
     </table>
     <p class="small">Sources already in the database: Budget = posted plan (<code>project_status_movements</code> kind plan), Committed = ordered, Actual = invoiced, Paid = cash ledger. <b>New</b>: Approved (capital request), Forecast EAC (forecast input), the class column. Basis line above the table: <i>EUR &middot; Cost basis (net + VAT that is cost) &middot; consolidated at the organization rate type &middot; version: Approved baseline &middot; as of 2026-11-17 14:02</i>. Red / green = unfavourable / favourable for a cost.</p>
   </div>
+  <h3>CEO page "Capital at a glance" (H1) - one screen, two minutes (EUR thousand)</h3>
+  <div class="card">
+    <div class="kpi">
+      <div><span class="small">Approved capital FY2026</span><b>2 350</b><span class="small">CapEx &middot; OpEx 700</span></div>
+      <div><span class="small">Committed</span><b>2 040</b><span class="small">87 % of approved</span></div>
+      <div><span class="small">Still free to commit</span><b>310</b><span class="small">after contingency 60</span></div>
+      <div><span class="small">Forecast vs approved</span><b class="neg" style="color:var(--rose)">+40</b><span class="small">1.7 % over &middot; within tolerance 5 %</span></div>
+      <div><span class="small">Cash paid YTD</span><b>1 400</b><span class="small">of 2 390 forecast</span></div>
+    </div>
+    <div class="grid" style="margin-top:12px">
+      <div><h3 style="margin-top:0">Where the capital goes</h3>
+        <table>
+          <tr><th>Strategic pillar</th><th class="num">Share</th><th>Growth / Sustaining / Regulatory</th></tr>
+          <tr><td>Automation and capacity</td><td class="num">51 %</td><td>80 / 15 / 5</td></tr>
+          <tr><td>Digital infrastructure</td><td class="num">34 %</td><td>40 / 50 / 10</td></tr>
+          <tr><td>Energy transition</td><td class="num">15 %</td><td>70 / 0 / 30</td></tr>
+        </table></div>
+      <div><h3 style="margin-top:0">Needs my decision (3)</h3>
+        <ul class="steps">
+          <li>Capital request <b>Warehouse Automation phase 2</b>, 480 K - waiting for CEO approval since 6 days</li>
+          <li>Transfer 60 K from contingency to <b>Warehouse Automation</b> (forecast +60 K over)</li>
+          <li>Purchase order 120 K without an approved request (Data Center Migration)</li>
+        </ul>
+        <h3>Projects at risk</h3>
+        <p style="margin:0"><span class="pill p0">red</span> Warehouse Automation (EAC +5 %, 3 weeks late) &nbsp; <span class="pill p1">amber</span> ERP Upgrade (forecast not submitted)</p></div>
+    </div>
+    <p class="small">Every tile is a link to Monitor09 with the right filter; the decision list is the approval queue of B3. Pillars come from H3 (a catalog the organization defines), the purpose split from A1.</p>
+  </div>
+
+  <h3>Investor KPI strip (H2, H9, H10) - what an investor reads</h3>
+  <div class="card scroll">
+    <table>
+      <tr><th>KPI</th><th class="num">FY2026 forecast</th><th class="num">FY2025 actual</th><th>Definition (one tap away)</th><th>Needs</th></tr>
+      <tr><td>CapEx intensity</td><td class="num">8.4 %</td><td class="num">7.1 %</td><td>CapEx paid / company revenue</td><td><span class="pill p3">company context</span></td></tr>
+      <tr><td>CapEx / depreciation</td><td class="num">1.6 &times;</td><td class="num">1.3 &times;</td><td>&gt; 1 = the asset base is growing</td><td><span class="pill p3">company context</span></td></tr>
+      <tr><td>Growth share of CapEx</td><td class="num">62 %</td><td class="num">48 %</td><td>CapEx with purpose Growth / total CapEx</td><td><span class="pill have">A1</span></td></tr>
+      <tr><td>Project cash flow (CapEx paid &minus; project inflows)</td><td class="num">&minus;1 120</td><td class="num">&minus;760</td><td>Cash of the project portfolio, not company free cash flow</td><td><span class="pill have">payment plan + ledger</span></td></tr>
+      <tr><td>Portfolio NPV / IRR (approved requests)</td><td class="num">2 840 / 17.2 %</td><td class="num">-</td><td>Cash flows of the payment plan at the organization discount rate</td><td><span class="pill p3">F1</span></td></tr>
+      <tr><td>CapEx guidance FY2026</td><td class="num">2 390</td><td class="num">range 2 200 - 2 500</td><td>Forecast inside the published range? <span class="pill have">in range</span></td><td><span class="pill p3">H9</span></td></tr>
+      <tr><td>Delivered on budget / on time (closed projects, 3 years)</td><td class="num">71 % / 64 %</td><td class="num">-</td><td>Final cost within +5 % of the approved baseline; finish within +10 % of baseline duration</td><td><span class="pill p3">H10</span></td></tr>
+      <tr><td>Benefits realised vs promised (post-implementation reviews)</td><td class="num">86 %</td><td class="num">-</td><td>Realised annual benefit / benefit in the request</td><td><span class="pill p3">F4 + H10</span></td></tr>
+      <tr><td>WIP older than 12 months</td><td class="num">9 %</td><td class="num">14 %</td><td>Capital not yet earning: closing WIP by age</td><td><span class="pill p3">C10</span></td></tr>
+    </table>
+    <p class="small"><b>Illustrative numbers.</b> The ratios marked <i>company context</i> need revenue and depreciation of the whole company, which the app does not hold (it holds the money of its projects). H2 therefore adds a small input per fiscal year (revenue, EBITDA, depreciation, optional net debt), typed or imported as CSV from the ERP; a ratio without it shows "needs company data" instead of a number. Several of these are management measures, not defined by IFRS: the page says so in a footnote, and the definition is fixed in one place.</p>
+  </div>
+
   <div class="grid" style="margin-top:14px">
     <div class="card"><h3 style="margin-top:0">WIP roll-forward (phase 3, EUR thousand)</h3>
       <table>
@@ -369,6 +470,20 @@
       <tr data-ph="1"><td>G3</td><td><b>Tests and README with each feature</b></td><td>Docker tests numbered from 101 (<code>tests/100</code> is the consolidation), Jest for the models and screens, golden cases for depreciation / NPV / capitalised VAT, a bench for Monitor09.</td><td>Rule of the working agreement (same round).</td><td><span class="pill p0">P0</span></td><td>in each</td><td class="c"><span class="ph">1-4</span></td></tr>
       <tr data-ph="1"><td>G4</td><td><b>Texts and languages</b></td><td>The words "CapEx" / "OpEx" with plain tooltips (capital spending / operating spending); texts through <code>pmT</code>; organization texts can rename them.</td><td>Reuse <code>organizationTextTable</code> (PART 48).</td><td><span class="pill p2">P2</span></td><td>S</td><td class="c"><span class="ph">1</span></td></tr>
       <tr data-ph="1"><td>G5</td><td><b>Update KNOW_HOW.md and the feature index</b></td><td>New rows in section 6, new pitfalls (class stamp, frozen history).</td><td>Rule of the working agreement.</td><td><span class="pill p0">P0</span></td><td>S</td><td class="c"><span class="ph">1-4</span></td></tr>
+
+      <tr class="grp" data-ph="all"><td colspan="7">H &middot; CEO and investor layer (new 2026-11-20)</td></tr>
+      <tr data-ph="1"><td>H12</td><td><b>Professional finish (design pass)</b></td><td>One look across home, reports, documents: number format and colour rule, tabular figures, units in the column title, trend line (sparkline) and a comparison next to each headline number (vs budget, last forecast, prior period / year), calm empty / loading / error states, "Demo data" ribbon, data freshness badge ("as of 14:02, live"), light / dark theme, tablet landscape, print layout, accessible contrast; plain words ("Capital spending" with CapEx in brackets).</td><td>Reuse <code>reports/common</code> formats, <code>PM80Tip</code>, the Tamagui / Paper homes, <code>pm80Layout.ts</code>. New: a small shared "figure" component (value + delta + sparkline + basis tip).</td><td><span class="pill p0">P0</span></td><td>M</td><td class="c"><span class="ph">1</span></td></tr>
+      <tr data-ph="2"><td>H1</td><td><b>Executive page "Capital at a glance"</b></td><td>One screen for the CEO (mock-up above): approved / committed / free / forecast vs approved / cash paid, where the capital goes (pillar &times; purpose), projects at risk, what needs my decision. Every tile opens Monitor09 with the right filter. Reachable from the home and as the first Drawer entry of Reports.</td><td>Reuse the Monitor09 RPC (C2), portfolio table (D8), exceptions (D9), PM80 look. New route <code>/pm/reports/executive</code> (a thin screen over existing RPCs).</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H2</td><td><b>Capital-efficiency KPIs + company context</b></td><td>CapEx intensity, CapEx / depreciation, growth vs sustaining vs regulatory share, project cash flow, capital concentration (top 5 projects % of capital). Each has a definition modal (formula, source, what misleads). A small <b>Company context</b> input per fiscal year (revenue, EBITDA, depreciation, optional net debt; typed or CSV) feeds the ratios that need the whole company; without it the tile says "needs company data". Footnote: management measures, not IFRS.</td><td>Reuse <code>kpiInfo/</code> / <code>infoModal/</code> pattern, A1 purpose, A4 fiscal year, cash ledger. New <code>company_context_table</code> (one row per organization and fiscal year), pure model with golden cases.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H3</td><td><b>Strategic pillar tag</b></td><td>The organization defines its pillars / themes (catalog, e.g. Automation, Digital, Energy); a project and a capital request carry one; reports and the CEO page cut by it. Shows whether money follows strategy.</td><td>Pattern of a linear read-write catalog (<code>kit8/catalog/&lt;name&gt;</code>); key on the project row. New <code>strategic_pillar_catalog</code>.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H4</td><td><b>Investor / board read-only profile</b></td><td>A 12th permission profile <code>permissionInvestorViewer</code>: sees the executive page, Monitor09, Monitor02 / 03 / 08 and the packs of its organization; cannot edit anything; <b>does not see</b> per-person cost, rates, salaries or contract prices (those columns are hidden / aggregated). Invited by e-mail like a member; sessions and reads are logged.</td><td>Reuse permission profiles and matrix (PART 46 / 47), organization members (PART 45), application texts. New profile row + hidden-column rule + matrix rows; no public link.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H5</td><td><b>Decision queue (approvals inbox)</b></td><td>"Needs my decision": capital requests, transfers, over-budget purchase orders, reclassifications, with age and amount; approve / reject / ask a question (opens the chat). Red number in the app bar like the chat badge. Feeds the CEO page.</td><td>Reuse <code>ChatBadge</code> pattern, calendar tasks, chat; reads B2 / B3 / B4 states. New RPC <code>approval_inbox</code>.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H6</td><td><b>Period close and snapshot ("as reported")</b></td><td>The controller closes a month / quarter: the numbers of Monitor09, the home and the KPI strip are <b>stored</b> with the basis (currency, VAT basis, version, rate type) and time. The investor pages read the snapshot; the live view stays for operations. A change after the close is a logged <b>restatement</b> with a reason, shown as such in the next report. Reopen = administrator only, audited.</td><td>Idea of project versions + read-only project + saved Views (PART 43); written by an RPC, append-only. New <code>report_snapshot_header / _lines</code>, <code>period_close_table</code>; closed period also refuses back-dated Post (as the cash ledger refuses a Post before the opening date).</td><td><span class="pill p1">P1</span></td><td>XL</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H8</td><td><b>Evidence and approval trail viewer</b></td><td>On a capital request, a project and a reclassification: one timeline of who did what (submitted, approved, changed budget, posted, reclassified) with comments and the attached files; export with the pack. The audit reads it in one place.</td><td>Reuse Files (PART 49), chat, <code>approval_history</code> (B3), <code>budget_change_history</code> (B4), Post / Unpost records. New read RPC <code>audit_timeline</code>; no new table.</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H9</td><td><b>Guidance tracker</b></td><td>The organization stores its published or board-approved CapEx range per fiscal year (low / high, and OpEx if wanted); the page shows the forecast against it with in range / above / below, the headroom, and what moved since the last forecast. A warning to the CFO before the forecast leaves the range.</td><td>Reuse the forecast (B6), fiscal year (A4), exceptions (D9). New <code>capital_guidance_table</code> (small).</td><td><span class="pill p2">P2</span></td><td>S</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="2"><td>H11</td><td><b>Investor pack from a snapshot</b></td><td>One-page PDF and an Excel with the KPI strip, the capital table, the roll-forward, notes (definitions, basis, restatements), the close date; built from the <b>snapshot</b> (H6), not from live data; the same file every time it is opened. Optional schedule: "after each close".</td><td>Extends the board-pack export (C9) to read the snapshot; one print layout (H12).</td><td><span class="pill p1">P1</span></td><td>M</td><td class="c"><span class="ph">2</span></td></tr>
+      <tr data-ph="3"><td>H7</td><td><b>Reconciliation to the ledger</b></td><td>The controller loads the general-ledger totals of capital accounts per period (CSV from the ERP: account, period, amount); the app shows its capital spend vs the ledger by project / asset class with the difference and a status (agreed / explained / open) and a comment. An investor page shows only "reconciled" or "difference explained".</td><td>Journal CSV (E3) is the opposite direction; reuse import code of the project exchange. New <code>ledger_reconciliation_table</code>.</td><td><span class="pill p1">P1</span></td><td>L</td><td class="c"><span class="ph">3</span></td></tr>
+      <tr data-ph="3"><td>H10</td><td><b>Delivery track record</b></td><td>Closed capital projects of the last N years: on budget (final cost vs approved baseline), on time (finish vs baseline), benefits realised (F4); distribution chart and a list; "learning" column. Shows management's capital discipline, the thing an investor trusts most.</td><td>Reuse project versions as baseline, Monitor01 actuals, Gantt baselines / EVM, F4. New RPC <code>capital_track_record</code>.</td><td><span class="pill p2">P2</span></td><td>M</td><td class="c"><span class="ph">3</span></td></tr>
     </table>
   </div>
 </section>
@@ -378,19 +493,21 @@
   <div class="grid">
     <div class="card"><h3 style="margin-top:0"><span class="ph">1</span> Visible</h3>
       <p><b>Result:</b> open the home, choose CapEx, see real numbers; open Monitor09, see budget - committed - actual - paid by class.</p>
-      <p class="small"><b>Contents:</b> A1 A2 A3 A4 A8 &middot; B1 &middot; C1 C2 C3 &middot; D1 - D5 &middot; E7 &middot; G1 - G5.</p>
+      <p class="small"><b>Contents:</b> A1 A2 A3 A4 A8 &middot; B1 &middot; C1 C2 C3 &middot; D1 - D5 &middot; E7 &middot; G1 - G5 &middot; H12.</p>
       <p class="small"><b>Why first:</b> it needs no new document and no workflow, it uses data that is already posted, and it removes the biggest credibility risk (demo numbers).</p></div>
     <div class="card"><h3 style="margin-top:0"><span class="ph">2</span> Control</h3>
-      <p><b>Result:</b> nothing is bought above the threshold without an approved request; the committee sees EAC, variance, cash flow, NPV.</p>
-      <p class="small"><b>Contents:</b> A7 &middot; B2 - B7 &middot; C4 - C9 &middot; D6 - D10 &middot; F1 F2.</p></div>
+      <p><b>Result:</b> nothing is bought above the threshold without an approved request; the committee sees EAC, variance, cash flow, NPV; the CEO has one page and a decision queue; an investor gets a read-only view and a frozen, dated pack.</p>
+      <p class="small"><b>Contents:</b> A7 &middot; B2 - B7 &middot; C4 - C9 &middot; D6 - D10 &middot; F1 F2 &middot; H1 - H6 H8 H9 H11.</p>
+      <p class="small"><b>Hint:</b> this phase is large; cut it in two releases: <b>2a</b> = B2 B3 B4 B6 B7 H5 (control), <b>2b</b> = C4 - C9 D6 - D10 F1 F2 H1 - H4 H6 H8 H9 H11 (reporting and the executive / investor layer).</p></div>
     <div class="card"><h3 style="margin-top:0"><span class="ph">3</span> Accounting bridge</h3>
       <p><b>Result:</b> finished projects are capitalised with a document; WIP and depreciation forecast are reported; accounting gets a journal CSV.</p>
-      <p class="small"><b>Contents:</b> A5 A6 &middot; B8 - B10 &middot; C10 - C12 &middot; E1 - E4 &middot; F3.</p></div>
+      <p class="small"><b>Contents:</b> A5 A6 &middot; B8 - B10 &middot; C10 - C12 &middot; E1 - E4 &middot; F3 &middot; H7 H10.</p></div>
     <div class="card"><h3 style="margin-top:0"><span class="ph">4</span> Appraisal and depth</h3>
       <p><b>Result:</b> benefits realisation, borrowing cost, optionally leases.</p>
       <p class="small"><b>Contents:</b> E5 E6 &middot; F4.</p></div>
   </div>
   <div class="info"><b>The minimum that already looks professional</b> = D1 (live numbers) + A1 / A8 (right classes) + C2 first step + D2 (slicer) + D4 (basis line). Everything else makes the app a control tool, not just a report.</div>
+  <div class="info"><b>The minimum for an investor conversation</b> = the above + H6 (a closed period that does not move) + H2 (defined KPIs) + H4 (read-only access) + H7 (reconciled to the ledger). Without a frozen, reconciled number, the best-looking page is only a demo - an investor asks for these two things first.</div>
 </section>
 
 <section id="decisions">
@@ -411,6 +528,11 @@
       <tr><td>Q10</td><td>Leases (IFRS 16)</td><td>Out of scope for phases 1 - 3; a lease payment is a financing / operating payment as the key already allows.</td></tr>
       <tr><td>Q11</td><td>Does the home go live first or the report first?</td><td>Both in phase 1, but the data hook is written once and used by both (D1 and C2 share the RPC).</td></tr>
       <tr><td>Q12</td><td>Names in the UI</td><td>"CapEx" and "OpEx" with tooltips; the organization may rename through the application texts.</td></tr>
+      <tr><td>Q13</td><td>Who is the "investor"?</td><td>A named, invited user with the read-only profile (H4), inside the organization. No public link, no anonymous access. A group-level investor sees several organizations through the PART 54 mechanism.</td></tr>
+      <tr><td>Q14</td><td>Live or frozen for investors?</td><td>Frozen: the investor pages read the snapshot of the last closed period (H6); a "live" switch exists only for the CFO and CEO.</td></tr>
+      <tr><td>Q15</td><td>Company-wide ratios (CapEx intensity, CapEx / depreciation)</td><td>Need the company context input (H2, revenue / EBITDA / depreciation per fiscal year, typed or CSV). The app never invents them from the project data.</td></tr>
+      <tr><td>Q16</td><td>Which KPI definitions?</td><td>The list of the investor strip above; each with ONE definition kept in a model file and shown in a modal; "management measure, not IFRS" in the footnote. The CFO may rename or hide a KPI per organization.</td></tr>
+      <tr><td>Q17</td><td>Hide person-level cost from investors?</td><td>Yes: rates, salaries and contract prices of persons are aggregated to the project / budget item level for the investor profile (H4); the time sheet shows hours only.</td></tr>
     </table>
   </div>
 </section>
@@ -428,6 +550,11 @@
       <li><b>Scope creep into an ERP.</b> Fixed asset accounting for statutory books is a different product; Q3 keeps the app on the project side.</li>
       <li><b>Performance.</b> Monitor09 reads four movement tables; use the monthly turnover / totals tables and a bench like <code>bench_monitor01.sh</code>, not raw movements for the screen.</li>
       <li><b>Rate and VAT basis labels.</b> A CFO accepts any basis if the screen says which one; D4 is therefore P0.</li>
+      <li><b>Live numbers in front of an investor.</b> A number that changes between two openings of the same report destroys trust. H6 (snapshot) must exist before an investor profile is given to anyone (H4 after H6).</li>
+      <li><b>Project data is not company data.</b> CapEx intensity and free cash flow of the <i>company</i> need revenue and operating cash flow the app does not hold. A tile that silently uses project revenue would mislead; label "project" vs "company" (H2, Q15).</li>
+      <li><b>Non-IFRS measures.</b> If the numbers go into an investor publication, local rules on alternative performance measures may apply; the accountant confirms the wording of the definitions.</li>
+      <li><b>Confidentiality.</b> An investor profile must not read salaries, rates or contract prices (Q17) and every read of it is logged; test with the permission matrix test pattern (Docker 53).</li>
+      <li><b>Good looks without data</b> is the main reputational risk: a polished home on demo numbers is worse than a plain one on real numbers. Order: D1, then H12.</li>
     </ul>
   </div>
   <h3>What I did not verify</h3>

@@ -26,13 +26,14 @@ const palette = makePMPalette({ primary: '#6366f1', background: '#fff', surface:
 afterEach(() => { jest.clearAllMocks(); cleanupUI(); act(() => usePMStore.setState({ selectedGUID: null })); });
 
 describe('the view switch', () => {
-  it('Budgets (the Plan view) is the LAST button; Network has no button; Edit (Finances) is the second; a saved main view', () => {
+  it('Budgets (the Plan view) is the last button but one (BIM is the last, for a BIM project only); Network has no button; Edit (Finances) is the second; a saved main view', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
     expectInOrder(['pm-gantt-vs-network-showGanttChart', 'pm-gantt-vs-network-showFinancesView', 'pm-gantt-vs-network-showKanbanView', 'pm-gantt-vs-network-showVersionsView', 'pm-gantt-vs-network-showReportsView', 'pm-gantt-vs-network-showPlanView']);
     expect(q('pm-gantt-vs-network-showNetworkView')).toBeNull();
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showPlanView');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-1)).toBe('showBimView');
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value).at(-2)).toBe('showPlanView');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)[1]).toBe('showFinancesView');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS[1].label).toBe('Edit');
     press('pm-gantt-vs-network-showFinancesView');

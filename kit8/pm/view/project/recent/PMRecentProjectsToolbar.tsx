@@ -88,6 +88,7 @@ import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourc
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
 import PMProjectFilesTab, { filesValuesOf, type PMProjectFilesValues } from "../settings/PMProjectFilesTab";
 import PMProjectChatTab, { chatValuesOf, type PMProjectChatValues } from "../settings/PMProjectChatTab";
+import PMProjectBimTab from "../settings/PMProjectBimTab";
 import { defaultPrefixOf, normalizePrefix, PREFIX_LENGTH } from "../../../../chat/chatModel";
 import PMProjectGanttTab, { ganttValuesOf, type PMProjectGanttValues } from "../settings/PMProjectGanttTab";
 import { formatPlanDate, parsePlanDate } from "../../../model/types";
@@ -108,7 +109,7 @@ import { PROJECT_CURRENCY_CHANGE_MESSAGE, PROJECT_CURRENCY_CHANGE_TITLE, changed
 import { useProjectCurrencyRecalc } from "../../../../catalog/organization/currencies/useOrganizationCurrencyRecalc";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabChat' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabMembers';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabChat' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabBIM' | 'TabMembers';
 
 interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectFilesValues, PMProjectChatValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
   rowGUID: string | null; // null = new project
@@ -384,6 +385,7 @@ export default function PMRecentProjectsToolbar({
       ...filesValuesOf(project.rowJSON),
       ...chatValuesOf(project.rowJSON),
       ...ganttValuesOf(project.rowJSON),
+      projectIsBIMBased: project.rowJSON.projectIsBIMBased === true,
     });
   };
   const openEdit = () => openEditFor(selected);
@@ -562,6 +564,7 @@ export default function PMRecentProjectsToolbar({
             ...filesValuesOf(draft),
             ...chatValuesOf(draft),
             ...ganttValuesOf(draft),
+            projectIsBIMBased: draft.projectIsBIMBased === true,
           },
           ...(finishMs ? { rowDuration: new Date(finishMs).toISOString() } : {}),
         },
@@ -609,6 +612,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
       Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), hourModelValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
+      if (draft.projectIsBIMBased === true) row.rowJSON.projectIsBIMBased = true;
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -927,6 +931,8 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabUXUI' as const, label: 'UX/UI', icon: 'palette' },
                   { id: 'TabPartners' as const, label: 'Partners', icon: 'handshake' },
                   { id: 'TabKanban' as const, label: 'Kanban', icon: 'view_column' },
+                  // BIM: the read only mark of an IFC import + Import / Remove (kit8/pm/bim); a saved project only
+                  ...(draft?.rowGUID ? [{ id: 'TabBIM' as const, label: 'BIM', icon: 'view_in_ar' }] : []),
                   // PART 46 / 47: who holds which permission profile in this project (a saved project only)
                   ...(draft?.rowGUID ? [{ id: 'TabMembers' as const, label: 'Members', icon: 'group' }] : []),
                 ].map((tab) => {
@@ -1060,6 +1066,12 @@ export default function PMRecentProjectsToolbar({
                           );
                         }}
                         onSaveAsTemplate={() => setCreateTemplateOpen(true)}
+                        onImportBim={() => {
+                          // the settings window belongs to the dashboard, which stays mounted: close it, or it stays on top of the importer
+                          const guid = draft.rowGUID;
+                          setDraft(null);
+                          router.push(`/pm/bim/import?projectGUID=${guid}` as any);
+                        }}
                       />
                     )}
                     {!draft?.rowGUID && (
@@ -1368,6 +1380,10 @@ export default function PMRecentProjectsToolbar({
                       onOpenKanbanStages={() => setKanbanStagesOpen(true)}
                     />
                   </View>
+                )}
+
+                {activeTab === 'TabBIM' && !!draft?.rowGUID && (
+                  <PMProjectBimTab projectGUID={draft.rowGUID} ownerGUID={ownerGUID} rowJSON={projectsById[draft.rowGUID]?.rowJSON} onOpenImporter={() => { const guid = draft.rowGUID; setDraft(null); router.push(`/pm/bim/import?projectGUID=${guid}` as any); }} values={draft} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
                 )}
 
                 {activeTab === 'TabMembers' && !!draft?.rowGUID && (
