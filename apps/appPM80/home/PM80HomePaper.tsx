@@ -20,6 +20,9 @@ import PM80CircularProgress from './PM80CircularProgress';
 import PM80BrandLogo, { pm80LogoWithBackground, PM80_LOGO_DARK_BACKGROUND } from './PM80BrandLogo';
 import PM80FlowStrip from './PM80FlowStrip';
 import { usePM80Layout } from './pm80Layout';
+import { useHomeSettings, saveHomeSettingsLocal } from './homeSettings/homeSettingsLocal';
+import { gridRows, itemRadius } from './homeSettings/homeSettingsModel';
+import PM80HomeSettingsModal from './homeSettings/PM80HomeSettingsModal';
 import { usePM80FlowScroll } from './pm80FlowScroll';
 import { usePM80Projects, useBusinessOrderFor } from './businessOrder/useBusinessOrder';
 import PM80RoiInfoModal from './roiInfo/PM80RoiInfoModal';
@@ -66,7 +69,10 @@ export default function PM80HomePaper({
   testID = 'pm80-home-paper',
 }: PM80HomePaperProps) {
   const theme = useTheme();
-  const L = usePM80Layout(28);
+  // the look of the home (items in the first row of the grid, form of the items): kept on this device
+  const homeSettings = useHomeSettings();
+  const [homeSettingsOpen, setHomeSettingsOpen] = useState(false);
+  const L = usePM80Layout(28, homeSettings.itemsPerRow);
   const flow = usePM80FlowScroll(L.isMobile);
   const [flowActiveId, setFlowActiveId] = useState<string | null>(null);
   const router = useRouter();
@@ -153,37 +159,6 @@ export default function PM80HomePaper({
 
   const flowNodes = useMemo(() => pm80FlowOf(snapshot), [snapshot]);
 
-  const topNodes = useMemo(
-    () =>
-      snapshot.satellites.filter(
-        (s) => s.position === 'top-left' || s.position === 'top-right'
-      ),
-    [snapshot.satellites]
-  );
-  const midLeftNode = useMemo(
-    () => snapshot.satellites.find((s) => s.position === 'mid-left'),
-    [snapshot.satellites]
-  );
-  const midRightNode = useMemo(
-    () => snapshot.satellites.find((s) => s.position === 'mid-right'),
-    [snapshot.satellites]
-  );
-  const lowerLeftNode = useMemo(
-    () => snapshot.satellites.find((s) => s.position === 'lower-left'),
-    [snapshot.satellites]
-  );
-  const lowerRightNode = useMemo(
-    () => snapshot.satellites.find((s) => s.position === 'lower-right'),
-    [snapshot.satellites]
-  );
-  const bottomNodes = useMemo(
-    () =>
-      snapshot.satellites.filter(
-        (s) => s.position === 'bottom-left' || s.position === 'bottom-right'
-      ),
-    [snapshot.satellites]
-  );
-
   // MD3 Surface Palette
   const bgHeader = isDark ? '#141218' : '#F3EDF7';
   const bgMain = isDark ? '#0F0D13' : '#FAF8FC';
@@ -192,6 +167,13 @@ export default function PM80HomePaper({
   const textSecondary = isDark ? '#CAC4D0' : '#625B71';
   const ringTrack = isDark ? '#2B2930' : '#E6E0E9';
   const kpiRingColor = isDark ? '#D0BCFF' : '#7C749B';
+
+  /** one row of the grid: the items side by side, centered (the last row may be shorter) */
+  const renderGridRow = (row: PM80SatelliteNode[], index: number) => (
+    <View key={`row-${index}`} testID={`${testID}-grid-row-${index}`} style={[styles.gridRow, { columnGap: L.itemGap }]}>
+      {row.map((n) => renderSatellite(n))}
+    </View>
+  );
 
   const renderSatellite = (node?: PM80SatelliteNode) => {
     if (!node) return null;
@@ -232,7 +214,7 @@ export default function PM80HomePaper({
             {
               width: L.satCircle,
               height: L.satCircle,
-              borderRadius: L.satCircle / 2,
+              borderRadius: itemRadius(homeSettings.itemShape, L.satCircle),
               backgroundColor: circleBg,
               borderColor: isSelected ? node.accentColor : 'transparent',
               borderWidth: isSelected ? 2.5 : 0,
@@ -526,6 +508,7 @@ export default function PM80HomePaper({
 
           {/* Month Navigation Row */}
           <View style={styles.monthNavRow}>
+            <View style={{ width: 34 }} />
             <PM80Tip tip={PM80_TIPS.prevMonth}><TouchableOpacity
               testID={`${testID}-prev-month`}
               onPress={handlePrevMonth}
@@ -563,6 +546,14 @@ export default function PM80HomePaper({
                 color={textSecondary}
               />
             </TouchableOpacity></PM80Tip>
+            <PM80Tip tip="Home settings: items in the first row, form of the items"><TouchableOpacity
+              testID={`${testID}-settings-btn`}
+              onPress={() => setHomeSettingsOpen(true)}
+              style={{ width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }}
+              accessibilityLabel="Home settings"
+            >
+              <MaterialCommunityIcons name="tune-variant" size={22} color={textSecondary} />
+            </TouchableOpacity></PM80Tip>
           </View>
         </Surface>
 
@@ -579,7 +570,7 @@ export default function PM80HomePaper({
               <View style={styles.landRight}>
                 {kpiEl}
                 <View style={styles.landGrid}>
-                  {flowNodes.map((n) => renderSatellite(n))}
+                  {gridRows(flowNodes, L.itemsPerRow).map((row, i) => renderGridRow(row, i))}
                 </View>
               </View>
             </View>
@@ -587,35 +578,11 @@ export default function PM80HomePaper({
             <>
               {kpiEl}
               {chipsEl}
-          {/* ANALOGIC ORBITAL CONSTELLATION AROUND CENTRAL NET ROI */}
-          <View style={styles.constellationContainer}>
-            {/* Top Pair: 1 Project plan & 2 Purchase orders */}
-            <View style={styles.pairRowTop}>
-              {topNodes.map((n) => renderSatellite(n))}
-            </View>
-
-            {/* Middle Band: Left Satellites + Central Net ROI Hub + Right Satellites */}
-            <View style={styles.middleHubBand}>
-              {/* Left Column: 3 Product receipts & 5 Fact input */}
-              <View style={[styles.sideSatellitesCol, { width: L.sat + 2 }]}>
-                {renderSatellite(midLeftNode)}
-                {renderSatellite(lowerLeftNode)}
+          {/* PORTRAIT: the Net ROI ring on top, under it the 8 items in a grid of `itemsPerRow` (home settings; 3 by default) */}
+              <View testID={`${testID}-hub-slot`} style={{ alignItems: 'center', marginVertical: 8 }}>{hubEl}</View>
+              <View testID={`${testID}-grid`} style={styles.landGrid}>
+                {gridRows(flowNodes, L.itemsPerRow).map((row, i) => renderGridRow(row, i))}
               </View>
-
-              {hubEl}
-
-              {/* Right Column: 4 Time sheets & 6 Vendor invoices */}
-              <View style={[styles.sideSatellitesCol, { width: L.sat + 2 }]}>
-                {renderSatellite(midRightNode)}
-                {renderSatellite(lowerRightNode)}
-              </View>
-            </View>
-
-            {/* Bottom Pair: 7 Customer invoices & 8 Cash payments */}
-            <View style={styles.pairRowBottom}>
-              {bottomNodes.map((n) => renderSatellite(n))}
-            </View>
-          </View>
             </>
           )}
 
@@ -794,6 +761,18 @@ export default function PM80HomePaper({
         accent={theme.colors.primary}
         borderColor={ringTrack}
       />
+      <PM80HomeSettingsModal
+        testID={`${testID}-settings`}
+        visible={homeSettingsOpen}
+        settings={homeSettings}
+        onChange={saveHomeSettingsLocal}
+        onClose={() => setHomeSettingsOpen(false)}
+        isDark={isDark}
+        textStrong={textPrimary}
+        textMuted={textSecondary}
+        accent={theme.colors.primary}
+        borderColor={ringTrack}
+      />
       <PM80RoiInfoModal
         testID={`${testID}-roi-info`}
         kind={roiInfoKind}
@@ -937,10 +916,12 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   landGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
     rowGap: 12,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
   },
   hubColumn: {
     alignItems: 'center',
@@ -975,30 +956,6 @@ const styles = StyleSheet.create({
   roiBtnText: {
     fontSize: 11,
     textAlign: 'center',
-  },
-  constellationContainer: {
-    width: '100%',
-    alignItems: 'center',
-    paddingVertical: 4,
-  },
-  pairRowTop: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 36,
-    marginBottom: 6,
-  },
-  middleHubBand: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    marginVertical: 4,
-  },
-  sideSatellitesCol: {
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    gap: 18,
-    width: 86,
   },
   centerHubTouchable: {
     alignItems: 'center',
@@ -1039,12 +996,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 2,
     borderRadius: 10,
-  },
-  pairRowBottom: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 36,
-    marginTop: 6,
   },
   satelliteContainer: {
     alignItems: 'center',

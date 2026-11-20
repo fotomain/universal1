@@ -1,5 +1,5 @@
 // ReusableTable - one cell: shows the value of a visualColumn and lets the user change it in place.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../common/IconApp';
@@ -9,6 +9,8 @@ import { asStringArray, cellValue, isHexColor, optionLabel, optionsOf, parseNumb
 import ReusableTableOptionPicker from './ReusableTableOptionPicker';
 import DateInputApp from '../../common/date_input/DateInputApp';
 import { defaultFormatDateInput, defaultParseDateInput } from '../../common/date_input/dateInputFormat';
+import CalculatorTrigger from '../../calculator/CalculatorTrigger';
+import type { CalculatorTriggerHandle } from '../../calculator/CalculatorTrigger';
 
 export interface ReusableTableCellProps {
   col: VisualColumn;
@@ -98,9 +100,9 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
 
   if (col.type === 'integer' || col.type === 'number') {
     if (col.renderNumber && editable) {
-      return <>{col.renderNumber({ testID: id, value, editable, integer: col.type === 'integer', min: col.min, max: col.max, radius, border, h, stepper: col.stepper !== false, step: col.step, placeholder: col.placeholder, align: col.align ?? (col.stepper !== false ? 'center' : 'right'), onCommit: (n) => onChange(col.key, n) })}</>;
+      return <>{col.renderNumber({ testID: id, value, editable, integer: col.type === 'integer', min: col.min, max: col.max, radius, border, h, stepper: col.stepper !== false, step: col.step, placeholder: col.placeholder, align: col.align ?? (col.stepper !== false ? 'center' : 'right'), onCommit: (n) => onChange(col.key, n), calculator: col.calculator })}</>;
     }
-    return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} onCommit={(n) => onChange(col.key, n)} />;
+    return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} calculator={col.calculator} onCommit={(n) => onChange(col.key, n)} />;
   }
 
   if (col.type === 'boolean') {
@@ -211,11 +213,12 @@ function JsonCell({ testID, title, value, editable, h, onCommit }: { testID: str
 }
 
 /** number input: free typing, saved on blur / Enter (only when the value really changed) */
-export function NumberCell({ radius, border, h, value, editable, integer, min, max, stepper, step, placeholder, align, onCommit, testID, dataSet }: { radius: number; border: number; h: number; value: any; editable: boolean; integer: boolean; min?: number; max?: number; stepper: boolean; step?: number; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (n: number | null) => void; testID: string; dataSet?: Record<string, string> }) {
+export function NumberCell({ radius, border, h, value, editable, integer, min, max, stepper, step, placeholder, align, onCommit, testID, dataSet, calculator = false }: { calculator?: boolean; radius: number; border: number; h: number; value: any; editable: boolean; integer: boolean; min?: number; max?: number; stepper: boolean; step?: number; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (n: number | null) => void; testID: string; dataSet?: Record<string, string> }) {
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(shown);
   useEffect(() => setDraft(shown), [shown]);
+  const calcRef = useRef<CalculatorTriggerHandle>(null);
   const commit = () => {
     const n = parseNumberInput(draft, { integer, min, max });
     setDraft(n === null ? '' : String(n));
@@ -230,6 +233,7 @@ export function NumberCell({ radius, border, h, value, editable, integer, min, m
       onChangeText={(t) => setDraft(sanitizeNumberText(t, integer, min === undefined || min < 0))}
       onBlur={commit}
       onSubmitEditing={commit}
+      {...(calculator ? { onKeyPress: (e: any) => { if (e?.nativeEvent?.key === 'F2') calcRef.current?.open(); } } : {})}
       keyboardType={integer ? 'number-pad' : 'decimal-pad'}
       inputMode={integer ? 'numeric' : 'decimal'}
       placeholder={placeholder ?? '0'}
@@ -238,7 +242,23 @@ export function NumberCell({ radius, border, h, value, editable, integer, min, m
       style={[styles.input, { borderRadius: radius, borderWidth: border, height: h }, stepper && styles.inputInStepper, stepper && { height: h - 2 }, { color: c.text, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent', textAlign: align }]}
     />
   );
-  if (!stepper) return input;
+  // the calculator icon at the right of the field: the result is the new value (saved at once, like a stepper press)
+  const withCalculator = (control: React.ReactElement) => !calculator ? control : (
+    <View style={styles.calcRow}>
+      {control}
+      <CalculatorTrigger
+        testID={`${testID}-calculator`}
+        openRef={calcRef}
+        size={Math.min(28, h - 4)}
+        integer={integer}
+        min={min}
+        max={max}
+        getValue={() => parseNumberInput(draft, { integer })}
+        onResult={(n) => { setDraft(String(n)); if (n !== (value ?? null)) onCommit(n); }}
+      />
+    </View>
+  );
+  if (!stepper) return withCalculator(input);
   // − / +: from what is typed now (not yet saved) one step down / up
   const stepBy = (direction: 1 | -1) => {
     const from = parseNumberInput(draft, { integer, min, max });
@@ -260,13 +280,14 @@ export function NumberCell({ radius, border, h, value, editable, integer, min, m
       <Text style={{ color: c.primary, fontSize: 18, fontWeight: '700', lineHeight: 20 }}>{direction === 1 ? '+' : '−'}</Text>
     </Pressable>
   );
-  return (
+  const stepperView = (
     <View style={[styles.stepper, { height: h, borderRadius: radius, borderWidth: border, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent' }]}>
       {btn(-1, atMin)}
       {input}
       {btn(1, atMax)}
     </View>
   );
+  return withCalculator(stepperView);
 }
 
 /** a date cell with the calendar (DateInputApp): typed or picked; the value is 'YYYY-MM-DD' (another written form is read and written back as that) */
@@ -304,6 +325,7 @@ function TextCell({ radius, border, h, value, editable, placeholder, align, onCo
 }
 
 const styles = StyleSheet.create({
+  calcRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   boolCell: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },
   boolBox: { width: 18, height: 18, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
   boolTick: { color: '#fff', fontSize: 12, lineHeight: 14, fontWeight: '900' },

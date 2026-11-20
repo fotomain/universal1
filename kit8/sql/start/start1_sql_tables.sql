@@ -59,6 +59,7 @@
 --   51. create_project_readonly.sql - READ-ONLY PROJECT: no table (the switch is the key projectIsReadonly of project_table.rowJSON); the guard triggers are in start2_sql_code.sql
 --   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the twin columns sumForConsolidation of the four movement tables, the queue consolidation_dirty and the gap table consolidation_gap_table; the code is in start2_sql_code.sql
 --   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): task_line_plan_hour_movements = the hour rows (window slices) of a posted Time line, derived next to the day rows
+--   54. create_application_admin.sql - APPLICATION ADMINISTRATORS (documentation/PERMISSIONS_WBS.html section 13): application_permission_table = the e-mails that hold permissionApplicationAdmin (one row each); the code is in start2_sql_code.sql
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -4029,6 +4030,27 @@ CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_task ON public.task
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_project ON public.task_line_plan_hour_movements ("rowProjectGUID", "periodDay");
 
 CREATE INDEX IF NOT EXISTS idx_task_line_plan_hour_movements_resource ON public.task_line_plan_hour_movements ("resourceKind", "resourceGUID", "periodDay") WHERE "resourceGUID" IS NOT NULL;
+
+-- ===============================================================================================
+-- PART 54: create_application_admin.sql
+-- APPLICATION ADMINISTRATORS. application_permission_table: ONE row per e-mail that holds an APPLICATION level permission (rowOwnerGUID = the e-mail, lower case; rowJSON.permissionApplicationAdmin = true).
+-- An application administrator SEES ALL ORGANIZATIONS (every other user sees only the organizations he is a member of); he does not become a member and gets no right to change them.
+-- No client reads or writes this table: start2 gives it RLS and no policy, the answer comes from permission_application_admin() / perm_my_matrix. A row is made in the SQL editor (start4 seeds the first one).
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.application_permission_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT application_permission_email_chk CHECK ("rowOwnerGUID" = lower(btrim("rowOwnerGUID")) AND "rowOwnerGUID" <> '')
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_application_permission_email ON public.application_permission_table ("rowOwnerGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

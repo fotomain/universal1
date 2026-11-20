@@ -1,3 +1,18 @@
+Q5: use example1 only.
+Q6: use supabase as cloud storage
+Q7: Qdrant not needed
+Q14: do all
+Q15: use 1 project for import : example1 with GUID.
+Put code into: /Users/mgtimber/UNIVERSAL1/expo-app/kit8/pm/bim
+Put examples into: kit8/kit8/bim/examples.
+Put server code into: py/bim/server
+
+
+FUTURE for BIM Projects:
+    Import from BIM
+    Copy with BIM
+
+
 # █████████████████████ Uneversal1 APP
 
 https://youtu.be/4pe1fn3Gus0

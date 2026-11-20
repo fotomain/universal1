@@ -15,6 +15,8 @@ import { pmT } from '../../i18n/pmT';
 import Monitor01Toolbar from '../monitor01/Monitor01Toolbar';
 import ReportAgeBadge from '../common/ReportAgeBadge';
 import ReportFilterBar from '../common/ReportFilterBar';
+import OrganizationFilter from '../../../catalog/organization/switch/OrganizationFilter';
+import { useActiveOrganizationGUID } from '../../../catalog/organization/switch/useActiveOrganizationGUID';
 import { reportFilterErrors } from '../common/reportFilterModel';
 import { useReportData } from '../common/useReportData';
 import { useStoredChoice } from '../common/useStoredChoice';
@@ -49,7 +51,17 @@ export default function PartnerBalanceDashboard({ role, testID = `monitor07-${ro
   const [autoRefresh, setAutoRefresh] = useState(true);
   const kinds = useMemo(() => shownKinds(flags), [flags]);
   const query = useMemo(() => balanceFiltersToRpc(values, flags), [values, flags]);
-  const queryKey = JSON.stringify([role, query, sort]);
+  // a user of two or more organizations: the Organization filter of the bar picks the active one; partner_balance_report reads the ACTIVE organization, so a switch reads the report again
+  // and the choices of the other organization (project, task, partner, contract, legal entity) are cleared - they would filter the new one down to nothing
+  const organizationGUID = useActiveOrganizationGUID();
+  const queryKey = JSON.stringify([role, query, sort, organizationGUID]);
+  const lastOrganization = useRef(organizationGUID);
+  useEffect(() => {
+    if (lastOrganization.current === organizationGUID) return;
+    const before = lastOrganization.current;
+    lastOrganization.current = organizationGUID;
+    if (before) setValues((v) => ({ ...v, projectFilter: '', taskFilter: '', partnerFilter: '', partnerContractFilter: '', legalEntityFilter: '' }));
+  }, [organizationGUID]);
 
   const report = useReportData<BalanceRow[]>({
     load: (client) => fetchPartnerBalanceReport(client, { role, from: query.from, to: query.to, filters: query.filters, sort }),
@@ -57,7 +69,7 @@ export default function PartnerBalanceDashboard({ role, testID = `monitor07-${ro
   });
   const items = useReportData({
     load: (client) => fetchPartnerBalanceFilterItems(client, role, values.projectFilter || null, values.partnerFilter || null),
-    deps: [role, values.projectFilter, values.partnerFilter], watch: false, initial: EMPTY_FILTER_ITEMS,
+    deps: [role, values.projectFilter, values.partnerFilter, organizationGUID], watch: false, initial: EMPTY_FILTER_ITEMS,
   });
 
   const tree = useMemo(() => buildBalanceTree(report.data), [report.data]);
@@ -134,6 +146,7 @@ export default function PartnerBalanceDashboard({ role, testID = `monitor07-${ro
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT(title.screen)}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT(title.name)}</Text>
         <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={setAutoRefresh} onRefresh={() => { report.reload(); items.reload(); }} busy={report.isLoading} />
+        <OrganizationFilter testID={`${testID}-organization`} />
         <View style={{ flex: 1 }} />
         <ReportAgeBadge testID={`${testID}-age`} autoRefresh={autoRefresh} live={report.live} changedAt={report.changedAt} />
       </View>

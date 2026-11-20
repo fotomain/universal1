@@ -11,4 +11,6 @@ The pieces every live report needs. Written for **Monitor07** (partner balance, 
 | `reportFormat.ts` | `formatReportMoney` (`1 234.50`), `parseReportAmount` (`-12,5` -> -12.5, `''` -> no filter, junk -> `'invalid'`) |
 | `useStoredChoice.ts` | a per-user choice (the switches, the sort) in AsyncStorage; a failure only means "not remembered" |
 
-Tests: `__tests__/pm/reports/common`.
+| `useReportOrganizationScope.ts` | the **organization cut** of the reports (2026-11-20): a user of TWO OR MORE organizations picks the active one with the `OrganizationFilter` in the bar (Monitor01 standalone, 02, 03, 07, 08); `scoped` / `ready` / `projectGUIDs` (the projects of the active organization, read from `project_table.rowParentGUID`) / `filter(rows, projectOf)`; not scoped (one organization) = the same array, no extra read. Monitor01, 02, 03 and 08 cut their rows with it; Monitor07's SQL (`partner_balance_report`) already reads the active organization, so it only re-reads (the active organization is in its deps) and clears the choices of the other organization |
+
+Tests: `__tests__/pm/reports/common` (`reportOrganizationScope.test.tsx`).

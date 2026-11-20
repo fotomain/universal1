@@ -53,6 +53,8 @@ export interface Permissions {
   projectIsReadonly: boolean;
   profiles: string[];
   isAdmin: boolean;
+  /** permissionApplicationAdmin: sees ALL organizations (SQL PART 54); false until the answer is there (the database filters the list anyway) */
+  isApplicationAdmin: boolean;
   canCreateProject: boolean;
   /** table letter (C R U D) for the project / task of the hook */
   can: (table: string, letter: PermLetter) => boolean;
@@ -127,7 +129,7 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
   const canUi = useCallback((object: string, letter: PermLetter) => !ready || canObject(matrix, object, letter), [ready, matrix]);
 
   return useMemo(
-    () => ({ ready, projectIsReadonly: ready && matrix.projectIsReadonly, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
+    () => ({ ready, projectIsReadonly: ready && matrix.projectIsReadonly, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, isApplicationAdmin: ready && matrix.isApplicationAdmin, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
     [ready, matrix, can, canUi, load],
   );
 }

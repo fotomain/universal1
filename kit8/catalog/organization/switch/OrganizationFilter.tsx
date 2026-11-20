@@ -1,46 +1,19 @@
-// OrganizationFilter - "Organization" select in the project bar for a user of two or more organizations (organization_my_memberships). Picking one calls organization_switch and makes it the
-// ACTIVE organization (redux userState.userOrganization): the Project dashboard then offers the projects of that organization only. Not shown for a user of one organization.
-import React, { useCallback, useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { useSupabase } from '../../../providers/WithSupabase';
-import { setActiveUser } from '../../../redux/activeUserSlice';
+// OrganizationFilter - "Organization" select for a user of two or more organizations (organization_my_memberships). Picking one calls organization_switch and makes it the
+// ACTIVE organization (redux userState.userOrganization): the Project dashboard then offers the projects of that organization only, and every Monitor report shows its data
+// (kit8/pm/reports/common/useReportOrganizationScope). Not shown for a user of one organization - and then it needs no redux / Supabase provider either (a screen or a test
+// without them renders nothing): the select with the switch lives in OrganizationSelect, mounted only when there is something to choose.
+import React, { useCallback } from 'react';
 import SelectItemFromListApp from '../../../ui/components/common/SelectItemFromListApp';
 import { pmT } from '../../../pm/i18n/pmT';
-import { membershipsOf, showOrganizationFilter, type OrganizationMembership } from './organizationSwitchModel';
-import { useActiveOrganizationGUID } from './useActiveOrganizationGUID';
+import { showOrganizationFilter, type OrganizationMembership } from './organizationSwitchModel';
+import { useOrganizationMemberships } from './useOrganizationMemberships';
+import { useSwitchOrganization } from './useSwitchOrganization';
 
-export default function OrganizationFilter({ testID = 'organization-filter' }: { testID?: string }) {
-  const { supabase } = useSupabase();
-  const dispatch = useDispatch();
-  const active = useActiveOrganizationGUID();
-  const user = useSelector((s: any) => s?.activeUserState);
-  const [memberships, setMemberships] = useState<OrganizationMembership[]>([]);
-
-  useEffect(() => {
-    let alive = true;
-    if (!active) return undefined;
-    (async () => {
-      try {
-        const { data, error } = await (supabase as any).rpc('organization_my_memberships');
-        if (!error && alive) setMemberships(membershipsOf(data));
-      } catch {
-        // the function does not exist yet (PART 45 not installed): no filter
-      }
-    })();
-    return () => { alive = false; };
-  }, [supabase, active]);
-
+function OrganizationSelect({ memberships, active, testID }: { memberships: OrganizationMembership[]; active: string; testID: string }) {
+  const switchOrganization = useSwitchOrganization();
   const pick = useCallback(async (organizationGUID: string) => {
-    if (organizationGUID === active) return;
-    const { data, error } = await (supabase as any).rpc('organization_switch', { p_organization: organizationGUID });
-    if (error) return;
-    dispatch(setActiveUser({
-      activeUserGUID: user.activeUserGUID, activeUserEmail: user.activeUserEmail, activeUserFirstName: user.activeUserFirstName, activeUserLastName: user.activeUserLastName,
-      userGUID: user.userGUID, userOrganization: { rowGUID: organizationGUID, title: String(data?.organizationTitle ?? '') },
-    }));
-  }, [supabase, active, dispatch, user]);
-
-  if (!showOrganizationFilter(memberships)) return null;
+    await switchOrganization(organizationGUID);
+  }, [switchOrganization]);
   return (
     <SelectItemFromListApp
       testID={testID}
@@ -52,4 +25,10 @@ export default function OrganizationFilter({ testID = 'organization-filter' }: {
       label={pmT('Organization')}
     />
   );
+}
+
+export default function OrganizationFilter({ testID = 'organization-filter' }: { testID?: string }) {
+  const { memberships, active } = useOrganizationMemberships();
+  if (!showOrganizationFilter(memberships)) return null;
+  return <OrganizationSelect memberships={memberships} active={active} testID={testID} />;
 }

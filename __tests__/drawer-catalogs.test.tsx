@@ -244,6 +244,8 @@ it('Record (Audio, Video, Photo), Play (Audio, Video) and Scan (QR / Barcode, NF
   expect(mockNavigate).toHaveBeenLastCalledWith('/media/scan');
   press('drawer-subitem-scan-nfc');
   expect(mockNavigate).toHaveBeenLastCalledWith('/media/nfc');
+  press('drawer-subitem-scan-identification');
+  expect(mockNavigate).toHaveBeenLastCalledWith('/media/nfc/identification');
 
   press('drawer-item-play');
   press('drawer-subitem-play-audio');

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ChatBadge from '../../../chat/ChatBadge';
 import IconApp from './IconApp';
+import { toggleCalculatorWindow } from '../calculator/calculatorStore';
 import ArrowToLeftApp from './ArrowToLeftApp';
 import { useAppSignOut } from '../../../auth/session/useAppSignOut';
 import { useDispatch, useSelector } from 'react-redux';
@@ -191,6 +192,12 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
     }
   };
 
+  /** the standalone calculator window floats over the screen (CalculatorWindowHost in app/_layout.tsx) */
+  const handleCalculator = () => {
+    closeMenu();
+    toggleCalculatorWindow();
+  };
+
   const handleDesigns = () => {
     closeMenu();
     try {
@@ -253,6 +260,11 @@ export default function ApplicationBarApp({ route, options }: DrawerHeaderProps)
             </TouchableOpacity>
 
             <View style={{ height: 1, backgroundColor: themeColors.border, marginVertical: 4 }} />
+
+            <TouchableOpacity testID="appbar-menu-calculator" style={styles.menuRow} onPress={handleCalculator}>
+              <IconApp testID="appbar-menu-calculator-icon" name="calculate" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />
+              <Text style={{ fontSize: 15, color: themeColors.text }}>{t('calculator.menu')}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.menuRow} onPress={handleDesigns}>
               <IconApp testID="fd138467-6ki4-1lm3-5va7-890123456b38" name="palette" size={18} color={themeColors.primary} style={{ marginRight: 10 }} />

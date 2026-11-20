@@ -11,6 +11,8 @@ import ZoomControl from '../common/ZoomControl';
 import PinchZoomView from '../common/PinchZoomView';
 import { canZoom, clampZoom, factorOf, normalizeZoomRange } from '../common/cameraZoom';
 import { toFileUri } from '../common/mediaSource';
+import { nativeTorchProp, torchIcon, torchLabel } from '../common/cameraTorch';
+import { useRecordVideoSettings } from '../video/useRecordVideoSettings';
 import PhotoFilterStrip from './PhotoFilterStrip';
 import PhotoReview, { ShotPhoto } from './PhotoReview';
 import { applyPhotoFilter } from './applyPhotoFilter';
@@ -29,6 +31,9 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
   const permission = useCameraPermission();
   const [position, setPosition] = useState<'back' | 'front'>('back');
   const device = useCameraDevice(position);
+  // the flashlight = a permanent light (the Flash button below fires once at the shutter); the same remembered choice as the video screen
+  const { settings: cameraSettings, change: changeCameraSettings } = useRecordVideoSettings();
+  const torchOn = cameraSettings.recordTorchEnabled;
   const [focused, setFocused] = useState(true);
   const [flash, setFlash] = useState<Flash>('off');
   const [filterId, setFilterId] = useState(DEFAULT_PHOTO_FILTER);
@@ -90,7 +95,7 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
               </View>
             ) : (
               <PinchZoomView style={StyleSheet.absoluteFill} zoom={zoom} range={zoomRange} onZoom={(z) => setZoom(clampZoom(z, zoomRange))} disabled={!canZoom(zoomRange)} testID="record-photo-pinch">
-                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} photo photoQualityBalance="quality" zoom={clampZoom(zoom, zoomRange)} />
+                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} photo photoQualityBalance="quality" zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
               </PinchZoomView>
             )}
           </Surface>
@@ -99,6 +104,7 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
               Take photo
             </ButtonPrimaryApp>
             <View style={styles.rowIcons}>
+              {!!device?.hasTorch && <IconButton icon={torchIcon(torchOn)} onPress={() => changeCameraSettings({ recordTorchEnabled: !torchOn })} accessibilityLabel={torchLabel(torchOn)} testID="record-photo-torch" />}
               {!!device?.hasFlash && <IconButton icon={FLASH_ICON[flash]} onPress={() => setFlash((f) => NEXT_FLASH[f])} accessibilityLabel={`Flash ${flash}`} testID="record-photo-flash" />}
               <IconButton icon="camera-flip-outline" onPress={() => setPosition((p) => (p === 'back' ? 'front' : 'back'))} accessibilityLabel="Switch camera" testID="record-photo-flip" />
             </View>

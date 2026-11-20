@@ -23,6 +23,7 @@ import { PartClock } from './dateTimeOver';
 import { canZoom, clampZoom, normalizeZoomRange } from '../common/cameraZoom';
 import ZoomControl from '../common/ZoomControl';
 import PinchZoomView from '../common/PinchZoomView';
+import { nativeTorchProp, torchIcon, torchLabel } from '../common/cameraTorch';
 
 export type { RecordVideoProps };
 
@@ -42,6 +43,8 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   /** the stamp of the recording that runs: fixed at Record (the settings are locked until Stop) */
   const stampOn = recordSettings.recordDateTimeOverEnabled;
   const stampPosition = recordSettings.recordDateTimeOverPosition;
+  /** the flashlight: a permanent light, also WHILE recording (a property of the live camera, no new part is started) */
+  const torchOn = recordSettings.recordTorchEnabled;
   const camera = useRef<Camera>(null);
   const cameraPermission = useCameraPermission();
   const micPermission = useMicrophonePermission();
@@ -239,7 +242,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               </View>
             ) : (
               <PinchZoomView style={StyleSheet.absoluteFill} zoom={zoom} range={zoomRange} onZoom={(z) => setZoom(clampZoom(z, zoomRange))} disabled={!canZoom(zoomRange)} testID="record-video-pinch">
-                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} video audio={sound} zoom={clampZoom(zoom, zoomRange)} />
+                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} video audio={sound} zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
               </PinchZoomView>
             )}
             {active && (
@@ -267,6 +270,9 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               testID="record-video-sound"
             />
             <View style={styles.rowIcons}>
+              {!!device?.hasTorch && (
+                <IconButton icon={torchIcon(torchOn)} onPress={() => changeRecordSettings({ recordTorchEnabled: !torchOn })} disabled={phase === 'saving'} accessibilityLabel={torchLabel(torchOn)} size={22} style={styles.torch} testID="record-video-torch" />
+              )}
               <IconButton
                 icon="camera-flip-outline"
                 onPress={() => setPosition((p) => (p === 'back' ? 'front' : 'back'))}
@@ -320,6 +326,7 @@ const styles = StyleSheet.create({
   gear: { margin: 0, marginRight: -8, marginLeft: -4 },
   /* the camera sign stands in the middle between the sound switch and the gear */
   flip: { margin: 0, marginLeft: 4 },
+  torch: { margin: 0 },
   /* ONE line also on a narrow phone: the switch gives way (its text may break), nothing drops to a second line */
   sound: { flexShrink: 1, marginLeft: 8 },
   buttons: { flexDirection: 'row', gap: 12, marginTop: 16, flexWrap: 'wrap' },

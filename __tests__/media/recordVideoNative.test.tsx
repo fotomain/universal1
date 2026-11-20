@@ -4,7 +4,7 @@ import { act } from 'react';
 import { cleanup, flush, pressAsync, q, render, text } from './mediaUiTestKit';
 
 // ---- react-native-vision-camera: a fake camera that records what the screen asks for
-const cam: any = { start: [] as any[], stop: 0, pause: 0, resume: 0, audioProps: [] as boolean[], handlers: null as any, focusedProps: [] as boolean[] };
+const cam: any = { start: [] as any[], stop: 0, pause: 0, resume: 0, audioProps: [] as boolean[], torchProps: [] as string[], handlers: null as any, focusedProps: [] as boolean[] };
 (globalThis as any).__cam = cam;
 (globalThis as any).__mic = { hasPermission: true, requestPermission: jest.fn(async () => true) };
 (globalThis as any).__camPerm = { hasPermission: true, requestPermission: jest.fn(async () => true) };
@@ -13,6 +13,7 @@ jest.mock('react-native-vision-camera', () => {
   const Camera = R.forwardRef((props: any, ref: any) => {
     const c = (globalThis as any).__cam; // read when rendered: the imports run before this file's top-level code
     c.audioProps.push(props.audio);
+    c.torchProps.push(props.torch);
     c.focusedProps.push(props.isActive);
     R.useImperativeHandle(ref, () => ({
       startRecording: (o: any) => { c.start.push(o); c.handlers = o; },
@@ -24,7 +25,7 @@ jest.mock('react-native-vision-camera', () => {
   });
   return {
     Camera,
-    useCameraDevice: () => ((globalThis as any).__noDevice ? undefined : { id: 'back' }),
+    useCameraDevice: () => ((globalThis as any).__noDevice ? undefined : { id: 'back', hasTorch: !(globalThis as any).__noTorch }),
     useCameraPermission: () => (globalThis as any).__camPerm,
     useMicrophonePermission: () => (globalThis as any).__mic,
   };
@@ -46,7 +47,9 @@ const advance = (ms: number) => act(async () => { jest.advanceTimersByTime(ms); 
 
 beforeEach(() => {
   jest.useFakeTimers();
-  Object.assign(cam, { start: [], stop: 0, pause: 0, resume: 0, audioProps: [], handlers: null, focusedProps: [] });
+  Object.assign(cam, { start: [], stop: 0, pause: 0, resume: 0, audioProps: [], torchProps: [], handlers: null, focusedProps: [] });
+  (globalThis as any).__noTorch = false;
+  (globalThis as any).__recordVideoSettings = undefined;
   (globalThis as any).__mic = { hasPermission: true, requestPermission: jest.fn(async () => true) };
   (globalThis as any).__camPerm = { hasPermission: true, requestPermission: jest.fn(async () => true) };
   (globalThis as any).__noDevice = false;
@@ -237,4 +240,38 @@ describe('date and time over the video (documentation/CAMERA_DATE_TIME.html)', (
     expect(q('record-video-badge-right')).not.toBeNull();
     expect(q('record-video-badge')).toBeNull();
   });
+});
+
+it('flashlight: off at the start, the button lights the camera for good - also while recording, with no new part', async () => {
+  render(<RecordVideo />);
+  await flush();
+  expect(cam.torchProps.at(-1)).toBe('off');
+  expect(text('record-video-torch')).toBe('flashlight-off');
+  await pressAsync('record-video-torch');
+  expect(cam.torchProps.at(-1)).toBe('on');
+  expect(text('record-video-torch')).toBe('flashlight');
+  await pressAsync('record-video-start');
+  await advance(1000);
+  expect(cam.start).toHaveLength(1);
+  // it stays on when the recording runs, and can be switched off in the middle of it
+  expect(cam.torchProps.at(-1)).toBe('on');
+  await pressAsync('record-video-torch');
+  expect(cam.torchProps.at(-1)).toBe('off');
+  expect(cam.start).toHaveLength(1); // one file, no part break
+  expect(cam.stop).toBe(0);
+});
+
+it('flashlight: the remembered choice is on from the first picture', async () => {
+  (globalThis as any).__recordVideoSettings = { recordTorchEnabled: true };
+  render(<RecordVideo />);
+  await flush();
+  expect(cam.torchProps.at(-1)).toBe('on');
+});
+
+it('flashlight: no button for a camera without a torch (the front camera)', async () => {
+  (globalThis as any).__noTorch = true;
+  render(<RecordVideo />);
+  await flush();
+  expect(q('record-video-torch')).toBeNull();
+  expect(cam.torchProps.at(-1)).toBe('off');
 });

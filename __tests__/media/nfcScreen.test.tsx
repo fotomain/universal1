@@ -129,3 +129,10 @@ it('status texts', () => {
   expect(nfcStatusText('checking', false, '')).toContain('Checking');
   expect(Platform.OS).toBeDefined();
 });
+
+it('a button opens the ID card / passport reader (its own screen: the antenna is used by one reader at a time)', async () => {
+  render(<NfcScan />);
+  await flush();
+  press('nfc-id-reader');
+  expect((globalThis as any).__push).toHaveBeenLastCalledWith('/media/nfc/iddocread');
+});

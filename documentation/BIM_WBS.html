@@ -1,0 +1,539 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BIM - WBS</title>
+<style>
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.plan { background: var(--amber-soft); color: var(--amber); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .bad { background: var(--rose-soft); border: 1px solid #f5b5c0; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">BIM</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#found">What I found</a></li><li><a href="#wbs">WBS</a></li><li><a href="#mapping">IFC to WBS</a></li>
+    <li><a href="#ui">Button &amp; settings</a></li><li><a href="#interact">Interactivity</a></li><li><a href="#fast">Fast exchange</a></li><li><a href="#local">Local storage</a></li>
+    <li><a href="#cloud">Cloud: Supabase vs Qdrant</a></li><li><a href="#tables">Tables</a></li><li><a href="#viewer">3D viewer</a></li><li><a href="#mobile">Mobile</a></li>
+    <li><a href="#examples">Examples</a></li><li><a href="#tests">Tests</a></li><li><a href="#risks">Risks</a></li><li><a href="#questions">Questions</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="goal">
+  <h1>BIM: import an IFC model as a project WBS and show it in 3D</h1>
+  <p class="lead">A user imports a BIM model (IFC). The application makes a project with the <b>stages and tasks only</b> (no costs, no lines), keeps the 3D geometry in a compact binary form, and shows a 3D view next to the task tree. A press on a task lights its parts in 3D; a press on a part in 3D scrolls the tree to its task or stage. It must work on web, iOS and Android.</p>
+  <p class="sub">PLAN ONLY 2026-11-20 - no code written, nothing installed. Code would live in <code>kit8/bim</code> · route <code>app/pm/bim/import</code> · SQL PART 55 · Docker test <code>tests/104_bim.sql</code> · this document <code>documentation/BIM_WBS.html</code>.</p>
+
+  <div class="card">
+    <h3 style="margin-top:0">The request, in order</h3>
+    <ol class="steps">
+      <li>This document, and a component <code>BIMToProjectImport.tsx</code> that imports a BIM file into a project.</li>
+      <li>In the Project dashboard a <b>BIM</b> button, the LAST of the button switch (Gantt, Edit, ...).</li>
+      <li>3D visualization after the import, shown with two examples.</li>
+      <li>Minimum data: the stages and tasks of the WBS only. No costs, nothing else.</li>
+      <li>Project settings get a <b>BIM</b> tab with the read only <code>projectIsBIMBased</code>: true only when the project was imported.</li>
+      <li>Press a task: the Tree-BIM view highlights it with a colour. Press a 3D element: the application scrolls to the related task or stage.</li>
+      <li>Works on mobile too; use the final best studies of the shared chat.</li>
+      <li>Tables with the prefix <code>bim_</code>; local SQLite (web: official SQLite WASM + OPFS; devices: native SQLite), database name <code>kit8bimdb</code> + organization GUID if good; Qdrant as the cloud store; separate tables per project if good; a Supabase vs Qdrant comparison for global data; the fastest client / server exchange.</li>
+      <li>Example 1 = project <code>aabd1dde-97e6-4359-97e4-0efcb847589b</code> from <i>Structure Walls.ifc</i>; example 2 = project <code>3a427f72-98f9-4f46-8449-164e3a22e1de</code> from <i>Vacation Home | Residential Building</i>.</li>
+    </ol>
+  </div>
+
+  <div class="ok"><b>Short answers to the "if it is a good idea" questions</b> (reasons in the sections):
+    <ul class="steps">
+      <li>Local database name <code>kit8bimdb_&lt;organization GUID&gt;</code>: <b>yes</b>, wiped at sign out. The big binary chunks are FILES next to it, not rows.</li>
+      <li>Separate tables per project: <b>no</b>. One set of <code>bim_</code> tables with a project column (section 9).</li>
+      <li>Qdrant: <b>not as the store of the model</b> (no row security, no blobs, no joins to the tasks). <b>Yes, later,</b> as an optional semantic search / matching index behind an Edge Function (sections 8 and 12).</li>
+      <li>Web SQLite: official SQLite WASM with OPFS, the <code>opfs-sahpool</code> VFS inside a <b>SharedWorker</b>, because the application opens many browser windows (section 7).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="found">
+  <h2>1. What I found (read before building)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">In the repository</h3>
+      <ul class="steps">
+        <li><code>BIMToProjectImport.tsx</code> and <code>projectIsBIMBased</code> do <b>not exist</b>: nothing BIM is in the code. The component is new (planned path <code>kit8/bim/import/BIMToProjectImport.tsx</code>).</li>
+        <li>No <code>three</code>, <code>@react-three/fiber</code>, <code>expo-gl</code>, SQLite WASM in <code>package.json</code>. Present: <code>expo-sqlite</code> (~57.0.3, used by the undo store), <code>expo-file-system</code>, <code>react-native-gesture-handler</code>, <code>react-native-reanimated</code>, Skia (2D only). New native modules = a <b>dev build</b> is needed (<code>./run_android_samsung.command</code>).</li>
+        <li>The main view switch is <code>PMGanttVsNetworkView</code> in <code>kit8/pm/model/types.ts</code>, buttons in <code>kit8/pm/view/gantt/toolbars/GanttToggleButtons.tsx</code>. <b>Conflict:</b> <code>PM_LAST_VIEW_BUTTON</code> = <code>showPlanView</code> (Budgets) is always last. BIM must take that place; Budgets becomes the one before it.</li>
+        <li>The right pane of the dashboard is chosen in <code>PMProjectDashboard.tsx</code> by <code>rightPane</code> (gantt, finances, kanban, versions, plan, reports). BIM is one more pane, the tree stays at the left.</li>
+        <li>"Scroll to a task" already exists: <code>usePMStore.getState().requestFocus(guid)</code> expands the parents, selects the row and scrolls (used by the timeline strip, the deep link, the last task). The 3D view only calls it.</li>
+        <li>A project can be imported from a file through <code>project_import_tasks</code> (SQL PART 40, chunks of 500, <code>app.task_bulk</code>); CAKE2 did 249 rows with pinned dates. The BIM importer reuses that path: no new bulk writer is needed for the tasks.</li>
+        <li>Settings window: <code>PMRecentProjectsToolbar.tsx</code> (<code>ProjectSettingsTab</code> list, the tab bodies in <code>view/project/settings</code>). A key that the user must not edit follows the read-only project precedent (<code>project_set_readonly</code>, guard trigger).</li>
+        <li>Next free SQL PART is <b>55</b> (54 = application administrators). Every new table must also be in <code>kit8/sql/permissions/permission_matrix.py</code>.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">The shared chat (claude.ai/share/9855157f...)</h3>
+      <p>The page shows three answers. Its conclusions, which this plan follows:</p>
+      <ul class="steps">
+        <li>No native IFC plugin for Expo; <code>web-ifc</code> (WASM) does not run in React Native's native runtime.</li>
+        <li><b>Parse once on the server</b> (IfcOpenShell geometry iterator, many threads), do not write an IFC parser; dedupe repeated shapes (one mesh + many transforms); compress; properties separate, keyed by GlobalId, plus the spatial tree site > building > storey > element.</li>
+        <li>Chunk by storey, cache by content hash, load the first view fast.</li>
+        <li>Client: merge meshes per material with an element id, few draw calls, <code>frameloop="demand"</code>, lazy properties.</li>
+        <li>Mobile: the same r3f scene through <code>expo-gl</code>; lighter geometry, pixel ratio cap 2, no antialiasing / shadows; <b>BVH raycast picking</b> (ID buffer <code>readPixels</code> is slow on native); load by storey; offline cache with <code>expo-file-system</code> + <code>expo-sqlite</code>; bottom sheets, big touch targets, tap-based tools; never parse IFC on the device.</li>
+      </ul>
+      <div class="note">The "Fastest options, in order of impact / Quantized binary buffers + ..." list of the request is <b>not on that page</b> (it ends at the mobile answer). Section 6 builds that list from the same idea (send less, in a GPU-ready format) and adds what the chat did not say: Hermes has no WebAssembly, so meshopt / Draco decode only on web.</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Example 1: Structure Walls.ifc (read)</h3>
+      <ul class="steps">
+        <li>447 KB, IFC4, Revit 2024 export, project "Snowdon Towers" (id <code>7765328-33-S</code>), 5 749 entities.</li>
+        <li>1 site, 1 building, <b>12 storeys</b> (Elevator Pit, Parking, L1_35_Low, L1_37_Med, L1_43_High, M1, L2, L3, L4, L5, R2, Parapet 2), <b>58 IfcWall</b> in 4 wall types (Concrete 10", 12", 18", 24"), 5 containment relations = the walls sit in <b>only some of the 12 storeys</b> (I did not verify which; the converter checker does).</li>
+        <li>Geometry: 175 extruded solids + 14 polygonal face sets + 1 triangulated set. 639 property links, 459 property sets (not imported: "minimum data").</li>
+        <li><b>The unit is the FOOT</b> (<code>IFCCONVERSIONBASEDUNIT</code> 0.3048 over metre): storey elevations -22.9 ... 70.8 are feet. The converter must apply the unit scale.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Example 2: Vacation Home (read)</h3>
+      <div class="bad"><b>The link is not an IFC file.</b> It resolves to the Graphisoft community page "Archicad Sample Projects - Designed by Students": Vacation Home | Residential Building (architect Donna Ferreira, 1340 m2, Archicad 25) offers a <b>.pla</b> Archicad archive and a <b>BIMx hyper-model</b>, both proprietary. The page says the contents are copyright protected and the download means accepting an End User License Agreement.</div>
+      <ul class="steps">
+        <li>I cannot and will not accept the licence or download it for the owner. The owner downloads the .pla, opens it in Archicad and exports <b>File > Save As > IFC (IFC4, Coordination View / Reference View)</b>; BIMx cannot be turned into IFC.</li>
+        <li>The IFC is kept <b>out of git</b> (a git-ignored folder <code>documentation/BIM/examples/</code>), never published.</li>
+        <li>An Archicad residential model has doors, windows, slabs, roof, stairs, furniture: thousands of elements. This is the example that tests grouping (Q2).</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="wbs">
+  <h2>2. Work breakdown (WBS)</h2>
+  <p class="sub">Phase 1 = the two examples work end to end from a command line converter (fast to see). Phase 2 = the in-app importer with the server. Phase 3 = optional. Nothing is built yet.</p>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>#</th><th>Work item</th><th>Where</th><th>Done when</th></tr></thead>
+      <tbody>
+      <tr><td colspan="4"><b>A. Spikes (one day each; they decide the risky choices)</b></td></tr>
+      <tr><td>A1</td><td>Profile of example 1 (<span class="pill yes">done</span>, section 1). Profile of example 2 after the owner's IFC export</td><td>scratchpad</td><td>numbers of storeys / classes / types in section 11</td></tr>
+      <tr><td>A2</td><td>SQLite WASM in Expo web: Metro bundles the <code>.wasm</code> and the worker, <code>opfs-sahpool</code> inside a SharedWorker, a second browser window reads the same database</td><td>throw-away branch</td><td>2 windows open one db; reload keeps data</td></tr>
+      <tr><td>A3</td><td><code>expo-gl</code> + three on a real phone (dev build): 60 walls, orbit, tap pick; WebGL2 available? <code>Uint16</code> normalized attributes?</td><td>throw-away</td><td>30 fps, tap returns an element</td></tr>
+      <tr><td>A4</td><td>Transport on native: is the chunk gzip / brotli decoded by the OS client? time to download + upload to the GPU of a 5 MB chunk</td><td>throw-away</td><td>measured table in this document</td></tr>
+      <tr><td>A5</td><td>Where the converter runs (Q8) and a 50 MB IFC through it: time, memory</td><td>Docker</td><td>seconds and MB written down</td></tr>
+      <tr><td colspan="4"><b>B. Converter (Python + IfcOpenShell): <code>kit8/bim/converter</code>, also a container for phase 2</b></td></tr>
+      <tr><td>B1</td><td>Read IFC, unit scale, storeys (elevation sorted), spatial tree, elements per storey</td><td><code>ifc_to_bim.py</code></td><td>counts equal A1</td></tr>
+      <tr><td>B2</td><td>Geometry iterator (threads), triangulate, dedupe by type + representation, local origin shift (big coordinates break float32)</td><td>same</td><td>instances reproduce the original bbox within 2 mm</td></tr>
+      <tr><td>B3</td><td>Quantize and write the chunk format BIMC v1 (section 6), one chunk per storey, content hash = file name</td><td>same</td><td>size table for both examples</td></tr>
+      <tr><td>B4</td><td>WBS builder: stages and tasks of section 3 written as the ordinary project exchange file (<code>kit8.pm.project</code>) with the fixed project GUID + the <code>bim_</code> rows as JSON / SQL</td><td>same</td><td>file imports through the existing importer</td></tr>
+      <tr><td>B5</td><td>Checker <code>check_bim_import.py</code> (like <code>check_cake2_plan.py</code>): every element has one task, no task without element (except stages), counts, unit scale, hash</td><td>same</td><td>prints OK for both examples; <code>--after-import</code> reads the database back</td></tr>
+      <tr><td colspan="4"><b>C. SQL, PART 55 (tests first in Docker)</b></td></tr>
+      <tr><td>C1</td><td>Tables <code>bim_model_table</code>, <code>bim_storey_table</code>, <code>bim_chunk_table</code>, <code>bim_element_table</code>, <code>bim_import_job_table</code> (section 9) in <code>start1_sql_tables.sql</code></td><td>start1 PART 55</td><td>install twice = no change</td></tr>
+      <tr><td>C2</td><td>RLS through <code>perm_projects</code>, <code>perm_can_in</code> in every RPC, read-only project lists (PART 51), delete guards, storage cleanup queue (like the files cleanup)</td><td>start2 PART 55</td><td>tests: a member reads, a stranger does not, a read-only project refuses</td></tr>
+      <tr><td>C3</td><td>RPCs <code>bim_import_begin / bim_import_commit / bim_import_fail / bim_model_manifest / bim_elements_of_task / bim_task_of_element / bim_delete_model</code>; <code>bim_import_commit</code> sets <code>projectIsBIMBased</code> through the guard</td><td>start2 PART 55</td><td>Docker <code>tests/104_bim.sql</code></td></tr>
+      <tr><td>C4</td><td>Guard trigger: a signed-in user can neither set nor clear <code>projectIsBIMBased</code> by an ordinary update (precedent <code>zz_project_readonly</code>); stripped at insert, by project copy and by <code>task_template_clean_task</code></td><td>start2 PART 55</td><td>test: whole-row update with the key refused</td></tr>
+      <tr><td>C5</td><td>Permission matrix rows (<code>permission_matrix.py</code> + build seed), <code>delete_sql_structure.sql</code> part, Jest SQL scans</td><td>permissions, delete file</td><td>numbering tests green</td></tr>
+      <tr><td colspan="4"><b>D. Server side (phase 2)</b></td></tr>
+      <tr><td>D1</td><td>Edge Function <code>bim-import</code>: checks the user (JWT) + <code>perm_can_in</code>, makes the upload url, queues the job, reports progress; secrets never reach the client</td><td><code>supabase/functions/bim-import</code></td><td>handler tested (one file, no imports, like <code>files-drive</code>)</td></tr>
+      <tr><td>D2</td><td>Converter service container (B) behind it; writes chunks to storage and calls <code>bim_import_commit</code></td><td><code>kit8/bim/converter/Dockerfile</code></td><td>example 1 through the service</td></tr>
+      <tr><td colspan="4"><b>E. Application: import, button, settings</b></td></tr>
+      <tr><td>E1</td><td><code>BIMToProjectImport.tsx</code> + <code>useBimImport</code> + <code>bimImportModel.ts</code>: choose file / url / example, options (granularity, skip empty storeys), preview (stages / tasks / elements counts), progress, result</td><td><code>kit8/bim/import</code>, route <code>app/pm/bim/import</code></td><td>Jest: model + component</td></tr>
+      <tr><td>E2</td><td>Entry points: Import / Export project menu ("Import BIM (IFC)"), the project assistant list; not the Gantt FAB</td><td><code>ImportExportProject.tsx</code></td><td>menu test</td></tr>
+      <tr><td>E3</td><td>The BIM view button: <code>showBimView</code> in <code>PMGanttVsNetworkView</code>, <code>pmMainViewOf</code>, <code>PM_LAST_VIEW_BUTTON</code> = <code>showBimView</code>, option (icon <code>view_in_ar</code>, label BIM), rightPane <code>bim</code>, hidden while not <code>projectIsBIMBased</code></td><td><code>types.ts</code>, <code>GanttToggleButtons</code>, dashboard</td><td>tests of order + hiding</td></tr>
+      <tr><td>E4</td><td>Project settings tab <b>BIM</b> (read only, section 4)</td><td><code>settings/PMProjectBimTab.tsx</code>, <code>ProjectSettingsTab</code></td><td>tab test</td></tr>
+      <tr><td colspan="4"><b>F. Local storage</b></td></tr>
+      <tr><td>F1</td><td><code>BimLocalDb</code> interface with <code>.native.ts</code> (expo-sqlite) and <code>.web.ts</code> (sqlite-wasm in a SharedWorker), same SQL</td><td><code>kit8/bim/local</code></td><td>same test suite runs on both</td></tr>
+      <tr><td>F2</td><td>Chunk file cache (<code>expo-file-system</code> / OPFS), content-hash names, eviction, wipe at sign out and when the user leaves the organization</td><td>same</td><td>tests with fakes</td></tr>
+      <tr><td colspan="4"><b>G. 3D viewer + H. interactivity</b></td></tr>
+      <tr><td>G1</td><td>Scene: chunk loader, merged meshes, instancing, camera (orbit / pan / pinch), fit to view, render on demand</td><td><code>kit8/bim/view</code></td><td>both examples render on web and a phone</td></tr>
+      <tr><td>G2</td><td>Picking (BVH) and the element state texture (normal / highlighted / dimmed)</td><td>same</td><td>tap returns the element id; highlight without rebuilding geometry</td></tr>
+      <tr><td>H1</td><td>Bridge to the store: task selected / checked in the tree -> highlight; element tapped -> <code>setSelected</code> + <code>requestFocus</code></td><td><code>useBimTaskBridge.ts</code></td><td>Jest with a fake scene</td></tr>
+      <tr><td colspan="4"><b>I. Examples, J. documentation</b></td></tr>
+      <tr><td>I1</td><td>Example 1 into project <code>aabd1dde-...</code>, checker OK, screenshots</td><td>CLI then app</td><td>section 11 filled with real numbers</td></tr>
+      <tr><td>I2</td><td>Example 2 into project <code>3a427f72-...</code> after the owner's IFC export</td><td>CLI then app</td><td>same</td></tr>
+      <tr><td>J1</td><td>READMEs (<code>kit8/bim</code>, converter), a row in KNOW_HOW section 6, the pitfalls found</td><td>-</td><td>-</td></tr>
+      <tr><td colspan="4"><b>K. Phase 3 (not now)</b></td></tr>
+      <tr><td>K1</td><td>Properties import (<code>bim_property_table</code>), property sheet on tap</td><td></td><td></td></tr>
+      <tr><td>K2</td><td>Qdrant index + <code>bim-search</code> Edge Function: semantic search, "suggest the task for this element"</td><td></td><td></td></tr>
+      <tr><td>K3</td><td>Colour by status (posted / progress), section plane, measure, hide / isolate, element to task re-assignment, ID-buffer picking on web, revision diff</td><td></td><td></td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="mapping">
+  <h2>3. IFC to project WBS (the minimum data)</h2>
+  <p class="sub">Only stages and tasks. No lines, no costs, no resources, no links between tasks.</p>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>IFC</th><th>Becomes</th><th>Rule</th></tr></thead>
+      <tbody>
+        <tr><td><code>IfcProject</code></td><td>the project (name, <code>projectIsBIMBased</code>)</td><td>the project GUID is given by the importer (fixed for the two examples)</td></tr>
+        <tr><td><code>IfcBuildingStorey</code></td><td>a <b>stage</b>, sorted by elevation (lowest first = the order of building)</td><td>a storey with no element is skipped (Q4); elevation in metres after the unit scale; the stage text = the storey name</td></tr>
+        <tr><td>an element (<code>IfcWall</code>, slab, column, beam, door, window ...)</td><td>a <b>task</b> inside its storey stage</td><td>granularity auto (Q2): one task per element up to 1 500 elements in the model, else one task per (storey, IFC class, type name) with all its elements; text = element name, else type name + tag</td></tr>
+        <tr><td>element without storey (site, roof on building)</td><td>a task in a stage "Building / Site"</td><td>one extra stage only when needed</td></tr>
+        <tr><td>IfcSite / IfcBuilding</td><td>nothing</td><td>only the spatial tree of the model; not a row</td></tr>
+        <tr><td>Property sets, materials, quantities</td><td>nothing (phase 3)</td><td>"minimum data"</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="steps" style="margin-top:12px">
+    <li><b>Dates</b> (IFC has none unless it carries a work schedule): project start = the day of the import (a value the user can set in the importer); a stage starts when the previous stage finishes; the tasks of a stage run one after the other, one working day each, in the order of the element ids; every row is pinned (<code>manualStartAt</code>) like BUDGET1 / CAKE2 so the result is the same on every run. The user re-plans later - the BIM view does not care about dates.</li>
+    <li><b>Link element to task</b>: <code>bim_element_table.taskGUID</code> (the truth, one task per element) and a short copy in the task row <code>rowJSON.bimIfcGuid</code> (single element) or <code>rowJSON.bimGroupKey</code> (a grouped task) so a task knows its origin without a join. A stage keeps <code>rowJSON.bimStoreyGuid</code>.</li>
+    <li>The tasks go through the existing <code>project_import_tasks</code> (chunks of 500, no per-row progress recalculation). 58 walls = 58 tasks + the stages of the storeys that hold them.</li>
+    <li>A stage / task copied, templated or versioned loses the <code>bim*</code> keys (<code>task_template_clean_task</code> strips them); the BIM view of a project version is not built.</li>
+  </ul>
+</section>
+
+<section id="ui">
+  <h2>4. The BIM button and the settings tab</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Button</h3>
+      <ul class="steps">
+        <li>New value <code>showBimView</code> in <code>PMGanttVsNetworkView</code>; label <b>BIM</b>, icon <code>view_in_ar</code>, title "BIM: the 3D model of the project next to its tasks".</li>
+        <li><code>PM_LAST_VIEW_BUTTON</code> becomes <code>showBimView</code>; <code>viewButtonsOrderOf</code> already puts the "last" button last whatever order the user saved, so Budgets moves to the one before it. The user can still drag the other buttons.</li>
+        <li>The button shows <b>only while the project has <code>projectIsBIMBased = true</code></b> (Q1). A saved view <code>showBimView</code> of a project that is not BIM falls back to Gantt (<code>pmMainViewOf</code> + the dashboard check).</li>
+        <li>The pane: tree at the left (unchanged), BIM at the right. On a phone in portrait the 3D stands on top (about 45% of the height) and the tree under it, so a press on either is visible at once.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Project settings: tab BIM (<code>TabBIM</code>)</h3>
+      <ul class="steps">
+        <li>Read only switch <b>Project is BIM based</b> = <code>projectIsBIMBased</code>, disabled (looks like the other locked fields). A short text: "Set by the BIM import. It cannot be changed here."</li>
+        <li>Facts of the last import, read from <code>bim_model_table</code>: source file name, IFC schema (IFC2X3 / IFC4), converter version, import date, number of storeys / elements / tasks, size on the server, model hash, revision.</li>
+        <li>Buttons: <b>Re-import</b> (opens the importer for this project; the same file name = new revision; replaces tasks after the question "the tasks will be replaced"), <b>Remove BIM data</b> (administrator / project manager; deletes the bim rows and the chunks, the tasks stay, <code>projectIsBIMBased</code> becomes false).</li>
+        <li>The switch is NOT written by the settings window's whole-row save: the guard trigger (C4) refuses it; the settings draft copies it back from the loaded row (as <code>projectIsReadonly</code> is handled).</li>
+        <li>Organization defaults (<code>defaultProjectSettings</code>) do not carry it.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="interact">
+  <h2>5. Interactivity (the two directions)</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>User does</th><th>What happens</th><th>How</th></tr></thead>
+      <tbody>
+        <tr><td>Presses a <b>task</b> in the tree</td><td>its elements get the <b>highlight colour</b>, the others are dimmed (switch "Dim the rest", default on) and the camera moves to the elements (switch "Zoom to selection", default on)</td><td>the store's <code>selectedTaskGUID</code> -> <code>bim_elements_of_task</code> (local SQLite) -> a state byte per element in a small data texture (0 normal, 1 highlighted, 2 dimmed): one texture update, no geometry rebuild</td></tr>
+        <tr><td>Presses a <b>stage</b></td><td>all elements of all its tasks light up</td><td>same, by the storey / descendants</td></tr>
+        <tr><td>Checks several tasks</td><td>all lit</td><td>the checked set of the store</td></tr>
+        <tr><td>Presses an <b>element in 3D</b></td><td>the tree <b>scrolls to its task</b> (parents expanded, row selected) - or to its stage when the element has no task of its own; the element and the siblings of its task light up</td><td>BVH raycast -> triangle -> index-range table -> element -> <code>taskGUID</code> -> <code>setSelected(guid)</code> + <code>requestFocus(guid)</code> (the same two calls as the timeline strip)</td></tr>
+        <tr><td>Presses empty space</td><td>clears the highlight (the task stays selected)</td><td>-</td></tr>
+        <tr><td>Double press an element</td><td>camera fits it (optional, phase 3)</td><td>-</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <ul class="steps" style="margin-top:12px">
+    <li>Colours come from the theme (the highlight = the primary colour, dimmed = 15% opacity of the base colour; the two themes tested). The base colour of an element = its IFC material colour, else a grey per class.</li>
+    <li>A tap is a tap only when the finger moved less than 8 px and lasted less than 250 ms; otherwise it is an orbit. On web a mouse click with a drag over 4 px is an orbit.</li>
+    <li>The viewer knows nothing about the task tree: it gets <code>highlightedElementIds</code> and gives <code>onElementPress(elementGUID)</code>. The bridge hook (H1) is the only place that talks to the store, so the viewer is testable alone.</li>
+  </ul>
+</section>
+
+<section id="fast">
+  <h2>6. The fastest exchange client / server</h2>
+  <p class="lead">Principle of the shared study: <b>send less data, in the format the GPU already uses.</b> The IFC never travels to a device; a device receives only the derived chunks of the storeys it looks at.</p>
+  <svg viewBox="0 0 980 190" width="100%" role="img" aria-label="Data flow">
+    <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#64748b"/></marker></defs>
+    <g font-size="13" fill="#0f172a">
+      <rect x="10" y="55" width="130" height="64" rx="10" fill="#ede9fe" stroke="#7c3aed"/><text x="75" y="82" text-anchor="middle">IFC file</text><text x="75" y="102" text-anchor="middle" font-size="11" fill="#64748b">user / url / example</text>
+      <rect x="190" y="55" width="170" height="64" rx="10" fill="#cffafe" stroke="#0891b2"/><text x="275" y="82" text-anchor="middle">Converter</text><text x="275" y="102" text-anchor="middle" font-size="11" fill="#64748b">IfcOpenShell, once</text>
+      <rect x="410" y="10" width="190" height="64" rx="10" fill="#d1fae5" stroke="#059669"/><text x="505" y="37" text-anchor="middle">Chunks .bimc (per storey)</text><text x="505" y="57" text-anchor="middle" font-size="11" fill="#64748b">storage, immutable, by hash</text>
+      <rect x="410" y="100" width="190" height="64" rx="10" fill="#d1fae5" stroke="#059669"/><text x="505" y="127" text-anchor="middle">bim_ rows + project tasks</text><text x="505" y="147" text-anchor="middle" font-size="11" fill="#64748b">Postgres, RLS</text>
+      <rect x="660" y="55" width="150" height="64" rx="10" fill="#fef3c7" stroke="#d97706"/><text x="735" y="82" text-anchor="middle">Device cache</text><text x="735" y="102" text-anchor="middle" font-size="11" fill="#64748b">kit8bimdb + chunk files</text>
+      <rect x="850" y="55" width="120" height="64" rx="10" fill="#ede9fe" stroke="#7c3aed"/><text x="910" y="82" text-anchor="middle">GPU</text><text x="910" y="102" text-anchor="middle" font-size="11" fill="#64748b">typed arrays as they are</text>
+    </g>
+    <g stroke="#64748b" stroke-width="1.6" fill="none" marker-end="url(#ar)">
+      <path d="M140 87 H188"/><path d="M360 75 L408 45"/><path d="M360 100 L408 130"/><path d="M600 45 L658 80"/><path d="M600 130 L658 98"/><path d="M810 87 H848"/>
+    </g>
+  </svg>
+  <h3>Options in order of impact</h3>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>#</th><th>Technique</th><th>Why / how much</th><th>Web</th><th>Phone</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Convert once on the server, ship <b>no IFC</b></td><td>an IFC is text with all the data; the derived chunk is the geometry only. Removes the parse cost from every device</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>2</td><td><b>Dedupe</b>: one geometry per type, many instances (a 4x3 transform each)</td><td>doors, windows, fixtures, repeated floors; Revit walls are mostly unique extrusions, so little gain on example 1, large on example 2</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>3</td><td><b>Quantized binary buffers</b>: positions <code>Uint16 x3</code> inside the AABB of the chunk (6 B per vertex instead of 12; precision = chunk size / 65 535, about 1.5 mm for 100 m); normals not sent (flat shading from screen derivatives) or <code>int8 x2</code> octahedral; indices <code>Uint16</code>, chunk split at 65 535 vertices; per-vertex <b>element index</b> <code>Uint16</code> (chunk local)</td><td>about 8 B per vertex instead of 32 B of a float32 position + normal + uv glTF: roughly 4x less before compression (my estimate; measured in B3). The arrays are uploaded to the GPU as they are, with <code>normalized</code> attributes: <b>zero decode work</b></td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>4</td><td><b>Zero-copy file format</b> BIMC v1: a small header, then aligned sections; the client makes <code>new Uint16Array(buffer, offset, length)</code> views, no JSON, no GLTFLoader</td><td>parse-free; also avoids the Blob / Image workarounds of GLTFLoader in React Native</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>5</td><td><b>Compression on the wire</b></td><td>web: brotli by the CDN / storage, optionally meshopt (WASM decoder in a worker). <b>Phone: Hermes has no WebAssembly</b>, so meshopt / Draco would decode in slow JavaScript - not used; use the OS client's gzip / brotli (measure in A4)</td><td><span class="pill yes">brotli</span></td><td><span class="pill plan">gzip</span></td></tr>
+        <tr><td>6</td><td><b>Chunk by storey, manifest first</b></td><td>the manifest (storeys, bboxes, chunk hashes, a few KB) shows boxes at once; chunks of the storeys in view next; the selected task's storey first</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>7</td><td><b>Content-hash names + <code>Cache-Control: immutable</code> + Range</b></td><td>a chunk is downloaded once ever; a new revision changes only the chunks whose hash changed; resumable on a bad mobile network</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>8</td><td>Element rows as ONE bulk transaction (a packed binary table of the element index -> one SQLite transaction), not one request per element</td><td>58 rows or 60 000 rows cost about the same round trips (1)</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+        <tr><td>9</td><td>Realtime only for "a new revision exists" (<code>bim_model_table</code>), never for geometry</td><td>Realtime is not a bulk channel</td><td><span class="pill yes">yes</span></td><td><span class="pill yes">yes</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>BIMC v1 (sketch of the file)</h3>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Section</th><th>Content</th></tr></thead>
+      <tbody>
+        <tr><td>Header</td><td>magic <code>BIMC</code>, version, flags (indices 16 / 32 bit, normals yes / no), storey GUID hash, AABB min + size (6 x float32), counts</td></tr>
+        <tr><td>Material palette</td><td>up to 255 colours (RGBA8) + a flag "transparent"</td></tr>
+        <tr><td>Types</td><td>per distinct geometry: first vertex, vertex count, first index, index count</td></tr>
+        <tr><td>Vertices</td><td><code>Uint16 x3</code> positions (+ optional normals), padded to 4 bytes</td></tr>
+        <tr><td>Per-vertex element index</td><td><code>Uint16</code> (chunk local element number)</td></tr>
+        <tr><td>Indices</td><td><code>Uint16</code> (or <code>Uint32</code> by the flag)</td></tr>
+        <tr><td>Instances</td><td>type, element number, material, transform (translation int32 in 0.1 mm of the chunk origin, rotation quaternion int16 x4, uniform scale)</td></tr>
+        <tr><td>Index-range table</td><td>(element number, first index, index count) = the answer to "which element is this triangle" for picking</td></tr>
+        <tr><td>Element table</td><td>element number -> IFC GlobalId (22 chars) so a chunk is useful without the database</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="note">GLB is the standard alternative (<code>KHR_mesh_quantization</code> + <code>EXT_meshopt_compression</code> + <code>EXT_mesh_gpu_instancing</code>). It parses through <code>GLTFLoader</code>, which is awkward in React Native, and the meshopt codec would again need WASM. Decision Q12: BIMC for the application; a GLB export of the same data only as a debugging tool.</div>
+</section>
+
+<section id="local">
+  <h2>7. Local SQLite (web and devices)</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Name and content</h3>
+      <ul class="steps">
+        <li><b><code>kit8bimdb_&lt;organizationGUID&gt;</code>: a good idea.</b> The app has users with many organizations; one file per organization keeps data apart, a switch of organization opens another file, leaving an organization deletes one file. (The existing <code>sqlite_&lt;userId&gt;</code> database of the undo store stays as it is.)</li>
+        <li>Content: the same <code>bim_</code> tables as the cloud (storeys, elements, chunks) + <code>bim_cache_state_table</code> (model, revision, chunks present, last opened). It is a <b>read cache</b>: the cloud is the truth; a new revision replaces the rows of the model in one transaction.</li>
+        <li><b>Chunk binaries are not rows.</b> Native: files in the app document folder <code>bim/&lt;org&gt;/&lt;project&gt;/&lt;hash&gt;.bimc</code> (<code>expo-file-system</code>). Web: OPFS files. The row <code>bim_chunk_table.localPath</code> points to the file. This keeps the database small, <code>VACUUM</code> cheap and lets the OS stream a file into memory.</li>
+        <li><b>Security:</b> the cache is wiped at sign out and when the user stops being a member of the organization; at every open the app asks the cloud <code>bim_model_manifest</code> (RLS) - a refused answer deletes the cached project. The cache is not encrypted at rest (the OS sandbox / browser origin is the protection): say so in the README.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Web: official SQLite WASM + OPFS</h3>
+      <ul class="steps">
+        <li>Package <code>@sqlite.org/sqlite-wasm</code>, run inside a worker (OPFS synchronous access works only in workers).</li>
+        <li>Two OPFS VFS: <code>opfs</code> (needs the page to be cross-origin isolated: <code>Cross-Origin-Opener-Policy: same-origin</code> + <code>Cross-Origin-Embedder-Policy: require-corp</code>) and <code>opfs-sahpool</code> (no special headers, but <b>one connection at a time</b>).</li>
+        <li><b>Recommendation: <code>opfs-sahpool</code> inside a SharedWorker.</b> The app opens task windows and routes in <b>new browser windows</b> (<code>openTaskEditWindow</code>, <code>pm80OpenRoute</code>): a plain sahpool database would be locked by the first window. A SharedWorker owns the one connection and every window talks to it through a message port. Fallback where SharedWorker is missing: Web Locks leader election + BroadcastChannel; a second window without the lock reads through the leader.</li>
+        <li>Why not <code>opfs</code>: COEP <code>require-corp</code> blocks every cross-origin resource without CORP / CORS headers (Google sign-in pieces, fonts, images) and the hosting must be able to send the headers; too risky for the whole site. Re-evaluate if the site becomes cross-origin isolated for another reason.</li>
+        <li>Spike A2 proves: Metro bundles the <code>.wasm</code>, the worker script loads on the EAS web hosting, Safari / Firefox / Chrome work.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Phone: expo-sqlite</h3>
+      <ul class="steps">
+        <li>Already installed; <code>openDatabaseAsync('kit8bimdb_&lt;org&gt;')</code> on first use of a BIM project. WAL on, one writer.</li>
+        <li>The two implementations hide behind <code>BimLocalDb</code> (<code>.native.ts</code> / <code>.web.ts</code>, the project's twin file rule; a <code>.web.ts</code> must not import types from its twin - types in <code>bimLocalTypes.ts</code>).</li>
+        <li><code>expo-sqlite</code> also has a web build; it is not used because the owner asked for the official SQLite WASM + OPFS.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="cloud">
+  <h2>8. Cloud: Supabase vs Qdrant (global data storage)</h2>
+  <p class="sub">"Global data" = the BIM data that all projects and organizations share in one store (models, element index, search across projects). Facts about Qdrant Cloud limits and prices change: <b>verify them before the decision</b>; the rest is stable.</p>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Question</th><th>Supabase (Postgres + Storage)</th><th>Qdrant (vector database)</th><th>For BIM</th></tr></thead>
+      <tbody>
+        <tr><td>What it is</td><td>relational database with row security, realtime, file storage</td><td>vector search engine: points = vector + JSON payload</td><td>BIM here = relations + blobs, not vectors</td></tr>
+        <tr><td>Access control</td><td>RLS by project / organization, the <b>whole permission matrix of the application already lives here</b> (<code>perm_can_in</code>)</td><td>API key per cluster / collection; no row security; the app would have to filter every query itself</td><td><b>Supabase</b>. A client must never hold a Qdrant key; only an Edge Function may, after the permission check</td></tr>
+        <tr><td>Link to tasks</td><td>foreign keys and joins to <code>project_task_table</code>, one transaction with the import of the tasks</td><td>a payload with a task GUID; no join, no transaction with Postgres (two stores can disagree)</td><td><b>Supabase</b></td></tr>
+        <tr><td>Geometry chunks (5-50 MB)</td><td>Supabase Storage: private bucket, signed urls, CDN, Range, immutable cache</td><td>not a file store; payloads are for small JSON</td><td><b>Supabase Storage</b> (or the organization's connected drive, Q6)</td></tr>
+        <tr><td>Realtime ("new revision")</td><td>built in</td><td>none</td><td><b>Supabase</b></td></tr>
+        <tr><td>Semantic search ("load bearing concrete wall on L2", "elements like this one")</td><td>pgvector exists, but a second extension and index in the main database</td><td>its strength: fast filtered ANN, payload filters, multitenancy by an indexed tenant field in ONE collection</td><td><b>Qdrant, optional phase 3</b></td></tr>
+        <tr><td>Auto matching of elements to existing tasks (text similarity)</td><td>possible with pgvector</td><td>good fit</td><td>phase 3, either</td></tr>
+        <tr><td>Cost / ops</td><td>already paid and operated; the cost calculator (<code>kit8/system/costcalculator</code>) models it</td><td>a second vendor + bill + backup + an embedding model to pay for; free tier of a small cluster exists (verify)</td><td>Qdrant adds a bill only when K2 is built</td></tr>
+        <tr><td>Offline / device sync</td><td>the cloud truth; the device keeps a cache (section 7)</td><td>no client sync</td><td>-</td></tr>
+        <tr><td>Backup / restore of one project</td><td>SQL + storage objects, project delete cascades</td><td>delete by payload filter; consistency is the application's job</td><td><b>Supabase</b></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="ok"><b>Recommendation.</b> The model, the element index, the task links, the chunks = <b>Supabase</b>. <b>Qdrant only as an optional search index</b>: one collection <code>bim_elements</code>, payload <code>{organizationGUID, projectGUID, modelGUID, elementGUID, taskGUID, ifcClass, storey}</code> with the indexed tenant fields, the vector = an embedding of "class + type + name + storey (+ material)"; filled by the converter job; read only through an Edge Function <code>bim-search</code> that checks the user first. The code keeps a small <code>BimCloudStore</code> interface so the cloud choice is one adapter, and the application works fully without Qdrant.</div>
+</section>
+
+<section id="tables">
+  <h2>9. Tables (prefix <code>bim_</code>, SQL PART 55)</h2>
+  <p class="sub">New tables follow the owner's naming rule: <code>xxx_table</code> / <code>xxx_catalog</code>, camelCase columns like the rest. Tables go to <code>start1_sql_tables.sql</code>; policies, RPCs, triggers to <code>start2_sql_code.sql</code>; the drop to <code>delete_sql_structure.sql</code>.</p>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Table</th><th>Rows</th><th>Main columns (minimum)</th></tr></thead>
+      <tbody>
+        <tr><td><code>bim_model_table</code></td><td>one per import (revision)</td><td><code>rowGUID</code>, <code>rowProjectGUID</code>, <code>rowOrganizationGUID</code>, <code>revision</code>, <code>sourceName</code>, <code>sourceSha256</code>, <code>ifcSchema</code>, <code>converterVersion</code>, <code>unitScale</code>, <code>originShift</code> (3 numbers), <code>bbox</code> (6), counts (storeys / elements / chunks / tasks), <code>state</code> (importing, ready, failed, removed), <code>storagePrefix</code>, <code>created_at</code></td></tr>
+        <tr><td><code>bim_storey_table</code></td><td>one per storey with elements</td><td><code>rowGUID</code>, <code>rowModelGUID</code>, <code>ifcGuid</code>, <code>name</code>, <code>elevation</code> (m), <code>orderInList</code>, <code>stageGUID</code> (the stage task), <code>chunkHash</code></td></tr>
+        <tr><td><code>bim_chunk_table</code></td><td>one per chunk</td><td><code>contentHash</code>, <code>rowModelGUID</code>, <code>rowStoreyGUID</code>, <code>byteSize</code>, <code>formatVersion</code>, <code>vertexCount</code>, <code>elementCount</code>, <code>storagePath</code> (cloud) / <code>localPath</code> (device cache)</td></tr>
+        <tr><td><code>bim_element_table</code></td><td>one per element (60 000 for a big building)</td><td><code>ifcGuid</code> (22 chars), <code>rowModelGUID</code>, <code>rowStoreyGUID</code>, <code>taskGUID</code> (nullable), <code>ifcClass</code>, <code>name</code>, <code>typeName</code>, <code>chunkHash</code>, <code>elementNumber</code> (chunk local index), <code>bbox</code> (6 small ints)</td></tr>
+        <tr><td><code>bim_import_job_table</code></td><td>one per import attempt</td><td><code>rowGUID</code>, <code>rowProjectGUID</code>, <code>state</code>, <code>progress</code> 0-100, <code>stepText</code>, <code>errorText</code>, <code>options</code> (granularity, skip empty storeys, start date), <code>requestedBy</code></td></tr>
+        <tr><td>(phase 3) <code>bim_property_table</code></td><td>one per element + property set</td><td>JSON of the sets, read lazily; not in the first release</td></tr>
+        <tr><td>(device only) <code>bim_cache_state_table</code></td><td>one per cached model</td><td><code>modelGUID</code>, <code>revision</code>, <code>lastOpened</code>, <code>chunksPresent</code></td></tr>
+      </tbody>
+    </table>
+  </div>
+  <h3>Separate tables for each project: <b>no</b></h3>
+  <ul class="steps">
+    <li>Runtime <code>CREATE TABLE</code> per project means DDL by users, one RLS policy set per table, the permission matrix and the PostgREST schema cache changing at run time, a migration that must touch thousands of tables, and tests that cannot name them. The app's rule is the opposite: ONE table, a project column, RLS (<code>perm_projects</code>).</li>
+    <li>Isolation and speed come from indexes: <code>(rowProjectGUID, rowModelGUID)</code>, <code>(taskGUID)</code>, <code>(rowModelGUID, ifcGuid)</code>. 50 000 elements x 1 000 projects = 50 million small rows is normal for Postgres; if it ever hurts, list-partition <code>bim_element_table</code> by organization (a later, invisible change).</li>
+    <li>One thing IS separated per project: the <b>chunk files</b> (folder per project / model), so a project can be deleted and evicted by deleting a folder. On the device: one database per organization, files per project (section 7).</li>
+  </ul>
+  <ul class="steps">
+    <li><b>Rules:</b> a client only READS the bim tables (SELECT policies); every write is a <code>bim_</code> RPC (as documents and chat do). A project that is read-only (PART 51) refuses the import and the removal; a deleted project deletes its rows and queues its storage objects. A new table needs a row in <code>permission_matrix.py</code> and in the PART 51 lists.</li>
+    <li><code>bim_import_commit</code> runs the task import and the bim rows in one transaction: the project is either fully BIM based with all links, or unchanged.</li>
+  </ul>
+</section>
+
+<section id="viewer">
+  <h2>10. The 3D viewer</h2>
+  <ul class="steps">
+    <li><b>Libraries:</b> <code>three</code> + <code>@react-three/fiber</code> (web) / <code>@react-three/fiber/native</code> + <code>expo-gl</code> (phone): one scene code for all platforms, as the study recommends. A thin platform shell per target (<code>BimCanvas.tsx</code> / <code>BimCanvas.web.tsx</code>). <code>@react-three/drei</code> is not needed (a small own orbit control on <code>react-native-gesture-handler</code>); <code>three-mesh-bvh</code> for picking. All native: a dev build.</li>
+    <li><b>Why not Skia:</b> the application's Skia is 2D (Gantt); a 3D scene would need another renderer anyway.</li>
+    <li><b>Scene:</b> one merged mesh per (chunk, material), instanced meshes for repeated types; the position attribute is <code>Uint16 normalized</code>, the chunk's origin + size sit in the object matrix; element index as a vertex attribute; the per-element state texture drives colour / dimming in the shader. Draw calls in the tens.</li>
+    <li><b>Load order:</b> manifest -> bounding boxes of all storeys drawn at once (cheap) -> chunk of the selected / lowest storey -> the rest by distance. An element of a storey whose chunk is not yet loaded still highlights as its box.</li>
+    <li><b>Render on demand</b> (<code>frameloop="demand"</code>): a frame only on a gesture, a selection or a chunk arrival. Pixel ratio at most 2; no antialiasing and no shadows on phones; flat shading by derivatives (no normals in the file).</li>
+    <li><b>Camera:</b> orbit (one finger / left mouse), pan (two fingers / right mouse), pinch / wheel zoom, fit to model, fit to selection; a "reset view" button; Z up of IFC converted to the Y up of three once in the converter.</li>
+    <li>Controls drawn as ordinary buttons of the design system: Fit, Dim the rest, Zoom to selection, Storey filter (later). Touch targets 44 px.</li>
+    <li>Empty / error states in words: no WebGL, chunk missing (retry), model removed.</li>
+  </ul>
+</section>
+
+<section id="mobile">
+  <h2>11. Mobile</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Topic</th><th>Decision</th></tr></thead>
+      <tbody>
+        <tr><td>Parsing</td><td>never on the device; only BIMC views</td></tr>
+        <tr><td>Renderer</td><td>three through <code>expo-gl</code>; check WebGL2 + normalized <code>Uint16</code> attributes on the dev client (A3); the fallback is float16 / float32 positions at double size</td></tr>
+        <tr><td>Compression</td><td>no WASM codecs (Hermes); OS gzip / brotli (A4)</td></tr>
+        <tr><td>Memory</td><td>chunks of the visible storeys only; a least recently used limit (default 150 MB of geometry in memory); the rest stays as files</td></tr>
+        <tr><td>Picking</td><td>BVH raycast on the merged meshes (built per chunk, off the first frame)</td></tr>
+        <tr><td>Layout</td><td>portrait: 3D above the tree; landscape: tree left, 3D right; the property sheet (phase 3) as a bottom sheet</td></tr>
+        <tr><td>Offline</td><td>a model opened once opens without a network (cache); a task / element link edit is not offered offline</td></tr>
+        <tr><td>Battery</td><td>render on demand; no continuous animation</td></tr>
+        <tr><td>Not now</td><td>AR (ViroReact / ARKit / ARCore)</td></tr>
+        <tr><td>Honest status</td><td>nothing of this can be seen by me on your phone; every phone claim is "not yet tried on a real phone" until you run it, as with the media features</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="examples">
+  <h2>12. The two examples</h2>
+  <div class="grid">
+    <div class="card">
+      <h3 style="margin-top:0">Example 1: project <code>aabd1dde-97e6-4359-97e4-0efcb847589b</code></h3>
+      <ul class="steps">
+        <li>Source: <code>https://raw.githubusercontent.com/viktor-platform/ifc-sample-models/main/sample-models/Structure%20Walls.ifc</code> (fetched by the converter by url; 447 KB).</li>
+        <li>Expected WBS: stages = the storeys that hold walls (not all 12), 58 tasks (one per wall; auto granularity because 58 is under 1 500), no lines.</li>
+        <li>Expected check: 58 elements, 58 tasks, every element has exactly one task, the unit scale 0.3048 applied: the storey elevations -22.9 ... 70.8 ft become about -7.0 ... 21.6 m, a span of about 28.6 m between the lowest and the highest storey (the checker prints the real bounding box).</li>
+        <li>Expected 3D: walls of 4 thicknesses over several storeys; the 175 extrusions + 14 face sets become a few merged meshes; chunk size small enough to read in one request.</li>
+        <li>If the project GUID already exists: it is replaced only when it is already a BIM project (Q10); otherwise the import is refused with a clear message.</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Example 2: project <code>3a427f72-98f9-4f46-8449-164e3a22e1de</code></h3>
+      <ul class="steps">
+        <li>Source page: Graphisoft community "Archicad Sample Projects - Designed by Students" (the link of the request). It offers .pla and BIMx only (section 1).</li>
+        <li><b>Needed from the owner:</b> the IFC exported from Archicad (IFC4, Reference View), saved as <code>documentation/BIM/examples/vacation_home.ifc</code> (git-ignored). Until then only example 1 is done.</li>
+        <li>Expected: many more elements (doors, windows, slabs, roof, furniture); auto granularity probably switches to "one task per storey + class + type"; instancing matters here.</li>
+        <li>Licence: the contents are copyright protected; use it as a private test, do not publish the model, its screenshots or the converted chunks outside the owner's organization.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="note">Section 12 will be filled with the measured numbers (elements, tasks, chunk bytes, load time on web and phone) when I1 / I2 are done; the numbers above marked "expected" are estimates from the IFC header / types only.</div>
+</section>
+
+<section id="tests">
+  <h2>13. Tests</h2>
+  <ul class="steps">
+    <li><b>Python:</b> converter unit tests on a tiny hand-made IFC (2 storeys, 3 walls, one repeated door) + <code>check_bim_import.py</code> on both examples.</li>
+    <li><b>Docker (SQL):</b> <code>kit8/docker/tests/104_bim.sql</code>: tables install twice, RLS (member / stranger / read-only project), <code>bim_import_commit</code> atomic (a failure leaves the project unchanged), the guard of <code>projectIsBIMBased</code>, delete cascade + storage queue, example 1 rows. Run by <code>test_time_genus.sh</code> and <code>test_sql.sh</code>.</li>
+    <li><b>Jest:</b> <code>__tests__/bim/*</code>: import model (WBS mapping, granularity, dates, unit scale), importer component, button order / hiding (<code>PM_LAST_VIEW_BUTTON</code>), settings tab, <code>BimLocalDb</code> on a fake, the bridge hook (task selected -> highlight ids; element pressed -> <code>setSelected</code> + <code>requestFocus</code>), BIMC reader on a golden file, SQL file scans. Three.js is mocked (a fake scene exposes <code>setHighlight</code> / <code>onElementPress</code>).</li>
+    <li><b>By hand (a person):</b> web in 3 browsers, an Android dev build, an iPhone; two windows on web; airplane mode.</li>
+    <li>The Jest baseline of section 5 of KNOW_HOW stays as it is.</li>
+  </ul>
+</section>
+
+<section id="risks">
+  <h2>14. Risks and what I do not know</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>Risk</th><th>Effect</th><th>Answer</th></tr></thead>
+      <tbody>
+        <tr><td>Metro + SQLite WASM + SharedWorker on the EAS hosting</td><td>web local database may not start</td><td>spike A2 first; fallback = IndexedDB cache of chunks only (no SQL) on web</td></tr>
+        <tr><td>expo-gl WebGL support (WebGL2, typed array formats)</td><td>phone renders wrongly or slowly</td><td>spike A3 first; float32 fallback in the format flag</td></tr>
+        <tr><td>Converter host and cost</td><td>IfcOpenShell is native code: it cannot run in a Supabase Edge Function (Deno)</td><td>container service (Q8); phase 1 runs on the owner's Mac like the CAKE / BUDGET1 generators</td></tr>
+        <tr><td>Big IFC (100 MB+)</td><td>conversion minutes, memory</td><td>job table with progress; limit of the file size; run in the background</td></tr>
+        <tr><td>Odd geometry (IFC2X3 brep, curved walls, openings, units, large coordinates)</td><td>holes, shifted models</td><td>IfcOpenShell does the booleans; origin shift + unit scale in B2; the checker compares the bbox</td></tr>
+        <tr><td>Example 2 licence</td><td>cannot be shipped</td><td>private test only, git-ignored</td></tr>
+        <tr><td>More tasks than the 8 s statement limit</td><td>import fails</td><td>the existing bulk path (<code>project_import_tasks</code>, 500 per chunk); a very big model groups by type (auto granularity)</td></tr>
+        <tr><td>A tap on a grouped task element</td><td>one element lights the whole group</td><td>intended; the group is one task</td></tr>
+        <tr><td>Qdrant is not needed for the first release</td><td>scope</td><td>kept behind an interface (K2)</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="questions">
+  <h2>15. Questions (each with the default I will use if you say nothing)</h2>
+  <div class="card scroll">
+    <table>
+      <thead><tr><th>#</th><th>Question</th><th>Default</th></tr></thead>
+      <tbody>
+        <tr><td>Q1</td><td>Show the BIM button only for BIM projects?</td><td>yes (import is reached from the import menu)</td></tr>
+        <tr><td>Q2</td><td>Task per element, or per (storey, class, type) group?</td><td>auto: per element up to 1 500 elements, else grouped; an importer option overrides</td></tr>
+        <tr><td>Q3</td><td>Dates of the imported tasks</td><td>stages one after the other by elevation, tasks one working day each, pinned; start = import day</td></tr>
+        <tr><td>Q4</td><td>Skip storeys without elements?</td><td>yes (an option)</td></tr>
+        <tr><td>Q5</td><td>Example 2: will you export the IFC from Archicad and put it in the git-ignored folder?</td><td>yes, needed from you</td></tr>
+        <tr><td>Q6</td><td>Where do the files live: original IFC and derived chunks</td><td>original IFC in the organization's connected file storage (Drive / OneDrive); chunks in Supabase Storage (CDN, Range)</td></tr>
+        <tr><td>Q7</td><td>Qdrant now or later?</td><td>later (K2), behind an Edge Function, only for search / matching</td></tr>
+        <tr><td>Q8</td><td>Where does the converter run for phase 2?</td><td>phase 1 on your Mac (CLI); phase 2 a container on a small host of your choice (Cloud Run / Fly / Railway) - needs your decision and a bill</td></tr>
+        <tr><td>Q9</td><td>Project copy of a BIM project</td><td>the copy is NOT BIM based (key stripped, no bim rows); a later "copy with BIM" is possible</td></tr>
+        <tr><td>Q10</td><td>Import into an existing project GUID</td><td>replaces only a BIM project (after a question); otherwise refused</td></tr>
+        <tr><td>Q11</td><td>Local database: per organization, wiped at sign out</td><td>yes</td></tr>
+        <tr><td>Q12</td><td>Own BIMC chunk format, or glTF (GLB)?</td><td>BIMC (GLB export only for debugging)</td></tr>
+        <tr><td>Q13</td><td>Web SQLite file system</td><td><code>opfs-sahpool</code> in a SharedWorker</td></tr>
+        <tr><td>Q14</td><td>Import IFC properties now?</td><td>no (phase 3, "minimum data")</td></tr>
+        <tr><td>Q15</td><td>Project GUID of an import started from the importer (not the two examples)</td><td>a new GUID; the fixed GUIDs are an advanced field for demos</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section id="install">
+  <h2>16. What happens when it is built (for the owner)</h2>
+  <ol class="steps">
+    <li>Run in the Supabase SQL Editor: <code>start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> (PART 55). <code>start3</code> is not needed; <code>start4</code> only if the permission seed changed.</li>
+    <li>Install the new packages and make a new dev build for the phone (<code>./run_android_samsung.command</code>, <code>FORCE_NATIVE=1</code>); web: <code>npx expo start --web -c</code>.</li>
+    <li>Phase 1: run the converter on your Mac for the two examples, then import the produced project file through Import / Export project.</li>
+    <li>Phase 2: deploy <code>bim-import</code> and the converter container; a <code>.env</code> line for the converter url (given at that time, I do not edit <code>.env</code>).</li>
+  </ol>
+</section>
+
+</main>
+</body>
+</html>

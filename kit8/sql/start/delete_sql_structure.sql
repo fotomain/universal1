@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-000000000000000000000. delete_application_admin.sql - PART 54: drops application_permission_table (data included: the list of the application administrators) and permission_application_admin / organization_visible, and gives organizationTable its old public SELECT policy back (runs very first: it is the newest)
 --  1a-00000000000000000000. delete_time_of_day_model.sql - PART 53: drops task_line_plan_hour_movements (data included: the hour rows of ALL posted Time lines; the day rows stay), the hm_* / organization_calendar_day_windows* / organization_resource_capacity_windows / organization_resource_busy_check_hours / task_line_plan_hours_write / project_resource_leveling_inputs_hours functions and the triggers of the day windows and of the minute keys (runs very first: it is the newest)
 --  1a-0000000000000000000. delete_consolidation.sql - PART 52: drops consolidation_dirty + consolidation_gap_table (data included), the consolidation_* / fx_consolidation_* functions, the triggers on the organization row, project_table, the exchange rates and the four movement tables, and the sumForConsolidation columns; the organization keys (currencyForConsolidation ...) stay as inert JSON (runs very first: it is the newest)
 --  1a-000000000000000000. delete_project_readonly.sql - PART 51: drops the read-only guard triggers of the project tables and the project_readonly_* / project_set_readonly / project_is_readonly functions; the key projectIsReadonly stays on the projects as inert JSON (runs very first: it is the newest)
@@ -46,6 +47,26 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-000000000000000000000: delete_application_admin.sql  (PART 54 of the structure file: the APPLICATION ADMINISTRATORS - runs before everything else, it is the newest)
+-- =====================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public."organizationTable"') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "organizationTable_select" ON public."organizationTable";
+    CREATE POLICY "organizationTable_select" ON public."organizationTable" FOR SELECT TO authenticated USING (true);
+  END IF;
+END $$;
+
+DROP FUNCTION IF EXISTS public.organization_visible(text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.organization_exists(text) CASCADE;
+
+DROP FUNCTION IF EXISTS public.permission_application_admin() CASCADE;
+
+DROP TABLE IF EXISTS public.application_permission_table CASCADE;
 
 
 -- =====================================================================================

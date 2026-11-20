@@ -13,7 +13,7 @@ Routes: `app/media/record/{audio,video,photo}`, `app/media/play/{audio,video}`, 
 | `audio/` | `RecordAudio` |
 | `photo/` | `RecordPhoto` (+ `.web`), `PhotoReview`, `PhotoFilterStrip`, `photoFilters` (the looks), `applyPhotoFilter` (+ `.web`), `useSavePhoto`, `recordPhotoTypes` |
 | `scan/` | `ScanCodes` (+ `.web`), `ScanResultCard`, `scanModel` |
-| `nfc/` | `NfcScan` (the screen), `NFCReceivedInfo`, `nfcModel`, `nfcInbox`, `useNfcReader`, `nfcReader` (+ `.web`), `NfcBackgroundHandler` (+ `.web`) |
+| `nfc/` | `identification/` (ID or passport -> photo -> text recognised on the phone -> NFC scan, own README), `iddocread/` (ID card / passport chip reader, own README), `NfcScan` (the screen), `NFCReceivedInfo`, `nfcModel`, `nfcInbox`, `useNfcReader`, `nfcReader` (+ `.web`), `NfcBackgroundHandler` (+ `.web`) |
 
 An import from outside the folder names the subfolder (`kit8/ui/components/media/play/MediaPlayerModal`); `index.ts` re-exports the main pieces.
 
@@ -130,6 +130,15 @@ Never more than 20× the main lens (`MAX_USEFUL_FACTOR`). A camera that cannot z
 - **Video: the zoom works BEFORE and WHILE recording** (the `zoom` prop of the live `<Camera>`; no new part is started).
 - **Web:** a camera whose track reports `zoom` zooms by hardware (`applyConstraints`, also while recording); the others are zoomed DIGITALLY 1-4×: the preview is scaled by CSS and the recording goes through the canvas of `stampedStream.ts` (`getZoom()` is read for every frame, so it also works while recording; `position = null` = no date text, only the zoom). A browser with no `canvas.captureStream` has no digital zoom for video (the control is hidden).
 
+## Flashlight (torch; video + photo; 2026-11-19)
+
+A PERMANENT light, not the flash of the shutter: it stays on while the camera screen is open and while a video is recorded. A flashlight button (`flashlight` / `flashlight-off`, testIDs `record-video-torch`, `record-photo-torch`) stands in the icon row of the video recorder (left of the camera flip) and of the photo screen (next to Flash, which still fires once at the shot).
+- **One remembered choice** for both screens: `uxuiState.RecordVideoSettings.recordTorchEnabled` (persisted, false by default; `kit8/redux/recordVideoSettings.ts`, read through `useRecordVideoSettings`). A screen opens with the light as it was left. It goes out when the screen loses focus / closes (the camera stops) and comes back with the screen.
+- **Phone:** the `torch` prop of the live `<Camera>` (`nativeTorchProp`, `common/cameraTorch.ts`) - no new part is started when it is switched while recording (unlike the sound switch). No button when `device.hasTorch` is false (the front camera).
+- **Web:** `track.applyConstraints({ advanced: [{ torch }] })` (`useWebTorch.ts`, applied again to the NEW track after a camera flip). Only Chrome on Android reports a torch; a laptop camera has none, so there is no button. A browser that refuses the constraint shows the button as off.
+- Not built: a torch button in the settings panel, an "auto off after N minutes", torch for Scan / Identification beyond what they already had (their own local switch, not remembered).
+- Tests: `__tests__/media/cameraTorch.test.ts`, `recordVideoNative / recordVideoWeb / recordPhoto / recordPhotoWeb` (flashlight cases), `recordVideoSettings.test.ts`. Not tried on a real phone.
+
 ## Photo (`photo/`, route `/media/record/photo`, signed-in users only like the recordings)
 
 Vision Camera `takePhoto` (flash off / auto / on, front / back camera, zoom) → `PhotoReview`: the picture, the **looks** (`PhotoFilterStrip`), **Save** (a media post with the file kept in the document folder / IndexedDB, `photoFilter`, `photoZoomFactor`) or Retake.
@@ -148,7 +157,9 @@ Vision Camera `useCodeScanner` (no frame processor, no extra package: AVFoundati
 - **Android:** reader mode: tags are read one after the other with no button. **Background:** the config plugin `withNfcLaunch` (`app.config.js`) puts the intent filters `NDEF_DISCOVERED` (text/plain) and `TAG_DISCOVERED` on the main activity, so a tag started against the closed app opens it; `NfcBackgroundHandler` (mounted once in `app/_layout.tsx`) takes that tag (`getBackgroundTag`), also the background tags of a running app (`DiscoverBackgroundTag`) and when the app comes to the front, puts it into the inbox (`nfcInbox.ts`) and opens `/media/nfc`. Nothing is saved without the user.
 - **iOS:** a read session (the system sheet) started by the **Scan** button; it ends after the system time limit - press Scan again. The system reads tags with a URL in the background by itself and opens the app only through a universal link (associated domain: not set up). Needs the NFC capability on the App ID (the plugin adds the entitlement + `NFCReaderUsageDescription`).
 - **Web:** Web NFC (`NDEFReader`, Chrome on Android over https); other browsers say so. No background.
-- Not built: writing tags, MIFARE / ISO-DEP commands, iOS background universal links.
+- **Identification (Scan -> Identification, `nfc/identification`)**: ID or passport -> photo of the machine readable zone -> text recognised ON the phone (expo-mlkit-ocr) -> confirm the three values -> the chip scan below; see `nfc/identification/README.md`.
+- **ID card / passport chip reader (ICAO 9303)**: the button **ID card / passport** (and Drawer Scan -> ID card / passport, route `/media/nfc/iddocread`) reads the chip of passports and ID cards: see `nfc/iddocread/README.md` (PACE / BAC, face image, MRZ, hash check; every state's passport, ID cards with the same application; the step list for testing with a real card).
+- Not built: writing tags, MIFARE commands, iOS background universal links.
 
 ## Do not install
 

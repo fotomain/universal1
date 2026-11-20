@@ -1,6 +1,6 @@
 // The pure rules of kit8/permissions (documentation/PERMISSIONS_WBS.html sections 5, 7): the answer of perm_my_matrix, the letters, the words of a refusal.
 // The database side (perm_can, the policies, the locks): kit8/docker/tests/49_permission_profiles.sql and 53_permission_enforcement.sql.
-import { canObject, canTable, EMPTY_MATRIX, hasLetter, matrixOf, permissionRefusalOf, PROFILE_TITLES, ASSIGNABLE_PROFILES, CREATE_PROJECT_PROFILES } from '../../kit8/permissions/permissionModel';
+import { APPLICATION_ADMIN_PROFILE, canObject, canTable, EMPTY_MATRIX, hasLetter, matrixOf, permissionRefusalOf, profileTitleOf, PROFILE_TITLES, ASSIGNABLE_PROFILES, CREATE_PROJECT_PROFILES } from '../../kit8/permissions/permissionModel';
 import { permissionRefusalText, withPermissionText } from '../../kit8/permissions/permissionText';
 
 const m = matrixOf({
@@ -20,7 +20,7 @@ describe('matrixOf', () => {
   it('a missing, wrong or partial answer is the empty matrix', () => {
     expect(matrixOf(null)).toBe(EMPTY_MATRIX);
     expect(matrixOf('x')).toBe(EMPTY_MATRIX);
-    expect(matrixOf({ crud: [], uxui: 5, profiles: [1, 'a'] })).toEqual({ profiles: ['a'], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false });
+    expect(matrixOf({ crud: [], uxui: 5, profiles: [1, 'a'] })).toEqual({ profiles: ['a'], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false });
   });
 });
 
@@ -78,5 +78,26 @@ describe('the profile lists', () => {
     for (const p of ASSIGNABLE_PROFILES) expect(PROFILE_TITLES[p]).toBeTruthy();
     for (const p of ['permissionOrganizationAdmin', 'permissionTaskResponsible', 'permissionProjectMember']) expect(ASSIGNABLE_PROFILES).not.toContain(p);
     expect(CREATE_PROJECT_PROFILES).toEqual(['permissionProjectManager', 'permissionProjectCurator']);
+  });
+});
+
+describe('permissionApplicationAdmin (SQL PART 54)', () => {
+  it('is read from the answer of perm_my_matrix; anything but true is false', () => {
+    expect(matrixOf({ isApplicationAdmin: true, profiles: ['permissionApplicationAdmin'] }).isApplicationAdmin).toBe(true);
+    expect(matrixOf({ isApplicationAdmin: 'true' }).isApplicationAdmin).toBe(false);
+    expect(matrixOf({ crud: {} }).isApplicationAdmin).toBe(false);
+    expect(EMPTY_MATRIX.isApplicationAdmin).toBe(false);
+  });
+  it('is no profile of the matrix (it has no letters) but has a title', () => {
+    expect(Object.keys(PROFILE_TITLES)).not.toContain(APPLICATION_ADMIN_PROFILE);
+    expect(ASSIGNABLE_PROFILES).not.toContain(APPLICATION_ADMIN_PROFILE);
+    expect(profileTitleOf(APPLICATION_ADMIN_PROFILE)).toBe('Application administrator');
+    expect(profileTitleOf('permissionProjectManager')).toBe('Project manager');
+    expect(profileTitleOf('permissionUnknown')).toBe('permissionUnknown');
+  });
+  it('does not change a letter: the table rules are the ones of the other profiles', () => {
+    const m2 = matrixOf({ isApplicationAdmin: true, crud: {}, uxui: {} });
+    expect(canTable(m2, 'project_task_table', 'U', false)).toBe(false);
+    expect(canTable(m2, 'project_task_table', 'R', false)).toBe(true);
   });
 });

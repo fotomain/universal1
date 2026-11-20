@@ -2,7 +2,7 @@
   <defs>
     <radialGradient id="pm80BgGrad" cx="30%" cy="25%" r="85%">
       <stop offset="0%" stop-color="#2E1065" />
-      <stop offset="55%" stop-color="#1E1B4B" />
+      <stop offset="55%" stop-color="#1F114C" />
       <stop offset="100%" stop-color="#090D16" />
     </radialGradient>
 
@@ -37,62 +37,64 @@
 
   <rect x="0" y="0" width="1024" height="1024" rx="228" fill="url(#pm80BgGrad)" />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="380"
-    stroke="#334155"
-    stroke-opacity="0.45"
-    stroke-width="6"
-    stroke-dasharray="16 18"
-    fill="none"
-  />
+  <g transform="translate(512, 512) scale(0.78) translate(-512, -512)">
+    <circle
+      cx="512"
+      cy="512"
+      r="380"
+      stroke="#334155"
+      stroke-opacity="0.45"
+      stroke-width="6"
+      stroke-dasharray="16 18"
+      fill="none"
+    />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="300"
-    stroke="#1E293B"
-    stroke-width="54"
-    fill="none"
-  />
+    <circle
+      cx="512"
+      cy="512"
+      r="300"
+      stroke="#1E293B"
+      stroke-width="54"
+      fill="none"
+    />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="300"
-    stroke="url(#pm80RingGrad)"
-    stroke-width="54"
-    stroke-dasharray="1520 1885"
-    stroke-linecap="round"
-    fill="none"
-    transform="rotate(135 512 512)"
-  />
+    <circle
+      cx="512"
+      cy="512"
+      r="300"
+      stroke="url(#pm80RingGrad)"
+      stroke-width="54"
+      stroke-dasharray="1520 1885"
+      stroke-linecap="round"
+      fill="none"
+      transform="rotate(135 512 512)"
+    />
 
-  <circle cx="512" cy="132" r="28" fill="#38BDF8" stroke="#0F172A" stroke-width="10" />
-  <circle cx="892" cy="512" r="28" fill="#34D399" stroke="#0F172A" stroke-width="10" />
-  <circle cx="512" cy="892" r="28" fill="#F472B6" stroke="#0F172A" stroke-width="10" />
-  <circle cx="132" cy="512" r="28" fill="#A78BFA" stroke="#0F172A" stroke-width="10" />
+    <circle cx="512" cy="132" r="28" fill="#38BDF8" stroke="#0F172A" stroke-width="10" />
+    <circle cx="892" cy="512" r="28" fill="#34D399" stroke="#0F172A" stroke-width="10" />
+    <circle cx="512" cy="892" r="28" fill="#F472B6" stroke="#0F172A" stroke-width="10" />
+    <circle cx="132" cy="512" r="28" fill="#A78BFA" stroke="#0F172A" stroke-width="10" />
 
-  <g>
-    <rect x="348" y="540" width="76" height="150" rx="22" fill="url(#pm80Bar1)" />
-    <rect x="474" y="450" width="76" height="240" rx="22" fill="url(#pm80Bar2)" />
-    <rect x="600" y="340" width="76" height="350" rx="22" fill="url(#pm80Bar3)" />
+    <g>
+      <rect x="348" y="540" width="76" height="150" rx="22" fill="url(#pm80Bar1)" />
+      <rect x="474" y="450" width="76" height="240" rx="22" fill="url(#pm80Bar2)" />
+      <rect x="600" y="340" width="76" height="350" rx="22" fill="url(#pm80Bar3)" />
+    </g>
+
+    <path
+      d="M 336 500 Q 470 430 638 286"
+      stroke="url(#pm80ArrowGrad)"
+      stroke-width="28"
+      stroke-linecap="round"
+      fill="none"
+    />
+    <path
+      d="M 578 280 L 652 274 L 646 348"
+      stroke="#34D399"
+      stroke-width="28"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
   </g>
-
-  <path
-    d="M 336 500 Q 470 430 638 286"
-    stroke="url(#pm80ArrowGrad)"
-    stroke-width="28"
-    stroke-linecap="round"
-    fill="none"
-  />
-  <path
-    d="M 578 280 L 652 274 L 646 348"
-    stroke="#34D399"
-    stroke-width="28"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
 </svg>

@@ -11,6 +11,9 @@ the capacity check reads the organization of a *user* - the scope is always the 
 * **Setting** `resourceCapacityStrongMode` (Organization edit → Resource capacity): `capacityModeOff | capacityModeWarn | capacityModeBlock`, see `kit8/pm/view/task/plan/README.md`.
 * SQL: PART 20 of `kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql` (mirrored in `start2_sql_code.sql`; the delete is PART 1b of `delete_sql_structure.sql`). Old data: every user without an organization gets the one he owns
   (rule "1 user owns 1 organization") or a new one; every project gets the organization of its owner; a project of an owner with no userTable row stays empty and is reported.
+* **Who sees which organization** (SQL PART 54, 2026-11-20): the SELECT policy of `organizationTable` is `organization_visible("rowGUID")` - a user sees only the organizations he is an ACTIVE member of, the one he created and the one he works in now; a user with **`permissionApplicationAdmin`** (`application_permission_table`, seeded for `foto888999@gmail.com`) sees ALL of them (read only: edit / delete stay with the creator and the administrator members). `kit8/permissions/README.md`.
+* **A new organization** is made by the **Create Organization Assistant** (`kit8/ui/organization/assistant`, README there; the Add button of the list): questions -> save -> "Continue to create Project?" -> "Set up the default settings for projects?". The old "one organization per user" check of the edit screen stays for its own New path.
+* **Organization filter** (`switch/OrganizationFilter`, hooks `useOrganizationMemberships`, `useSwitchOrganization`): in the project bar AND in the bar of Monitor01, 02, 03, 07, 08 for a user of two or more organizations (`kit8/pm/reports/common/README.md`).
 * Not built yet: a screen for the invitations (the SQL and its tests are there).
 
 ## Default project settings (`rowJSON.defaultProjectSettings`)

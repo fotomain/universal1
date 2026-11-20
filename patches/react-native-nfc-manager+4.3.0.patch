@@ -1,0 +1,16 @@
+diff --git a/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java b/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
+index 4792ec9..f6d5d0c 100644
+--- a/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
++++ b/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
+@@ -578,7 +578,10 @@ class NfcManager extends NfcManagerIOSStubBase implements ActivityEventListener,
+ 
+     @ReactMethod
+     public void getBackgroundTag(Callback callback) {
+-        callback.invoke(null, bgTag);
++        // a WritableMap can be handed to JavaScript only ONCE: give it out and forget it (a second call used to crash the app: ObjectAlreadyConsumedException)
++        WritableMap tag = bgTag;
++        bgTag = null;
++        callback.invoke(null, tag);
+     }
+ 
+     @ReactMethod

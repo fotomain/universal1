@@ -10,6 +10,12 @@ export interface RecordVideoSettings {
   /** the date and time over the recorded video (a camcorder stamp) */
   recordDateTimeOverEnabled: boolean;
   recordDateTimeOverPosition: RecordDateTimeOverPosition;
+  /**
+   * the flashlight (torch) of the camera: a PERMANENT light while the camera screen is open and while a video is recorded, unlike
+   * the flash of a photo that fires once at the shutter. Shared by the video and the photo screen; the choice is remembered.
+   * A camera without a torch (the front camera, most laptops) ignores it.
+   */
+  recordTorchEnabled: boolean;
 }
 
 /** the radio of the settings panel, in this order */
@@ -20,7 +26,7 @@ export const RECORD_DATE_TIME_OVER_POSITIONS: { id: RecordDateTimeOverPosition; 
   { id: 'bottomRight', label: 'Bottom Right' },
 ];
 
-export const RECORD_VIDEO_DEFAULTS: RecordVideoSettings = { recordDateTimeOverEnabled: false, recordDateTimeOverPosition: 'bottomRight' };
+export const RECORD_VIDEO_DEFAULTS: RecordVideoSettings = { recordDateTimeOverEnabled: false, recordDateTimeOverPosition: 'bottomRight', recordTorchEnabled: false };
 
 export function isRecordDateTimeOverPosition(value: unknown): value is RecordDateTimeOverPosition {
   return RECORD_DATE_TIME_OVER_POSITIONS.some((p) => p.id === value);
@@ -32,6 +38,7 @@ export function normalizeRecordVideoSettings(raw?: Partial<RecordVideoSettings> 
   return {
     recordDateTimeOverEnabled: typeof raw?.recordDateTimeOverEnabled === 'boolean' ? raw.recordDateTimeOverEnabled : D.recordDateTimeOverEnabled,
     recordDateTimeOverPosition: isRecordDateTimeOverPosition(raw?.recordDateTimeOverPosition) ? raw!.recordDateTimeOverPosition! : D.recordDateTimeOverPosition,
+    recordTorchEnabled: typeof raw?.recordTorchEnabled === 'boolean' ? raw.recordTorchEnabled : D.recordTorchEnabled,
   };
 }
 

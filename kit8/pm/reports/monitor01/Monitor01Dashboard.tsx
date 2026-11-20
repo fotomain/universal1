@@ -31,6 +31,8 @@ import { useOpenCustomerInvoice } from '../../../documents/customer/invoice/useC
 import { useOpenPurchaseOrder } from '../../../documents/vendor/purchase_order/usePurchaseOrder';
 import { useOpenProductReceipt } from '../../../documents/vendor/product_receipt/useProductReceipt';
 import Monitor01FiltersBar from './Monitor01Filters';
+import OrganizationFilter from '../../../catalog/organization/switch/OrganizationFilter';
+import { useReportOrganizationScope } from '../common/useReportOrganizationScope';
 import Monitor01ProjectKindRadio from './Monitor01ProjectKindRadio';
 import { MONITOR01_PROJECT_KIND_DEFAULT, Monitor01ProjectKind } from '../../subproject/subprojectModel';
 import { useMonitor01SubprojectKind } from '../../subproject/useMonitor01SubprojectKind';
@@ -87,6 +89,8 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   // Auto refresh (the Monitor01Toolbar): ON = the rows follow Realtime and the safety net under it; OFF = a snapshot (no polling either), which Refresh replaces
   const [autoRefresh, setAutoRefresh] = useState(true);
   const data = useMonitor01Rows(scopeProject, { poll: autoRefresh });
+  // a user of two or more organizations: the Organization filter of the bar picks the active one and the report shows ITS projects only (the whole report, not one project, only)
+  const orgScope = useReportOrganizationScope(mode === 'standalone');
 
   const [tab, setTab] = useState<Monitor01Tab>('all');
   const [filters, setFilters] = useState<Monitor01Filters>(EMPTY_MONITOR01_FILTERS);
@@ -135,7 +139,8 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
   const loadedRows = autoRefresh ? data.rows : (snapshot ?? data.rows);
   // the VAT basis (Cost | Net | With VAT, documentation/VENDOR_INVOICE_DOC.html section 13): the money of every row is the amount of that basis; everything below works on it unchanged
   const [vatBasis, setVatBasis] = useVatBasis();
-  const kindRows = useMemo(() => filterMonitor01RowsByProjectKind(loadedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [loadedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
+  const scopedRows = useMemo(() => orgScope.filter(loadedRows, (r) => r.rowProjectGUID), [orgScope.filter, loadedRows]);
+  const kindRows = useMemo(() => filterMonitor01RowsByProjectKind(scopedRows, projectKind, subKind.show ? subKind.subprojectGUIDs : null), [scopedRows, projectKind, subKind.show, subKind.subprojectGUIDs]);
   const sourceRows = useMemo(() => applyMonitor01VatBasis(kindRows, vatBasis), [kindRows, vatBasis]);
 
   // ---- Views: the settings of the report now, and a View applied back ----
@@ -266,6 +271,7 @@ export default function Monitor01Dashboard({ mode, projectGUID, testID = 'monito
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor01')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Roles requirements')}</Text>
         <Monitor01Toolbar testID={`${testID}-toolbar`} reportControls={topTab === 'report'} viewMenu={<Monitor01ViewMenu testID={`${testID}-view`} reportGUID={MONITOR01_REPORT_GUID} getSettings={getSettings} onRestore={restoreView} lastTitle={lastViewTitle} onSaved={(t) => setLastViewTitle(t)} />} autoRefresh={autoRefresh} onAutoRefreshChange={changeAuto} onRefresh={refresh} onExpandAll={expandAll} onCollapseAll={collapseAll} extra={<>{subKind.show ? <Monitor01ProjectKindRadio testID={`${testID}-project-kind`} value={projectKind} onChange={setProjectKind} /> : null}<VatBasisSelect testID={`${testID}-vat-basis`} value={vatBasis} onChange={setVatBasis} /></>} busy={refreshSince !== null} />
+        {mode === 'standalone' && <OrganizationFilter testID={`${testID}-organization`} />}
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />

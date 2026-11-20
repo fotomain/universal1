@@ -5,6 +5,9 @@ Design: `documentation/PERMISSIONS_WBS.html` (sections 5-7). SQL: PART 46 (profi
 ## The model in one paragraph
 A user holds **profiles** (11, `project_permission_profile_catalog`): administrator of the organization, project manager, read only / sponsor / curator / investor, project member, task responsible, task manager, financial manager (plan), financial manager (fact). He gets them from: being the **owner** of a project (= project manager), the **members screen** (administrator), the **assignment table** `project_permission_profile_user_table` (rowOwnerGUID = project, or the organization = "may create projects"), and **RACI** (a person on a Time line: Responsible -> task responsible, Accountable / Consulted / Informed -> project member; `task_user_permission_table`, a trigger writes it). Several profiles ADD UP. Each profile has letters **C R U D** per table (`project_permission_profile_crud_table`, 146 tables (133 + files + chat), the owner's Google Sheet) and per screen (`..._uxui_table`); an organization may override a cell with its own row. The database is the law; the interface only hides or disables.
 
+## Application administrator (PART 54, 2026-11-20)
+`permissionApplicationAdmin` is NOT one of the 11 profiles (no letters): the list is `application_permission_table` (one row per e-mail, no client access; start4 / start5 seed `foto888999@gmail.com`), the test is `permission_application_admin()`, the answer for the interface is `isApplicationAdmin` of `perm_my_matrix` / `usePermissions().isApplicationAdmin`. It does ONE thing: the SELECT policy of `organizationTable` (`organization_visible`) shows him ALL organizations; every other user sees only the organizations he is a member of (plus the one he created and the one he works in now). Docker `tests/103`; design `documentation/PERMISSIONS_WBS.html` section 13.
+
 ## The SQL functions (PART 46 / 47)
 | function | use |
 |---|---|

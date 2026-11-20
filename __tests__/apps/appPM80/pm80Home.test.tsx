@@ -516,21 +516,22 @@ describe('PM80 Analogic ROI Dashboard (Paper & Tamagui)', () => {
     [320, 349, 375, 390, 430].forEach((w) => {
       const l = computePM80Layout(w, 800, 28);
       expect(l.isLandscape).toBe(false);
-      // [circle][hub][circle] must fit in the content width
-      expect(2 * l.sat + l.hub).toBeLessThanOrEqual(l.inner);
+      // the hub fits, and a full row of the grid (3 by default) fits in the content width
+      expect(l.hub).toBeLessThanOrEqual(l.inner);
+      expect(3 * l.sat).toBeLessThanOrEqual(l.inner);
       expect(4 * l.kpi).toBeLessThanOrEqual(l.inner);
       expect(l.hub).toBeLessThanOrEqual(194);
     });
     // Tamagui has a card around the content (50 px)
     const t = computePM80Layout(349, 700, 50);
-    expect(2 * t.sat + t.hub).toBeLessThanOrEqual(t.inner);
+    expect(3 * t.sat).toBeLessThanOrEqual(t.inner);
     // the design size on a wide portrait window
     const wide = computePM80Layout(480, 900, 28);
     expect(wide.hub).toBe(194);
-    expect(wide.sat).toBe(86);
+    expect(wide.sat).toBe(120); // a cell of the grid is at most 120 px
     // landscape phones and tablets
     [[568, 320], [667, 375], [844, 390], [1024, 768]].forEach(([w, h]) => {
-      const l = computePM80Layout(w, h, 28);
+      const l = computePM80Layout(w, h, 28, w, 'ios', 4); // 4 in a row (the home setting)
       expect(l.isLandscape).toBe(true);
       const rightW = l.inner - l.leftW - 16;
       expect(4 * l.sat).toBeLessThanOrEqual(rightW + 4);

@@ -3,6 +3,7 @@
 // positiveOnly (default true): no minus sign can be typed and the saved number is never below 0 (a `min` above 0 still wins).
 // tableName / tableFieldName say WHERE the input is used (the table and the field it edits). They change nothing in the behavior: they are written on the
 // input (web: data-tablename / data-tablefieldname) so that a place can be found in the code text and in the page.
+// calculator (default true): the calculator icon at the right of the input; OK of the calculator puts the result into the cell (kit8/ui/components/calculator).
 // Use it in a ReusableTable column with `...pmNumberColumn(tableName, tableFieldName)` (pmNumberColumn.tsx).
 import React from 'react';
 import { NumberCell } from '../../ui/components/table/reusable/ReusableTableCell';
@@ -31,6 +32,8 @@ export interface PMNumberInputAppProps {
   radius?: number;
   border?: number;
   h?: number;
+  /** the calculator icon at the right of the input (default true: kit8/ui/components/calculator) */
+  calculator?: boolean;
   testID?: string;
 }
 
@@ -42,7 +45,7 @@ export function pmNumberMin(positiveOnly: boolean, min?: number): number | undef
 
 export default function PMNumberInputApp({
   tableName, tableFieldName, positiveOnly = true, value, onCommit, editable = true, integer = false, min, max, stepper = false, step, placeholder,
-  align, radius = 0, border = 0, h = 40, testID = `pm-number-${tableName}-${tableFieldName}`,
+  align, radius = 0, border = 0, h = 40, calculator = true, testID = `pm-number-${tableName}-${tableFieldName}`,
 }: PMNumberInputAppProps) {
   return (
     <NumberCell
@@ -60,6 +63,7 @@ export default function PMNumberInputApp({
       radius={radius}
       border={border}
       h={h}
+      calculator={calculator}
       onCommit={onCommit}
     />
   );

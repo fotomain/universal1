@@ -4,6 +4,8 @@
 //                  (go back to any step already seen), Back / Next at the bottom of ONE panel of a FIXED height (the body scrolls inside it, the buttons stay at the same place on every step), and "Save and exit": the answers stay on the device and the next run offers to continue
 //   end            "Create project" (the New project window is filled and saved at once) or "Open in the project window" (filled, the user saves)
 //   called from    the first screen of "+ Project", the FAB of the home (appPM80) or the three dots menu of the Project settings window (mode=assistant)
+//   target=organization   (?mode=assistant&target=organization, from the Create Organization Assistant) the SAME questions without the name and the dates; the end is "Save as default settings":
+//                         the answers become the default project settings of the active organization (a new project of it starts from them) and no project is made
 // The currencies are asked ONLY while the organization has no project (they become the currencies of the organization); otherwise they are shown read only.
 import React from 'react';
 import { ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
@@ -17,13 +19,13 @@ import StepView from '../steps/StepView';
 import AssistantStartScreen from './AssistantStartScreen';
 import { useAssistantEnvironment, type AssistantEnvironment } from '../hooks/useAssistantEnvironment';
 import { useCreateAssistant } from '../hooks/useCreateAssistant';
-import { assistantStepDef, visibleSteps } from '../model/assistantModel';
+import { ASSISTANT_ORGANIZATION_TARGET, assistantStepDef, visibleSteps } from '../model/assistantModel';
 import { canGoNext, canJumpTo } from '../model/assistantFlow';
 
 export interface CreateNewProjectAssistantProps {
   /** 'assistant' = skip the first screen (the three dots menu of a project window) */
   mode?: string;
-  /** 'new' or the GUID of a project */
+  /** 'new', the GUID of a project, or 'organization' (the default project settings of the active organization) */
   target?: string;
   /** tests: the environment instead of the real hooks */
   environment?: AssistantEnvironment;
@@ -40,16 +42,18 @@ export default function CreateNewProjectAssistant(props: CreateNewProjectAssista
   const win = useWindowDimensions();
   const [message, setMessage] = React.useState<string | null>(null);
 
+  const forOrganization = target === ASSISTANT_ORGANIZATION_TARGET;
+
   const leave = React.useCallback(
     (reason: 'finished' | 'exit') => {
-      if (reason === 'finished') router.replace('/pm/project/dashboard' as any);
+      if (reason === 'finished') router.replace((forOrganization ? '/catalog/organization' : '/pm/project/dashboard') as any);
       else if (router.canGoBack?.()) router.back();
-      else router.replace('/home' as any);
+      else router.replace((forOrganization ? '/catalog/organization' : '/home') as any);
     },
-    [router],
+    [router, forOrganization],
   );
 
-  const a = useCreateAssistant({ env, target, mode, onLeave: leave });
+  const a = useCreateAssistant({ env, target, mode, onLeave: leave, saveOrganizationDefaults: forOrganization ? env.saveOrganizationDefaults : undefined });
   const signedIn = !!env.ownerGUID;
   const { state, ctx } = a;
 
@@ -70,7 +74,7 @@ export default function CreateNewProjectAssistant(props: CreateNewProjectAssista
         }))
       : [];
 
-  const title = target === 'new' ? 'New project assistant' : 'Project assistant';
+  const title = forOrganization ? 'Default settings for projects' : target === 'new' ? 'New project assistant' : 'Project assistant';
   const wide = win.width > 760;
   // fixed for all steps; the navigation bar (title, chips, progress) takes about 150 px above it
   const panelHeight = Math.max(420, Math.min(720, win.height - 190));
@@ -109,7 +113,7 @@ export default function CreateNewProjectAssistant(props: CreateNewProjectAssista
     <View style={[styles.root, { backgroundColor: theme.colors.background }]} testID="create-new-project-assistant">
       <AssistantNavigationBar
         title={title}
-        subtitle={state.phase === 'steps' && state.values.name.trim() ? state.values.name.trim() : undefined}
+        subtitle={!forOrganization && state.phase === 'steps' && state.values.name.trim() ? state.values.name.trim() : undefined}
         steps={steps}
         onBack={a.goBack}
         onJump={(id) => a.jump(id as any)}
@@ -124,7 +128,9 @@ export default function CreateNewProjectAssistant(props: CreateNewProjectAssista
           <View style={styles.footer} testID="assistant-footer">
             <Button mode="outlined" onPress={a.goBack} testID="assistant-footer-back">{pmT('Back')}</Button>
             <View style={styles.spacer} />
-            {isReview ? (
+            {isReview && forOrganization ? (
+              <Button mode="contained" onPress={async () => { const r = await a.finish(true); if (r.message) setMessage(r.message); }} disabled={!!a.blocking} testID="assistant-save-defaults">{pmT('Save as default settings')}</Button>
+            ) : isReview ? (
               <>
                 <Button mode="outlined" onPress={async () => { const r = await a.finish(false); if (r.message) setMessage(r.message); }} disabled={!!a.blocking} testID="assistant-open-window">{pmT('Open in the project window')}</Button>
                 <Button mode="contained" onPress={async () => { const r = await a.finish(true); if (r.message) setMessage(r.message); }} disabled={!!a.blocking} testID="assistant-create" style={styles.primary}>{pmT(state.phase === 'steps' && target !== 'new' ? 'Apply and save' : 'Create project')}</Button>

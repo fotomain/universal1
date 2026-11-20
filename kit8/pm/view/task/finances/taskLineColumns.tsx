@@ -41,6 +41,12 @@ import SelectCatalogItemWithFolders from '../../../../catalog/select/with_folder
 import SelectCatalogItemFromTreeReusable from '../../../../catalog/select/from_tree/SelectCatalogItemFromTreeReusable';
 import { BUSINESS_UNIT_SOURCE_TEXT, lineBudgetKind } from './taskLineBusinessUnit';
 
+/**
+ * Width of the VAT % column. The cell holds the text, the calculator icon and the two arrows (about 26 + 30 px) and 10 px of padding on each side of the text:
+ * at 110 px only about one digit was left ("21" showed as "2"). 150 px shows "100" and "12.5" with the icon and the arrows in place.
+ */
+export const VAT_PERCENT_COLUMN_WIDTH = 150;
+
 /** person.rowJSON -> "first name + last name" (taskLineResource.ts) */
 export { personFullName };
 
@@ -319,7 +325,7 @@ export function buildTaskLineColumns({ data, genus, projectCurrency, textColor, 
     { key: 'qty', title: pmT('Qty'), type: 'number', field: 'qtyTaskLine', width: 130, min: 0, max: 1000000000, totalWhenSame: 'unit', totalSuffix: (unit) => unitOptions.find((o) => o.value === unit)?.label ?? '', ...pmNumberColumn(taskLineTable, 'qtyTaskLine') },
     { key: 'unit', title: pmT('Unit'), type: 'select', field: 'measureUnitTaskLine', width: 110, options: unitOptions, allowEmpty: false },
     { key: 'price', title: pmT('Price'), type: 'number', field: 'priceTaskLine', width: 130, min: 0, max: 1000000000, total: false, ...pmNumberColumn(taskLineTable, 'priceTaskLine') },
-    { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: 110, min: 0, max: 100, total: false, ...pmNumberColumn(taskLineTable, 'vatRatioTaskLine') },
+    { key: 'vat', title: pmT('VAT %'), type: 'number', field: 'vatRatioTaskLine', width: VAT_PERCENT_COLUMN_WIDTH, min: 0, max: 100, total: false, ...pmNumberColumn(taskLineTable, 'vatRatioTaskLine') },
     // how the budget of the line is spread over its days (catalog Distribution, read-only there); stored as the rowGUID
     { key: 'distribution', title: pmT('Budget distribution'), type: 'select', field: 'distributionForBudgetTaskLine', width: 190, options: distributionOptions(data.distribution), placeholder: pmT('Not chosen') },
     { key: 'sum', title: pmT('Sum'), type: 'number', field: 'sumForContract', width: 120, editable: false },

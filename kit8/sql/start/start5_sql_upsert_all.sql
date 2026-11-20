@@ -7228,3 +7228,8 @@ INSERT INTO public.files_document_type_catalog ("rowGUID", "rowOwnerGUID", "rowP
   ('filesTypeCertificate', 'empty', 'empty', 8000, '{"title": "Certificate"}'),
   ('filesTypeOther', 'empty', 'empty', 9000, '{"title": "Other"}')
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
+
+-- Application administrators (PART 54 of start1_sql_tables.sql + start2_sql_code.sql): upsert (a row of the e-mail is set to permissionApplicationAdmin = true)
+INSERT INTO public.application_permission_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('permissionApplicationAdmin:foto888999@gmail.com', 'foto888999@gmail.com', 'empty', 1000, '{"permissionApplicationAdmin": true}'::jsonb)
+ON CONFLICT ("rowOwnerGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";

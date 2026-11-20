@@ -2,7 +2,7 @@
 import React, { useCallback, useState, useSyncExternalStore } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../common';
 import NFCReceivedInfo from './NFCReceivedInfo';
 import { clearNfcInbox, getNfcInbox, removeNfcRead, subscribeNfcInbox } from './nfcInbox';
@@ -30,6 +30,7 @@ export default function NfcScan() {
       return () => setFocused(false);
     }, []),
   );
+  const router = useRouter();
   const reader = useNfcReader(focused);
   const reads = useSyncExternalStore(subscribeNfcInbox, getNfcInbox, getNfcInbox);
   const running = reader.state === 'scanning';
@@ -50,6 +51,9 @@ export default function NfcScan() {
                 Stop
               </ButtonSecondaryApp>
             )}
+            <ButtonSecondaryApp icon="badge" onPress={() => router.push('/media/nfc/iddocread' as any)} testID="nfc-id-reader">
+              ID card / passport
+            </ButtonSecondaryApp>
             {reader.state === 'disabled' && Platform.OS === 'android' && (
               <ButtonPrimaryApp icon="settings" onPress={reader.openSettings} testID="nfc-settings">
                 NFC settings

@@ -234,6 +234,16 @@ describe('the planning model and the time of day', () => {
     expect(q('assistant-step-optimization')).toBeNull();
     click('assistant-switch-cost');
     expect(q('assistant-step-optimization')).not.toBeNull();
+    // the options of the optimization appear with its switch; the three rules are chips
+    click('assistant-next'); // resources
+    click('assistant-next'); // optimization
+    expect(q('assistant-optimization-options')).toBeNull();
+    click('assistant-switch-optimization');
+    expect(q('assistant-optimization-options')).not.toBeNull();
+    ['order-priorityStandard', 'computation-resourceLevelingServerSideComputations', 'posted-keep'].forEach((c) => click(`assistant-choice-${c}`));
+    click('assistant-next'); // control
+    click('assistant-next'); // review
+    expect(q('assistant-review')?.textContent).toMatch(/server side/);
   });
 });
 
@@ -321,5 +331,56 @@ describe('stop and continue', () => {
     expect(q('assistant-step-body-identity')).not.toBeNull();
     expect((q('assistant-input-name') as HTMLInputElement).value).toBe('From the window');
     expect(usePMStore.getState().projectAssistantSeed).toBeNull();
+  });
+});
+
+describe('the defaults of an organization (target = organization)', () => {
+  const saveDefaults = jest.fn();
+  beforeEach(() => saveDefaults.mockReset());
+
+  async function toReview(e: any = {}) {
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+    act(() => root.render(<CreateNewProjectAssistant environment={env({ saveOrganizationDefaults: saveDefaults, ...e })} mode="assistant" target="organization" />));
+    await flush();
+    // no name and no dates are asked: the first question is the planning model
+    expect(q('assistant-step-body-planning')).not.toBeNull();
+    expect(q('assistant-input-name')).toBeNull();
+    click('assistant-next'); // currencies
+    click('assistant-next'); // budgets
+    click('assistant-next'); // control
+    click('assistant-next'); // review
+    expect(q('assistant-review')).not.toBeNull();
+  }
+
+  it('the end is "Save as default settings": the answers go to the organization, no project is made, the user is back in the list of organizations', async () => {
+    saveDefaults.mockResolvedValue({ ok: true });
+    await toReview();
+    expect(q('assistant-create')).toBeNull();
+    expect(q('assistant-open-window')).toBeNull();
+    click('assistant-save-defaults');
+    await flush();
+    expect(saveDefaults).toHaveBeenCalledTimes(1);
+    expect(saveDefaults.mock.calls[0][0]).toMatchObject({ planDay: true, currencyForBudget: 'USD', currencyForAccounting: 'EUR', currencyForContract: 'GBP' });
+    expect(usePMStore.getState().projectAssistantResult).toBeNull();
+    expect(mockReplace).toHaveBeenCalledWith('/catalog/organization');
+  });
+
+  it('a refused save stays on the review and says why', async () => {
+    saveDefaults.mockResolvedValue({ ok: false, error: 'Only the administrator of the organization (its creator) can change its settings.' });
+    await toReview();
+    click('assistant-save-defaults');
+    await flush();
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(q('assistant-review')).not.toBeNull();
+  });
+
+  it('the starting answers are the stored defaults of the organization', async () => {
+    saveDefaults.mockResolvedValue({ ok: true });
+    await toReview({ organizationDefaults: { skipWeekends: true, projectRevenueBudgetNeeded: false }, organizationCurrencies: { currencyForBudget: 'CHF', currencyForAccounting: 'EUR', currencyForContract: 'CHF' } });
+    click('assistant-save-defaults');
+    await flush();
+    expect(saveDefaults.mock.calls[0][0]).toMatchObject({ skipWeekends: true, projectRevenueBudgetNeeded: false, currencyForBudget: 'CHF' });
   });
 });

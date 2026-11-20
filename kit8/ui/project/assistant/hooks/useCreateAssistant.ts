@@ -5,9 +5,11 @@
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import { usePMStore } from '../../../../pm/store/store_pm';
 import {
+  ASSISTANT_ORGANIZATION_TARGET,
   assistantPatchFor,
   assistantValuesFrom,
   firstStepWithError,
+  visibleSteps,
   hasMeaningfulInput,
   stepNotes,
   todayISO,
@@ -29,10 +31,12 @@ export interface UseCreateAssistantArgs {
   mode?: string;
   /** called when the run is over: the screen leaves */
   onLeave: (reason: 'finished' | 'exit') => void;
+  /** target = ASSISTANT_ORGANIZATION_TARGET: saves the answers as the default project settings of the active organization (instead of handing a project patch to the window) */
+  saveOrganizationDefaults?: (patch: Record<string, any>) => Promise<{ ok: boolean; error?: string }>;
   today?: string;
 }
 
-export function useCreateAssistant({ env, target, mode, onLeave, today = todayISO() }: UseCreateAssistantArgs) {
+export function useCreateAssistant({ env, target, mode, onLeave, saveOrganizationDefaults, today = todayISO() }: UseCreateAssistantArgs) {
   const storageKey = assistantStorageKey(env.userKey, target);
 
   const ctx: AssistantContext = useMemo(() => {
@@ -43,12 +47,15 @@ export function useCreateAssistant({ env, target, mode, onLeave, today = todayIS
   const seedValues = useCallback((): AssistantValues => {
     const seed = usePMStore.getState().projectAssistantSeed;
     if (seed && seed.target === target) return assistantValuesFrom(seed.values, today);
-    if (target !== 'new') return assistantValuesFrom(env.projectJSONOf(target), today);
+    if (target !== 'new' && target !== ASSISTANT_ORGANIZATION_TARGET) return assistantValuesFrom(env.projectJSONOf(target), today);
     return assistantValuesFrom({ ...(env.organizationDefaults || {}), ...(env.organizationCurrencies.currencyForBudget ? env.organizationCurrencies : {}) }, today);
   }, [target, env, today]);
 
   const reducer = useMemo(() => assistantFlowReducer(ctx), [ctx]);
-  const [state, dispatch] = useReducer(reducer, undefined as unknown as AssistantFlowState, () => initialFlow(assistantValuesFrom(null, today), mode === 'assistant' ? 'steps' : 'start'));
+  const [state, dispatch] = useReducer(reducer, undefined as unknown as AssistantFlowState, () => {
+    const values = assistantValuesFrom(null, today);
+    return initialFlow(values, mode === 'assistant' ? 'steps' : 'start', visibleSteps(values, ctx)[0] ?? 'identity');
+  });
 
   // ---- the saved run of this user and target
   const [saved, setSaved] = useState<AssistantSavedRun | null | undefined>(undefined); // undefined = still reading
@@ -102,7 +109,7 @@ export function useCreateAssistant({ env, target, mode, onLeave, today = todayIS
   const started = useRef(false);
   useEffect(() => {
     if (started.current || mode !== 'assistant' || saved === undefined || saved !== null) return;
-    if (target === 'new' && !env.organizationLoaded && !usePMStore.getState().projectAssistantSeed) return;
+    if ((target === 'new' || target === ASSISTANT_ORGANIZATION_TARGET) && !env.organizationLoaded && !usePMStore.getState().projectAssistantSeed) return;
     started.current = true;
     dispatch({ type: 'start', values: seedValues() });
     usePMStore.getState().setProjectAssistantSeed(null);
@@ -118,16 +125,22 @@ export function useCreateAssistant({ env, target, mode, onLeave, today = todayIS
         dispatch({ type: 'goto', stepId: blocking });
         return { ok: false, message: 'Some answers must be corrected first.' };
       }
+      if (target === ASSISTANT_ORGANIZATION_TARGET) {
+        // the defaults of the organization: saved here, no project is made
+        if (!saveOrganizationDefaults) return { ok: false, message: 'The organization cannot be changed from here.' };
+        const saved = await saveOrganizationDefaults(assistantPatchFor(state.values, ctx));
+        if (!saved.ok) return { ok: false, message: saved.error || 'The default settings were not saved.' };
+      }
       finished.current = true;
       if (timer.current) clearTimeout(timer.current);
       await clearSavedRun(storageKey);
       usePMStore.getState().setProjectAssistantSeed(null);
-      usePMStore.getState().applyProjectAssistant({ target, patch: assistantPatchFor(state.values, ctx), createNow });
+      if (target !== ASSISTANT_ORGANIZATION_TARGET) usePMStore.getState().applyProjectAssistant({ target, patch: assistantPatchFor(state.values, ctx), createNow });
       dispatch({ type: 'phase', phase: 'done' });
       onLeave('finished');
       return { ok: true };
     },
-    [blocking, state.values, ctx, env, storageKey, target, onLeave],
+    [blocking, state.values, ctx, env, storageKey, target, onLeave, saveOrganizationDefaults],
   );
 
   /** "Save and exit": the answers stay on the device */
@@ -138,7 +151,7 @@ export function useCreateAssistant({ env, target, mode, onLeave, today = todayIS
 
   const goBack = useCallback(() => {
     if (state.phase === 'steps') {
-      if (state.stepId === 'identity') {
+      if (state.stepId === (visibleSteps(state.values, ctx)[0] ?? 'identity')) {
         // the first question: back = the first screen (or out, when there is none)
         if (mode === 'assistant') return exit();
         persist();
@@ -148,7 +161,7 @@ export function useCreateAssistant({ env, target, mode, onLeave, today = todayIS
     }
     if (state.phase === 'resume' && saved === null) return exit();
     return onLeave('exit');
-  }, [state.phase, state.stepId, mode, exit, persist, saved, onLeave]);
+  }, [state.phase, state.stepId, state.values, ctx, mode, exit, persist, saved, onLeave]);
 
   return {
     state,

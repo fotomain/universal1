@@ -3,7 +3,7 @@ import React from 'react';
 import { act } from 'react';
 import { cleanup, flush, press, pressAsync, q, render, text } from './mediaUiTestKit';
 
-const cam: any = { zooms: [] as number[], takes: [] as any[], flash: [] as string[] };
+const cam: any = { zooms: [] as number[], torch: [] as string[], takes: [] as any[], flash: [] as string[] };
 (globalThis as any).__cam = cam;
 (globalThis as any).__camPerm = { hasPermission: true, requestPermission: jest.fn(async () => true) };
 jest.mock('react-native-vision-camera', () => {
@@ -11,10 +11,11 @@ jest.mock('react-native-vision-camera', () => {
   const Camera = R.forwardRef((props: any, ref: any) => {
     const c = (globalThis as any).__cam;
     c.zooms.push(props.zoom);
+    c.torch.push(props.torch);
     R.useImperativeHandle(ref, () => ({ takePhoto: async (o: any) => { c.takes.push(o); return { path: '/cache/shot.jpg', width: 4000, height: 3000 }; } }));
     return R.createElement('div', { 'data-testid': 'camera' });
   });
-  return { Camera, useCameraDevice: () => ({ id: 'back', minZoom: 1, maxZoom: 10, neutralZoom: 1, hasFlash: true }), useCameraPermission: () => (globalThis as any).__camPerm };
+  return { Camera, useCameraDevice: () => ({ id: 'back', minZoom: 1, maxZoom: 10, neutralZoom: 1, hasFlash: true, hasTorch: !(globalThis as any).__noTorch }), useCameraPermission: () => (globalThis as any).__camPerm };
 });
 const mockApply = jest.fn(async (uri: string, filterId: string) => ({ uri: filterId === 'original' ? uri : `${uri}#${filterId}`, width: 3000, height: 4000 }));
 jest.mock('../../kit8/ui/components/media/photo/applyPhotoFilter', () => ({ applyPhotoFilter: (u: string, f: string) => mockApply(u, f) }));
@@ -24,7 +25,7 @@ jest.mock('../../kit8/ui/components/media/photo/useSavePhoto', () => ({ useSaveP
 import RecordPhoto from '../../kit8/ui/components/media/photo/RecordPhoto';
 
 jest.setTimeout(30000);
-afterEach(() => { cleanup(); Object.assign(cam, { zooms: [], takes: [], flash: [] }); jest.clearAllMocks(); });
+afterEach(() => { cleanup(); Object.assign(cam, { zooms: [], torch: [], takes: [], flash: [] }); (globalThis as any).__noTorch = false; (globalThis as any).__recordVideoSettings = undefined; jest.clearAllMocks(); });
 
 it('shows the camera with zoom, black and white modes and colour looks', async () => {
   render(<RecordPhoto />);
@@ -81,4 +82,29 @@ it('a look that fails is reported and the original is shown', async () => {
   await flush();
   expect((globalThis as any).__showError).toHaveBeenCalled();
   expect(mockApply).toHaveBeenLastCalledWith('file:///cache/shot.jpg', 'original');
+});
+
+it('flashlight: a permanent light, separate from the flash of the shutter; it stays on for the shot', async () => {
+  render(<RecordPhoto />);
+  await flush();
+  expect(cam.torch.at(-1)).toBe('off');
+  expect(q('record-photo-flash')).not.toBeNull(); // the flash button is still there
+  await pressAsync('record-photo-torch');
+  expect(cam.torch.at(-1)).toBe('on');
+  await pressAsync('record-photo-shutter');
+  expect(cam.takes).toHaveLength(1);
+  expect(cam.torch.at(-1)).toBe('on');
+});
+
+it('flashlight: the remembered choice is on at once; no button without a torch', async () => {
+  (globalThis as any).__recordVideoSettings = { recordTorchEnabled: true };
+  render(<RecordPhoto />);
+  await flush();
+  expect(cam.torch.at(-1)).toBe('on');
+  cleanup();
+  (globalThis as any).__noTorch = true;
+  render(<RecordPhoto />);
+  await flush();
+  expect(q('record-photo-torch')).toBeNull();
+  expect(cam.torch.at(-1)).toBe('off');
 });

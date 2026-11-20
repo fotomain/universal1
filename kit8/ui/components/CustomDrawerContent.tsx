@@ -113,6 +113,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       children: [
         { id: 'scan-codes', label: 'QR / Barcode', icon: 'qr_code_scanner', route: 'media/scan' },
         { id: 'scan-nfc', label: 'NFC', icon: 'nfc', route: 'media/nfc' },
+        // ID card or passport: photo of the zone -> text recognised on the phone -> NFC scan (kit8/ui/components/media/nfc/identification; the chip reader = nfc/iddocread)
+        { id: 'scan-identification', label: 'Identification', icon: 'badge', route: 'media/nfc/identification' },
       ],
     },
     // the chat (kit8/chat): the themes of the user and the chats of the tasks he works on; the red number of the new messages is in the application bar

@@ -47,21 +47,27 @@ const variantConfigs = {
       package: 'com.projectbudgetmanagement',
       adaptiveIcon: {
         foregroundImage: './assets/appPM80/adaptive-icon.png',
-        backgroundColor: '#13112B',
+        backgroundColor: '#1F114C',
       },
     },
     web: {
       favicon: './assets/appPM80/favicon.png',
       name: 'Project Budget Management',
       shortName: 'PM80 Budget',
-      themeColor: '#13112B',
+      themeColor: '#1F114C',
       backgroundColor: '#0F172A',
     },
     icon: './assets/appPM80/icon.png',
     splash: {
       image: './assets/appPM80/splash.png',
       resizeMode: 'contain',
-      backgroundColor: '#0B1021',
+      backgroundColor: '#1F114C',
+    },
+    splashPluginConfig: {
+      image: './assets/appPM80/splash-icon.png',
+      imageWidth: 200,
+      resizeMode: 'contain',
+      backgroundColor: '#1F114C',
     },
     scheme: 'projectbudgetmanagement',
     // its OWN EAS project (web hosting https://project-budget-management.expo.app); the other apps share DEFAULT_EAS_PROJECT_ID
@@ -148,12 +154,14 @@ const expoConfig = {
     },
     plugins: [
       'expo-router',
-      'expo-build-properties',
+      'expo-build-properties', // (the iOS deployment target stays the default: Expo SDK 57 needs >= 16.4, ML Kit needs 16)
       'expo-font',
       'expo-image',
       'expo-localization',
       'expo-secure-store',
-      'expo-splash-screen',
+      variant.splashPluginConfig
+        ? ['expo-splash-screen', variant.splashPluginConfig]
+        : 'expo-splash-screen',
       'expo-sqlite',
       'expo-status-bar',
       'expo-web-browser',
@@ -178,7 +186,10 @@ const expoConfig = {
       ['react-native-vision-camera', { cameraPermissionText: PERMISSION_TEXT.camera, enableMicrophonePermission: true, microphonePermissionText: PERMISSION_TEXT.microphone }],
       // scan NFC tags (kit8/ui/components/media/nfc): react-native-nfc-manager. iOS: the NFC reader entitlement (needs the NFC capability of the
       // App ID at Apple) + the usage text; Android: the NFC permission. A native module: a development build is needed.
-      ['react-native-nfc-manager', { nfcPermission: PERMISSION_TEXT.nfc }],
+      // selectIdentifiers: the application id of the ICAO travel document application (the ID card / passport reader, nfc/iddocread) - iOS lists the card applications it may select
+      ['react-native-nfc-manager', { nfcPermission: PERMISSION_TEXT.nfc, selectIdentifiers: ['A0000002471001'] }],
+      // text recognition ON THE PHONE (Identification: the photo of the machine readable zone): Android = the bundled ML Kit model (offline), iOS = ML Kit, Apple Vision on the simulator
+      ['expo-mlkit-ocr', { iosEngine: 'auto' }],
       // a tag that touches the phone while the app is closed / in the background starts the app (Android)
       withNfcLaunch,
       // record / play audio (RecordAudio.tsx, AudioPlayerView.tsx)
@@ -190,6 +201,10 @@ const expoConfig = {
       configurationName,
       // .env ENVIRONMENT_NAME (e.g. DEV_ENVIRONMENT): the developer helpers of the UI (kit8/ui/environment.ts)
       environmentName: process.env.ENVIRONMENT_NAME || '',
+      // Google AI (Gemini) key of the Identification photo step, from .env GOOGLE_AI_API_KEY. NOTE: a value in `extra` is INSIDE the app and can be read out of it -
+      // restrict the key in Google AI Studio / Cloud (API + quota) or use the Edge Function identification-recognize instead (supabase/functions/identification-recognize/README.md).
+      googleAiApiKey: process.env.GOOGLE_AI_API_KEY || '',
+      googleAiModel: process.env.GOOGLE_AI_MODEL || '',
       eas: easProjectId ? { projectId: easProjectId } : undefined,
     }, // available in code via Constants.expoConfig.extra
 

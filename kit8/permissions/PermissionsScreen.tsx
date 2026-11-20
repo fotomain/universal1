@@ -15,7 +15,7 @@ import ReusableTable from '../ui/components/table/reusable/ReusableTable';
 import type { ReusableTableRow, VisualColumn } from '../ui/components/table/reusable/reusableTableTypes';
 import { usePMStore } from '../pm/store/store_pm';
 import { pmT } from '../pm/i18n/pmT';
-import { PROFILE_TITLES } from './permissionModel';
+import { PROFILE_TITLES, profileTitleOf } from './permissionModel';
 import { permissionRefusalText } from './permissionText';
 import { usePermissions } from './usePermissions';
 import { MATRIX_PROFILES, MATRIX_SETS, matrixRowsOf, matrixWrites, type CrudRow, type MatrixRow } from './permissionMatrixModel';
@@ -47,7 +47,7 @@ function MyPermissions({ testID }: { testID: string }) {
           {perm.profiles.length === 0 && perm.ready ? <Text style={{ color: c.text, opacity: 0.6 }}>{pmT('No profile: you can read what everybody reads.')}</Text> : null}
           {perm.profiles.map((p) => (
             <View key={p} testID={`${testID}-profile-${p}`} style={[styles.chip, { borderColor: c.primary, backgroundColor: c.primary + '14' }]}>
-              <Text style={{ color: c.text, fontSize: 12, fontWeight: '600' }}>{pmT(PROFILE_TITLES[p] ?? p)}</Text>
+              <Text style={{ color: c.text, fontSize: 12, fontWeight: '600' }}>{pmT(profileTitleOf(p))}</Text>
             </View>
           ))}
         </View>

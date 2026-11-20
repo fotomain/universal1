@@ -18,6 +18,8 @@ import { createStampedStream, StampedStream } from './stampedStream';
 import type { RecordingDateTimeOver } from '../common/mediaPost';
 import { clampZoom, webZoomCapability, WebZoomCapability } from '../common/cameraZoom';
 import ZoomControl from '../common/ZoomControl';
+import { torchIcon, torchLabel } from '../common/cameraTorch';
+import { useWebTorch } from '../common/useWebTorch';
 
 export type { RecordVideoProps };
 
@@ -44,6 +46,9 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
   /** the stamp of the recording that runs: fixed at Record (the settings are locked until Stop) */
   const stampOn = recordSettings.recordDateTimeOverEnabled;
   const stampPosition = recordSettings.recordDateTimeOverPosition;
+  /** the flashlight: a permanent light, also while recording (the track is the same, only a constraint changes) */
+  const torchOn = recordSettings.recordTorchEnabled;
+  const [streamVersion, setStreamVersion] = useState(0);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -97,6 +102,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
       }
       streamRef.current?.getTracks().forEach((t) => t.stop());
       streamRef.current = stream;
+      setStreamVersion((v) => v + 1);
       const canDigital = typeof document !== 'undefined' && typeof (document.createElement('canvas') as any).captureStream === 'function';
       const cap = webZoomCapability(stream.getVideoTracks?.()[0], canDigital);
       setZoomCap(cap);
@@ -136,6 +142,8 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
       void track?.applyConstraints({ advanced: [{ zoom: next } as any] }).catch(() => undefined);
     }
   };
+
+  const torch = useWebTorch(() => streamRef.current?.getVideoTracks?.()[0], torchOn, streamVersion);
 
   // the switch = the microphone track on / off, also while recording
   useEffect(() => {
@@ -318,6 +326,9 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               testID="record-video-sound"
             />
             <View style={styles.rowIcons}>
+              {torch.available && (
+                <IconButton icon={torchIcon(torchOn && torch.lit)} onPress={() => changeRecordSettings({ recordTorchEnabled: !torchOn })} disabled={phase === 'saving'} accessibilityLabel={torchLabel(torchOn && torch.lit)} size={22} style={styles.torch} testID="record-video-torch" />
+              )}
               <IconButton icon="camera-flip-outline" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} disabled={active || phase === 'saving'} accessibilityLabel="Switch camera" size={22} style={styles.flip} testID="record-video-flip" />
               <IconButton icon="cog-outline" onPress={() => setSettingsOpen((o) => !o)} accessibilityLabel="Record settings" size={22} style={styles.gear} testID="record-video-settings-button" />
             </View>
@@ -365,6 +376,7 @@ const styles = StyleSheet.create({
   gear: { margin: 0, marginRight: -8, marginLeft: -4 },
   /* the camera sign stands in the middle between the sound switch and the gear */
   flip: { margin: 0, marginLeft: 4 },
+  torch: { margin: 0 },
   /* ONE line also on a narrow phone: the switch gives way (its text may break), nothing drops to a second line */
   sound: { flexShrink: 1, marginLeft: 8 },
   buttons: { flexDirection: 'row', gap: 12, marginTop: 16, flexWrap: 'wrap' },

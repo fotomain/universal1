@@ -2,7 +2,7 @@
   <defs>
     <radialGradient id="pm80BgGrad" cx="30%" cy="25%" r="85%">
       <stop offset="0%" stop-color="#2E1065" />
-      <stop offset="55%" stop-color="#1E1B4B" />
+      <stop offset="55%" stop-color="#1F114C" />
       <stop offset="100%" stop-color="#090D16" />
     </radialGradient>
 
@@ -37,59 +37,61 @@
 
   <rect x="0" y="0" width="1024" height="1024" fill="url(#pm80BgGrad)" />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="380"
-    stroke="#6366F1"
-    stroke-opacity="0.55"
-    stroke-width="6"
-    fill="none"
-  />
+  <!-- Safe-zone scaled emblem so upper arrow tip and all 4 orbital dots are 100% visible inside Android launcher masks -->
+  <g transform="translate(512, 512) scale(0.76) translate(-512, -512)">
+    <circle
+      cx="512"
+      cy="512"
+      r="380"
+      stroke="#6366F1"
+      stroke-opacity="0.55"
+      stroke-width="6"
+      fill="none"
+    />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="300"
-    stroke="#1E293B"
-    stroke-width="54"
-    fill="none"
-  />
+    <circle
+      cx="512"
+      cy="512"
+      r="300"
+      stroke="#1E293B"
+      stroke-width="54"
+      fill="none"
+    />
 
-  <circle
-    cx="512"
-    cy="512"
-    r="300"
-    stroke="url(#pm80RingGrad)"
-    stroke-width="54"
-    stroke-dasharray="1520 1885"
-    stroke-linecap="round"
-    fill="none"
-    transform="rotate(135 512 512)"
-  />
+    <circle
+      cx="512"
+      cy="512"
+      r="300"
+      stroke="url(#pm80RingGrad)"
+      stroke-width="54"
+      stroke-dasharray="1520 1885"
+      stroke-linecap="round"
+      fill="none"
+      transform="rotate(135 512 512)"
+    />
 
-  <circle cx="512" cy="132" r="28" fill="#93C5FD" stroke="#1E1B4B" stroke-width="10" />
-  <circle cx="892" cy="512" r="28" fill="#6EE7B7" stroke="#1E1B4B" stroke-width="10" />
-  <circle cx="512" cy="892" r="28" fill="#93C5FD" stroke="#1E1B4B" stroke-width="10" />
-  <circle cx="132" cy="512" r="28" fill="#DDD6FE" stroke="#1E1B4B" stroke-width="10" />
+    <circle cx="512" cy="132" r="28" fill="#93C5FD" stroke="#1E1B4B" stroke-width="10" />
+    <circle cx="892" cy="512" r="28" fill="#6EE7B7" stroke="#1E1B4B" stroke-width="10" />
+    <circle cx="512" cy="892" r="28" fill="#93C5FD" stroke="#1E1B4B" stroke-width="10" />
+    <circle cx="132" cy="512" r="28" fill="#DDD6FE" stroke="#1E1B4B" stroke-width="10" />
 
-  <g>
-    <rect x="348" y="480" width="84" height="210" rx="14" fill="url(#pm80Bar1)" />
-    <rect x="470" y="395" width="84" height="295" rx="14" fill="url(#pm80Bar2)" />
-    <rect x="592" y="315" width="84" height="375" rx="14" fill="url(#pm80Bar3)" />
+    <g>
+      <rect x="348" y="480" width="84" height="210" rx="14" fill="url(#pm80Bar1)" />
+      <rect x="470" y="395" width="84" height="295" rx="14" fill="url(#pm80Bar2)" />
+      <rect x="592" y="315" width="84" height="375" rx="14" fill="url(#pm80Bar3)" />
+    </g>
+
+    <path
+      d="M 300 660 L 465 490 L 520 540 L 710 305"
+      stroke="url(#pm80ArrowGrad)"
+      stroke-width="36"
+      stroke-linecap="round"
+      stroke-linejoin="round"
+      fill="none"
+    />
+    <path
+      d="M 638 300 L 736 280 L 718 378 Z"
+      fill="#38BDF8"
+    />
   </g>
-
-  <path
-    d="M 300 660 L 465 490 L 520 540 L 740 275"
-    stroke="url(#pm80ArrowGrad)"
-    stroke-width="36"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
-  <path
-    d="M 665 270 L 765 250 L 745 350 Z"
-    fill="#38BDF8"
-  />
 </svg>
-

@@ -134,7 +134,7 @@ describe('the planning model, the time of day and the resource optimization (Pro
   const hour = (over: Record<string, any> = {}) => v({ resourceOptimizationMode: 'hourByHourModel', ...over });
 
   it('the defaults are those of the settings tab: day by day, 15 min, UTC, 08:00-16:00, optimization off', () => {
-    expect(defaultAssistantValues(TODAY)).toMatchObject({ resourceOptimizationMode: 'dayByDayModel', resourceGrainUnit: 'hour', resourceSlotMinutes: 15, projectTimeZone: 'UTC', workWindowsText: '08:00-16:00', resourceLevelingFunctionalityEnabled: false, resourceLevelingMode: 'manual', resourceLevelingWithinSlackOnly: false });
+    expect(defaultAssistantValues(TODAY)).toMatchObject({ resourceOptimizationMode: 'dayByDayModel', resourceGrainUnit: 'hour', resourceSlotMinutes: 15, projectTimeZone: 'UTC', workWindowsText: '08:00-16:00', resourceLevelingFunctionalityEnabled: false, resourceLevelingMode: 'manual', resourceLevelingWithinSlackOnly: false, resourceLevelingOrder: 'standard', resourceLevelingComputationSide: 'resourceLevelingClientSideComputations', resourceLevelingPostedTasksAction: 'ask' });
   });
 
   it('a project row gives its stored model, step, zone and windows', () => {
@@ -179,6 +179,12 @@ describe('the planning model, the time of day and the resource optimization (Pro
     expect(stepNotes('optimization', v({ ...base, resourceLevelingWithinSlackOnly: true }), ctx()).some((n) => /Smoothing/.test(n.text))).toBe(true);
     expect(stepNotes('optimization', v({ ...base }), ctx()).some((n) => /Leveling/.test(n.text))).toBe(true);
     expect(stepNotes('optimization', v({ ...base, resourceLevelingFunctionalityEnabled: false }), ctx())[0].text).toMatch(/^Off/);
+    expect(stepNotes('optimization', v({ ...base, resourceLevelingComputationSide: 'resourceLevelingServerSideComputations' }), ctx()).some((n) => /Fast mode is not available/.test(n.text))).toBe(true);
+    expect(stepNotes('optimization', v({ ...base, resourceLevelingPostedTasksAction: 'keep' }), ctx()).some((n) => /Posted tasks/.test(n.text))).toBe(true);
+    // the three rules reach the window, a stored project gives them back
+    expect(assistantPatchFor(v({ ...base, resourceLevelingOrder: 'idOnly', resourceLevelingComputationSide: 'resourceLevelingServerSideComputations', resourceLevelingPostedTasksAction: 'moveAndPostAgain' }), ctx()))
+      .toMatchObject({ resourceLevelingOrder: 'idOnly', resourceLevelingComputationSide: 'resourceLevelingServerSideComputations', resourceLevelingPostedTasksAction: 'moveAndPostAgain' });
+    expect(assistantValuesFrom({ resourceLevelingOrder: 'priorityStandard', resourceLevelingPostedTasksAction: 'keep' }, TODAY)).toMatchObject({ resourceLevelingOrder: 'priorityStandard', resourceLevelingPostedTasksAction: 'keep' });
   });
 
   it('the patch: the day model writes only the mode, the hour model also the zone, step and windows', () => {
@@ -209,6 +215,6 @@ describe('the planning model, the time of day and the resource optimization (Pro
     const h = reviewLines(hour({ projectExpenseBudgetNeeded: true, projectTimeCostsNeeded: true, resourceLevelingFunctionalityEnabled: true }), ctx());
     expect(h.find((l) => l.label === 'Planning model')!.value).toBe('Hour by hour');
     expect(h.find((l) => l.label === 'Working windows')).toMatchObject({ id: 'timeOfDay', value: '08:00-16:00' });
-    expect(h.find((l) => l.label === 'Resource optimization')!.value).toBe('Manual, leveling');
+    expect(h.find((l) => l.label === 'Resource optimization')!.value).toBe('Manual, leveling, client side');
   });
 });

@@ -23,6 +23,8 @@ import Monitor03Chart from './Monitor03Chart';
 import Monitor03PeriodBar, { EMPTY_MONITOR03_PERIOD, Monitor03Period } from './Monitor03PeriodBar';
 import { roiDateErrors } from '../monitor02/Monitor02Filters';
 import { useMonitor03Data } from './useMonitor03Data';
+import OrganizationFilter from '../../../catalog/organization/switch/OrganizationFilter';
+import { useReportOrganizationScope } from '../common/useReportOrganizationScope';
 
 export interface Monitor03DashboardProps {
   /** the project to start with (a link from another screen); the select can change it */
@@ -40,10 +42,14 @@ export default function Monitor03Dashboard({ projectGUID: initialProject = null,
   const from = dateErrors.startDate ? null : parseDayInput(period.startDate);
   const to = dateErrors.finishDate ? null : parseDayInput(period.finishDate);
   const data = useMonitor03Data(projectGUID);
-  // the first project with numbers when nothing is picked
+  // a user of two or more organizations: the Organization filter of the bar picks the active one; only its projects are offered
+  const orgScope = useReportOrganizationScope();
+  const projects = useMemo(() => orgScope.filter(data.projects, (p) => p.projectGUID), [orgScope.filter, data.projects]);
+  // the first project with numbers when nothing is picked; a project that is not in the (new) active organization is dropped, once the projects of the organization are known
   useEffect(() => {
-    if (!projectGUID && data.projects.length > 0) setProjectGUID(data.projects[0].projectGUID);
-  }, [projectGUID, data.projects]);
+    if (projectGUID && orgScope.ready && !orgScope.keep(projectGUID)) { setProjectGUID(null); return; }
+    if (!projectGUID && projects.length > 0) setProjectGUID(projects[0].projectGUID);
+  }, [projectGUID, projects, orgScope.ready, orgScope.keep]);
   const tax = useMemo(() => data.selected?.tax ?? { includeSaleVat: false, includePurchaseVat: false }, [data.selected]);
   const historyOn = !!data.selected?.history;
   // a project without history switched on has only the business-month curve
@@ -52,7 +58,7 @@ export default function Monitor03Dashboard({ projectGUID: initialProject = null,
     () => (mode === 'seen' ? pointsOfHistory(filterHistoryRows(data.history, { from, to }), tax) : pointsOfMonthCurve(cumulateMonthRows(data.months, { from, to }, true), tax)),
     [mode, data.history, data.months, tax, from, to],
   );
-  const projectItems = useMemo(() => roiProjectOptions(data.projects), [data.projects]);
+  const projectItems = useMemo(() => roiProjectOptions(projects), [projects]);
   const colors = { text: c.text, grid: c.border, positive: isDark ? '#4ade80' : '#16a34a', negative: isDark ? '#f87171' : '#dc2626' };
   const roiColor = (v: number | null) => (roiTone(v) === 'positive' ? colors.positive : roiTone(v) === 'negative' ? colors.negative : colors.text);
 
@@ -63,6 +69,7 @@ export default function Monitor03Dashboard({ projectGUID: initialProject = null,
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor03')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('ROI history')}</Text>
         <ButtonApp testID={`${testID}-refresh`} title={pmT('Refresh')} icon="refresh" variant="text" size="small" onPress={data.reload} />
+        <OrganizationFilter testID={`${testID}-organization`} />
         <View style={{ flex: 1 }} />
         <View style={styles.age}>
           <View style={[styles.dot, { backgroundColor: data.live ? c.primary : c.error }]} />
@@ -94,8 +101,8 @@ export default function Monitor03Dashboard({ projectGUID: initialProject = null,
         </Text>
       )}
       {!!data.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{data.error}</Text>}
-      {data.isLoading && data.projects.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
-      {!data.isLoading && data.projects.length === 0 && <Text testID={`${testID}-no-projects`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('No project has ROI numbers yet. Post the plan of a task.')}</Text>}
+      {data.isLoading && projects.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
+      {!data.isLoading && projects.length === 0 && <Text testID={`${testID}-no-projects`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('No project has ROI numbers yet. Post the plan of a task.')}</Text>}
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 24 }}>
         <Monitor03Chart testID={`${testID}-chart`} points={points} step={mode === 'seen'} color={colors.text} gridColor={colors.grid} />

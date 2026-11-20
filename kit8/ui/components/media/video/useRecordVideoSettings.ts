@@ -5,13 +5,17 @@ import { selectRecordVideoSettings, RecordVideoSettings } from '../../../../redu
 import { resetRecordVideoSettings, setRecordVideoSettings } from '../../../../redux/uxuiSlice';
 
 const sameSettings = (a: RecordVideoSettings, b: RecordVideoSettings) =>
-  a.recordDateTimeOverEnabled === b.recordDateTimeOverEnabled && a.recordDateTimeOverPosition === b.recordDateTimeOverPosition;
+  a.recordDateTimeOverEnabled === b.recordDateTimeOverEnabled && a.recordDateTimeOverPosition === b.recordDateTimeOverPosition && a.recordTorchEnabled === b.recordTorchEnabled;
 
 export function useRecordVideoSettings() {
   const dispatch = useDispatch();
   // the selector builds a new object every time: compare the values
   const settings = useSelector(selectRecordVideoSettings, sameSettings);
-  const change = useCallback((patch: Partial<RecordVideoSettings>) => dispatch(setRecordVideoSettings(patch)), [dispatch]);
-  const reset = useCallback(() => dispatch(resetRecordVideoSettings()), [dispatch]);
+  const change = useCallback((patch: Partial<RecordVideoSettings>): void => {
+    dispatch(setRecordVideoSettings(patch));
+  }, [dispatch]);
+  const reset = useCallback((): void => {
+    dispatch(resetRecordVideoSettings());
+  }, [dispatch]);
   return { settings, change, reset };
 }

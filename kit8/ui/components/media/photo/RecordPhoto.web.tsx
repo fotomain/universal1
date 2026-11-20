@@ -6,6 +6,9 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { ButtonPrimaryApp, showErrorModal } from '../../common';
 import ZoomControl from '../common/ZoomControl';
+import { torchIcon, torchLabel } from '../common/cameraTorch';
+import { useWebTorch } from '../common/useWebTorch';
+import { useRecordVideoSettings } from '../video/useRecordVideoSettings';
 import { clampZoom, digitalCropRect, webZoomCapability, WebZoomCapability } from '../common/cameraZoom';
 import PhotoFilterStrip from './PhotoFilterStrip';
 import PhotoReview, { ShotPhoto } from './PhotoReview';
@@ -26,6 +29,10 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
   const [zoom, setZoom] = useState(1);
   const [taking, setTaking] = useState(false);
   const [shot, setShot] = useState<ShotPhoto | null>(null);
+  // the flashlight = a permanent light, the same remembered choice as the video screen
+  const { settings: cameraSettings, change: changeCameraSettings } = useRecordVideoSettings();
+  const torchOn = cameraSettings.recordTorchEnabled;
+  const [streamVersion, setStreamVersion] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,6 +49,7 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
         }
         streamRef.current?.getTracks().forEach((t) => t.stop());
         streamRef.current = stream;
+        setStreamVersion((v) => v + 1);
         const cap = webZoomCapability(stream.getVideoTracks()[0], true);
         setZoomCap(cap);
         setZoom(cap?.range.neutral ?? 1);
@@ -76,6 +84,8 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
       videoRef.current.play().catch(() => undefined);
     }
   }, [shot]);
+
+  const torch = useWebTorch(() => streamRef.current?.getVideoTracks?.()[0], torchOn, streamVersion);
 
   const changeZoom = (value: number) => {
     if (!zoomCap) return;
@@ -147,7 +157,10 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
             <ButtonPrimaryApp icon="photo_camera" onPress={take} disabled={!!cameraError || taking} loading={taking} testID="record-photo-shutter">
               Take photo
             </ButtonPrimaryApp>
-            <IconButton icon="camera-flip-outline" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} accessibilityLabel="Switch camera" testID="record-photo-flip" />
+            <View style={styles.rowIcons}>
+              {torch.available && <IconButton icon={torchIcon(torchOn && torch.lit)} onPress={() => changeCameraSettings({ recordTorchEnabled: !torchOn })} accessibilityLabel={torchLabel(torchOn && torch.lit)} testID="record-photo-torch" />}
+              <IconButton icon="camera-flip-outline" onPress={() => setFacing((f) => (f === 'user' ? 'environment' : 'user'))} accessibilityLabel="Switch camera" testID="record-photo-flip" />
+            </View>
           </View>
           {!cameraError && zoomCap && <ZoomControl zoom={zoom} range={zoomCap.range} onZoom={changeZoom} testID="record-photo-zoom" />}
           <PhotoFilterStrip value={filterId} onChange={setFilterId} testID="record-photo-filters" />
@@ -165,4 +178,5 @@ const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
   light: { color: '#fff', textAlign: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 },
+  rowIcons: { flexDirection: 'row', alignItems: 'center' },
 });

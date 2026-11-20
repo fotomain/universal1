@@ -58,6 +58,7 @@
 --   51. create_project_readonly.sql - READ-ONLY PROJECT (project_table.rowJSON.projectIsReadonly, Project settings -> Main): the guard triggers that refuse every change of the data of a read-only project made by a signed-in user, project_set_readonly
 --   52. create_consolidation.sql - CONSOLIDATION (documentation/CONSOLIDATION_WBS.html): the obligatory organization currency + the two VAT switches (guard trigger), consolidation_apply (the twin sums of the movements, set-based), the queue + worker consolidation_process_dirty (pg_cron consolidation_tick), the gaps, consolidation_report / _status / _refresh_now / _verify, the project currency guard
 --   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): the windows of a calendar day, the capacity windows of a resource, the minute keys of a task, the inputs of an hour leveling run; PART 42 (apply / clear / undo / server plan) also takes minutes
+--   54. create_application_admin.sql - APPLICATION ADMINISTRATORS: permission_application_admin() (the caller holds permissionApplicationAdmin), organization_visible(org) + the SELECT policy of organizationTable (a user sees only the organizations he is a member of; an application administrator sees ALL), isApplicationAdmin in perm_my_matrix
 -- ===============================================================================================
 
 DO $$
@@ -4437,6 +4438,16 @@ END $$;
 
 
 -- SECURITY INVOKER on purpose: current_user is the role of the caller ('authenticated' = a user, 'postgres' / 'service_role' = an administrator or a SECURITY DEFINER function)
+-- does the organization exist? (SECURITY DEFINER: the SELECT policy of organizationTable shows a user only his organizations, PART 54, and the guard below runs as the caller)
+CREATE OR REPLACE FUNCTION public.organization_exists(p_organization text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public."organizationTable" WHERE "rowGUID" = p_organization)
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_exists(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_exists(text) TO authenticated;
+
 CREATE OR REPLACE FUNCTION public.organization_user_guard() RETURNS trigger
 LANGUAGE plpgsql SET search_path = public, extensions AS $$
 DECLARE
@@ -4445,7 +4456,7 @@ BEGIN
   IF v_org IS NULL THEN
     RAISE EXCEPTION 'userTable: the organization of the user (rowJSON.userOrganization) is obligatory';
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM public."organizationTable" WHERE "rowGUID" = v_org) THEN
+  IF NOT public.organization_exists(v_org) THEN
     RAISE EXCEPTION 'userTable: the organization "%" does not exist', v_org;
   END IF;
   IF TG_OP = 'UPDATE' AND NULLIF(OLD."rowJSON"->>'userOrganization', '') IS NOT NULL AND v_org <> OLD."rowJSON"->>'userOrganization'
@@ -4946,10 +4957,18 @@ BEGIN
   -- The occupancy view is read ONCE (occ, MATERIALIZED) and only for the resources of this task: joined straight to the view, the planner ran the whole view once per day
   -- of the task (261 days = 68 121 index scans, 12 s on Supabase, over its 8 s limit). `others` does not join `mine` (a nested loop of 261 x 261 scans of occ cost 3.4 s again): occ has only
   -- the resources of the task, the join to the days is the LEFT JOIN in calc.
+  -- res starts at the movements of THIS task (index on rowOwnerGUID) and repeats the conditions of the view by hand: asked through the view, the planner started at task_line_table
+  -- (a seq scan of ALL Time lines + one probe each, 6 570 buffers / 10 ms at 2000 lines, growing with the data) and filtered the task last (0.08 ms this way). Keep it equal to the view.
   WITH res AS MATERIALIZED (
-    SELECT DISTINCT o."resourceKind" AS k, o."resourceGUID" AS g
-      FROM public.resource_occupancy_x_movement o
-     WHERE o."scopeGUID" = p_scope AND o."taskLineMovementGUID" = p_task::text AND o."statusOfLine" IN ('free', 'posted')),
+    SELECT DISTINCT COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person') AS k, l."rowJSON"->>'taskResourceItem' AS g
+      FROM public.task_line_plan_movements m
+      JOIN public.task_line_table l ON l."rowGUID" = m."rowParentGUID"
+      JOIN public.project_table   p ON p."rowGUID" = m."rowProjectGUID"
+     WHERE m."rowOwnerGUID" = p_task AND p."rowParentGUID" = p_scope
+       AND l."rowParentGUID" = 'timeGenus'
+       AND COALESCE(l."rowJSON"->>'taskResourceItem', '') <> ''
+       AND COALESCE(NULLIF(l."rowJSON"->>'measureUnitTaskLine', ''), 'unit_hour') = 'unit_hour'
+       AND (NOT m."planMovementStatus" OR COALESCE((l."rowJSON"->>'taskIsPosted')::boolean, false))),
   occ AS MATERIALIZED (
     SELECT o."resourceKind", o."resourceGUID", o."periodDay", o."quantityResourceBusy", o."lineGUID", o."projectGUID", o."taskLineMovementGUID", o."statusOfLine"
       FROM public.resource_occupancy_x_movement o
@@ -16702,7 +16721,7 @@ DECLARE
   v_crud     jsonb;
   v_uxui     jsonb;
 BEGIN
-  IF public.app_user_guid() IS NULL THEN RETURN jsonb_build_object('profiles', '[]'::jsonb, 'crud', '{}'::jsonb, 'uxui', '{}'::jsonb, 'isAdmin', false, 'canCreateProject', false, 'projectIsReadonly', false); END IF;
+  IF public.app_user_guid() IS NULL THEN RETURN jsonb_build_object('profiles', '[]'::jsonb, 'crud', '{}'::jsonb, 'uxui', '{}'::jsonb, 'isAdmin', false, 'canCreateProject', false, 'projectIsReadonly', false, 'isApplicationAdmin', false); END IF;
   v_profiles := public.perm_profiles(p_project, p_task);
   IF p_project IS NOT NULL THEN SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_project; ELSE v_org := public.organization_of_current_user(); END IF;
   SELECT COALESCE(jsonb_object_agg(tbl, letters), '{}'::jsonb) INTO v_crud FROM (
@@ -16721,8 +16740,10 @@ BEGIN
              ORDER BY r."rowParentGUID", r."rowJSON"->>'permissionObject', (r."rowOwnerGUID" = 'permissionCatalog')) s
       CROSS JOIN LATERAL regexp_split_to_table(s.st, '') AS ch
      WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.obj) q;
-  RETURN jsonb_build_object('profiles', to_jsonb(v_profiles), 'crud', v_crud, 'uxui', v_uxui,
+  RETURN jsonb_build_object('profiles', to_jsonb(v_profiles) || CASE WHEN public.permission_application_admin() THEN '["permissionApplicationAdmin"]'::jsonb ELSE '[]'::jsonb END, 'crud', v_crud, 'uxui', v_uxui,
                             'isAdmin', 'permissionOrganizationAdmin' = ANY (v_profiles),
+                            -- PART 54: the caller sees ALL organizations (application_permission_table)
+                            'isApplicationAdmin', public.permission_application_admin(),
                             'canCreateProject', public.perm_can('project_table', 'C'),
                             -- PART 51: the interface takes the letters C / U / D away while the project is read-only (the guard triggers are the law)
                             'projectIsReadonly', p_project IS NOT NULL AND public.project_is_readonly(p_project));
@@ -20229,6 +20250,60 @@ $$;
 REVOKE ALL ON FUNCTION public.organization_resource_busy_check_hours(uuid, text) FROM PUBLIC, anon;
 
 GRANT EXECUTE ON FUNCTION public.organization_resource_busy_check_hours(uuid, text) TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 54: create_application_admin.sql
+-- APPLICATION ADMINISTRATORS (documentation/PERMISSIONS_WBS.html section 13). application_permission_table (start1) lists the e-mails that hold permissionApplicationAdmin.
+--   * permission_application_admin()   true when the e-mail of the caller has a row with rowJSON.permissionApplicationAdmin = true
+--   * organization_visible(org)        may the caller SEE the organization: an application administrator (ALL), a member with an ACTIVE membership row, its creator, or it is the
+--                                      organization he works in now (userTable.rowJSON.userOrganization). Nobody else: the catalog of organizations is no longer public
+--   * organizationTable_select         USING organization_visible("rowGUID") - was USING (true). Editing / deleting stays with the creator / the administrator members (PART 45): an
+--                                      application administrator READS everything and changes nothing by this permission alone
+--   * perm_my_matrix (PART 46)         answers isApplicationAdmin (+ the profile name permissionApplicationAdmin in `profiles`) for the interface
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.application_permission_table') IS NULL OR to_regclass('public."organizationMemberTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 54 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+SELECT public.kit8_setup_def_table('application_permission_table');
+
+-- RLS on, NO policy and NO grant: the table is read only by the SECURITY DEFINER function below (and by the SQL editor)
+REVOKE ALL ON public.application_permission_table FROM anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.permission_application_admin() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT EXISTS (SELECT 1 FROM public.application_permission_table a
+                  WHERE a."rowOwnerGUID" = lower(COALESCE(auth.jwt()->>'email', '')) AND a."rowJSON"->>'permissionApplicationAdmin' = 'true')
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_application_admin() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.permission_application_admin() TO authenticated;
+
+CREATE OR REPLACE FUNCTION public.organization_visible(p_organization text) RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.permission_application_admin()
+      OR p_organization IS NOT DISTINCT FROM public.organization_of_current_user()
+      OR EXISTS (SELECT 1 FROM public."organizationMemberTable" m
+                  WHERE m."rowOwnerGUID" = p_organization AND m."rowJSON"->>'memberStatus' = 'active'
+                    AND m."rowJSON"->>'userEmailForInvitation' = lower(COALESCE(auth.jwt()->>'email', '')))
+      OR EXISTS (SELECT 1 FROM public."organizationTable" o
+                  WHERE o."rowGUID" = p_organization AND lower(o."rowJSON"->>'createdByUser') = lower(COALESCE(auth.jwt()->>'email', '')))
+$$;
+
+REVOKE ALL ON FUNCTION public.organization_visible(text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.organization_visible(text) TO authenticated;
+
+DROP POLICY IF EXISTS "organizationTable_select" ON public."organizationTable";
+
+CREATE POLICY "organizationTable_select" ON public."organizationTable" FOR SELECT TO authenticated USING (public.organization_visible("rowGUID"));
 
 NOTIFY pgrst, 'reload schema';
 

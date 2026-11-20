@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Passport / ID: 1st photo, 2nd scan - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline, no scripts) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-top: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .p-ok { background: var(--emerald-soft); color: var(--emerald); } .p-warn { background: var(--amber-soft); color: var(--amber); }
+  .p-bad { background: var(--rose-soft); color: var(--rose); } .p-info { background: var(--cyan-soft); color: var(--cyan); } .p-plan { background: var(--purple-soft); color: var(--purple); }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--border); }
+  th { background: var(--bg-subtle); font-size: 12.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .wrap { overflow-x: auto; }
+  ul, ol { margin: 6px 0 6px 20px; padding: 0; }
+  li { margin: 3px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .good { border-left-color: var(--emerald); background: var(--emerald-soft); }
+  .bad { border-left-color: var(--rose); background: var(--rose-soft); }
+  /* the four steps */
+  .steps { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); counter-reset: s; }
+  .step { position: relative; background: var(--card); border: 1px solid var(--border-strong); border-radius: var(--radius); padding: 16px 16px 14px 16px; box-shadow: var(--shadow); }
+  .step::before { counter-increment: s; content: counter(s); position: absolute; top: -12px; left: 14px; width: 26px; height: 26px; border-radius: 50%; background: var(--purple); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: 14px; }
+  .step b { display: block; margin: 4px 0 4px; font-size: 16px; }
+  .step small { color: var(--muted); }
+  /* phone wireframes */
+  .phones { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); margin-top: 14px; }
+  .phone { border: 2px solid var(--text); border-radius: 26px; padding: 14px 12px 16px; background: #fff; min-height: 380px; display: flex; flex-direction: column; gap: 8px; position: relative; }
+  .phone .bar { font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--border); padding-bottom: 6px; }
+  .phone .cap { font-size: 12px; color: var(--muted); }
+  .btn { display: block; text-align: center; border-radius: 12px; padding: 10px; font-weight: 600; font-size: 14px; background: var(--purple); color: #fff; }
+  .btn.alt { background: var(--bg-subtle); color: var(--text); border: 1px solid var(--border-strong); }
+  .btn.big { padding: 18px 10px; font-size: 16px; }
+  .field { border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 8px; font-size: 13px; display: flex; justify-content: space-between; gap: 6px; }
+  .field i { font-style: normal; color: var(--emerald); font-weight: 700; }
+  .camera { flex: 1; background: #0f172a; border-radius: 12px; position: relative; min-height: 190px; }
+  .camera .frame { position: absolute; left: 6%; right: 6%; bottom: 10%; height: 34%; border: 2px dashed #fff; border-radius: 6px; }
+  .camera .frame.td3 { height: 22%; }
+  .camera span { position: absolute; left: 0; right: 0; top: 8px; text-align: center; color: #fff; font-size: 12px; }
+  .mrz { font: 10.5px/1.35 var(--mono); background: var(--bg-subtle); padding: 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  .mrz u { text-decoration: none; background: var(--rose-soft); color: var(--rose); border-radius: 3px; }
+  .flow { font: 13px/1.5 var(--mono); background: #0f172a; color: #e2e8f0; border-radius: var(--radius); padding: 16px; overflow-x: auto; white-space: pre; }
+  .q { border: 1px solid var(--border); border-left: 4px solid var(--purple); border-radius: 10px; background: #fff; padding: 10px 14px; margin-top: 10px; }
+  .q b { color: var(--purple); }
+  footer { color: var(--muted); font-size: 13px; margin-top: 40px; }
+  a { color: var(--cyan); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner"><div class="brand">Passport / ID: photo, then scan</div>
+<nav><ul>
+<li><a href="#goal">Goal</a></li><li><a href="#flow">The 4 steps</a></li><li><a href="#screens">Screens</a></li><li><a href="#ocr">Text recognition</a></li>
+<li><a href="#algo">MRZ algorithm</a></li><li><a href="#spike">Spike result</a></li><li><a href="#ai">Google AI</a></li><li><a href="#wbs">Work</a></li><li><a href="#q">Questions</a></li><li><a href="#risk">Risks</a></li><li><a href="#src">Sources</a></li>
+</ul></nav></div></header>
+
+<main>
+<section id="goal">
+  <h1>Passport / ID: 1st photo, 2nd scan</h1>
+  <p class="lead">The user no longer types the document number and the two dates. The app <b>asks what the document is</b> (ID or passport), the user <b>takes a photo of the machine readable zone</b>, the phone <b>recognises the text on the device</b>, and the <b>NFC scan that exists today</b> opens the chip with those values.</p>
+  <div class="card">
+    <span class="pill p-ok">BUILT 2026-11-19 (first version, not tried with a real document)</span> <span class="pill p-plan">plan + decisions below; code in <code>kit8/ui/components/media/nfc/identification</code>, README there</span>
+    <ul>
+      <li><b>Why a photo:</b> the chip gives its personal data only to a reader that knows the document number, the date of birth and the date of expiry (or the CAN). The card enforces it. The three values are PRINTED on the document - so reading them from a photo replaces typing and does not weaken the protection (whoever holds the document sees them anyway).</li>
+      <li><b>Client side:</b> yes, on phones (Google ML Kit on Android, Apple Vision on iOS: on the device, no upload) and on the web (<code>tesseract.js</code>, WebAssembly in the browser). The photo never leaves the device and is deleted as soon as the text is read.</li>
+      <li><b>Bonus:</b> the photo step already gives the data PRINTED in the zone (name, nationality, sex ...). The NFC step then gives the data signed in the chip. Comparing the two shows a forged page (optional, step 4 below).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="flow">
+  <h2>The 4 steps</h2>
+  <p class="sub">One screen flow; each step can go back. Step 4 is the existing reader (<code>nfc/iddocread/IdCardReader.tsx</code>) - unchanged, only started with filled values.</p>
+  <div class="steps">
+    <div class="step"><b>ID or Passport?</b>Two big buttons. The choice tells the camera where the zone is and how many lines to expect: ID card = 3 lines of 30 characters (TD1), back of the card; passport = 2 lines of 44 (TD3), photo page. A 2 x 36 ID (TD2) is recognised by the text itself.<br><small>Remembered on the device as the last choice only.</small></div>
+    <div class="step"><b>Take the photo</b>The camera of the photo screen (<code>photo/RecordPhoto</code>, Vision Camera) with a guide frame over the zone. Torch, zoom and "choose from gallery" stay available. Only the lower band is cut out for the recognition.<br><small>Not saved, not sent.</small></div>
+    <div class="step"><b>Recognise the text</b>ML Kit / Apple Vision (phone) or tesseract.js (web) gives the text lines; <code>mrzFromText</code> finds the zone, repairs the typical OCR mistakes with the check digits and returns document number, date of birth, date of expiry. The user sees the three values with a green tick per check digit and can correct them.<br><small>The photo is deleted here.</small></div>
+    <div class="step"><b>Scan the document</b>"Read from document" as it works today: PACE with the MRZ values (then the CAN if the card has one), BAC as the fallback. Result: the chip data, the face image, the hash check.<br><small>Wiped by Clear / leaving the screen.</small></div>
+  </div>
+<pre class="flow">ID or Passport? ──► photo of the zone ──► recognise ──► confirm 3 values ──► NFC scan ──► result
+      │                   │                  │               │                  │
+  expected format     guide frame      mrzFromText      editable fields     PACE-MRZ / BAC
+  (TD1 / TD3)         + torch + zoom   + check digits   + check marks       (existing code)</pre>
+</section>
+
+<section id="screens">
+  <h2>Screens (wireframes)</h2>
+  <div class="phones">
+    <div class="phone"><div class="bar">1 · Document</div><div class="cap">What do you want to read?</div>
+      <div class="btn big">ID card</div><div class="btn big">Passport</div>
+      <div class="cap" style="margin-top:auto">The zone is on the back of an ID card and on the photo page of a passport.</div></div>
+    <div class="phone"><div class="bar">2 · Photo</div><div class="cap">Passport: put the two lines inside the frame.</div>
+      <div class="camera"><span>hold still · good light</span><div class="frame td3"></div></div>
+      <div class="btn">Take photo</div><div class="btn alt">Choose from gallery</div></div>
+    <div class="phone"><div class="bar">3 · Check the values</div><div class="cap">Recognised on this phone. Correct what is wrong.</div>
+      <div class="mrz">P&lt;LVAZVEJNIEKS&lt;&lt;JANA&lt;ANNA&lt;&lt;&lt;&lt;&lt;<br>LV1234567<u>0</u>LVA8502147F3204305&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;&lt;<u>8</u></div>
+      <div class="field">Document number <span>LV1234567 <i>✓</i></span></div>
+      <div class="field">Date of birth <span>14.02.1985 <i>✓</i></span></div>
+      <div class="field">Date of expiry <span>30.04.2032 <i>✓</i></span></div>
+      <div class="btn">Continue to the scan</div><div class="btn alt">Retake photo</div></div>
+    <div class="phone"><div class="bar">4 · Scan</div><div class="cap">Hold the document against the back of the phone.</div>
+      <div class="btn big">Read from document</div>
+      <div class="cap">Opens with the values from step 3. If the card also has a CAN, type it here (only needed when PACE with the MRZ fails).</div>
+      <div class="field">CAN (optional) <span>______</span></div></div>
+  </div>
+  <p class="cap">The red marks in screen 3 show a character the check digit rejected; the repair step (below) usually fixes them before the user sees them.</p>
+</section>
+
+<section id="ocr">
+  <h2>Text recognition on the device</h2>
+  <p class="sub">"Client side if it is possible" - it is. Nothing is uploaded. All packages below are small community modules: <b>check the SDK 57 / React Native 0.86 compatibility with a spike before choosing</b> (the web search showed support statements only for older Expo SDKs).</p>
+  <div class="wrap"><table>
+    <tr><th>Option</th><th>Where</th><th>How it works</th><th>Verdict</th></tr>
+    <tr><td><code>expo-text-extractor</code></td><td>iOS + Android</td><td>Expo module: Apple Vision on iOS, Google ML Kit on Android, takes an image uri, returns the text lines; offline.</td><td><span class="pill p-ok">first candidate</span> needs a dev build (native); SDK 57 not confirmed</td></tr>
+    <tr><td><code>expo-mlkit-ocr</code> / <code>expo-ocr-kit</code></td><td>iOS + Android</td><td>Same engines, other wrappers.</td><td><span class="pill p-info">alternatives</span> same spike</td></tr>
+    <tr><td>Own tiny Expo module (Kotlin ML Kit + Swift Vision, about 150 lines)</td><td>iOS + Android</td><td>Exactly the API we need (<code>recognize(uri) → lines with boxes</code>), no foreign code; the Android side must use the BUNDLED ML Kit model (works offline from the first start).</td><td><span class="pill p-warn">fallback</span> if no community module fits SDK 57</td></tr>
+    <tr><td><code>react-native-vision-camera-ocr-plus</code> (frame processor)</td><td>iOS + Android</td><td>Live recognition on the camera frames, no photo.</td><td><span class="pill p-bad">not now</span> needs the Vision Camera frame processor stack (worklets-core); the app has another worklets runtime (reanimated). The "photo first" flow does not need it.</td></tr>
+    <tr><td><code>tesseract.js</code> (+ a MRZ / OCR-B trained model)</td><td>web</td><td>WebAssembly OCR in the browser; the character whitelist <code>A-Z 0-9 &lt;</code> makes it much better; the language data is shipped in <code>public/</code> (offline, loaded only on this screen).</td><td><span class="pill p-ok">web</span> the default English model reads the OCR-B font badly: use a MRZ model; first load of a few MB</td></tr>
+    <tr><td><code>react-native-mrz-reader</code>, <code>rn-mrz-scanner</code></td><td>iOS / Android</td><td>Ready made MRZ scanners.</td><td><span class="pill p-bad">no</span> limited formats / platforms, tiny projects</td></tr>
+    <tr><td>Dynamsoft MRZ SDK</td><td>iOS + Android</td><td>Commercial, camera + UI + OCR.</td><td><span class="pill p-bad">no</span> licence key checked online on every start: not offline</td></tr>
+  </table></div>
+  <div class="note"><b>Native module = a new dev build.</b> Like the NFC and camera modules: <code>run_android_samsung.command</code> rebuilds by itself because <code>package.json</code> changes. Expo Go cannot run it. The web build uses the <code>.web</code> file (tesseract.js) of the same API.</div>
+  <h3>One API for all platforms</h3>
+  <p><code>kit8/ui/components/media/nfc/identification/ocrEngine.ts</code> (+ <code>.web.ts</code>): <code>recognizeText(imageUri): Promise&lt;string[]&gt;</code> - the text lines top to bottom. Everything above it is pure TypeScript and tested without a camera.</p>
+</section>
+
+<section id="algo">
+  <h2>From text to the three values (<code>mrzFromText.ts</code>, pure)</h2>
+  <p class="sub">OCR reads the OCR-B font with typical mistakes: <code>O/0</code>, <code>I/1</code>, <code>B/8</code>, <code>S/5</code>, <code>Z/2</code>, <code>G/6</code>, a lost <code>&lt;</code>. The MRZ has check digits, so mistakes can be found and repaired.</p>
+  <ol>
+    <li><b>Find the zone:</b> normalise each line (upper case; keep <code>A-Z 0-9 &lt;</code>; <code>«</code> <code>‹</code> <code>K</code>-runs at the end of a line count as <code>&lt;</code>), take 2 or 3 lines of nearly equal length (44 / 36 / 30). The expected format from step 1 is tried first, the others after it. Existing: <code>mrz.ts</code> <code>normalizeMrzLines</code>.</li>
+    <li><b>Pad / cut</b> a line to the exact length (a lost trailing filler is the most common error).</li>
+    <li><b>Repair by field class:</b> a position that must be a digit (dates, check digits, the digit part of numbers) maps <code>O→0 I→1 B→8 S→5 Z→2 G→6 Q→0 D→0</code>; a position that must be a letter (names, state codes, document code) maps the other way. Which positions are which is fixed by the format (the table of <code>parseMrz</code>).</li>
+    <li><b>Check digits decide:</b> number, date of birth, date of expiry and the composite check digit (existing: <code>checkDigit</code>, <code>parseMrz</code> gives <code>allValid</code>). For the few ambiguous characters try the alternatives (at most 2^6 combinations) and keep the candidate whose digits all agree; if several agree take the one with the fewest changes.</li>
+    <li><b>Result:</b> <code>{ documentNumber, birthDate, expiryDate, mrz, confidence: 'checked' | 'partly' | 'unchecked', changes }</code>. <code>checked</code> = every check digit agrees, <code>partly</code> = the three fields agree but the composite does not, <code>unchecked</code> = the user must look at it.</li>
+    <li><b>Never goes on by itself:</b> the NFC scan starts only after the user confirms the three values (some national cards count wrong passwords - see Risks).</li>
+  </ol>
+  <p>Then <code>accessFromMrz(parsed)</code> (existing) gives the values the reader needs; <code>IdCardReader</code> takes them as <code>initialForm</code>.</p>
+</section>
+
+<section id="wbs">
+  <h2>Work breakdown</h2>
+  <div class="wrap"><table>
+    <tr><th>#</th><th>Item</th><th>Files (new folder <code>nfc/identification/</code>)</th><th>Size</th></tr>
+    <tr><td>P1</td><td>Spike: run <code>expo-text-extractor</code> (and <code>expo-mlkit-ocr</code>) on SDK 57 on the Samsung; read a photo of a real MRZ; decide community module or own module</td><td>none (throw-away)</td><td>S</td></tr>
+    <tr><td>P2</td><td><code>mrzFromText</code>: find, repair, check, confidence (pure)</td><td><code>mrzFromText.ts</code></td><td>M</td></tr>
+    <tr><td>P3</td><td>OCR engine API: native (module of P1) and web (tesseract.js lazy loaded, whitelist, model in <code>public/</code>)</td><td><code>ocrEngine.ts</code>, <code>ocrEngine.web.ts</code></td><td>M</td></tr>
+    <tr><td>P4</td><td>Step 1 <b>ID or Passport</b> (+ last choice on the device)</td><td><code>DocumentTypeStep.tsx</code></td><td>S</td></tr>
+    <tr><td>P5</td><td>Step 2 <b>photo</b> with the guide frame, crop of the lower band, gallery, delete the photo after the recognition</td><td><code>MrzPhotoStep.tsx</code> (reuses <code>photo/RecordPhoto</code> camera parts)</td><td>M</td></tr>
+    <tr><td>P6</td><td>Step 3 <b>confirm</b>: three editable fields with a check mark each, the recognised lines, Retake</td><td><code>MrzConfirmStep.tsx</code></td><td>S</td></tr>
+    <tr><td>P7</td><td>Flow container: the four steps, back / forward, wipes everything on leaving; <code>IdCardReader</code> gets <code>initialForm</code></td><td><code>PassportFlow.tsx</code>, route <code>app/media/nfc/iddocread.tsx</code> shows the flow, Drawer item stays</td><td>S</td></tr>
+    <tr><td>P8</td><td>Optional: compare the printed zone with the chip's DG1 and say "match / differs"</td><td><code>compareMrz.ts</code></td><td>S</td></tr>
+    <tr><td>P9</td><td>Tests, README of <code>nfc/iddocread</code>, this page updated, KNOW_HOW row</td><td><code>__tests__/media/mrzFromText.test.ts</code>, <code>passportFlow.test.tsx</code></td><td>M</td></tr>
+  </table></div>
+  <h3>Acceptance tests</h3>
+  <ul>
+    <li>The ICAO specimens (TD1 ID, TD3 passport) read back from text with 0 to 4 injected OCR mistakes (O/0, I/1, B/8, S/5, a lost filler, a missing line break) return the right three values with <code>confidence = checked</code>.</li>
+    <li>A zone with a wrong digit that cannot be repaired returns <code>unchecked</code> and the flow does NOT start the scan by itself.</li>
+    <li>Flow test (fake camera, fake OCR, software card of the existing tests): ID or passport → photo → values → scan → the chip data appears; the photo file is deleted; Clear wipes the values.</li>
+    <li>On the Samsung with the real Latvian ID card: the three values are recognised from a photo of the back, PACE-MRZ or BAC opens the card (the step list shows which).</li>
+  </ul>
+</section>
+
+<section id="spike">
+  <h2>Spike result (P1, 2026-11-19)</h2>
+  <div class="card">
+    <ul>
+      <li><b>Chosen: <code>expo-mlkit-ocr</code> 0.2.7.</b> Android: the <b>bundled</b> ML Kit model (<code>com.google.mlkit:text-recognition:16.0.1</code>, works offline from the first start); result = blocks → lines → elements with boxes. iOS: ML Kit pod (needs iOS 16; Apple Vision as the fallback on the simulator).</li>
+      <li><b>Compiles on this project (Expo SDK 57, React Native 0.86):</b> <code>./gradlew :expo-mlkit-ocr:compileDebugKotlin</code> = BUILD SUCCESSFUL; the Android JS bundle exports. <b>iOS was not compiled</b> (this Mac has command line tools only, no Xcode).</li>
+      <li><b>Not chosen: <code>expo-text-extractor</code> 2.0.0.</b> Android uses the UNBUNDLED ML Kit model (downloaded through Google Play services on first use - not offline at once) and returns text blocks only; iOS leaves Vision's language correction ON (it "corrects" the <code>&lt;&lt;&lt;</code> and the codes) and ignores the photo orientation.</li>
+      <li><b>Learned on the way:</b> Expo SDK 57 refuses an iOS deployment target under 16.4 (the whole app config fails to load), so none is set: the default already satisfies ML Kit.</li>
+      <li><b>Still to test on the phone:</b> how well ML Kit reads the zone of the real Latvian ID card. The confirm step has "Show recognised text" for that. If it reads badly: crop the lower band before the recognition, or write the own 150-line module (Q1 fallback).</li>
+      <li><b>Built from this plan:</b> P2 <code>mrzFromText</code>, P3 <code>ocrEngine</code> (native; the web says "not yet"), P4-P7 the four steps and the flow, menu <b>Scan → Identification</b>. Not built: P8 (compare printed zone with the chip), the gallery picker (Q7), the web OCR (Q6), the crop of the band.</li>
+    </ul>
+  </div>
+</section>
+
+<section id="ai">
+  <h2>Google AI reads the photo (added 2026-11-19)</h2>
+  <div class="card">
+    <ul>
+      <li><b>No strict rectangle any more:</b> the whole document can be anywhere in the picture; Google AI (or the phone) finds the zone itself.</li>
+      <li><b>Opt-in:</b> the switch "Read with Google AI" is OFF by default and remembered on the device. When ON the photo is <b>sent to Google's Gemini API</b> and deleted here at once. OFF = the photo never leaves the phone (ML Kit on the device).</li>
+      <li><b>Called from React Native:</b> straight to <code>generativelanguage.googleapis.com</code> with the key of <code>.env GOOGLE_AI_API_KEY</code> (through <code>app.config.js</code> <code>extra</code> - <b>the key is then inside the app</b>: restrict it in Google AI Studio / Cloud). Alternative for production: the Edge Function <code>identification-recognize</code> (key stays on the server).</li>
+      <li><b>The prompt</b> (fixed in <code>supabase/functions/identification-recognize/handler.ts</code>): copy what is printed, never guess, null when unreadable, the zone lines exactly with <code>&lt;</code>, count the fillers, O/0 I/1 B/8 S/5, dates YYYY-MM-DD, the CAN only when labelled; the answer is JSON by schema (zone lines, number, dates, names, CAN, quality).</li>
+      <li><b>Not trusted blindly:</b> the zone goes through the check digits. <b>Measured live (2026-11-19, synthetic specimen):</b> Google AI read number, dates and names exactly but <b>miscounted the long runs of &lt;</b> (31 / 31 / 32 instead of 30 characters); the repair now adjusts the filler run and the zone passes its check digits (<code>checked</code>, 7-8 s). A zone that fails is shown as "printed fields, no check digits"; a failure or an empty answer falls back to the phone.</li>
+      <li><b>Model:</b> default <code>gemini-flash-lite-latest</code> (about 2-3 s). Measured the same day: the <code>gemini-flash-latest</code> alias took minutes / answered 503 "high demand"; <code>gemini-2.5-flash</code> is no longer available to new users. Set <code>GOOGLE_AI_MODEL</code> in <code>.env</code> to try another.</li>
+      <li><b>Google's terms apply</b> to the photo (whether the content may be used to improve Google products depends on the plan of the key: check before using real documents - not confirmed here).</li>
+    </ul>
+  </div>
+</section>
+
+<section id="q">
+  <h2>Questions (with the recommended default)</h2>
+  <div class="q"><b>Q1</b> Which OCR on the phone? <br>Default: <code>expo-text-extractor</code> if the spike (P1) works on SDK 57; otherwise the own 150-line module (ML Kit bundled model + Apple Vision).</div>
+  <div class="q"><b>Q2</b> Live scan (no photo button) instead of a photo? <br>Default: <b>no</b> - the flow asked for "make photo", and live recognition needs the frame processor stack that conflicts with the worklets of the app. Can be added later.</div>
+  <div class="q"><b>Q3</b> Must the user confirm the values before the NFC scan? <br>Default: <b>yes, always</b> (wrong passwords can use up retries on some cards).</div>
+  <div class="q"><b>Q4</b> Show the printed data (name, nationality ...) already after the photo? <br>Default: yes, in a small grey block "printed, not verified"; the chip result later is the green block.</div>
+  <div class="q"><b>Q5</b> Keep the photo? <br>Default: <b>never</b>: deleted right after the text is read; no upload; no media post.</div>
+  <div class="q"><b>Q6</b> Web: is a first download of the OCR model (a few MB) acceptable? <br>Default: yes, loaded only on this screen and cached; the web cannot do the NFC step anyway (the flow stops after step 3 on the web and says so).</div>
+  <div class="q"><b>Q7</b> Gallery picker in step 2? <br>Default: yes (a sharper photo from the system camera works too); needs a picker module - <code>expo-image-picker</code> is not installed today, <code>expo-document-picker</code> is.</div>
+  <div class="q"><b>Q8</b> Passports of countries whose zone is on the inside of a cover, or cards with a CAN only? <br>Default: the zone is always the same; for cards that offer a CAN the flow adds the optional CAN field in step 4.</div>
+</section>
+
+<section id="risk">
+  <h2>Risks and limits</h2>
+  <div class="wrap"><table>
+    <tr><th>Risk</th><th>What we do</th></tr>
+    <tr><td>Community OCR modules may not build on Expo SDK 57 / React Native 0.86</td><td>Spike P1 first; fallback = own small module. The rest of the flow does not depend on the choice (API <code>recognizeText</code>).</td></tr>
+    <tr><td>OCR reads the OCR-B font badly (glare, a bent page, a laminated card)</td><td>Guide frame + torch + crop of the lower band; repair with check digits; honest <code>unchecked</code>; the user can retake or type.</td></tr>
+    <tr><td>A wrong password attempt on a card</td><td>PACE / BAC with a wrong MRZ does not lock a normal passport; some national cards count failed attempts of their own passwords. The values are confirmed first and the reader tries at most the MRZ attempts it does today.</td></tr>
+    <tr><td>Privacy: a photo of an identity document</td><td>Held in memory / cache only until the text is read, then deleted; never shown in a list, never saved as a media post, never sent; screen wiped on leaving.</td></tr>
+    <tr><td>The photo can give the printed data but not the chip's proof</td><td>That is why step 4 stays: the chip data is signed (hash check) and the printed one is not.</td></tr>
+    <tr><td>Not built here</td><td>Live scanning, reading the visual zone (the printed page outside the MRZ), the signature check of the chip against state certificates (separate item of the ID reader), languages other than the Latin MRZ alphabet.</td></tr>
+  </table></div>
+</section>
+
+<section id="src">
+  <h2>Sources (web search 2026-11-19; support for SDK 57 NOT confirmed in any of them)</h2>
+  <ul>
+    <li><a href="https://socket.dev/npm/package/expo-text-extractor">expo-text-extractor</a> - ML Kit on Android, Apple Vision on iOS</li>
+    <li><a href="https://socket.dev/npm/package/expo-mlkit-ocr">expo-mlkit-ocr</a> · <a href="https://www.pkgstats.com/pkg:expo-ocr-kit">expo-ocr-kit</a></li>
+    <li><a href="https://www.pkgstats.com/pkg:web-mrz-reader">web-mrz-reader</a> · <a href="https://dev.to/ilhannegis/browser-based-passport-mrz-reader-with-tesseractjs-655">browser MRZ reader with tesseract.js</a> (custom model for the OCR-B font)</li>
+    <li><a href="https://npmjs.com/package/react-native-mrz-reader">react-native-mrz-reader</a> (limited: TD3 only on iOS)</li>
+    <li><a href="https://pub.dev/documentation/easy_mrz/latest/">easy_mrz</a> - the pipeline to copy: crop the MRZ band, OCR per line, repair 0/O, score with the check digits</li>
+    <li><a href="https://www.dynamsoft.com/codepool/scan-mrz-documents-react-native-dynamsoft.html">Dynamsoft MRZ scanner</a> (commercial, online licence)</li>
+    <li>In the code today: <code>kit8/ui/components/media/nfc/iddocread/mrz.ts</code> (check digits, TD1 / TD2 / TD3, access key), <code>IdCardReader.tsx</code>, <code>emrtd.ts</code>; the camera: <code>kit8/ui/components/media/photo/RecordPhoto.tsx</code>; README: <code>kit8/ui/components/media/nfc/iddocread/README.md</code>.</li>
+  </ul>
+</section>
+<footer>Passport / ID: 1st photo, 2nd scan · plan of 2026-11-19, first version built the same day · the chip reader (step 4) is <code>nfc/iddocread</code>.</footer>
+</main>
+</body>
+</html>

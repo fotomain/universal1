@@ -39,6 +39,7 @@ import SnackbarApp from '../kit8/ui/components/common/SnackbarApp';
 import { ErrorModalWindow, showErrorModal } from '../kit8/ui/components/common';
 import UserCalendarNotifier from '../kit8/ui/calendar/UserCalendarNotifier';
 import ReminderHost from '../kit8/ui/reminder/ReminderHost';
+import CalculatorWindowHost from '../kit8/ui/components/calculator/CalculatorWindowHost';
 import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
 import NfcBackgroundHandler from '../kit8/ui/components/media/nfc/NfcBackgroundHandler';
 import PM80FaviconByTheme from '../apps/appPM80/home/pm80Favicon';
@@ -424,6 +425,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/currency/exchange/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Exchange rate' }} />
               <Drawer.Screen name="pm/kanbanstage/list/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban Stages' }} />
               <Drawer.Screen name="pm/kanbanstage/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Kanban stage' }} />
+              <Drawer.Screen name="catalog/organization/assistant/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New organization assistant' }} />
               <Drawer.Screen name="pm/project/assistant/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New project assistant' }} />
               <Drawer.Screen name="pm/project/assistant/import/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Import project' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
@@ -460,6 +462,8 @@ function RootLayoutContent() {
               <Drawer.Screen name="media/record/photo/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.recordPhoto') }} />
               <Drawer.Screen name="media/scan/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.scanCodes') }} />
               <Drawer.Screen name="media/nfc/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.scanNfc') }} />
+              <Drawer.Screen name="media/nfc/iddocread" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.scanId') }} />
+              <Drawer.Screen name="media/nfc/identification" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.identification') }} />
               <Drawer.Screen name="media/play/audio/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playAudio') }} />
               <Drawer.Screen name="media/play/video/index" options={{ drawerItemStyle: { display: 'none' }, title: t('screens.playVideo') }} />
             </Drawer>
@@ -469,6 +473,8 @@ function RootLayoutContent() {
             <UserCalendarNotifier />
             {/* reminders with the app closed: OS scheduled notifications (phones), tap opens the entry */}
             <ReminderHost />
+            {/* the standalone calculator (app bar three dots menu -> Calculator): a draggable window over the screen, kit8/ui/components/calculator */}
+            <CalculatorWindowHost />
             {/* counts the screens the user opens (app_route_visits_turnover) while the Organization switch numberOfVisitsFunctionalityEnabled is on */}
             <RouteVisitTracker />
             {/* a tag that starts the app / touches the phone in the background goes into the NFC inbox (kit8/ui/components/media/nfc) */}

@@ -9,7 +9,7 @@
 import { TASK_INPUT_DEFAULTS } from '../../../../pm/model/taskInputScope';
 import { hourModelOf, parseWindowsText, timeZoneIsValid, windowsToJson, windowsToText } from '../../../../pm/hourmodel/hourModelSettings';
 import { slotMinutesOf } from '../../../../pm/hourmodel/minutes';
-import { resourceLevelingValuesOf, type ResourceGrainUnit, type ResourceLevelingMode, type ResourceOptimizationMode } from '../../../../pm/resourceleveling/resourceLevelingSettings';
+import { resourceLevelingValuesOf, type ResourceGrainUnit, type ResourceLevelingComputation, type ResourceLevelingMode, type ResourceLevelingOrder, type ResourceLevelingPostedAction, type ResourceOptimizationMode } from '../../../../pm/resourceleveling/resourceLevelingSettings';
 
 export type AssistantStepId = 'identity' | 'schedule' | 'planning' | 'timeOfDay' | 'currencies' | 'budgets' | 'resources' | 'optimization' | 'control' | 'review';
 export type AssistantPlanUnit = 'day' | 'hour';
@@ -37,6 +37,12 @@ export interface AssistantValues {
   resourceLevelingMode: ResourceLevelingMode;
   /** true = Smoothing (only the slack is used), false = Leveling */
   resourceLevelingWithinSlackOnly: boolean;
+  /** which tasks go first when two compete for one resource */
+  resourceLevelingOrder: ResourceLevelingOrder;
+  /** where a run is calculated: this device or the database */
+  resourceLevelingComputationSide: ResourceLevelingComputation;
+  /** what happens when a POSTED task must move */
+  resourceLevelingPostedTasksAction: ResourceLevelingPostedAction;
   /** ISO 4217, '' = not chosen. EACH PROJECT OWNS its currencies (the organization's are only the start values of a new project) */
   currencyForBudget: string;
   currencyForAccounting: string;
@@ -55,8 +61,11 @@ export interface AssistantValues {
   chatFunctionalityEnabled: boolean;
 }
 
+/** the target of a run that sets the DEFAULT PROJECT SETTINGS of the active organization (no project is made: no name, no dates; the Create Organization Assistant calls it) */
+export const ASSISTANT_ORGANIZATION_TARGET = 'organization';
+
 export interface AssistantContext {
-  /** the project this run works on: 'new' or a project GUID */
+  /** the project this run works on: 'new', a project GUID, or ASSISTANT_ORGANIZATION_TARGET (the defaults of the organization) */
   target: string;
   /** number of projects of the user's organization; null = not known yet */
   projectCount: number | null;
@@ -189,6 +198,9 @@ export function defaultAssistantValues(today: string = todayISO()): AssistantVal
     resourceLevelingFunctionalityEnabled: false,
     resourceLevelingMode: 'manual',
     resourceLevelingWithinSlackOnly: false,
+    resourceLevelingOrder: 'standard',
+    resourceLevelingComputationSide: 'resourceLevelingClientSideComputations',
+    resourceLevelingPostedTasksAction: 'ask',
     currencyForBudget: '',
     currencyForAccounting: '',
     currencyForContract: '',
@@ -235,6 +247,9 @@ export function assistantValuesFrom(source: Record<string, any> | null | undefin
     resourceLevelingFunctionalityEnabled: rl.resourceLevelingFunctionalityEnabled,
     resourceLevelingMode: rl.resourceLevelingMode,
     resourceLevelingWithinSlackOnly: rl.resourceLevelingWithinSlackOnly,
+    resourceLevelingOrder: rl.resourceLevelingOrder,
+    resourceLevelingComputationSide: rl.resourceLevelingComputationSide,
+    resourceLevelingPostedTasksAction: rl.resourceLevelingPostedTasksAction,
     currencyForBudget: normalizeCurrency(j.currencyForBudget),
     currencyForAccounting: normalizeCurrency(j.currencyForAccounting),
     currencyForContract: normalizeCurrency(j.currencyForContract),
@@ -266,7 +281,9 @@ export const timeInputOn = (v: AssistantValues): boolean => v.projectExpenseBudg
 export const hourModelOn = (v: AssistantValues): boolean => v.resourceOptimizationMode === 'hourByHourModel';
 
 /** is the step asked at all with these answers? */
-export function stepVisible(id: AssistantStepId, v: AssistantValues, _ctx?: AssistantContext): boolean {
+export function stepVisible(id: AssistantStepId, v: AssistantValues, ctx?: AssistantContext): boolean {
+  // the defaults of an organization are no project: its name and its dates are not asked
+  if (ctx?.target === ASSISTANT_ORGANIZATION_TARGET && (id === 'identity' || id === 'schedule')) return false;
   if (id === 'resources' || id === 'optimization') return timeInputOn(v);
   if (id === 'timeOfDay') return hourModelOn(v);
   return true;
@@ -352,6 +369,8 @@ export function stepNotes(id: AssistantStepId, v: AssistantValues, ctx: Assistan
     if (!v.resourceLevelingFunctionalityEnabled) add('info', 'Off: nothing is moved, over-allocated resources are only visible in the plan.');
     else {
       if (v.resourceLevelingMode === 'automatic') add('warning', 'Automatic optimizes after every change: it is heavy for a big project. Manual with a preview is the safe start.');
+      if (v.resourceLevelingComputationSide === 'resourceLevelingServerSideComputations') add('info', 'Server side: the database proposes the plan and this device checks it; Fast mode is not available then.');
+      if (v.resourceLevelingPostedTasksAction !== 'ask') add('info', 'Posted tasks will be handled without asking you: check the rule in the review.');
       add('info', v.resourceLevelingWithinSlackOnly ? 'Smoothing: only the slack is used, the project finish does not change.' : 'Leveling: dates may move beyond the slack, the project finish may change.');
     }
   }
@@ -360,7 +379,7 @@ export function stepNotes(id: AssistantStepId, v: AssistantValues, ctx: Assistan
     if (!isCurrencyCode(v.currencyForBudget)) add('error', 'The budget currency is required (3 letters, e.g. EUR).');
     if (!isCurrencyCode(v.currencyForAccounting)) add('error', 'The accounting currency is required (3 letters, e.g. EUR).');
     if (v.currencyForContract && !isCurrencyCode(v.currencyForContract)) add('error', 'The currency for contracts must be 3 letters (or empty: the budget currency is used).');
-    if (ctx.target !== 'new') add('warning', 'A change of the budget or accounting currency of a saved project recalculates it and is refused while it has posted documents.');
+    if (ctx.target !== 'new' && ctx.target !== ASSISTANT_ORGANIZATION_TARGET) add('warning', 'A change of the budget or accounting currency of a saved project recalculates it and is refused while it has posted documents.');
     const consolidation = normalizeCurrency(ctx.consolidationCurrency);
     if (consolidation && isCurrencyCode(v.currencyForBudget) && normalizeCurrency(v.currencyForBudget) !== consolidation) {
       add('info', 'The money of this project is converted into the consolidation currency of the organization when all projects are added.');
@@ -436,6 +455,9 @@ export function assistantPatchFor(v: AssistantValues, _ctx?: Pick<AssistantConte
     resourceLevelingFunctionalityEnabled: v.resourceLevelingFunctionalityEnabled,
     resourceLevelingMode: v.resourceLevelingMode,
     resourceLevelingWithinSlackOnly: v.resourceLevelingWithinSlackOnly,
+    resourceLevelingOrder: v.resourceLevelingOrder,
+    resourceLevelingComputationSide: v.resourceLevelingComputationSide,
+    resourceLevelingPostedTasksAction: v.resourceLevelingPostedTasksAction,
     projectRevenueBudgetNeeded: v.projectRevenueBudgetNeeded,
     projectExpenseBudgetNeeded: v.projectExpenseBudgetNeeded,
     projectTimeCostsNeeded: v.projectTimeCostsNeeded,
@@ -496,7 +518,9 @@ export function reviewLines(v: AssistantValues, ctx: AssistantContext): { id: As
     lines.push({
       id: 'optimization',
       label: 'Resource optimization',
-      value: v.resourceLevelingFunctionalityEnabled ? `${v.resourceLevelingMode === 'automatic' ? 'Automatic' : 'Manual'}, ${v.resourceLevelingWithinSlackOnly ? 'smoothing' : 'leveling'}` : 'Off',
+      value: v.resourceLevelingFunctionalityEnabled
+        ? `${v.resourceLevelingMode === 'automatic' ? 'Automatic' : 'Manual'}, ${v.resourceLevelingWithinSlackOnly ? 'smoothing' : 'leveling'}, ${v.resourceLevelingComputationSide === 'resourceLevelingServerSideComputations' ? 'server side' : 'client side'}`
+        : 'Off',
     });
   }
   lines.push(
@@ -505,7 +529,8 @@ export function reviewLines(v: AssistantValues, ctx: AssistantContext): { id: As
     { id: 'control', label: 'Subprojects', value: yes(v.subprojectsFunctionalityEnabled) },
     { id: 'control', label: 'Chat of the tasks', value: yes(v.chatFunctionalityEnabled) },
   );
-  return lines;
+  // a step that is not asked (the name and the dates of the defaults of an organization) has no line
+  return lines.filter((l) => stepVisible(l.id, v, ctx));
 }
 
 /** has the user typed anything worth keeping? (a run with the defaults only is not offered for "continue") */

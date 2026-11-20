@@ -38,8 +38,8 @@ class FakeRecorder {
 const fakeRecorderStop = FakeRecorder.prototype.stop;
 const makeStream = (withAudio: boolean) => {
   const audio = withAudio ? [{ enabled: true, stop: jest.fn() }] : [];
-  const video = [{ enabled: true, stop: jest.fn() }];
-  return { audio, video, getAudioTracks: () => audio, getTracks: () => [...video, ...audio] };
+  const video: any[] = [{ enabled: true, stop: jest.fn() }];
+  return { audio, video, getAudioTracks: () => audio, getVideoTracks: () => video, getTracks: () => [...video, ...audio] };
 };
 let stream: ReturnType<typeof makeStream>;
 let getUserMedia: jest.Mock;
@@ -68,6 +68,49 @@ describe('pickRecorderMimeType', () => {
     expect(pickRecorderMimeType((m) => m.startsWith('video/mp4'))).toBe('video/mp4;codecs=avc1,mp4a.40.2'); // Safari
     expect(pickRecorderMimeType(() => true)).toBe(RECORDER_MIME_CANDIDATES[0]);
     expect(pickRecorderMimeType(() => false)).toBe('');
+  });
+});
+
+describe('RecordVideo (web) - flashlight', () => {
+  const withTorch = () => {
+    const applyConstraints = jest.fn(async () => undefined);
+    Object.assign(stream.video[0], { getCapabilities: () => ({ torch: true }), applyConstraints });
+    return applyConstraints;
+  };
+
+  it('a camera with a torch: the button lights it for good, also while recording, the same recorder goes on', async () => {
+    const applyConstraints = withTorch();
+    (globalThis as any).__recordVideoSettings = undefined;
+    render(<RecordVideo />);
+    await flush();
+    expect(text('record-video-torch')).toBe('flashlight-off');
+    await pressAsync('record-video-torch');
+    await flush();
+    expect(applyConstraints).toHaveBeenLastCalledWith({ advanced: [{ torch: true }] });
+    expect(text('record-video-torch')).toBe('flashlight');
+    await pressAsync('record-video-start');
+    await pressAsync('record-video-torch'); // off in the middle of the recording
+    await flush();
+    expect(applyConstraints).toHaveBeenLastCalledWith({ advanced: [{ torch: false }] });
+    expect(FakeRecorder.instances).toHaveLength(1);
+    expect(FakeRecorder.instances[0].state).toBe('recording');
+    await pressAsync('record-video-stop');
+    await flush();
+  });
+
+  it('the remembered choice lights the torch when the camera opens', async () => {
+    const applyConstraints = withTorch();
+    (globalThis as any).__recordVideoSettings = { recordTorchEnabled: true };
+    render(<RecordVideo />);
+    await flush();
+    expect(applyConstraints).toHaveBeenCalledWith({ advanced: [{ torch: true }] });
+    (globalThis as any).__recordVideoSettings = undefined;
+  });
+
+  it('a camera without a torch (a laptop): no button', async () => {
+    render(<RecordVideo />);
+    await flush();
+    expect(q('record-video-torch')).toBeNull();
   });
 });
 

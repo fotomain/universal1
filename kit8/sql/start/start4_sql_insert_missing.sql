@@ -7505,5 +7505,21 @@ INSERT INTO public.files_document_type_catalog ("rowGUID", "rowOwnerGUID", "rowP
 ON CONFLICT ("rowGUID") DO NOTHING;
 
 -- ===============================================================================================
+-- PART 54: create_application_admin.sql  (seed data: the first application administrator)
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.application_permission_table') IS NULL THEN
+    RAISE EXCEPTION 'Run start1_sql_tables.sql + start2_sql_code.sql first (PART 54: the application administrators)';
+  END IF;
+END $$;
+
+-- foto888999@gmail.com holds permissionApplicationAdmin = true: he sees ALL organizations. Another one: the same INSERT with another e-mail (lower case).
+INSERT INTO public.application_permission_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('permissionApplicationAdmin:foto888999@gmail.com', 'foto888999@gmail.com', 'empty', 1000, '{"permissionApplicationAdmin": true}'::jsonb)
+ON CONFLICT DO NOTHING;
+
+-- ===============================================================================================
 -- END of start4_sql_insert_missing.sql
 -- ===============================================================================================

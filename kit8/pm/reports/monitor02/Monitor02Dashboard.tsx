@@ -18,6 +18,8 @@ import Monitor01Toolbar from '../monitor01/Monitor01Toolbar';
 import { openDashboardLink } from '../../view/project/dashboardDeepLink';
 import { EMPTY_ROI_FILTERS, RoiReportFilters, RoiReportLine, buildRoiNowLines, roiFooterOf, roiProjectOptions, roiTaskOptions } from '../roi/roiReportModel';
 import Monitor02FiltersBar, { roiDateErrors } from './Monitor02Filters';
+import OrganizationFilter from '../../../catalog/organization/switch/OrganizationFilter';
+import { useReportOrganizationScope } from '../common/useReportOrganizationScope';
 import Monitor02Table from './Monitor02Table';
 import { useMonitor02Data } from './useMonitor02Data';
 
@@ -35,6 +37,11 @@ export default function Monitor02Dashboard({ testID = 'monitor02' }: Monitor02Da
   const from = errors.startDate ? null : parseDayInput(filters.startDate);
   const to = errors.finishDate ? null : parseDayInput(filters.finishDate);
   const data = useMonitor02Data({ from, to }, { live: autoRefresh });
+  // a user of two or more organizations: the Organization filter of the bar picks the active one; only its projects are in the report
+  const orgScope = useReportOrganizationScope();
+  const projects = useMemo(() => orgScope.filter(data.projects, (p) => p.projectGUID), [orgScope.filter, data.projects]);
+  const monthRows = useMemo(() => orgScope.filter(data.months, (m) => m.projectGUID), [orgScope.filter, data.months]);
+  const taskRows = useMemo(() => orgScope.filter(data.tasks, (t) => t.projectGUID), [orgScope.filter, data.tasks]);
 
   const [busy, setBusy] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
@@ -48,12 +55,12 @@ export default function Monitor02Dashboard({ testID = 'monitor02' }: Monitor02Da
   }, [supabase, data]);
 
   const lines = useMemo(
-    () => buildRoiNowLines(data.projects, data.months, data.tasks, { from, to, projectGUID: filters.projectGUID, taskGUID: filters.taskGUID }),
-    [data.projects, data.months, data.tasks, from, to, filters.projectGUID, filters.taskGUID],
+    () => buildRoiNowLines(projects, monthRows, taskRows, { from, to, projectGUID: filters.projectGUID, taskGUID: filters.taskGUID }),
+    [projects, monthRows, taskRows, from, to, filters.projectGUID, filters.taskGUID],
   );
   const footer = useMemo(() => roiFooterOf(lines), [lines]);
-  const projectItems = useMemo(() => roiProjectOptions(data.projects), [data.projects]);
-  const taskItems = useMemo(() => roiTaskOptions(data.tasks, filters.projectGUID || undefined), [data.tasks, filters.projectGUID]);
+  const projectItems = useMemo(() => roiProjectOptions(projects), [projects]);
+  const taskItems = useMemo(() => roiTaskOptions(taskRows, filters.projectGUID || undefined), [taskRows, filters.projectGUID]);
 
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), 1000); return () => clearInterval(t); }, []);
@@ -75,6 +82,7 @@ export default function Monitor02Dashboard({ testID = 'monitor02' }: Monitor02Da
         <Text testID={`${testID}-title`} style={{ color: c.text, fontWeight: '700', fontSize: 15 }}>{pmT('Monitor02')}</Text>
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('ROI now')}</Text>
         <Monitor01Toolbar testID={`${testID}-toolbar`} autoRefresh={autoRefresh} onAutoRefreshChange={setAutoRefresh} onRefresh={() => { void refresh(); }} busy={busy} />
+        <OrganizationFilter testID={`${testID}-organization`} />
         <View style={{ flex: 1 }} />
         <View testID={`${testID}-age`} style={styles.age}>
           <View style={[styles.dot, { backgroundColor: stale ? c.error : c.primary }]} />
@@ -89,7 +97,7 @@ export default function Monitor02Dashboard({ testID = 'monitor02' }: Monitor02Da
       </View>
       {!!data.error && <Text testID={`${testID}-error`} style={{ color: c.error, padding: 10 }}>{data.error}</Text>}
       {!!refreshError && <Text testID={`${testID}-refresh-error`} style={{ color: c.error, padding: 10 }}>{pmT('Refresh failed')}: {refreshError}</Text>}
-      {data.isLoading && data.projects.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
+      {data.isLoading && projects.length === 0 && <Text testID={`${testID}-loading`} style={{ color: c.text, opacity: 0.6, padding: 12 }}>{pmT('Loading…')}</Text>}
       <View style={{ flex: 1 }}>
         <Monitor02Table testID={`${testID}-table`} lines={lines} footer={footer} colors={colors} onTaskOpen={openTask} />
       </View>

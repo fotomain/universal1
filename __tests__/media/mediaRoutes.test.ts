@@ -15,6 +15,8 @@ const ROUTES: Record<string, [string, string]> = {
   'app/media/play/video/index.tsx': ['MediaPlayerScreen', 'play'],
   'app/media/scan/index.tsx': ['ScanCodes', 'scan'],
   'app/media/nfc/index.tsx': ['NfcScan', 'nfc'],
+  'app/media/nfc/iddocread.tsx': ['IdCardReader', 'nfc/iddocread'],
+  'app/media/nfc/identification.tsx': ['IdentificationFlow', 'nfc/identification'],
 };
 
 describe('media routes', () => {
@@ -53,7 +55,7 @@ describe('media routes', () => {
     const pairs: Array<[string, string, string]> = [
       ['play', 'VideoPlayerView', 'tsx'], ['video', 'RecordVideo', 'tsx'], ['common', 'mediaFileStore', 'ts'],
       ['photo', 'RecordPhoto', 'tsx'], ['photo', 'applyPhotoFilter', 'ts'], ['scan', 'ScanCodes', 'tsx'],
-      ['nfc', 'nfcReader', 'ts'], ['nfc', 'NfcBackgroundHandler', 'tsx'],
+      ['nfc', 'nfcReader', 'ts'], ['nfc', 'NfcBackgroundHandler', 'tsx'], ['nfc/iddocread', 'idTransport', 'ts'], ['nfc/identification', 'ocrEngine', 'ts'], ['nfc/identification', 'MrzPhotoStep', 'tsx'],
     ];
     for (const [folder, base, ext] of pairs) {
       expect(exists(`kit8/ui/components/media/${folder}/${base}.${ext}`)).toBe(true);
@@ -76,14 +78,23 @@ describe('media routes', () => {
 
   it('scan + photo: react-native-nfc-manager and expo-image-manipulator are dependencies, the NFC plugin and the Android launch filter are in app.config.js', () => {
     const pkg = JSON.parse(read('package.json'));
-    for (const dep of ['react-native-nfc-manager', 'expo-image-manipulator', '@shopify/react-native-skia', 'expo-clipboard', 'expo-haptics']) expect(pkg.dependencies[dep]).toBeTruthy();
+    for (const dep of ['react-native-nfc-manager', 'expo-mlkit-ocr', '@noble/curves', '@noble/hashes', '@noble/ciphers', 'node-forge', 'expo-image-manipulator', '@shopify/react-native-skia', 'expo-clipboard', 'expo-haptics']) expect(pkg.dependencies[dep]).toBeTruthy();
     const config = read('app.config.js');
     expect(config).toContain("'react-native-nfc-manager'");
     expect(config).toContain('android.nfc.action.NDEF_DISCOVERED');
     expect(config).toContain('android.nfc.action.TAG_DISCOVERED');
     expect(config).toContain("'android.hardware.nfc'");
+    // iOS may select the ICAO travel document application (the ID card / passport reader)
+    expect(config).toContain("selectIdentifiers: ['A0000002471001']");
     // the iOS NDEF entitlement is needed by the NDEF read session: the plugin must not drop it
     expect(config).not.toContain('includeNdefEntitlement: false');
+    // the text recognition of the Identification photo step (ML Kit needs iOS 16)
+    expect(config).toContain("['expo-mlkit-ocr', { iosEngine: 'auto' }]");
+    // Google AI of the Identification photo step: the key comes from .env GOOGLE_AI_API_KEY through extra (never typed into a file)
+    expect(config).toContain('googleAiApiKey: process.env.GOOGLE_AI_API_KEY');
+    // the iOS deployment target must NOT be lowered: Expo SDK 57 refuses anything under 16.4 (the whole config fails to load)
+    expect(config).not.toMatch(/deploymentTarget:\s*'1[0-5]/);
+    expect(config).not.toContain("deploymentTarget: '16.0'");
   });
 
   it('the media folder is sorted: only index.ts, README.md and the subfolders stand in its root', () => {

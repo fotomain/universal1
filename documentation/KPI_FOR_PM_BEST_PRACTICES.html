@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>KPI in projects - best practices and cases</title>
+<style>
+  /* Light business theme, same family as ROI_DOC.html (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe; --emerald: #059669; --emerald-soft: #d1fae5;
+    --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6; --blue: #2563eb; --blue-soft: #dbeafe;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  a { color: var(--blue); }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1240px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1240px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 38px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16.5px; margin: 0 0 6px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 900px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 10px; border-radius: 999px; vertical-align: middle; white-space: nowrap; }
+  .pill.a { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.b { background: var(--blue-soft); color: var(--blue); }
+  .pill.c { background: var(--amber-soft); color: var(--amber); }
+  .pill.dom { background: var(--purple-soft); color: var(--purple); }
+  .pill.neg { background: var(--rose-soft); color: var(--rose); }
+  .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 7px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 11.5px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); position: sticky; top: 0; white-space: nowrap; }
+  table.cases td { min-width: 150px; }
+  table.cases td.id, table.cases th.id { min-width: 40px; text-align: right; font-variant-numeric: tabular-nums; }
+  table.cases td.nm { min-width: 190px; font-weight: 600; }
+  table.small td { min-width: 0; }
+  ul.tight { margin: 0; padding-left: 20px; } ul.tight li { margin: 4px 0; }
+  ol.lv { margin: 0; padding-left: 20px; } ol.lv li { margin: 5px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #fcd34d; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .good { background: var(--emerald-soft); border: 1px solid #6ee7b7; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .bad { background: var(--rose-soft); border: 1px solid #fda4af; border-radius: 10px; padding: 10px 14px; margin: 12px 0; }
+  .case { margin: 12px 0; scroll-margin-top: 70px; }
+  .case h3 { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .case .num { display: inline-flex; align-items: center; justify-content: center; min-width: 28px; height: 28px; border-radius: 999px; background: var(--text); color: #fff; font-size: 13px; font-weight: 700; }
+  .case p { margin: 8px 0 0; }
+  .case .meta { color: var(--muted); font-size: 13px; margin: 2px 0 0; }
+  .case .lesson { margin-top: 8px; padding: 8px 12px; background: var(--bg-subtle); border-radius: 10px; font-size: 14px; }
+  .tools { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; align-items: center; }
+  .tools input { font: inherit; padding: 6px 12px; border: 1px solid var(--border); border-radius: 999px; min-width: 220px; background: var(--card); color: var(--text); }
+  .tools button { font: inherit; font-size: 13px; padding: 5px 12px; border: 1px solid var(--border); border-radius: 999px; background: var(--card); color: var(--text-2); cursor: pointer; }
+  .tools button.on { background: var(--text); color: #fff; border-color: var(--text); }
+  .formula { font: 13.5px var(--mono); background: var(--bg-subtle); border-radius: 10px; padding: 8px 12px; margin: 6px 0; overflow-x: auto; white-space: pre; }
+  .bar { display: inline-block; height: 9px; border-radius: 5px; background: var(--purple); vertical-align: middle; }
+  footer { color: var(--muted); font-size: 13px; margin-top: 40px; }
+  @media (max-width: 640px) { h1 { font-size: 26px; } main { padding: 16px 12px 60px; } }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0b1220; --bg-subtle: #162033; --card: #111a2c; --border: #24324b; --text: #e8eefc; --text-2: #c3cee6; --muted: #8fa0c0;
+      --purple-soft: #2a1f4d; --cyan-soft: #0b3a47; --emerald-soft: #0d3a2c; --amber-soft: #3d2c08; --rose-soft: #451424; --blue-soft: #14305c;
+      --purple: #b69cff; --emerald: #4fd8a4; --amber: #f5b14a; --rose: #ff7a97; --blue: #7fb0ff; --shadow: none;
+    }
+    :root:not([data-theme="light"]) header.top { background: rgba(11,18,32,.94); }
+    :root:not([data-theme="light"]) .note { border-color: #6b4a10; }
+    :root:not([data-theme="light"]) .good { border-color: #1c6b50; }
+    :root:not([data-theme="light"]) .bad { border-color: #7a2038; }
+    :root:not([data-theme="light"]) .case .num { background: #e8eefc; color: #0b1220; }
+    :root:not([data-theme="light"]) .tools button.on { background: #e8eefc; color: #0b1220; border-color: #e8eefc; }
+  }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <span class="brand">KPI in projects</span>
+  <nav><ul>
+    <li><a href="#summary">Summary</a></li>
+    <li><a href="#table">Table of cases</a></li>
+    <li><a href="#book">Cases from the book</a></li>
+    <li><a href="#world">Cases from practice</a></li>
+    <li><a href="#industries">Industries</a></li>
+    <li><a href="#patterns">Patterns</a></li>
+    <li><a href="#formulas">Formulas</a></li>
+    <li><a href="#u1">Universal 1</a></li>
+    <li><a href="#sources">Sources</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+
+<section id="top">
+  <h1>KPI inside projects: the practices that work</h1>
+  <p class="lead">22 practical cases of how key performance indicators are put into projects and project-like work: 7 from the book by K. V. Shchiborsh (<i>Budgeting of the activity of industrial enterprises of Russia</i>, 2001; the BUDGET1 demo project) and 15 from the practice of construction, space, government, pharma, software, oil and consulting. Each case is one paragraph and one row of the table. The last sections say which industries need project KPIs most, what the cases have in common, the formulas, and what of this Universal 1 already has.</p>
+  <p class="sub">Prepared 2026-11-19. Evidence grades: <span class="pill a">A</span> peer reviewed paper, government audit or official regulation / data; <span class="pill b">B</span> book, published case or survey research (method is solid, results are self-reported or illustrative); <span class="pill c">C</span> practitioner or vendor material. Numbers are quoted as the sources give them; where I could not check a number in the original it says so.</p>
+</section>
+
+<section id="summary">
+  <h2>Summary: what the 22 cases teach</h2>
+  <div class="grid">
+    <div class="card"><h3>1. A KPI belongs to a person who can move it</h3><p>Shchiborsh builds the whole system on <i>controllable</i> factors (cases 1, 2, 5). NASA and the UK portfolio (cases 8, 9) name a responsible party for every reading.</p></div>
+    <div class="card"><h3>2. Few KPIs, but they must cover the whole task</h3><p>Not one number: pairs that cannot be gamed alone - cost with schedule (CPI + SPI, case 8), speed with stability (DORA, case 15), output with the cost of getting it (cases 3, 4).</p></div>
+    <div class="card"><h3>3. The threshold is fixed before the number arrives</h3><p>RAG colours with written thresholds (cases 9, 22), buffer zones (case 20), the 60% weekly-completion alarm (case 13). Without it the "watermelon" appears: green outside, red inside (cases 10, 22).</p></div>
+    <div class="card"><h3>4. Measure the plan against the baseline, not against last year</h3><p>The bonus base is the <i>favourable deviation from the plan</i>, not growth over the previous period (case 3). Benchmarks (case 12) only compare projects measured the same way.</p></div>
+    <div class="card"><h3>5. Leading and lagging together</h3><p>Weekly PPC and buffer burn warn early (cases 13, 20); the money and benefit result confirms late (cases 12, 21). A project that has only lagging KPIs finds out at the end.</p></div>
+    <div class="card"><h3>6. Link the KPI to a decision or a reward</h3><p>A KPI nobody acts on is decoration. Bonus rates in equilibrium (case 4), incentive pool for the T5 suppliers (case 11), stage gates in pharma (case 14), OKR grading (case 19).</p></div>
+    <div class="card"><h3>7. Start small and customise</h3><p>The engineering-design study began with 30 KPIs and found that standard project KPIs work after adapting them to the company (case 17); the Delphi set was tested on one consultancy project (case 18).</p></div>
+    <div class="card"><h3>8. Real cases fail on reporting, not arithmetic</h3><p>Crossrail had no plan detailed enough to track progress until late 2018 (case 10); portfolio ratings and PMI "champions" show that measuring benefits, not only cost and time, is what separates leaders (case 21).</p></div>
+  </div>
+</section>
+
+<section id="table">
+  <h2>Table of cases</h2>
+  <p class="sub">Filter by text or by evidence grade. Scroll sideways for all attributes. Each row links to its paragraph.</p>
+  <div class="tools">
+    <input id="q" type="search" placeholder="Filter: industry, KPI, owner ..." aria-label="Filter cases">
+    <button data-g="all" class="on">All</button><button data-g="A">A</button><button data-g="B">B</button><button data-g="C">C</button>
+    <span id="cnt" class="sub" style="margin:0"></span>
+  </div>
+  <div class="scroll"><table class="cases" id="tbl">
+    <thead><tr>
+      <th class="id">#</th><th>Case</th><th>Domain / industry</th><th>Source, grade</th><th>KPIs</th><th>Target / threshold / rule</th>
+      <th>How it is implemented</th><th>Cadence</th><th>Owner (who answers)</th><th>Result / evidence</th><th>Lesson</th>
+    </tr></thead>
+    <tbody>
+<!-- BOOK -->
+<tr data-g="B"><td class="id">1</td><td class="nm"><a href="#c1">Five types of responsibility centre</a></td><td>Industrial enterprise (any department structure)</td><td>Shchiborsh 2001, ch. 6.2 - B</td><td>Cost vs budget; variance from standard; revenue; profit; return on capital / residual income</td><td>The KPI follows the decision rights: cost centre = cost; revenue centre = revenue within a fixed budget; profit centre = profit; investment centre = profit minus capital charge</td><td>Every manager is assigned to one centre; the centre type fixes which budget items he is held to</td><td>Monthly report for a quarterly budget</td><td>Head of the centre</td><td>Method with worked examples; no measured outcome</td><td>Do not hold a sales manager to profit if he cannot change the price</td></tr>
+<tr data-g="B"><td class="id">2</td><td class="nm"><a href="#c2">Controllable and non-controllable factors</a></td><td>Industrial enterprise</td><td>Shchiborsh 2001, ch. 6.2, 8.1 - B</td><td>Unit variable cost x planned output; absolute overhead; physical volume (set centrally)</td><td>Only controllable items enter the centre's report and bonus; a plan change from above must not change the bonus</td><td>Two cost indicators instead of total cost; transfer prices at planned unit cost; items that arise in a centre but it cannot influence (building depreciation) stay out of its task</td><td>Monthly</td><td>Head of the centre; arbitration commission for cross-centre claims</td><td>Method; the book calls the opposite practice common in Russian plants</td><td>Total production cost as a KPI punishes the workshop for a volume it did not choose</td></tr>
+<tr data-g="B"><td class="id">3</td><td class="nm"><a href="#c3">Bonus from favourable deviation; condition vs indicator</a></td><td>Industrial enterprise</td><td>Shchiborsh 2001, ch. 8.1 (principles 3, 4) - B</td><td>Deviation from plan on centrally set parameters; "condition" (must be met exactly) and "indicator" (more is better up to a limit)</td><td>Exactly on plan = zero bonus (salary pays for the plan); bonus starts above the plan; a parameter that is harmful when overfulfilled is a condition, not an indicator</td><td>Positions of the regulation on bonuses; indicators and conditions chosen per centre type</td><td>Quarterly (staff)</td><td>Head of centre; planning department sets the plan</td><td>Method; example of a foundry whose overproduction wastes material</td><td>The base is the plan, not last period's result</td></tr>
+<tr data-g="B"><td class="id">4</td><td class="nm"><a href="#c4">Equilibrium bonus rates</a></td><td>Industrial enterprise, vertically integrated holdings</td><td>Shchiborsh 2001, ch. 8.1 (principles 6, 7) - B</td><td>Revenue above plan; saving of the operating-expense estimate; saving of unit costs</td><td>Same bonus per 1 rouble of extra company profit, whichever way it is earned. Example: price 100, variable cost 80; rate 10% of extra revenue = 10 per unit; extra profit 20 per unit; so 0.5 of bonus per 1 of profit, hence 0.5 per 1 of expense saved</td><td>The rates are computed from the plan economics, equal across divisions (an oil production unit and a refinery in the book's example)</td><td>Rates reviewed every short budget period</td><td>Head of centre; finance function calculates the rates</td><td>Worked arithmetic in the book</td><td>Unequal rates make a manager choose the cheaper way to earn his bonus, not the better one for the company</td></tr>
+<tr data-g="B"><td class="id">5</td><td class="nm"><a href="#c5">Internal arbitration and transfer prices</a></td><td>Industrial enterprise with workshops delivering to each other</td><td>Shchiborsh 2001, ch. 8.1 (principle 5, scheme 51) - B</td><td>Actual cost of a workshop corrected by internal fines and claims</td><td>A receiving workshop buys at the planned transfer price; a delivery failure goes to the guilty side by an act of the quality department or an arbitration commission</td><td>Act per case with the money damage and the plan shortfall; correction applied at period end before the bonus is computed</td><td>Per period</td><td>Arbitration commission / quality department</td><td>Method</td><td>Separates "my result" from "my neighbour's failure" - the KPI stays fair</td></tr>
+<tr data-g="B"><td class="id">6</td><td class="nm"><a href="#c6">Plan-fact analysis in three stages and three report levels</a></td><td>Industrial enterprise, budget control</td><td>Shchiborsh 2001, ch. 6.3-6.4, 7.1-7.3 - B</td><td>Plan vs fact of the P&amp;L, cash flow, investments, financial state; price and volume variances</td><td>Stage 1 overall view; stage 2 operating / investment / financial sub-budgets; stage 3 synthesis. Reports of centres hold only controllable items and, at level 3, "disclosures" of each significant cost item</td><td>Analysis from the position of an outsider; reports from centres to management services, monthly for a quarterly budget</td><td>Monthly during the period, full analysis after it</td><td>Management services (planning, finance) and the first vice president for economics</td><td>Method with a full numeric example (tables 46 onward)</td><td>Variance by factor (price, volume, mix) tells which manager acts</td></tr>
+<tr data-g="B"><td class="id">7</td><td class="nm"><a href="#c7">Short and long horizon KPIs; flexible rates</a></td><td>Industrial enterprise</td><td>Shchiborsh 2001, ch. 8.1 (principles 8, 9) - B</td><td>Quarterly result for staff; year / development budget for managers</td><td>Bonus base (which parameters) changes rarely; the coefficient is revised each short budget period</td><td>Two incentive horizons in the bonus regulation</td><td>Quarter / year</td><td>Board; heads of centres</td><td>Method</td><td>Staff turnover is higher than manager turnover, so managers get the long horizon</td></tr>
+<!-- WORLD -->
+<tr data-g="A"><td class="id">8</td><td class="nm"><a href="#c8">NASA: Earned Value on every large contract</a></td><td>Space, aerospace, defence</td><td>NASA FAR Supplement 1834.2 - A</td><td>CPI, SPI, cost / schedule variance, Integrated Master Schedule</td><td>EVMS required for development or production work of $20M and more (ANSI/EIA-748 compliant); a cognizant-agency-compliant system from $50M; below $20M risk-based decision of the project manager</td><td>Monthly EVMS report as a contract deliverable</td><td>Monthly</td><td>Contractor and NASA project manager</td><td>Regulation (threshold verified); no outcome figures in the sources I read</td><td>A money threshold decides where the full KPI machine is switched on</td></tr>
+<tr data-g="A"><td class="id">9</td><td class="nm"><a href="#c9">UK Delivery Confidence Assessment (RAG) of major projects</a></td><td>Government, public infrastructure and IT</td><td>IPA / NISTA annual reports - A</td><td>Delivery Confidence Assessment: red, amber, green</td><td>Since 2022 a three level RAG with a stage gate assessment; project-level ratings with commentary published</td><td>Independent assessment by the central authority next to the project's own senior responsible owner rating</td><td>Annual report, stage gates during life</td><td>Senior responsible owner and the central authority</td><td>2024-25: 135 amber, 31 red, 30 green</td><td>An independent reading beside the self-reading is what stops optimism</td></tr>
+<tr data-g="A"><td class="id">10</td><td class="nm"><a href="#c10">Crossrail: reporting that did not reach the truth</a> <span class="pill neg">failure</span></td><td>Rail megaproject</td><td>UK National Audit Office, 2019 and 2021 - A</td><td>Progress against a detailed delivery plan; cost to complete; schedule</td><td>NAO: no sufficiently detailed delivery plan to track progress until late 2018; the 2019 revised schedule and budget were unachievable</td><td>Reset of leadership in late 2018; a new baseline was needed</td><td>-</td><td>Programme sponsors and Crossrail Ltd</td><td>Forecast cost to complete £18.9bn (2021 report, excluding new trains and depot)</td><td>A KPI without a tracked baseline is only a story</td></tr>
+<tr data-g="B"><td class="id">11</td><td class="nm"><a href="#c11">Heathrow Terminal 5 Agreement</a></td><td>Airport construction</td><td>Manchester teaching cases, Brady &amp; Davies - B</td><td>Cost under target budget, safety, time, quality</td><td>Incentive rewarded finishing under the target budget and consistency in safety, time and quality; the owner kept the risk</td><td>Integrated team of suppliers under one agreement with an incentive fund</td><td>Through the project</td><td>Owner and the integrated suppliers</td><td>KPI weights and ratios not found in the sources I read</td><td>The reward should rest on the whole set, not on cost alone</td></tr>
+<tr data-g="A"><td class="id">12</td><td class="nm"><a href="#c12">CII Benchmarking and Metrics</a></td><td>Industrial and commercial construction, EPC</td><td>Construction Industry Institute (since 1995) - A</td><td>Cost growth, schedule growth (overall and by phase), safety (recordable and lost-workday rates), changes, rework</td><td>Scoring ranges from the statistical distribution of the database</td><td>Members submit finished projects in a common format and compare with the database</td><td>Per project, at completion and by phase</td><td>Owner / contractor project team</td><td>Database of 395 projects worth nearly $21bn in one study; used to quantify the value of best practices</td><td>A KPI is only comparable if it is defined identically across projects</td></tr>
+<tr data-g="B"><td class="id">13</td><td class="nm"><a href="#c13">Last Planner and Percent Plan Complete</a></td><td>Building construction</td><td>Lean Construction Journal and case studies - B</td><td>PPC = tasks completed as planned / tasks planned; reasons for non-completion</td><td>Cited finding: less than 60% of planned tasks are executed weekly in many projects; a high PPC can still hide a late project</td><td>Weekly work plans agreed with the foremen; every miss gets a reason code; a trained facilitator</td><td>Weekly</td><td>Foremen and trade contractors</td><td>Case results vary; the productivity link is suggestive, not proven</td><td>The weekly promise-keeping rate is a leading KPI; pair it with the milestone plan</td></tr>
+<tr data-g="A"><td class="id">14</td><td class="nm"><a href="#c14">AstraZeneca five-R framework for drug projects</a></td><td>Pharma R&amp;D</td><td>Cook et al. 2014; Morgan et al. 2018, Nature Reviews Drug Discovery - A</td><td>Success rate from candidate nomination to phase III completion; five determinants (right target, tissue, safety, patient, commercial)</td><td>Each project reviewed against the five questions before a gate</td><td>Framework applied at stage gates of the portfolio</td><td>At gates</td><td>Project team and the portfolio committee</td><td>4% in 2005-2010 to 19% in 2012-2016 (2018 paper); the 2014 paper itself said it was too early to tell</td><td>For uncertain work, the KPI is the quality of the decision at the gate</td></tr>
+<tr data-g="B"><td class="id">15</td><td class="nm"><a href="#c15">DORA four key metrics</a></td><td>Software delivery</td><td>Google Cloud DORA State of DevOps reports - B</td><td>Deployment frequency, lead time for changes, change failure rate, time to restore</td><td>Elite in the 2021 report: several deployments a day, lead time under an hour, restore time under an hour (the 2022 report found only three clusters; 2024 four)</td><td>Taken from the delivery pipeline and incident system, not typed by hand</td><td>Continuous, reviewed monthly</td><td>Delivery team</td><td>Survey research over years; self-reported</td><td>Speed and stability measured together cannot be traded off against each other</td></tr>
+<tr data-g="B"><td class="id">16</td><td class="nm"><a href="#c16">Balanced Scorecard at Mobil NAM&amp;R</a></td><td>Oil, downstream (refining and marketing)</td><td>Kaplan &amp; Norton, HBS case 197-120 - B</td><td>Financial, customer, internal process, learning measures cascaded to units</td><td>Productivity strategy credited with a 20% cut of the cost of refining, marketing and delivering a gallon of gasoline</td><td>Scorecards for business units and staff functions whose "customers" were internal units</td><td>Periodic reviews</td><td>Business unit heads</td><td>The 20% is quoted from secondary summaries of the case</td><td>One strategy map keeps unit KPIs pointing the same way</td></tr>
+<tr data-g="A"><td class="id">17</td><td class="nm"><a href="#c17">KPI reporting for engineering design</a></td><td>Power generation equipment, engineering design</td><td>Gries &amp; Restrepo, ICED11 - A</td><td>Long list of 30 engineering KPIs reduced to a management set</td><td>Standard project KPIs usable after customising them to company, project size and team</td><td>15 month study in three locations; interactive management dashboard</td><td>Dashboard, periodic</td><td>Engineering management</td><td>Authors could not yet propose a fixed design-specific set</td><td>Start with a long list, cut with management; adapt standard KPIs</td></tr>
+<tr data-g="A"><td class="id">18</td><td class="nm"><a href="#c18">Delphi-selected KPI set for project management</a></td><td>Professional services, consulting</td><td>Montero, Onieva, Palacin 2015 - A</td><td>A general set of project KPIs chosen by an expert panel</td><td>Set selected by the Delphi method, validated for flexibility on a consultancy project; a later pilot on a five-year strategic consulting project</td><td>Customisable set; indicators for control</td><td>Per project</td><td>Project manager</td><td>Validation by one case; I read only the abstract level</td><td>Let experts choose the set once, then adapt per project type</td></tr>
+<tr data-g="B"><td class="id">19</td><td class="nm"><a href="#c19">OKR from Intel to Google</a></td><td>Technology companies</td><td>Doerr, Measure What Matters (2018) - B</td><td>3-5 objectives, each with measurable key results</td><td>Reported "sweet spot" of 60-70% attainment on stretch OKRs (wording unverified in the original)</td><td>Grove's Intel method (from Drucker's MBO); brought by Doerr to Google in 1999</td><td>Quarterly</td><td>Teams and individuals, openly published</td><td>Narrative evidence, not a controlled study</td><td>Few goals, public, graded - suits changing work where baselines move</td></tr>
+<tr data-g="C"><td class="id">20</td><td class="nm"><a href="#c20">Critical chain buffer management (fever chart)</a></td><td>Engineer-to-order manufacturing, shipbuilding, projects with tight deadlines</td><td>Goldratt; vendor and practitioner material - C</td><td>% of project buffer consumed vs % of critical chain completed</td><td>Zones green / yellow / red on the fever chart; example in the sources: 55% of the chain done with 40% of the buffer used</td><td>Buffers added at the end and where feeding chains join; owners report remaining duration</td><td>Weekly</td><td>Project manager and task owners</td><td>Claims of 25-50% shorter lead time come from advocates; independent critique exists (Raz, Barnes, Dvir 2003)</td><td>Buffer burn rate is an early warning that does not need percent complete estimates of tasks</td></tr>
+<tr data-g="B"><td class="id">21</td><td class="nm"><a href="#c21">PMI champions: benefits as a KPI</a></td><td>All industries (survey)</td><td>PMI Pulse of the Profession 2013-2018 - B</td><td>On time, on budget, meeting business intent, benefits realization maturity; money wasted per dollar invested</td><td>Champions: 80% and more of projects meet the criteria</td><td>Survey classification of organisations</td><td>Yearly report</td><td>PMO and sponsors</td><td>Champions 92% average project success vs 32% for underperformers; waste 1.4% vs 29.1% of each dollar (2018). Self-reported, not causal</td><td>Cost and time alone are not enough; measure the benefit</td></tr>
+<tr data-g="C"><td class="id">22</td><td class="nm"><a href="#c22">Watermelon reporting and written RAG thresholds</a> <span class="pill neg">anti-pattern</span></td><td>IT and any programme reporting</td><td>Practitioner articles - C</td><td>RAG status per project</td><td>Define in advance what makes a status amber or red, and when it must change</td><td>Status rules in the reporting standard; independent check</td><td>Each reporting cycle</td><td>Project manager and PMO</td><td>Reports of green status over a failing project; causes are blame culture and optimism</td><td>The colour must be a fact, not a mood</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="book">
+  <h2>Part A. Seven cases from the book</h2>
+  <p class="sub">Source: the electronic Word version of K. V. Shchiborsh, <i>Budgeting of the activity of industrial enterprises of Russia</i>, M.: Delo i Servis, 2001, extracted for the BUDGET1 demo project (<code>documentation/BUDGET1</code>). The book speaks about budgets and responsibility centres; the project meaning is the same: a KPI is a budget line that has an owner and a plan-fact comparison. The money examples in the book are examples, not measured results.</p>
+
+  <article class="case card" id="c1">
+    <h3><span class="num">1</span> Five types of responsibility centre decide what the KPI is <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>The book classifies every unit of an enterprise by the powers of its manager and gives each type its own measure. A <b>managed cost centre</b> (administrative services where inputs and outputs are hard to measure) keeps within its budget and is judged on service level. A <b>standard cost centre</b> (production workshop, procurement, shipping) is held to the normative level of direct labour, direct materials and variable overhead, and its efficiency is the positive or negative variance from the standard; procurement controls purchase prices inside the fixed volume. A <b>revenue centre</b> (the sales department) maximises revenue inside its budget and has no right to overspend or change prices. A <b>profit centre</b> may change costs and prices and is judged on profit, but takes no investment decisions. An <b>investment centre</b> is judged on the return on invested capital or on residual income, profit less a capital charge. In a project this is the rule for choosing the KPI of each project role: a task owner who controls only hours is held to hours and rate, a project manager with a budget to cost and schedule, a project sponsor to benefit and return.</p>
+    <p class="lesson"><b>Lesson.</b> Pick the KPI by decision rights. A manager cannot answer for a number he has no power to move.</p>
+  </article>
+
+  <article class="case card" id="c2">
+    <h3><span class="num">2</span> Only controllable factors enter the report <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>The book splits the indicators of a centre into those set centrally (for example the physical output) and those set by the centre itself (unit costs); both are "controllable". A third group arises in the centre but is outside its zone - the book's example is the depreciation of a workshop building. The monthly report of the centre holds only controllable items, and the management has power only over the centrally set ones; how the target is reached is the centre's choice (after a first month with profit 2,000 thousand roubles behind plan the task given is the gap, not the method). For a standard cost workshop the book rejects "total production cost" as the bonus indicator, because when the centre is ordered a different output the cost changes and so does the bonus. It proposes two indicators: unit variable costs multiplied by the planned output, and the absolute amount of general production overhead. Where the place of cost and the responsible centre differ, internal transfer prices at planned unit cost move the variance to the supplier workshop.</p>
+    <p class="lesson"><b>Lesson.</b> When the plan of volume changes during the period the KPI must be recalculated on the plan volume, otherwise it measures the planner, not the performer.</p>
+  </article>
+
+  <article class="case card" id="c3">
+    <h3><span class="num">3</span> Reward the favourable deviation; separate "condition" from "indicator" <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>Principle 3 of the book: the base of the bonus is the favourable deviation from the plan, not the growth over the previous period. Meeting the plan exactly earns zero bonus because the salary already pays for it; the bonus fund starts when the budget task is overfulfilled. The book states that most Russian plants did the opposite - bonuses for "1% lower cost" or "1% more sales" against the previous period. Principle 4 then separates two kinds of parameter. A <b>condition</b> is a parameter set from above that must be met exactly, with no plus and no minus. An <b>indicator</b> is a parameter with a limit value where the target is to do better. The example: overfulfilling the output plan of a foundry workshop is harmful, because it burns materials for blanks that have neither processing capacity nor market demand, so output is a condition and the bonus is built on cost savings. A second mistake the book names is an incomplete list of indicators: a branch that decides its own short-term credit and payment terms needs indicators for liquidity too, otherwise it will optimise the visible ones.</p>
+    <p class="lesson"><b>Lesson.</b> Mark each project KPI as "must hit" (a scope or quality gate) or "more is better" (cost saving, early finish). Rewarding a must-hit number for overshoot creates waste.</p>
+  </article>
+
+  <article class="case card" id="c4">
+    <h3><span class="num">4</span> Bonus rates in equilibrium <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>When a unit has two or more indicators, the book requires rates that pay the same for one rouble of extra company profit. Worked example: the sales department earns 10% of revenue above plan and also a bonus for saving its operating-expense estimate. Product N sells at 100 per unit with planned variable cost 80. One extra unit gives revenue +100 and gross profit +20, and a 10% bonus on revenue pays 10, so 0.5 of bonus per 1 of profit. A saving of 1 rouble of the expense estimate is exactly 1 rouble of profit, so the rate for savings must also be 0.5 per rouble. Otherwise the manager picks the easier way to his bonus ("moral hazard"). Principle 7 extends this across divisions: the book computes an average company bonus rate below 1, then prices each division's indicators so that equal profit contribution gives equal bonus, in the example an oil production unit and a refinery of a vertically integrated company. Principle 9 adds that the choice of base changes rarely but the coefficient is revised every short budget period.</p>
+    <p class="lesson"><b>Lesson.</b> If KPIs carry money, compute the rate from the profit effect of each, and test the pairs for "cheaper way to earn" before launching.</p>
+  </article>
+
+  <article class="case card" id="c5">
+    <h3><span class="num">5</span> Internal arbitration keeps the KPI fair <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>Principle 5: a person is rewarded only for what he controls. The book's tool is the internal arbitration. After the production task is done, the actual cost of a unit's gross output is corrected by internal fines and claims between units, branches and subsidiaries: received claims add, paid claims subtract. A claim can be raised for non-delivery of raw material, poor quality, or broken delivery rhythm. The quality control department or a special arbitration commission examines it and writes an act with the money damage and the plan shortfall; the damage is put on the side found guilty. A unit may also go to the commission when an external supplier fails. The corrected "cost-accounting" cost of the centre is then the base of its bonus.</p>
+    <p class="lesson"><b>Lesson.</b> A project with dependent teams needs a written rule for who carries a delay caused by a predecessor, or every delay report becomes an argument.</p>
+  </article>
+
+  <article class="case card" id="c6">
+    <h3><span class="num">6</span> Plan-fact analysis in three stages, reports at three levels <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>Control in the book is monitoring during the period and analysis after it. During the period, centres report monthly for a quarterly budget, management services collect them into summary operating reports and make recommendations to the person responsible for the budget. The report of a centre has three levels: totals by item, then the explanation of each significant item (called disclosures in the book, for example for a workshop), and the supporting data. After the period the analysis has three stages. Stage 1 compares plan and fact of the output reports: profit and loss, cash flow, investments, financial state. Stage 2 analyses the operating, investment and financial sub-budgets by factors (price against volume, for example). Stage 3 is the synthesis: the sub-budgets are linked through cash movement, so the conclusions are combined into corrections for the next period. The book does the example "as an outsider", because insiders know too much to see the figures cleanly, and uses the result for two aims: planning of the next period and control and incentive by centre.</p>
+    <p class="lesson"><b>Lesson.</b> Report exceptions top-down with drill-down; always split a variance into factors so that the owner of the factor can act.</p>
+  </article>
+
+  <article class="case card" id="c7">
+    <h3><span class="num">7</span> Two horizons: staff by quarter, managers by year <span class="pill dom">industry</span> <span class="pill b">B</span></h3>
+    <p>Principle 8: the base of bonus calculation is the same for staff and manager of a centre (given by the centre type), but the time frame differs. Staff are rewarded for overfulfilling short-term indicators, the quarterly budget, because turnover among ordinary staff is higher. The manager's bonus partly follows the short budget, but its main part follows the long "development budget", for example for a year, because managers are the core of the firm and should care about the long result. Together with principle 9 (flexible coefficients), this is the book's answer to "how often do we change the KPI": the list of parameters stays, the weights are revised each short period.</p>
+    <p class="lesson"><b>Lesson.</b> In a long project give the team sprint-level KPIs and give the project manager stage and benefit KPIs, so that nobody is paid to shift cost to the next stage.</p>
+  </article>
+</section>
+
+<section id="world">
+  <h2>Part B. Fifteen cases from practice</h2>
+  <p class="sub">Found by web research on 2026-11-19. Where the search only returned a summary, the paragraph says what could not be checked. The vendor "worked examples" of SPI and CPI found on the way are shown in the formulas section, not as cases, because they are illustrations.</p>
+
+  <article class="case card" id="c8">
+    <h3><span class="num">8</span> NASA: a money threshold switches on Earned Value <span class="pill dom">aerospace, defence</span> <span class="pill a">A</span></h3>
+    <p>The NASA FAR Supplement requires an Earned Value Management System on development or production work, including flight and ground support and institutional projects. For cost-type or fixed-price-incentive contracts of $50 million and more the system must be found compliant by the cognizant federal agency; from $20 million to under $50 million it must comply with ANSI/EIA-748; below $20 million, EVM is optional and a risk-based decision of the project manager. Firm-fixed-price work is a special case: EVM is discouraged, but an Integrated Master Schedule and schedule reporting are still required from $20 million. The contract requirements checklist puts the monthly EVMS report into the acquisition package as a deliverable. The sources I read give the rule, not the outcome; the CPI / SPI limits are in NPR 7120.5, which I did not read.</p>
+    <p class="lesson"><b>Lesson.</b> Scale the KPI machine to the size and risk of the work; a small task does not need a full EVMS, a large one cannot go without it.</p>
+  </article>
+
+  <article class="case card" id="c9">
+    <h3><span class="num">9</span> UK major projects: independent RAG rating <span class="pill dom">government</span> <span class="pill a">A</span></h3>
+    <p>The UK central authority (the Infrastructure and Projects Authority, now merged into NISTA) rates every project of the Government Major Projects Portfolio by a Delivery Confidence Assessment, "the rating of a project's chance of success at a specific point in time". Since 2022 the scale is red, amber, green, tied to a stage gate assessment. The authority publishes an annual report and project-level data with the rating of the authority and of the senior responsible owner, and department commentary. The first NISTA report (2024-25) counted 135 amber, 31 red and 30 green. The value for a project office is the structure: two independent readings of the same project, a fixed scale, a fixed date, and a public record.</p>
+    <p class="lesson"><b>Lesson.</b> Give the portfolio one rating scale with written meaning and let someone other than the project manager read it.</p>
+  </article>
+
+  <article class="case card" id="c10">
+    <h3><span class="num">10</span> Crossrail: no baseline, no KPI <span class="pill dom">rail megaproject</span> <span class="pill a">A</span> <span class="pill neg">failure</span></h3>
+    <p>The UK National Audit Office found that Crossrail Ltd did not start to produce a delivery plan detailed enough to track progress until late 2018, and that the revised schedule and budget agreed in April 2019 were unachievable because the programme was further from complete than the company and its sponsors understood. The 2019 report named the compressed schedule, the contract model, lack of pressure on costs and the absence of an achievable plan among the causes. In late 2018 the sponsors appointed a new chair and chief executive. The 2021 follow-up gave a forecast cost to complete of £18.9bn (including Network Rail costs, excluding new trains and depot) and said the cost and schedule were beyond the budget available. I did not read the lessons appendix in full, so the lessons here are the audit's findings and not a list of KPIs.</p>
+    <p class="lesson"><b>Lesson.</b> Percent-complete and CPI / SPI are only as good as the baseline plan they are measured against; build the detailed plan first and re-baseline openly.</p>
+  </article>
+
+  <article class="case card" id="c11">
+    <h3><span class="num">11</span> Heathrow Terminal 5: one agreement, one incentive pool <span class="pill dom">airport construction</span> <span class="pill b">B</span></h3>
+    <p>For T5 the owner BAA used the T5 Agreement. In the sources I read, the owner kept the risk of the project (unlike a normal cost-incentive contract, where risk is shared with suppliers), and the suppliers worked as one integrated team with an incentive fund that rewarded completion below the target budget and good safety, time and quality performance. The case is studied at Manchester (teaching case "BAA: The T5 Project Agreement") and in papers by Brady and Davies. The search did not return the actual KPI definitions, weights or the pain-gain ratio, so those cannot be quoted; what the case shows is the design: several KPI families, a joint pool, and no cost-only reward.</p>
+    <p class="lesson"><b>Lesson.</b> A reward built on cost alone pushes quality and safety down; put all four families into the incentive.</p>
+  </article>
+
+  <article class="case card" id="c12">
+    <h3><span class="num">12</span> CII benchmarking: the same KPI for hundreds of projects <span class="pill dom">construction, EPC</span> <span class="pill a">A</span></h3>
+    <p>The Construction Industry Institute started its Benchmarking and Metrics programme in 1995 so that member companies can compare their finished projects with a common database and measure the value of best practices. Metrics are cost growth and schedule growth, overall and by project phase, with safety (recordable incident rate and lost-workday-case rate), changes and rework. One study counted 395 projects worth nearly $21 billion; researchers use the data to test contract incentives, constructability and delivery systems against cost growth, schedule growth and safety. Scoring ranges for the metrics are derived from the statistical distribution of the database. CII also states that benchmarking and best practices bring up to 18% cost improvement (a figure from the CII site that I did not check against its study). Today the site lists a corporate safety benchmark and a best-practice implementation benchmark.</p>
+    <p class="lesson"><b>Lesson.</b> A KPI definition has to be written down in detail (what counts as cost growth, from which baseline), otherwise project data cannot be compared.</p>
+  </article>
+
+  <article class="case card" id="c13">
+    <h3><span class="num">13</span> Last Planner: the weekly Percent Plan Complete <span class="pill dom">building construction</span> <span class="pill b">B</span></h3>
+    <p>In the Last Planner System the foremen and trade contractors agree the work of the coming week, and the KPI is PPC: tasks completed as planned divided by tasks planned. Every missed task gets a reason, so the project learns why plans fail. A mixed-methods study by Power, Sinnott and Lynch (2021) cites a finding that less than 60% of planned tasks are executed weekly in many projects, and concludes that a competent LPS facilitator embedded on the project helps implementation; an Irish study of two capital projects (Power and Taylor, 2019) used PPC with reasons for non-completion. The warnings are as important as the benefits: Ballard and Tommelein caution against over-focus on PPC, since a project may show a high PPC and still fall behind its schedule, and the effect on productivity is suggestive, not established, in the sources I found (mostly single project studies, some of them student theses).</p>
+    <p class="lesson"><b>Lesson.</b> Use PPC as the weekly early signal and the reason codes as the improvement list, but check it against the milestone plan.</p>
+  </article>
+
+  <article class="case card" id="c14">
+    <h3><span class="num">14</span> AstraZeneca: the KPI is the quality of the gate decision <span class="pill dom">pharma R&amp;D</span> <span class="pill a">A</span></h3>
+    <p>Cook and colleagues (2014) reviewed AstraZeneca's small-molecule projects of 2005-2010 and derived five determinants of success - the right target, right tissue, right safety, right patient and right commercial potential - and proposed that every project is examined on them. A follow-up (Morgan et al., 2018) reports that the success rate from candidate nomination to phase III completion rose from 4% in 2005-2010 to 19% in 2012-2016. The correction matters: the 4%-to-19% figure comes from the 2018 paper, the 2014 paper itself said it was too early to prove an effect, and the two numbers measure different stages from the "2% vs 6% to market" often quoted. The KPI of the portfolio is the success rate per stage, and of the project the evidence behind each of the five questions at each gate.</p>
+    <p class="lesson"><b>Lesson.</b> For research and uncertain work, measure the quality of go / no-go decisions and the attrition per stage; schedule and cost indices say little.</p>
+  </article>
+
+  <article class="case card" id="c15">
+    <h3><span class="num">15</span> DORA: four metrics that watch speed and stability together <span class="pill dom">software</span> <span class="pill b">B</span></h3>
+    <p>The DORA research programme (Google Cloud, State of DevOps reports) uses four measures of software delivery: deployment frequency, lead time for changes, change failure rate and time to restore service. Teams are grouped into performance clusters; the 2021 report gives for the top group several deployments a day, lead time under an hour and restoration under an hour, while low performers restore in a week to a month. The grouping changed over the years (three clusters in 2022, four in 2024), so benchmarks should be cited with the year. The data come from the pipeline and the incident tool, which is why this KPI set is hard to fake and cheap to collect; the results of the studies are survey based and self-reported.</p>
+    <p class="lesson"><b>Lesson.</b> Pair a throughput KPI with a quality KPI, collect them automatically, and benchmark against the year of the report.</p>
+  </article>
+
+  <article class="case card" id="c16">
+    <h3><span class="num">16</span> Mobil NAM&amp;R: one scorecard cascaded to units <span class="pill dom">oil, downstream</span> <span class="pill b">B</span></h3>
+    <p>Kaplan and Norton call Mobil's North America Marketing and Refining unit "perhaps our best example" of the strategy-focused organisation. The Balanced Scorecard project started in 1994, a warm winter in 1995 cut heating oil and gas sales, and the unit moved from centrally controlled to decentralised business units, each with its own scorecard (financial, customer, internal process, learning), and staff functions with scorecards whose customers were internal units. The productivity strategy is credited with a 20% reduction in the cost of refining, marketing and delivering a gallon of gasoline. These details come from secondary summaries and the abstract of the Harvard case 197-120; the full case and the book <i>The Strategy-Focused Organization</i> are the primary sources.</p>
+    <p class="lesson"><b>Lesson.</b> A portfolio or programme KPI needs a strategy map from top goals to unit measures, with staff functions also measured by their internal customers.</p>
+  </article>
+
+  <article class="case card" id="c17">
+    <h3><span class="num">17</span> KPI reporting for engineering design at an equipment manufacturer <span class="pill dom">engineering</span> <span class="pill a">A</span></h3>
+    <p>Gries and Restrepo (ICED 2011) ran a 15-month case study in three locations of a power generation equipment manufacturer to build a KPI reporting concept for design projects and a management dashboard. The team began with a long list of 30 engineering KPIs, drawn partly from the staff, and concluded that standard project management KPIs fit engineering design work after customisation to the nature and size of the company, projects and teams. They also saw that the engineers preferred to manage by the KPIs the management had chosen. The authors say they cannot yet propose a fixed set of design-specific KPIs and that company culture and the consulting approach may have shaped the result. I read the abstract and excerpts, not the full paper.</p>
+    <p class="lesson"><b>Lesson.</b> Do not invent KPIs for knowledge work; start from the standard set, cut the long list with management, and expect to re-tune.</p>
+  </article>
+
+  <article class="case card" id="c18">
+    <h3><span class="num">18</span> A KPI set chosen by experts and tested on a consulting project <span class="pill dom">consulting</span> <span class="pill a">A</span></h3>
+    <p>Montero, Onieva and Palacin (2015) selected a comprehensive set of project-management KPIs by the Delphi method with a panel of experts and validated its flexibility and customisation on a consultancy project; a later study applied the indicators for control on different project types, with a pilot on a five-year strategic consulting project. The point for practice is the procedure: expert panel chooses once, the project manager picks from the set, the set is adapted per project type. I only saw the abstracts and metadata, so the indicator list itself is not reproduced here.</p>
+    <p class="lesson"><b>Lesson.</b> Keep a company-wide KPI catalogue and let each project select its subset, instead of inventing a new list per project.</p>
+  </article>
+
+  <article class="case card" id="c19">
+    <h3><span class="num">19</span> OKR: few public goals, graded <span class="pill dom">technology</span> <span class="pill b">B</span></h3>
+    <p>OKRs came from Andy Grove's system at Intel, built on Peter Drucker's management by objectives; John Doerr learned it at Intel in the 1970s and brought it to Google in 1999, when the company had about 40 people. The structure is three to five objectives, each with measurable key results, set openly each quarter. A commonly cited practice is that stretch OKRs are graded and an average of 0.6-0.7 is healthy; I found this only in a secondary blog, not in Google's or Doerr's own text. For projects the use is natural where the baseline moves (product work, agile teams) and a fixed EVM baseline would be rewritten every month.</p>
+    <p class="lesson"><b>Lesson.</b> Where the plan is fluid, measure the outcome (key result) and keep the goal list short and visible.</p>
+  </article>
+
+  <article class="case card" id="c20">
+    <h3><span class="num">20</span> Critical chain: watch how fast the buffer burns <span class="pill dom">ETO manufacturing, shipbuilding</span> <span class="pill c">C</span></h3>
+    <p>Goldratt's critical chain method removes the safety time from tasks and puts it into a project buffer at the end and feeding buffers where side chains join the critical chain. The KPI is the fever chart: percent of the project buffer consumed against percent of the critical chain completed, with green, yellow and red zones; in a sample in the sources, 55% of the chain was complete with 40% of the buffer used, which reads as slightly ahead. Consultants report lead-time reductions of 25-50%, but those figures come from advocates, not from independent studies, and an academic critique exists (Raz, Barnes and Dvir, 2003). Treat it as a good early-warning chart rather than a proven productivity method.</p>
+    <p class="lesson"><b>Lesson.</b> A relative indicator (buffer used against progress) warns before the end date moves, and needs only remaining duration from owners.</p>
+  </article>
+
+  <article class="case card" id="c21">
+    <h3><span class="num">21</span> PMI: leaders measure the benefit, not only cost and time <span class="pill dom">all industries</span> <span class="pill b">B</span></h3>
+    <p>PMI's yearly Pulse of the Profession surveys show how organisations measure project success. In 2013 less than two thirds of projects met goals and business intent, and about $135 million was wasted per $1 billion invested; by 2017 the success rate was 69% and waste $97 per $1,000, and for the first time success included benefits realization, where only 31% rated their maturity high or very high. The 2018 report defines "champions" as organisations completing 80% and more of their projects on time, on budget, meeting business intent, with high benefits realization maturity: 92% average success against 32% for underperformers, and 1.4% against 29.1% of money wasted. These are survey results and a classification made by PMI, not proof of cause, but they agree with case 14 and the portfolio view in case 9.</p>
+    <p class="lesson"><b>Lesson.</b> Add a benefit KPI (money or outcome) to the cost-time pair and keep an owner for it after the project closes.</p>
+  </article>
+
+  <article class="case card" id="c22">
+    <h3><span class="num">22</span> Watermelon reporting and written RAG thresholds <span class="pill dom">IT, any programme</span> <span class="pill c">C</span> <span class="pill neg">anti-pattern</span></h3>
+    <p>A "watermelon" project is green outside and red inside: the status report is green while bugs, delays and lack of progress pile up. The practitioner articles agree on the causes: not fraud but a culture in which a red status brings blame and not help, and optimism in a flat organisation where nobody wants to report the slip. The cure they give is the same everywhere: write down in advance what makes a status amber or red and when it has to change, so that the colour is a fact and not a mood. Cases 9 and 10 show the same problem at the scale of a nation: an independent reading and a detailed baseline are the two safeguards.</p>
+    <p class="lesson"><b>Lesson.</b> Define the RAG thresholds on numbers (CPI, SPI, buffer, PPC), compute the colour, and let the PMO check disagreements.</p>
+  </article>
+</section>
+
+<section id="industries">
+  <h2>Which industries and domains need KPIs in projects most</h2>
+  <p class="sub">The column "Why" and the ranking are my reading of the 22 cases and of the nature of the work; the case numbers show the evidence. Only industries with at least one case are ranked.</p>
+  <div class="scroll"><table class="small">
+    <thead><tr><th>Industry / domain</th><th>Interest</th><th>Why the pressure is high</th><th>KPIs that dominate</th><th>Cases</th></tr></thead>
+    <tbody>
+      <tr><td><b>Construction, EPC, infrastructure</b></td><td><span class="bar" style="width:100px"></span> very high</td><td>Large fixed budgets, many subcontractors, weather and site risk, owners who pay for results, public scrutiny of overruns</td><td>Cost growth, schedule growth, PPC, safety rates, rework, changes; incentive pools</td><td>10, 11, 12, 13</td></tr>
+      <tr><td><b>Aerospace, space, defence</b></td><td><span class="bar" style="width:100px"></span> very high</td><td>Contract law demands it: EVM by dollar threshold; long programmes with cost-type contracts</td><td>CPI, SPI, variances, Integrated Master Schedule</td><td>8</td></tr>
+      <tr><td><b>Government and public sector programmes</b></td><td><span class="bar" style="width:95px"></span> very high</td><td>Public money, audit, need for one scale across hundreds of projects</td><td>RAG delivery confidence, cost to complete, benefits</td><td>9, 10, 22</td></tr>
+      <tr><td><b>Pharma and life sciences R&amp;D</b></td><td><span class="bar" style="width:85px"></span> high</td><td>Huge cost of failure late in the pipeline, uncertain outcomes, stage gates</td><td>Stage success rate (attrition), gate evidence, cost per stage</td><td>14</td></tr>
+      <tr><td><b>Software and IT delivery</b></td><td><span class="bar" style="width:85px"></span> high</td><td>Fast change, fluid scope, data available from tools; high rate of watermelon status</td><td>DORA metrics, velocity, OKR, RAG with written thresholds</td><td>15, 19, 22</td></tr>
+      <tr><td><b>Oil, gas and energy</b></td><td><span class="bar" style="width:75px"></span> high</td><td>Capital-heavy projects and cost-driven downstream margins; unit KPIs must serve one strategy</td><td>Balanced scorecard, cost per unit, project cost growth, return on capital</td><td>4, 12, 16</td></tr>
+      <tr><td><b>Industrial manufacturing and engineer-to-order</b></td><td><span class="bar" style="width:75px"></span> high</td><td>Many workshops delivering to each other, design projects, strict delivery dates</td><td>Variances from standard, transfer prices, bonus on deviation, design KPIs, buffer burn</td><td>1-7, 17, 20</td></tr>
+      <tr><td><b>Professional services, consulting</b></td><td><span class="bar" style="width:60px"></span> medium</td><td>Time is the product; margin depends on hours and rate; long client projects</td><td>Utilisation, hours and rate variance, margin, milestones, customised KPI set</td><td>18</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note"><b>Not covered by a case here.</b> Banking, telecom, retail and health-care change portfolios certainly run project KPIs too, but I found no verifiable case for them in this research, so I do not rank them.</div>
+</section>
+
+<section id="patterns">
+  <h2>Patterns that repeat in the cases</h2>
+  <div class="scroll"><table class="small">
+    <thead><tr><th>Pattern</th><th>What the cases show</th><th>Cases</th></tr></thead>
+    <tbody>
+      <tr><td><b>Owner and decision right</b></td><td>The KPI is tied to a named person with the power to change it; the report holds only controllable items</td><td>1, 2, 5, 8, 9</td></tr>
+      <tr><td><b>Baseline first</b></td><td>The best-known failure is a missing or unachievable baseline; compare to the plan, not to history</td><td>3, 10, 12</td></tr>
+      <tr><td><b>Pairs, not singles</b></td><td>Cost with time, speed with stability, output with cost, revenue with expense</td><td>4, 8, 11, 15</td></tr>
+      <tr><td><b>Written thresholds</b></td><td>The colour or the alarm follows a number set in advance</td><td>9, 13, 20, 22</td></tr>
+      <tr><td><b>Leading and lagging</b></td><td>Weekly and buffer signals early; money and benefit signals late</td><td>13, 20, 12, 21</td></tr>
+      <tr><td><b>Automatic collection</b></td><td>KPIs from the delivery pipeline or the accounting registers are hard to fake</td><td>15, 12</td></tr>
+      <tr><td><b>Independent second reading</b></td><td>A central authority, an arbitration commission or a PMO checks the self-report</td><td>5, 9, 10, 22</td></tr>
+      <tr><td><b>Customise a standard set</b></td><td>Start from a standard catalogue, cut a long list, adapt per project type</td><td>17, 18</td></tr>
+      <tr><td><b>KPI linked to a decision or reward</b></td><td>Stage gates, bonus rates, incentive pools, OKR grades</td><td>3, 4, 11, 14, 19</td></tr>
+      <tr><td><b>Scale with the size</b></td><td>The full machine is switched on above a money threshold</td><td>8</td></tr>
+    </tbody>
+  </table></div>
+  <h3 style="margin-top:20px">Pitfalls the sources name</h3>
+  <ul class="tight">
+    <li>Bonus on growth over the previous period instead of deviation from the plan (case 3).</li>
+    <li>Total cost as a workshop KPI when the output is set by someone else (case 2).</li>
+    <li>Unequal rates for two ways of earning the same profit (case 4).</li>
+    <li>Too few indicators, so the manager optimises the visible ones (case 3).</li>
+    <li>High PPC and a late project at the same time (case 13).</li>
+    <li>Benchmarks quoted without the year of the report (case 15) or without the stage they measure (case 14).</li>
+    <li>Green status over a failing project (case 22), and a plan too coarse to track (case 10).</li>
+  </ul>
+</section>
+
+<section id="formulas">
+  <h2>Formulas the cases use</h2>
+  <div class="grid">
+    <div class="card"><h3>Earned Value (cases 8, 10)</h3>
+<div class="formula">PV  planned value (budgeted work scheduled)
+EV  earned value (budgeted cost of work done)
+AC  actual cost
+CV  = EV - AC        SV  = EV - PV
+CPI = EV / AC        SPI = EV / PV
+EAC = BAC / CPI      TCPI = (BAC - EV) / (BAC - AC)</div>
+      <p class="sub">Illustrations from vendor sites, not cases: EV 120,000 and AC 135,000 give CPI 0.89 (over budget); EV 30,000 and PV 36,000 give SPI 0.83 (behind). SPI is unreliable when baselines change often.</p></div>
+    <div class="card"><h3>PPC and buffer (cases 13, 20)</h3>
+<div class="formula">PPC = tasks completed as planned / tasks planned (week)
+Buffer used % = buffer consumed / project buffer
+Chain done %  = critical chain completed / critical chain
+Fever zone = f(buffer used %, chain done %)</div></div>
+    <div class="card"><h3>Equilibrium bonus rate (case 4)</h3>
+<div class="formula">profit per unit  = price - variable cost
+                 = 100 - 80 = 20
+bonus per unit   = price x rate = 100 x 0.10 = 10
+rate per profit  = 10 / 20 = 0.5
+=> pay 0.5 per 1 of expense saved</div></div>
+    <div class="card"><h3>Cost growth, ROI, residual income (cases 1, 12)</h3>
+<div class="formula">cost growth     = (final cost - budget) / budget
+schedule growth = (final duration - planned) / planned
+ROI             = (revenue - cost) / cost
+residual income = profit - capital charge x capital employed</div></div>
+    <div class="card"><h3>DORA (case 15)</h3>
+<div class="formula">deployment frequency   deploys / day
+lead time for changes  commit -> production
+change failure rate    failed deploys / deploys
+time to restore        incident start -> restored</div></div>
+  </div>
+</section>
+
+<section id="u1">
+  <h2>What Universal 1 already has for these cases</h2>
+  <p class="sub">Read from <code>KNOW_HOW.md</code> (section 6). "Has" means it is built there; I did not run the screens for this document.</p>
+  <div class="scroll"><table class="small">
+    <thead><tr><th>Case / practice</th><th>In Universal 1</th><th>Status</th></tr></thead>
+    <tbody>
+      <tr><td>1, 2 - responsibility centres, owners of a KPI</td><td>Business unit with cost / revenue / profit / investment centre types (<code>kit8/catalog/business_unit</code>); RACI items on every Time line; permission profiles by role</td><td><span class="pill a">built</span></td></tr>
+      <tr><td>8 - cost and schedule indices (EVM)</td><td>Gantt Extended C1-C8: baselines, actual bars, status date, progress lines, EVM (also in Monitor01); each function is a switch in Project settings, Gantt, off by default</td><td><span class="pill a">built</span>; I did not check which indices (CPI, SPI) the screens show</td></tr>
+      <tr><td>6, 12 - plan-fact by month, task, role, unit</td><td>Monitor01: plan, ordered, received, used, invoiced, customer invoiced; VAT basis switch; saved Views</td><td><span class="pill a">built</span></td></tr>
+      <tr><td>16, 21 - money result and benefit</td><td>ROI1-4 with Monitor02 (now) and Monitor03 (history); Monitor07 partner balance; Monitor08 consolidation</td><td><span class="pill a">built</span></td></tr>
+      <tr><td>13 - weekly promise rate</td><td>Time sheet gives used hours; Kanban stage percent gives progress</td><td><span class="pill c">no PPC KPI</span></td></tr>
+      <tr><td>9, 22 - RAG with written thresholds</td><td>appPM80 home has four KPI rings (budget used, capacity, delivered, collected) with bands, but the numbers there are demo snapshots; no KPI catalogue with targets and owner</td><td><span class="pill dom">partly</span></td></tr>
+      <tr><td>3, 4, 7 - bonus from deviation, equilibrium rates</td><td>None: no incentive calculation</td><td><span class="pill neg">not built</span></td></tr>
+      <tr><td>5 - internal arbitration</td><td>None</td><td><span class="pill neg">not built</span></td></tr>
+      <tr><td>14, 21 - stage gates, benefits</td><td>Project versions; a capital request and approval flow is only planned (<code>PRO_CaPex_OpEx_WBS.html</code>)</td><td><span class="pill neg">not built</span></td></tr>
+    </tbody>
+  </table></div>
+  <div class="good"><b>A possible next step (not built, your decision).</b> A small KPI catalogue per organization: KPI name, formula from an existing report, owner (Person or business unit), target, written red / amber / green thresholds, and the report where it is read. It would use the patterns in section "Patterns": owner, baseline, pairs, thresholds. The book's equilibrium-rate arithmetic (case 4) could be a calculator on it.</div>
+</section>
+
+<section id="sources">
+  <h2>Sources and limits</h2>
+  <ul class="tight">
+    <li>K. V. Shchiborsh, <i>Budgeting of the activity of industrial enterprises of Russia</i>, M.: Delo i Servis, 2001; local extraction <code>documentation/BUDGET1/build/book_read.txt</code> (chapters 6, 7, 8 read for this document; chapters 3-5 and 9 only searched for KPI terms).</li>
+    <li><a href="https://www.acquisition.gov/nfs/part-1834%E2%80%94major-system-acquisition">NASA FAR Supplement, part 1834, Earned Value Management System</a> and the <a href="https://www.nasa.gov/wp-content/uploads/2018/06/nasa_evm_contract_requirements_checklist_0.pdf">NASA EVM contract requirements checklist</a>.</li>
+    <li><a href="https://www.nao.org.uk/reports/crossrail-progress-update/">National Audit Office, Crossrail: a progress update (2021)</a>, and the 2019 report Completing Crossrail.</li>
+    <li><a href="https://assets.publishing.service.gov.uk/media/678a4a9869b9b76c761d0574/IPA_Annual_Report_2023-24.pdf">IPA Annual Report 2023-24</a> and the <a href="https://www.gov.uk/government/publications/nista-major-projects-annual-report-2025-26/nista-major-projects-annual-report-2025-26">NISTA Major Projects Annual Report 2025-26</a>.</li>
+    <li><a href="https://personalpages.manchester.ac.uk/staff/Nuno.Gil/Teaching%20case%20studies/BAA%20T5%20Agreement%20.pdf">BAA T5 Agreement, Manchester teaching case</a>; <a href="https://infrastructuredeliverymodels.gihub.org/case-studies/heathrow-terminal-5">Heathrow Terminal 5, Global Infrastructure Hub</a>.</li>
+    <li><a href="https://www.construction-institute.org/benchmarking-metrics-summary-report">CII Benchmarking and Metrics summary report</a> and <a href="https://www.construction-institute.org/cii-benchmarking">CII benchmarking</a>.</li>
+    <li><a href="https://leanconstruction.org/lean-construction-journal/doi-info-2019-131-146/">Last Planner System and Percent Plan Complete: an examination of trade contractor performance</a> (Lean Construction Journal, 2019).</li>
+    <li><a href="https://pubmed.ncbi.nlm.nih.gov/24833294/">Cook et al. 2014, Lessons learned from the fate of AstraZeneca's drug pipeline</a>; <a href="https://bvbvf1.bib-bvb.de/vufind/PrimoRecord/cdi_proquest_miscellaneous_1989607910">Morgan et al. 2018, Impact of a five-dimensional framework on R&amp;D productivity at AstraZeneca</a>.</li>
+    <li><a href="https://dora.dev/publications/pdf/state-of-devops-2021.pdf">DORA, State of DevOps 2021</a>; <a href="https://martinfowler.com/bliki/StateOfDevOpsReport.html">Martin Fowler on the State of DevOps report</a>.</li>
+    <li><a href="https://hbswk.hbs.edu/item/1746.html">Harvard Business School Working Knowledge on the Balanced Scorecard</a>; <a href="https://store.hbr.org/product/mobil-usm-r-a-linking-the-balanced-scorecard/197025">Mobil USM&amp;R (A): Linking the Balanced Scorecard</a>.</li>
+    <li><a href="https://www.designsociety.org/publication/30450/KPI+MEASUREMENT+IN+ENGINEERI">Gries and Restrepo, KPI measurement in engineering design - a case study (ICED11)</a>.</li>
+    <li><a href="https://core.ac.uk/download/333940696.pdf">Montero, Onieva, Palacin and follow-up work on KPI implementation for project control</a> (CORE).</li>
+    <li><a href="https://www.pmi.org/learning/thought-leadership/pulse/pulse-of-the-profession-2018">PMI Pulse of the Profession 2018</a> and <a href="https://www.pmi.org/learning/thought-leadership/pulse/pulse-of-the-profession-2017">2017</a>.</li>
+    <li><a href="https://www.news24.com/business/opinion/the-simple-idea-that-became-intels-secret-weapon-against-motorola-20180711">Intel, Grove and Doerr: the origin of OKRs</a>; <a href="https://www.projectmanagement.com/articles/283162/watermelon-projects">Watermelon projects</a>; <a href="https://critical-chain-projects.com/videos/theory/the-fever-chart-explained-by-philip-marris">the fever chart explained</a>; <a href="https://www.actitime.com/project-management/kpi-project-management/">actiTIME</a> and <a href="https://plaky.com/blog/kpi-project-management">Plaky</a> for the SPI / CPI illustrations.</li>
+  </ul>
+  <div class="note"><b>Limits.</b> The web research used search summaries and abstracts; several papers are paywalled, so the paragraphs say when only an abstract was seen. KPI weights of the T5 Agreement, the CPI / SPI limits of NPR 7120.5, the full Crossrail lessons appendix and the original wording of Google's OKR grading were not verified. No case was run or tested in an application. No claim is made that any KPI caused a result; the sources show association at best.</div>
+</section>
+
+<footer>KPI_FOR_PM_BEST_PRACTICES.html - Universal 1, 2026-11-19. Related: BUDGET1_BOOK.html, BUSINESS_UNIT_CFR_STRUCTURE.html, ROI_DOC.html, MONITOR01_WBS.html.</footer>
+</main>
+
+<script>
+(function () {
+  var rows = Array.prototype.slice.call(document.querySelectorAll('#tbl tbody tr'));
+  var q = document.getElementById('q'), cnt = document.getElementById('cnt');
+  var btns = Array.prototype.slice.call(document.querySelectorAll('.tools button'));
+  var grade = 'all';
+  function apply() {
+    var t = (q.value || '').toLowerCase(), n = 0;
+    rows.forEach(function (r) {
+      var ok = (grade === 'all' || r.getAttribute('data-g') === grade) && (!t || r.textContent.toLowerCase().indexOf(t) >= 0);
+      r.style.display = ok ? '' : 'none';
+      if (ok) n++;
+    });
+    cnt.textContent = n + ' of ' + rows.length + ' cases';
+  }
+  q.addEventListener('input', apply);
+  btns.forEach(function (b) {
+    b.addEventListener('click', function () {
+      grade = b.getAttribute('data-g');
+      btns.forEach(function (x) { x.classList.toggle('on', x === b); });
+      apply();
+    });
+  });
+  apply();
+})();
+</script>
+</body>
+</html>

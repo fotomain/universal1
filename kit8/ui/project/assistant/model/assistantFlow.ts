@@ -30,7 +30,7 @@ export type AssistantFlowAction =
   | { type: 'next' }
   | { type: 'back' };
 
-export const initialFlow = (values: AssistantValues, phase: AssistantPhase): AssistantFlowState => ({ phase, values, stepId: 'identity', reached: ['identity'] });
+export const initialFlow = (values: AssistantValues, phase: AssistantPhase, firstStep: AssistantStepId = 'identity'): AssistantFlowState => ({ phase, values, stepId: firstStep, reached: [firstStep] });
 
 const withReached = (reached: AssistantStepId[], id: AssistantStepId, v: AssistantValues, ctx: AssistantContext): AssistantStepId[] =>
   visibleSteps(v, ctx).filter((s) => reached.includes(s) || s === id);
@@ -55,8 +55,11 @@ export function assistantFlowReducer(ctx: AssistantContext) {
       }
       case 'phase':
         return { ...state, phase: action.phase };
-      case 'start':
-        return { phase: 'steps', values: action.values, stepId: 'identity', reached: ['identity'] };
+      case 'start': {
+        // the first question that is asked (the defaults of an organization start at the planning model: no name, no dates)
+        const first = visibleSteps(action.values, ctx)[0] ?? 'identity';
+        return { phase: 'steps', values: action.values, stepId: first, reached: [first] };
+      }
       case 'restore': {
         const list = visibleSteps(action.values, ctx);
         const stepId = list.includes(action.stepId) ? action.stepId : list[0];

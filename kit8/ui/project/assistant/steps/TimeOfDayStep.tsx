@@ -42,6 +42,23 @@ export default function TimeOfDayStep({ values, onChange }: AssistantStepProps) 
 
       <TextInput
         mode="outlined"
+        label={pmT('Time zone')}
+        value={values.projectTimeZone}
+        onChangeText={(projectTimeZone) => onChange({ projectTimeZone })}
+        error={zoneBad}
+        autoCapitalize="none"
+        autoCorrect={false}
+        testID="assistant-zone"
+      />
+      <HelperText type={zoneBad ? 'error' : 'info'} visible>
+        {zoneBad ? pmT('This is not a time zone name, for example Europe/Berlin.') : pmT('The zone the windows are read in; it matters when the plan is posted.')}
+      </HelperText>
+      <View style={styles.row}>
+        {device ? <Button compact mode="text" onPress={() => onChange({ projectTimeZone: device })} testID="assistant-zone-device">{`${pmT('This device')}: ${device}`}</Button> : null}
+        <Button compact mode="text" onPress={() => onChange({ projectTimeZone: 'UTC' })} testID="assistant-zone-utc">UTC</Button>
+      </View>
+      <TextInput
+        mode="outlined"
         label={pmT('Working windows of a day')}
         value={values.workWindowsText}
         onChangeText={(workWindowsText) => onChange({ workWindowsText })}
@@ -49,6 +66,7 @@ export default function TimeOfDayStep({ values, onChange }: AssistantStepProps) 
         autoCapitalize="none"
         autoCorrect={false}
         testID="assistant-windows"
+        style={{ marginTop: 8 }}
       />
       <HelperText type={windowsBad ? 'error' : 'info'} visible>
         {pmT('From-to, separated by commas, for example 09:00-13:00, 14:00-18:00. A break is the gap between two windows.')}
@@ -59,24 +77,6 @@ export default function TimeOfDayStep({ values, onChange }: AssistantStepProps) 
         ))}
       </View>
 
-      <TextInput
-        mode="outlined"
-        label={pmT('Time zone')}
-        value={values.projectTimeZone}
-        onChangeText={(projectTimeZone) => onChange({ projectTimeZone })}
-        error={zoneBad}
-        autoCapitalize="none"
-        autoCorrect={false}
-        testID="assistant-zone"
-        style={{ marginTop: 8 }}
-      />
-      <HelperText type={zoneBad ? 'error' : 'info'} visible>
-        {zoneBad ? pmT('This is not a time zone name, for example Europe/Berlin.') : pmT('The zone the windows are read in; it matters when the plan is posted.')}
-      </HelperText>
-      <View style={styles.row}>
-        {device ? <Button compact mode="text" onPress={() => onChange({ projectTimeZone: device })} testID="assistant-zone-device">{`${pmT('This device')}: ${device}`}</Button> : null}
-        <Button compact mode="text" onPress={() => onChange({ projectTimeZone: 'UTC' })} testID="assistant-zone-utc">UTC</Button>
-      </View>
       <Text variant="bodySmall" style={{ opacity: 0.7, marginTop: 4 }}>{pmT('The time-of-day model plans from the project start; a plan from the finish date is not used in it.')}</Text>
     </View>
   );

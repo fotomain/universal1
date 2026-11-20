@@ -67,16 +67,36 @@ export async function startNfcReader(onTag: (tag: RawTag) => void, onClosed: (er
   };
 }
 
-/** the tag that STARTED the app (Android intent filter); null when the app was not started by a tag. The tag is taken once. */
-export async function takeBackgroundTag(): Promise<RawTag | null> {
-  try {
-    await ensureStarted();
-    const tag = await NfcManager.getBackgroundTag();
-    if (tag) await NfcManager.clearBackgroundTag();
-    return (tag as RawTag | null) ?? null;
-  } catch {
-    return null;
-  }
+/**
+ * ONE call at a time. The Android side of react-native-nfc-manager hands its cached tag object to JavaScript ONCE; a second `getBackgroundTag`
+ * before `clearBackgroundTag` has finished crashes the whole app (`ObjectAlreadyConsumedException` in `NfcManager.getBackgroundTag`, seen on the Samsung right
+ * after pressing Scan: the app came to the front twice in a row and the handler asked twice). So callers that arrive while a call is running share its answer.
+ */
+let taking: Promise<RawTag | null> | null = null;
+
+/** the tag that STARTED the app (Android intent filter); null when the app was not started by a tag. The tag is taken once and cleared. */
+export function takeBackgroundTag(): Promise<RawTag | null> {
+  if (taking) return taking;
+  taking = (async () => {
+    try {
+      await ensureStarted();
+      const tag = (await NfcManager.getBackgroundTag()) as RawTag | null;
+      // always clear what was taken (also when something below fails): a tag left in the native cache is the next crash
+      if (tag) {
+        try {
+          await NfcManager.clearBackgroundTag();
+        } catch {
+          // nothing to clear
+        }
+      }
+      return tag ?? null;
+    } catch {
+      return null;
+    } finally {
+      taking = null;
+    }
+  })();
+  return taking;
 }
 
 /** a tag that touches the phone while the app is running but another screen is open (Android delivers it as a background tag) */

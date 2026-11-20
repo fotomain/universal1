@@ -98,7 +98,7 @@ NEW_STAMP="$SERIAL:$( { echo "$APP_NAME"
   cat package.json package-lock.json app.config.js react-native.config.js patches/* \
       android/build.gradle android/settings.gradle android/gradle.properties android/app/build.gradle \
       android/app/src/main/AndroidManifest.xml android/gradle/wrapper/gradle-wrapper.properties \
-      "assets/$APP_NAME/icon.png" "assets/$APP_NAME/splash.png" 2>/dev/null; } | shasum -a 256 | cut -d' ' -f1)"
+      "assets/$APP_NAME/icon.png" "assets/$APP_NAME/adaptive-icon.png" "assets/$APP_NAME/splash.png" "assets/$APP_NAME/splash-icon.png" 2>/dev/null; } | shasum -a 256 | cut -d' ' -f1)"
 CURRENT_ID="$(grep -m1 "applicationId" android/app/build.gradle 2>/dev/null | sed "s/.*['\"]\(.*\)['\"].*/\1/")"
 if [ "$CURRENT_ID" != "$PACKAGE" ]; then
   echo "android/ is for '$CURRENT_ID', $APP_NAME needs '$PACKAGE': regenerating android/ (expo prebuild --clean) ..."

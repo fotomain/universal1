@@ -180,7 +180,8 @@ describe('the filters go to the database', () => {
     await wait(250);
     expect(mockSelects['monitor07-vendor-filters-taskFilter'].disabled).toBe(false);
     const itemsOpts = [...mockOptions].reverse().find((o) => !o.realtimeTable);
-    expect(itemsOpts.deps).toEqual(['vendor', 'pr1', '']);
+    // the last entry is the ACTIVE organization (no redux in this test = ''): the lists are read again after an Organization switch
+    expect(itemsOpts.deps).toEqual(['vendor', 'pr1', '', '']);
   });
 });
 

@@ -16,6 +16,8 @@ export const ORGANIZATION_CATALOG_OWNER = 'organizationCatalog';
 export const ORGANIZATION_ROUTES = {
   list: '/catalog/organization',
   edit: '/catalog/organization/edit',
+  /** the Create Organization Assistant (kit8/ui/organization/assistant): what "Add" of the list opens */
+  assistant: '/catalog/organization/assistant',
 } as const;
 
 /** readData payload of the catalog. */

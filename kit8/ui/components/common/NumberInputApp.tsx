@@ -16,6 +16,8 @@ import {
 } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from './IconApp';
+import CalculatorTrigger from '../calculator/CalculatorTrigger';
+import type { CalculatorTriggerHandle } from '../calculator/CalculatorTrigger';
 
 export interface NumberInputAppProps {
   label?: string;
@@ -39,6 +41,8 @@ export interface NumberInputAppProps {
   helperText?: string;
   error?: boolean | string;
   compact?: boolean;
+  /** the calculator icon at the right of the field (default false; kit8/ui/components/calculator): OK puts the result into the field */
+  calculator?: boolean;
 }
 
 export const NumberInputApp: React.FC<NumberInputAppProps> = ({
@@ -63,9 +67,11 @@ export const NumberInputApp: React.FC<NumberInputAppProps> = ({
   helperText,
   error,
   compact = false,
+  calculator = false,
 }) => {
   const { themeColors, isDark } = useDesignSystem();
   const [focused, setFocused] = useState(false);
+  const calcRef = React.useRef<CalculatorTriggerHandle>(null);
 
   const isEditable = !disabled && editable;
   const strValue = value === undefined || value === null ? '' : String(value);
@@ -157,6 +163,7 @@ export const NumberInputApp: React.FC<NumberInputAppProps> = ({
           onSubmitEditing={onSubmitEditing}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
+          {...(calculator ? { onKeyPress: (e: any) => { if (e?.nativeEvent?.key === 'F2') calcRef.current?.open(); } } : {})}
           style={[
             styles.input,
             {
@@ -166,6 +173,18 @@ export const NumberInputApp: React.FC<NumberInputAppProps> = ({
             inputStyle,
           ]}
         />
+
+        {calculator && isEditable && (
+          <CalculatorTrigger
+            testID={`${testID}-calculator`}
+            openRef={calcRef}
+            size={compact ? 26 : 30}
+            min={min}
+            max={max}
+            getValue={() => numValue}
+            onResult={(n) => { onChangeText?.(String(n)); onChangeValue?.(n); }}
+          />
+        )}
 
         <View
           style={[

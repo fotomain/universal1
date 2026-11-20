@@ -157,6 +157,8 @@ export interface NumberCellRenderProps {
   h: number;
   /** the number the user typed / stepped to (null = emptied); called only when it really changed */
   onCommit: (n: number | null) => void;
+  /** the calculator icon at the right of the input (kit8/ui/components/calculator) */
+  calculator?: boolean;
 }
 
 export interface NumberColumn extends ColumnBase {
@@ -164,6 +166,8 @@ export interface NumberColumn extends ColumnBase {
   type: 'integer' | 'number';
   /** Another input instead of the stock number cell (e.g. PMNumberInputApp of kit8/pm/components for task lines and document lines). Only for an EDITABLE cell. */
   renderNumber?: (props: NumberCellRenderProps) => ReactNode;
+  /** the calculator icon at the right of an EDITABLE number cell (default false; the task line / document line columns get it through pmNumberColumn) */
+  calculator?: boolean;
   min?: number;
   max?: number;
   placeholder?: string;

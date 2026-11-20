@@ -11,9 +11,11 @@ export interface MyMatrix {
   canCreateProject: boolean;
   /** the project of the question is read-only (SQL PART 51): only R is left, and U of project_table for the switch itself */
   projectIsReadonly: boolean;
+  /** permissionApplicationAdmin (SQL PART 54, application_permission_table): the caller SEES ALL ORGANIZATIONS; every other user sees only those he is a member of */
+  isApplicationAdmin: boolean;
 }
 
-export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false };
+export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false };
 
 export const PROFILE_TITLES: Record<string, string> = {
   permissionOrganizationAdmin: 'Organization administrator',
@@ -28,6 +30,10 @@ export const PROFILE_TITLES: Record<string, string> = {
   permissionFinancialManagerPlan: 'Financial manager (plan)',
   permissionFinancialManagerFact: 'Financial manager (fact)',
 };
+
+/** the application level permission (not one of the 11 profiles of the matrix: it has no letters, it widens the SEE of the organizations only) */
+export const APPLICATION_ADMIN_PROFILE = 'permissionApplicationAdmin';
+export const profileTitleOf = (profile: string): string => (profile === APPLICATION_ADMIN_PROFILE ? 'Application administrator' : PROFILE_TITLES[profile] ?? profile);
 
 /** the profiles a project manager / administrator may give by hand (the others are derived from RACI or come from the members screen) */
 export const ASSIGNABLE_PROFILES = [
@@ -54,6 +60,7 @@ export function matrixOf(raw: any): MyMatrix {
     isAdmin: raw.isAdmin === true,
     canCreateProject: raw.canCreateProject === true,
     projectIsReadonly: raw.projectIsReadonly === true,
+    isApplicationAdmin: raw.isApplicationAdmin === true,
   };
 }
 

@@ -3,7 +3,7 @@
 //   Consolidation basis  the amounts are sumForConsolidation with the two VAT switches of the organization (the VAT basis selector is replaced by their words)
 //   Project basis        each project in its own budget currency on the VAT basis of the report (VatBasisSelect); lines in different currencies are never added
 // The twins are written by the database only (SQL PART 52); a posted document appears here at once, a changed currency / rate type after the worker has recalculated.
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { useTheme as usePaperTheme } from 'react-native-paper';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
@@ -22,6 +22,8 @@ import ReportAgeBadge from '../common/ReportAgeBadge';
 import { useCurrencyBasis } from '../common/useCurrencyBasis';
 import { CONSOLIDATION_STATE_TEXT, consolidationVatWords } from '../../../catalog/organization/consolidation/consolidationModel';
 import { useConsolidationStatus } from '../../../catalog/organization/consolidation/useConsolidationStatus';
+import OrganizationFilter from '../../../catalog/organization/switch/OrganizationFilter';
+import { useReportOrganizationScope } from '../common/useReportOrganizationScope';
 import Monitor08Table from './Monitor08Table';
 import { EMPTY_MONITOR08_FILTERS, buildMonitor08Lines, monitor08BasisText, monitor08Footer, type Monitor08Filters } from './monitor08Model';
 import { useMonitor08Data } from './useMonitor08Data';
@@ -41,7 +43,18 @@ export default function Monitor08Dashboard({ testID = 'monitor08' }: { testID?: 
   const data = useMonitor08Data({ from, to, byMonth: filters.byMonth });
   const { status, busy, refreshNow, reload: reloadStatus } = useConsolidationStatus(true);
 
-  const lines = useMemo(() => buildMonitor08Lines(data.rows, basis, vatBasis), [data.rows, basis, vatBasis]);
+  // a user of two or more organizations: the Organization filter of the bar picks the active one. Its consolidation currency / rate type / VAT switches are the ones of THAT organization, so
+  // only its projects are added (consolidation_report itself returns every project the user may read); a switch reads the status again
+  const orgScope = useReportOrganizationScope();
+  const rows = useMemo(() => orgScope.filter(data.rows, (r) => r.project), [orgScope.filter, data.rows]);
+  const lastOrganization = useRef(orgScope.organizationGUID);
+  useEffect(() => {
+    if (lastOrganization.current === orgScope.organizationGUID) return;
+    const before = lastOrganization.current;
+    lastOrganization.current = orgScope.organizationGUID;
+    if (before) void reloadStatus();
+  }, [orgScope.organizationGUID, reloadStatus]);
+  const lines = useMemo(() => buildMonitor08Lines(rows, basis, vatBasis), [rows, basis, vatBasis]);
   const footer = useMemo(() => monitor08Footer(lines), [lines]);
   const headerBackground = colorToHex((paperTheme?.colors as any)?.surfaceVariant || (isDark ? '#49454f' : '#e7e0ec'));
   const colors = useMemo(() => ({ text: c.text, border: c.border, surface: c.surface, primary: c.primary, headerBackground }), [c.text, c.border, c.surface, c.primary, headerBackground]);
@@ -57,6 +70,7 @@ export default function Monitor08Dashboard({ testID = 'monitor08' }: { testID?: 
         <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Consolidation')}</Text>
         <ButtonTextApp testID={`${testID}-refresh`} title={busy ? pmT('Refreshing ...') : pmT('Refresh now')} onPress={() => { if (!busy) void refresh(); }} />
         <View style={{ flex: 1 }} />
+        <OrganizationFilter testID={`${testID}-organization`} />
         <View testID={`${testID}-status`} style={styles.status}>
           <View style={[styles.dot, { backgroundColor: stateColor }]} />
           <Text testID={`${testID}-state`} style={{ color: c.text, fontSize: 12 }}>
