@@ -5,7 +5,7 @@ import * as path from 'path';
 const dir = path.join(__dirname, '..', '..', 'kit8', 'sql', 'start');
 const read = (f: string) => fs.readFileSync(path.join(dir, f), 'utf8');
 const TABLES = ['bim_model_table', 'bim_storey_table', 'bim_chunk_table', 'bim_element_table', 'bim_property_table', 'bim_import_job_table', 'bim_storage_cleanup_table'];
-const RPCS = ['bim_import_begin', 'bim_import_add_rows', 'bim_import_commit', 'bim_import_fail', 'bim_delete_model', 'bim_model_manifest', 'bim_elements_page', 'bim_property_get', 'bim_elements_of_task', 'bim_task_of_element', 'bim_storage_cleanup_confirm', 'bim_storage_cleanup_pending', 'bim_storage_setup'];
+const RPCS = ['bim_import_begin', 'bim_import_add_rows', 'bim_import_commit', 'bim_import_fail', 'bim_delete_model', 'bim_copy_begin', 'bim_model_manifest', 'bim_elements_page', 'bim_property_get', 'bim_elements_of_task', 'bim_task_of_element', 'bim_storage_cleanup_confirm', 'bim_storage_cleanup_pending', 'bim_storage_setup'];
 
 describe('SQL PART 55 (BIM)', () => {
   const s1 = read('start1_sql_tables.sql');
@@ -41,7 +41,7 @@ describe('SQL PART 55 (BIM)', () => {
   });
 
   it('every write RPC asks the permission and the read-only guard', () => {
-    for (const f of ['bim_import_begin', 'bim_delete_model']) {
+    for (const f of ['bim_import_begin', 'bim_delete_model', 'bim_copy_begin']) {
       const start = s2.indexOf(`FUNCTION public.${f}(`);
       const body = s2.slice(start, s2.indexOf('$$;', start));
       expect(body).toMatch(/perm_require\('bim_model_table'/);

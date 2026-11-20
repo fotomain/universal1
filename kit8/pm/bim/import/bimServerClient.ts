@@ -18,6 +18,8 @@ export interface BimConvertParams {
   skipEmpty?: boolean;
   startDate?: string;
   sourceName?: string;
+  /** the openings become elements */
+  openings?: boolean;
 }
 
 export class BimServerError extends Error {}
@@ -35,6 +37,7 @@ export function convertQuery(p: BimConvertParams): string {
   if (p.granularity) q.set('granularity', p.granularity);
   if (p.skipEmpty === false) q.set('skipEmpty', '0');
   if (p.startDate) q.set('startDate', p.startDate);
+  if (p.openings) q.set('openings', '1');
   if (p.sourceName) q.set('sourceName', p.sourceName);
   return q.toString();
 }

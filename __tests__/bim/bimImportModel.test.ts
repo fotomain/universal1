@@ -59,3 +59,19 @@ describe('BIM import model on the converted example 1', () => {
     expect(() => checkBundle({ ...b, project: { ...b.project, taskLines: [{} as any] } })).toThrow(/no task lines/);
   });
 });
+
+import { DEFAULT_BIM_IMPORT_OPTIONS } from '../../kit8/pm/bim/import/bimImportModel';
+import { BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_URL, BIM_EXAMPLE3_NAME } from '../../kit8/pm/bim/model/bimModel';
+
+describe('the importer defaults and the examples', () => {
+  it('openings are elements by default in the importer; the three examples have three different projects', () => {
+    expect(DEFAULT_BIM_IMPORT_OPTIONS.includeOpenings).toBe(true);
+    expect(new Set([BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE3_PROJECT_GUID]).size).toBe(3);
+  });
+  it('example 3 = Schependomlaan, from a host the converter allows (raw.githubusercontent.com), the address is percent encoded', () => {
+    expect(BIM_EXAMPLE3_NAME).toContain('Schependomlaan');
+    expect(BIM_EXAMPLE3_URL.startsWith('https://raw.githubusercontent.com/')).toBe(true);
+    expect(BIM_EXAMPLE3_URL).not.toMatch(/ /);
+    expect(decodeURIComponent(BIM_EXAMPLE3_URL).endsWith('IFC Schependomlaan.ifc')).toBe(true);
+  });
+});

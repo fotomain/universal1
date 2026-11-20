@@ -3,7 +3,7 @@
 // Gantt always needs both at once (one round-trip, one cache entry).
 
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { pmRpcApplySchedule, pmRpcImportTasks, pmRpcSetTaskLastEditPlace, pmTaskLineTable, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
+import { pmRpcApplySchedule, pmRpcDeleteProjectTasks, pmRpcImportTasks, pmRpcSetTaskLastEditPlace, pmTaskLineTable, projectTaskDependenciesTable, projectTaskTable } from '../../model/constants';
 import { PMLastEditPlace, PMProjectData, PMTaskRow } from '../../model/types';
 import { buildTreePath, projectTreePath } from '../../view/project/scheduling';
 import { check, newGUID, normalizeDep, normalizeTask, readAllPages } from './apiUtils';
@@ -118,8 +118,17 @@ export function createTaskApi(sb: SupabaseClient) {
     check(await sb.from(projectTaskTable).delete().eq('rowGUID', rowGUID));
   }
 
-  /** Deletes EVERY stage / task of a project (their dependencies go with them: FK cascade). Import uses it. */
+  /**
+   * Deletes EVERY stage / task of a project (their dependencies go with them: FK cascade). Import uses it. Through the RPC project_delete_tasks (one statement, the per-row triggers stand aside):
+   * the plain delete of 4 000 tasks hit the 8 s statement limit of Supabase. A database without the function (start2_sql_code.sql not run yet) gets the old plain delete.
+   */
   async function deleteProjectTasks(projectGUID: string): Promise<void> {
+    const res = await sb.rpc(pmRpcDeleteProjectTasks, { p_project: projectGUID });
+    if (!res.error) return;
+    const e: any = res.error;
+    const text = `${e.message} ${e.details}`;
+    const missing = e.code === 'PGRST202' || e.code === '42883' || (/project_delete_tasks/.test(text) && /(schema cache|does not exist|Could not find)/i.test(text));
+    if (!missing) check(res as any);
     check(await sb.from(projectTaskTable).delete().eq('projectGUID', projectGUID));
   }
 

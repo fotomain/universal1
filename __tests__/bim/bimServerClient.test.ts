@@ -54,14 +54,14 @@ describe('the converter client', () => {
     await expect(convertOnServer(cfg, params, { kind: 'url', url: 'https://x' }, undefined, forever, 1, 20)).rejects.toThrow(/too long/);
   });
 
-  it('the query has only what was given', () => {
+  it('the query has only what was given; openings are asked with openings=1', () => {
     expect(convertQuery({ projectGUID: 'a', modelGUID: 'b' })).toBe('projectGUID=a&modelGUID=b');
+    expect(convertQuery({ projectGUID: 'a', modelGUID: 'b', openings: true })).toBe('projectGUID=a&modelGUID=b&openings=1');
+    expect(convertQuery({ projectGUID: 'a', modelGUID: 'b', openings: false })).toBe('projectGUID=a&modelGUID=b');
   });
 
-  it('bimServerUrl reads .env (without a trailing slash)', () => {
-    process.env.EXPO_PUBLIC_BIM_SERVER_URL = 'http://localhost:8765/';
-    expect(bimServerUrl()).toBe('http://localhost:8765');
-    delete process.env.EXPO_PUBLIC_BIM_SERVER_URL;
-    expect(bimServerUrl()).toBe('');
+  it('bimServerUrl reads .env (EXPO_PUBLIC_BIM_SERVER_URL is inlined at bundle time, so a test cannot set it) and has no trailing slash', () => {
+    expect(typeof bimServerUrl()).toBe('string');
+    expect(bimServerUrl().endsWith('/')).toBe(false);
   });
 });

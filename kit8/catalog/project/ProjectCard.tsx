@@ -6,6 +6,7 @@ import IconApp from '../../ui/components/common/IconApp';
 import type { CardItem } from '../../ui/components/list/web/lib/types';
 import type { PMProjectRow, PMRowJSON } from '../../pm/model/types';
 import { usePMStore } from '../../pm/store/store_pm';
+import { projectIsBimBased } from '../../pm/bim/model/bimModel';
 import { formatDateShort } from '../../pm/view/project/scheduling';
 import PMContextMenu from '../../pm/inner/menu/PMContextMenu';
 import type { PMMenuItemProps } from '../../pm/inner/menu/PMMenuItem';
@@ -61,12 +62,13 @@ export default function ProjectCard({
   };
 
   // the menu of the card: right click (web), long press (phone), the three dots at the right corner
-  const { onCopy, onCopyWithTasks } = useProjectCardActions();
+  const { onCopy, onCopyWithTasks, onCopyWithBim } = useProjectCardActions();
+  const copyWithBimOffered = !!onCopyWithBim && projectIsBimBased(j as any);
   const [menu, setMenu] = useState<{ x: number; y: number } | null>(null);
   const dotsRef = useRef<View>(null);
   const [cardWidth, setCardWidth] = useState<number | null>(null);
   const compact = isCompactProjectCard(cardWidth);
-  const hasMenu = !!(onCopy || onCopyWithTasks || onDelete);
+  const hasMenu = !!(onCopy || onCopyWithTasks || copyWithBimOffered || onDelete);
   const openMenuAt = (x: number, y: number) => hasMenu && setMenu({ x, y });
   const openMenuFromDots = () => {
     // opens at once (a first guess), then moves under the dots as soon as the window position is measured
@@ -81,6 +83,7 @@ export default function ProjectCard({
   const menuItems: PMMenuItemProps[] = [
     ...(onCopy ? [{ testID: `project-menu-copy-${id}`, label: 'Copy', icon: 'content_copy', onPress: pick(() => onCopy(id)) }] : []),
     ...(onCopyWithTasks ? [{ testID: `project-menu-copy-tasks-${id}`, label: 'Copy with Tasks', icon: 'control_point_duplicate', onPress: pick(() => onCopyWithTasks(id)) }] : []),
+    ...(copyWithBimOffered ? [{ testID: `project-menu-copy-bim-${id}`, label: 'Copy with BIM', icon: 'view_in_ar', onPress: pick(() => onCopyWithBim!(id)) }] : []),
     ...(onDelete ? [{ testID: `project-menu-delete-${id}`, label: 'Delete', icon: 'delete', danger: true, onPress: pick(() => onDelete(id)) }] : []),
   ];
 

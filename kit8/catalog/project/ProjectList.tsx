@@ -57,14 +57,14 @@ export default function ProjectList({
     });
   };
 
-  /** menu of a card: Copy / Copy with Tasks (kit8/catalog/project/copy) */
+  /** menu of a card: Copy / Copy with Tasks / Copy with BIM (kit8/catalog/project/copy) */
   const { copy, busy: copyBusy } = useCopyProject(ownerGUID);
   const cardActions = React.useMemo(() => {
-    const copyOf = (guid: string, withTasks: boolean) => {
+    const copyOf = (guid: string, withTasks: boolean, withBim = false) => {
       const row = rows.find((r) => r.rowGUID === guid);
-      if (row) void copy(row, withTasks);
+      if (row) void copy(row, withTasks, withBim);
     };
-    return { onCopy: (guid: string) => copyOf(guid, false), onCopyWithTasks: (guid: string) => copyOf(guid, true) };
+    return { onCopy: (guid: string) => copyOf(guid, false), onCopyWithTasks: (guid: string) => copyOf(guid, true), onCopyWithBim: (guid: string) => copyOf(guid, true, true) };
   }, [rows, copy]);
 
   const handleSelect = (projectGUID: string) => {

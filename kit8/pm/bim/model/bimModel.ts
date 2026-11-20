@@ -9,6 +9,11 @@ export const PROJECT_IS_BIM_BASED_KEY = 'projectIsBIMBased';
 export const BIM_EXAMPLE1_PROJECT_GUID = 'aabd1dde-97e6-4359-97e4-0efcb847589b';
 export const BIM_EXAMPLE1_URL = 'https://raw.githubusercontent.com/viktor-platform/ifc-sample-models/main/sample-models/Structure%20Walls.ifc';
 export const BIM_EXAMPLE1_NAME = 'BIM example 1 - Structure Walls';
+/** BIM example 3: the design model of the Schependomlaan residential building (ArchiCAD, ROOT bv; IFC2X3, 49 MB, about 3 500 elements: more than 1 500, so the tasks are grouped per storey + class + type).
+ *  Source: the openBIMstandards archive (the dataset moved to buildingSMART Sample-Test-Files, whose repository was renamed and no longer lists it). */
+export const BIM_EXAMPLE3_PROJECT_GUID = '3a427f72-98f9-4f46-8449-164e3a22e1de';
+export const BIM_EXAMPLE3_URL = 'https://raw.githubusercontent.com/openBIMstandards/Archive-DataSetSchependomlaan/master/Design%20model%20IFC/IFC%20Schependomlaan.ifc';
+export const BIM_EXAMPLE3_NAME = 'BIM example 3 - Schependomlaan';
 /** the BIM example 2: the buildingSMART Duplex Apartment (IFC2X3, Revit, CC BY 4.0). The file is a Git LFS file: raw.githubusercontent.com would give the 132 byte pointer, so the address is on media.githubusercontent.com (allowed by the converter, py/bim/server). */
 export const BIM_EXAMPLE2_PROJECT_GUID = 'a1800750-c76d-401b-b866-e4aaf1998a7c';
 export const BIM_EXAMPLE2_URL = 'https://media.githubusercontent.com/media/buildingsmart-community/Community-Sample-Test-Files/main/IFC%202.3.0.1%20(IFC%202x3)/Duplex%20Apartment/Duplex_A_20110907.ifc';

@@ -10,6 +10,15 @@ export interface BimBegin {
   organizationGUID?: string;
 }
 
+export interface BimCopyBegin {
+  modelGUID: string;
+  revision: number;
+  storagePrefix: string;
+  /** the chunk files to copy: the path in the source folder -> the path in the folder of the copy */
+  files: { from: string; to: string }[];
+  counts: Record<string, number>;
+}
+
 export interface BimElementsPage {
   rows: BimElementRow[];
   next: string | null;
@@ -20,6 +29,10 @@ export interface BimCloud {
   addRows(modelGUID: string, kind: 'storeys' | 'chunks' | 'elements' | 'properties', rows: Record<string, any>[]): Promise<number>;
   commit(modelGUID: string, counts: Record<string, number>, info: Record<string, any>): Promise<{ modelGUID: string; revision: number; counts: Record<string, number> }>;
   fail(modelGUID: string, text: string, paths: string[]): Promise<void>;
+  /** bim_copy_begin: copies the rows of the ready model of `source` into a new importing model of `target` (idMap: old task guid -> new task guid); null = the source has no model */
+  copyBegin(sourceProjectGUID: string, targetProjectGUID: string, idMap: Record<string, string>): Promise<BimCopyBegin | null>;
+  /** Storage copy of one chunk file inside the bucket (the folder of the copy is open for the caller until the commit) */
+  copyFile(from: string, to: string): Promise<void>;
   /** removes ALL BIM data of the project; answers the file paths (removeFiles removes them) */
   deleteModel(projectGUID: string): Promise<string[]>;
   manifest(projectGUID: string): Promise<BimManifest | null>;
@@ -47,6 +60,11 @@ export function createBimCloud(sb: SupabaseClient): BimCloud {
     begin: (p, name, sha, options) => rpc<BimBegin>('bim_import_begin', { p_project: p, p_source_name: name, p_source_sha256: sha ?? null, p_options: options ?? {} }),
     addRows: (m, kind, rows) => rpc<number>('bim_import_add_rows', { p_model: m, p_kind: kind, p_rows: rows }),
     commit: (m, counts, info) => rpc('bim_import_commit', { p_model: m, p_counts: counts, p_model_info: info }),
+    copyBegin: async (s, t, idMap) => (await rpc<BimCopyBegin | null>('bim_copy_begin', { p_source: s, p_target: t, p_task_map: idMap })) ?? null,
+    copyFile: async (from, to) => {
+      const { error } = await sb.storage.from(BIM_BUCKET).copy(from, to);
+      raise(error);
+    },
     fail: async (m, text, paths) => {
       await rpc('bim_import_fail', { p_model: m, p_error: text, p_paths: paths });
     },

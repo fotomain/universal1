@@ -484,7 +484,8 @@ export default function PMRecentProjectsToolbar({
     );
   };
 
-  const saveDraft = (currenciesApproved = false) => {
+  /** keepOpen (the Save button of the New project window): the project is created and the window STAYS OPEN as the Project settings window of it (rowGUID set -> Save, the BIM tab ...) */
+  const saveDraft = (currenciesApproved = false, keepOpen = false) => {
     if (!draft) return;
     // a READ-ONLY project (as stored): the ONE thing that is saved is the switch itself - nothing else of the window is sent (the database would refuse it)
     if (settingsLocked && draft.rowGUID) {
@@ -511,6 +512,7 @@ export default function PMRecentProjectsToolbar({
     const ganttCmdMode = draft.projectGanttChartContextCommandsMode || PM_DEFAULT_CONTEXT_COMMANDS_MODE;
     if (draft.rowGUID) {
       const cur = projectsById[draft.rowGUID];
+      if (!cur) return setDraftError("The project is not loaded yet. Try again in a moment.");
       // a changed currency of the project: the user approves (Yes = save + recalculate THIS project, Cancel = save nothing)
       const currencyChanges = changedOrganizationCurrencies(cur.rowJSON, draft as any);
       if (currencyChanges.length && currenciesApproved !== true) {
@@ -613,6 +615,15 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
       Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), hourModelValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
       if (draft.projectIsBIMBased === true) row.rowJSON.projectIsBIMBased = true;
+      if (keepOpen) {
+        // Save: the window stays and becomes the Project settings window of the new project once the database has it
+        createProject.mutate(row, {
+          onSuccess: () => setDraft((d) => (d && !d.rowGUID ? { ...d, rowGUID: row.rowGUID } : d)),
+          onError: (err: any) => showErrorModal(err?.message || String(err), pmT('New project')),
+        });
+        selectProject(row.rowGUID);
+        return;
+      }
       createProject.mutate(row);
       selectProject(row.rowGUID);
     }
@@ -1419,13 +1430,23 @@ export default function PMRecentProjectsToolbar({
                   width={PM_DIALOG_BUTTON_WIDTH}
                   onPress={() => setDraft(null)}
                 />
+                {/* New project: Save = create and stay (the window turns into Project settings, the BIM tab appears); Create = create and close */}
+                {!draft?.rowGUID && (
+                  <PMDialogButton
+                    testID="pm-project-save-stay"
+                    kind="secondary"
+                    title={pmT('Save')}
+                    width={PM_DIALOG_BUTTON_WIDTH}
+                    onPress={() => saveDraft(false, true)}
+                  />
+                )}
                 <PMDialogButton
                   testID="pm-project-save"
                   kind="primary"
                   color={themeColors.primary}
                   title={pmT(draft?.rowGUID ? 'Save' : 'Create')}
                   width={PM_DIALOG_BUTTON_WIDTH}
-                  onPress={saveDraft}
+                  onPress={() => saveDraft()}
                 />
               </View>
             </View>

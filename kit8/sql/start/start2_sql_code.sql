@@ -467,6 +467,10 @@ CREATE TRIGGER trg_project_task_after_move
 CREATE OR REPLACE FUNCTION public.pm_task_after_delete_subtree() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
+  -- a bulk writer (task_template_fill with Replace, project_delete_tasks) deletes the whole subtree itself: one lookup per deleted row would cost seconds for thousands of rows
+  IF current_setting('app.task_bulk', true) = 'on' THEN
+    RETURN NULL;
+  END IF;
   DELETE FROM public.project_task_table
    WHERE "projectGUID" = OLD."projectGUID"
      AND "treePath" <@ OLD."treePath"
@@ -14994,6 +14998,35 @@ $$;
 REVOKE ALL ON FUNCTION public.project_import_tasks(uuid, jsonb) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.project_import_tasks(uuid, jsonb) TO authenticated;
 
+-- ---- delete ALL tasks of a project in one statement (the replace of a BIM import / of a project file import) ---------------------------------------------------------------------------
+-- A plain DELETE of the rows fires the per-row triggers (subtree delete, cost queue, calendar sync, progress, closure rebuild, permission rows): 4 000 tasks took 6 s on a local Postgres and hit the
+-- 8 s limit of `authenticated` on Supabase ("canceling statement due to statement timeout" in the BIM import into a project that already had its tasks). Like project_import_tasks this runs
+-- with app.task_bulk = on (those triggers return at once; the links and the closure go by FK cascade), deletes the calendar rows of the tasks in ONE statement and calculates the progress ONCE.
+-- SECURITY INVOKER: the policies decide who may delete (owner / matrix), the read-only guard of PART 51 refuses a read-only project. Answers the number of tasks deleted.
+CREATE OR REPLACE FUNCTION public.project_delete_tasks(p_project uuid) RETURNS integer
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+BEGIN
+  IF p_project IS NULL OR NOT EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = p_project) THEN
+    RAISE EXCEPTION 'project_delete_tasks: the project does not exist or is not yours' USING ERRCODE = '42501';
+  END IF;
+  PERFORM set_config('app.task_bulk', 'on', true);
+  WITH gone AS (
+    DELETE FROM public.project_task_table t WHERE t."projectGUID" = p_project RETURNING t."rowGUID"
+  ), cal AS (
+    DELETE FROM public.user_calendar_event_table e WHERE e."rowJSON"->>'projectTaskGUID' IN (SELECT g."rowGUID"::text FROM gone g) RETURNING 1
+  )
+  SELECT count(*) INTO v_n FROM gone;
+  PERFORM set_config('app.task_bulk', 'off', true);
+  PERFORM public.pm_recalc_project_progress(p_project);
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_delete_tasks(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_delete_tasks(uuid) TO authenticated;
+
 -- ===============================================================================================
 -- PART 41: create_route_visits.sql
 -- ROUTE VISITS (kit8/catalog/user/visit): app_route_visits_turnover (start1) is written ONLY by route_visit_register; a user reads and deletes his OWN rows (RLS).
@@ -20316,6 +20349,7 @@ NOTIFY pgrst, 'reload schema';
 --   bim_import_add_rows(model, kind, rows)                      kind storeys | chunks | elements | properties, in batches (the order matters: storeys, chunks, elements)
 --   bim_import_commit(model, counts)                            checks the rows, makes the model READY (the one the BIM view shows), drops the older ready model, sets projectIsBIMBased
 --   bim_import_fail(model, text, paths)                         the import failed: the partial rows go, the uploaded files are queued for removal
+--   bim_copy_begin(source, target, task map)                   the project copy "Copy with BIM": copies the rows of the ready model into a new importing model of the target (tasks mapped), answers the files to copy; the client copies them, then bim_import_commit
 --   bim_delete_model(project)                                   removes ALL BIM data of the project (the tasks stay), projectIsBIMBased becomes false; returns the file paths to remove
 --   bim_model_manifest(project) / bim_elements_page(model, after, limit) / bim_property_get(model, ifcGuid) / bim_elements_of_task(project, task) / bim_task_of_element(model, ifcGuid)  reads
 --   bim_storage_cleanup_confirm(paths)                          the client removed the files through the Storage API: drop them from the queue
@@ -20566,6 +20600,80 @@ BEGIN
 END;
 $$;
 
+-- copy of the BIM model of a project into ANOTHER project that already holds the copied tasks (project copy "Copy with BIM", kit8/catalog/project/copy): the rows are copied INSIDE the database (one statement
+-- per table), the task ids through p_task_map = {"<old task guid>": "<new task guid>"}; the new model is left in state importing, started by the caller - the client copies the files
+-- (Storage copy, allowed by the same upload policy as an import) and then calls bim_import_commit (or bim_import_fail with the destination paths). Returns NULL when the source has no ready model.
+--   rights: read of the BIM model in the SOURCE, create in the TARGET (+ the read-only guard of the target); the target must not hold a ready model and every mapped task must be a task of the target
+CREATE OR REPLACE FUNCTION public.bim_copy_begin(p_source uuid, p_target uuid, p_task_map jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  s       public.bim_model_table%ROWTYPE;
+  v_org   text;
+  v_model uuid := gen_random_uuid();
+  v_rev   integer;
+  v_prefix text;
+  v_files jsonb;
+BEGIN
+  IF auth.uid() IS NULL THEN
+    RAISE EXCEPTION 'bim_copy_begin: sign in first' USING ERRCODE = '42501';
+  END IF;
+  IF p_source = p_target THEN
+    RAISE EXCEPTION 'bim_copy_begin: the source and the target are the same project' USING ERRCODE = '22023';
+  END IF;
+  IF p_task_map IS NULL OR jsonb_typeof(p_task_map) <> 'object' THEN
+    RAISE EXCEPTION 'bim_copy_begin: the task map must be a json object' USING ERRCODE = '22023';
+  END IF;
+  IF NOT public.perm_can_in('bim_model_table', 'R', p_source) THEN
+    RAISE EXCEPTION 'No permission: you cannot read the BIM model of the source project' USING ERRCODE = '42501';
+  END IF;
+  PERFORM public.perm_require('bim_model_table', 'C', p_target);
+  PERFORM public.project_readonly_check(p_target, 'bim_model_table');
+  SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = p_target;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'bim_copy_begin: the target project does not exist' USING ERRCODE = 'P0002';
+  END IF;
+  SELECT * INTO s FROM public.bim_model_table WHERE "rowProjectGUID" = p_source AND "state" = 'ready';
+  IF NOT FOUND THEN
+    RETURN NULL;
+  END IF;
+  IF EXISTS (SELECT 1 FROM public.bim_model_table WHERE "rowProjectGUID" = p_target AND "state" = 'ready') THEN
+    RAISE EXCEPTION 'BIM copy: the target project already has a BIM model' USING ERRCODE = 'P0001';
+  END IF;
+  IF EXISTS (SELECT 1 FROM jsonb_each_text(p_task_map) m WHERE NOT EXISTS (SELECT 1 FROM public.project_task_table t WHERE t."rowGUID" = m.value::uuid AND t."projectGUID" = p_target)) THEN
+    RAISE EXCEPTION 'BIM copy: a mapped task is not a task of the target project' USING ERRCODE = '22023';
+  END IF;
+  DELETE FROM public.bim_model_table WHERE "rowProjectGUID" = p_target AND "state" IN ('importing', 'failed');
+  SELECT COALESCE(MAX("revision"), 0) + 1 INTO v_rev FROM public.bim_model_table WHERE "rowProjectGUID" = p_target;
+  v_prefix := p_target::text || '/' || v_model::text;
+  INSERT INTO public.bim_model_table ("rowGUID", "rowProjectGUID", "rowOrganizationGUID", "revision", "sourceName", "sourceSha256", "ifcSchema", "converterVersion", "unitScale", "originShift", "bbox", "counts", "state", "storagePrefix", "requestedBy")
+  VALUES (v_model, p_target, v_org, v_rev, s."sourceName", s."sourceSha256", s."ifcSchema", s."converterVersion", s."unitScale", s."originShift", s."bbox", s."counts", 'importing', v_prefix, auth.uid());
+  INSERT INTO public.bim_import_job_table ("rowProjectGUID", "rowModelGUID", "state", "options", "requestedBy")
+  VALUES (p_target, v_model, 'begun', jsonb_build_object('copyOf', p_source), auth.uid());
+  INSERT INTO public.bim_storey_table ("rowProjectGUID", "rowModelGUID", "ifcGuid", "name", "elevation", "orderInList", "stageGUID")
+  SELECT p_target, v_model, o."ifcGuid", o."name", o."elevation", o."orderInList", (p_task_map->>(o."stageGUID"::text))::uuid
+    FROM public.bim_storey_table o WHERE o."rowModelGUID" = s."rowGUID";
+  INSERT INTO public.bim_chunk_table ("rowProjectGUID", "rowModelGUID", "rowStoreyGUID", "contentHash", "part", "byteSize", "formatVersion", "vertexCount", "elementCount", "bboxMin", "bboxSize", "storagePath")
+  SELECT p_target, v_model, ns."rowGUID", o."contentHash", o."part", o."byteSize", o."formatVersion", o."vertexCount", o."elementCount", o."bboxMin", o."bboxSize", v_prefix || '/' || o."contentHash" || '.bimc'
+    FROM public.bim_chunk_table o
+    LEFT JOIN public.bim_storey_table os ON os."rowGUID" = o."rowStoreyGUID"
+    LEFT JOIN public.bim_storey_table ns ON ns."rowModelGUID" = v_model AND ns."ifcGuid" IS NOT DISTINCT FROM os."ifcGuid" AND os."rowGUID" IS NOT NULL
+   WHERE o."rowModelGUID" = s."rowGUID";
+  INSERT INTO public.bim_element_table ("rowProjectGUID", "rowModelGUID", "rowStoreyGUID", "ifcGuid", "ifcClass", "name", "typeName", "taskGUID", "chunkHash", "elementNumber", "bbox")
+  SELECT p_target, v_model, ns."rowGUID", o."ifcGuid", o."ifcClass", o."name", o."typeName", (p_task_map->>(o."taskGUID"::text))::uuid, o."chunkHash", o."elementNumber", o."bbox"
+    FROM public.bim_element_table o
+    LEFT JOIN public.bim_storey_table os ON os."rowGUID" = o."rowStoreyGUID"
+    LEFT JOIN public.bim_storey_table ns ON ns."rowModelGUID" = v_model AND ns."ifcGuid" IS NOT DISTINCT FROM os."ifcGuid" AND os."rowGUID" IS NOT NULL
+   WHERE o."rowModelGUID" = s."rowGUID";
+  INSERT INTO public.bim_property_table ("rowProjectGUID", "rowModelGUID", "ifcGuid", "rowJSON")
+  SELECT p_target, v_model, o."ifcGuid", o."rowJSON" FROM public.bim_property_table o WHERE o."rowModelGUID" = s."rowGUID";
+  SELECT COALESCE(jsonb_agg(jsonb_build_object('from', o."storagePath", 'to', v_prefix || '/' || o."contentHash" || '.bimc') ORDER BY o."part", o."contentHash"), '[]'::jsonb) INTO v_files
+    FROM public.bim_chunk_table o WHERE o."rowModelGUID" = s."rowGUID";
+  RETURN jsonb_build_object('modelGUID', v_model, 'revision', v_rev, 'storagePrefix', v_prefix, 'files', v_files,
+    'counts', jsonb_build_object('storeys', (SELECT count(*) FROM public.bim_storey_table WHERE "rowModelGUID" = v_model), 'chunks', (SELECT count(*) FROM public.bim_chunk_table WHERE "rowModelGUID" = v_model),
+                                 'elements', (SELECT count(*) FROM public.bim_element_table WHERE "rowModelGUID" = v_model), 'properties', (SELECT count(*) FROM public.bim_property_table WHERE "rowModelGUID" = v_model)));
+END;
+$$;
+
 -- ---- reads --------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.bim_model_manifest(p_project uuid) RETURNS jsonb
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
@@ -20740,7 +20848,7 @@ DECLARE
 BEGIN
   FOREACH f IN ARRAY ARRAY[
     'bim_import_begin(uuid, text, text, jsonb)', 'bim_import_model(uuid)', 'bim_import_add_rows(uuid, text, jsonb)', 'bim_import_commit(uuid, jsonb, jsonb)', 'bim_import_fail(uuid, text, text[])',
-    'bim_delete_model(uuid)', 'bim_model_manifest(uuid)', 'bim_elements_page(uuid, uuid, integer)', 'bim_property_get(uuid, text)', 'bim_elements_of_task(uuid, uuid)', 'bim_task_of_element(uuid, text)',
+    'bim_delete_model(uuid)', 'bim_copy_begin(uuid, uuid, jsonb)', 'bim_model_manifest(uuid)', 'bim_elements_page(uuid, uuid, integer)', 'bim_property_get(uuid, text)', 'bim_elements_of_task(uuid, uuid)', 'bim_task_of_element(uuid, text)',
     'bim_storage_cleanup_confirm(text[])', 'bim_storage_cleanup_pending(integer)'] LOOP
     EXECUTE format('REVOKE ALL ON FUNCTION public.%s FROM PUBLIC, anon', f);
     EXECUTE format('GRANT EXECUTE ON FUNCTION public.%s TO authenticated', f);

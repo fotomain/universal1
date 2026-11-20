@@ -180,6 +180,31 @@ describe('exportProjectToFile -> importProjectFromFile (API on the in-memory Sup
     await expect(importProjectFromFile(again.api, again.P2, OWNER, asDropped(again.saved.name, again.saved.text), async () => true)).rejects.toThrow('permission denied');
   });
 
+  it('replacing a project deletes its tasks through the RPC project_delete_tasks (one statement, no plain delete of thousands of rows)', async () => {
+    const { saved, api, db, P1, P2 } = await exported();
+    await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, saved.text), async () => true);
+    db.calls.length = 0;
+    db.rpcCalls.length = 0;
+    const again = await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, saved.text), async () => true);
+    expect(again.status).toBe('imported');
+    const del = db.rpcCalls.filter((c) => c.fn === 'project_delete_tasks');
+    expect(del).toHaveLength(1);
+    expect(del[0].args.p_project).toBe(P2.rowGUID);
+    expect(db.calls.filter((c) => c.table === 'project_task_table' && c.op === 'delete')).toHaveLength(0);
+    expect(db.rows('project_task_table').filter((t) => t.projectGUID === P1.rowGUID).length).toBeGreaterThan(0); // the other project is untouched
+  });
+
+  it('delete: a database without project_delete_tasks gets the plain delete; any other error is raised', async () => {
+    const { saved, api, db, P2 } = await exported();
+    await importProjectFromFile(api, P2, OWNER, asDropped(saved.name, saved.text), async () => true);
+    db.failNext('Could not find the function public.project_delete_tasks(p_project) in the schema cache', { table: 'project_delete_tasks', op: 'rpc' });
+    await api.deleteProjectTasks(P2.rowGUID);
+    expect(db.rows('project_task_table').filter((t) => t.projectGUID === P2.rowGUID)).toHaveLength(0);
+    expect(db.calls.filter((c) => c.table === 'project_task_table' && c.op === 'delete').length).toBeGreaterThan(0);
+    db.failNext('canceling statement due to statement timeout', { table: 'project_delete_tasks', op: 'rpc' });
+    await expect(api.deleteProjectTasks(P2.rowGUID)).rejects.toThrow('statement timeout');
+  });
+
   it('the task lines of the file are written after the tasks and the links (250 a chunk), on the new tasks, NOT posted', async () => {
     const { saved, api, db, P2 } = await exported();
     const file = JSON.parse(saved.text);

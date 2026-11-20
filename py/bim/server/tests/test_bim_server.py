@@ -173,6 +173,29 @@ class Example1Test(unittest.TestCase):
         self.assertTrue(all(e['ifcClass'] == 'IfcWall' for e in r.elements))
 
 
+@unittest.skipUnless(os.path.exists(EXAMPLE1), 'example 1 is not in the repository')
+class OpeningsTest(unittest.TestCase):
+    """The openings (voids of windows / doors) as elements of their own: off by default, on = 130 more elements of example 1, each in the storey of its wall."""
+
+    def test_default_has_no_openings(self):
+        r = convert_ifc(EXAMPLE1, 'aabd1dde-97e6-4359-97e4-0efcb847589b', start_date=dt.date(2026, 11, 23))
+        self.assertEqual(r.model['counts']['elements'], 58)
+        self.assertFalse(any(e['ifcClass'] == 'IfcOpeningElement' for e in r.elements))
+
+    def test_openings_as_elements(self):
+        r = convert_ifc(EXAMPLE1, 'aabd1dde-97e6-4359-97e4-0efcb847589b', start_date=dt.date(2026, 11, 23), include_openings=True)
+        ops = [e for e in r.elements if e['ifcClass'] == 'IfcOpeningElement']
+        self.assertEqual((len(ops), r.model['counts']['elements'], r.model['counts']['tasks']), (130, 188, 188))
+        self.assertTrue(all(e['name'].startswith('Opening in ') and e['typeName'] == 'Opening' and e['storeyIfcGuid'] for e in ops))
+        # an opening stands in the storey of the wall it is cut from: no storey without walls appears
+        self.assertEqual(r.model['counts']['stages'], 4)
+        # the colour of an opening is the translucent blue
+        import numpy as np
+        from bimc import read_chunk
+        ch = read_chunk(r.chunk_bytes[ops[0]['chunkHash']])
+        self.assertIn([70, 140, 230, 110], ch.palette.tolist())
+
+
 class ServerTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

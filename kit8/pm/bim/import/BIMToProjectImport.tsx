@@ -1,5 +1,5 @@
 // BIMToProjectImport - imports a BIM model (IFC) into a project as stages + tasks + a 3D model (route /pm/bim/import; documentation/BIM_WBS.html).
-//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | BIM example 2 (Duplex Apartment, buildingSMART) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
+//   source     BIM example 1 (Structure Walls, the viktor-platform sample) | BIM example 2 (Duplex Apartment, buildingSMART) | BIM example 3 (Schependomlaan residential building, 49 MB, about 3 500 elements: grouped tasks) | an IFC file of the device | the address of an IFC (https, a host the converter allows)
 //   options    one task per element / per (storey, class, type) group / automatic · skip the storeys without elements · the first working day of the plan
 //   target     the project GUID (example 1: aabd1dde-97e6-4359-97e4-0efcb847589b); a project that does not exist is made; a project with tasks that is NOT a BIM project is refused
 //   then       progress, the result, and "Open the BIM view" (the project is selected and the BIM button is shown)
@@ -12,13 +12,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { pmT } from '../../i18n/pmT';
 import { usePMStore } from '../../store/store_pm';
 import { usePMOwnerGUID } from '../../crud/queries';
-import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_URL, BIM_EXAMPLE2_NAME, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_URL } from '../model/bimModel';
+import { BIM_EXAMPLE1_NAME, BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_URL, BIM_EXAMPLE2_NAME, BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_URL, BIM_EXAMPLE3_NAME, BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_URL } from '../model/bimModel';
 import { DEFAULT_BIM_IMPORT_OPTIONS, type BimGranularity } from './bimImportModel';
 import type { BimConvertSource } from './bimServerClient';
 import { bimServerUrl } from './bimServerClient';
 import { useBimImport } from './useBimImport';
 
-type SourceKind = 'example1' | 'example2' | 'file' | 'url';
+type SourceKind = 'example1' | 'example2' | 'example3' | 'file' | 'url';
 const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export interface BIMToProjectImportProps {
@@ -40,6 +40,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
   const [file, setFile] = useState<{ name: string; uri: string; file?: any } | null>(null);
   const [granularity, setGranularity] = useState<BimGranularity>(DEFAULT_BIM_IMPORT_OPTIONS.granularity);
   const [skipEmpty, setSkipEmpty] = useState(DEFAULT_BIM_IMPORT_OPTIONS.skipEmptyStoreys);
+  const [openings, setOpenings] = useState(DEFAULT_BIM_IMPORT_OPTIONS.includeOpenings === true);
   const [startDate, setStartDate] = useState('');
   const projectExists = usePMStore((s) => !!s.projectsById[projectGUID]);
   const converterUrl = bimServerUrl();
@@ -57,10 +58,11 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
   // an example brings its own project GUID and name; only a project of the route that EXISTS keeps its GUID (it is the target of the import)
   const chooseSource = (v: SourceKind) => {
     setSource(v);
-    if (v !== 'example1' && v !== 'example2') return;
+    if (v !== 'example1' && v !== 'example2' && v !== 'example3') return;
     const keepGuid = !!given && !!usePMStore.getState().projectsById[given];
-    if (!keepGuid) setProjectGUID(v === 'example2' ? BIM_EXAMPLE2_PROJECT_GUID : BIM_EXAMPLE1_PROJECT_GUID);
-    setProjectName(v === 'example2' ? BIM_EXAMPLE2_NAME : BIM_EXAMPLE1_NAME);
+    const ex = v === 'example3' ? [BIM_EXAMPLE3_PROJECT_GUID, BIM_EXAMPLE3_NAME] : v === 'example2' ? [BIM_EXAMPLE2_PROJECT_GUID, BIM_EXAMPLE2_NAME] : [BIM_EXAMPLE1_PROJECT_GUID, BIM_EXAMPLE1_NAME];
+    if (!keepGuid) setProjectGUID(ex[0]);
+    setProjectName(ex[1]);
   };
 
   const pick = async () => {
@@ -75,6 +77,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
     let src: BimConvertSource;
     if (source === 'example1') src = { kind: 'url', url: BIM_EXAMPLE1_URL };
     else if (source === 'example2') src = { kind: 'url', url: BIM_EXAMPLE2_URL };
+    else if (source === 'example3') src = { kind: 'url', url: BIM_EXAMPLE3_URL };
     else if (source === 'url') src = { kind: 'url', url: url.trim() };
     else {
       const blob: Blob = file!.file ?? (await (await fetch(file!.uri)).blob());
@@ -84,7 +87,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
       projectGUID: projectGUID.trim().toLowerCase(),
       projectName: projectName.trim() || BIM_EXAMPLE1_NAME,
       source: src,
-      options: { granularity, skipEmptyStoreys: skipEmpty, startDate: startDate || undefined },
+      options: { granularity, skipEmptyStoreys: skipEmpty, startDate: startDate || undefined, includeOpenings: openings },
     });
     if (out && out.status === 'imported') usePMStore.getState().selectProject(out.projectGUID);
   };
@@ -98,7 +101,30 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
   };
 
   return (
-    <ScrollView testID="bim-import" contentContainerStyle={styles.page} style={{ backgroundColor: theme.colors.background }}>
+    <View testID="bim-import" style={[styles.root, { backgroundColor: theme.colors.background }]}>
+      {/* the action bar stays at the top of the screen while the options below scroll: Import, the progress, the result */}
+      <View testID="bim-import-bar" style={[styles.bar, { backgroundColor: theme.colors.background, borderBottomColor: theme.colors.outlineVariant }]}>
+        <View style={styles.barInner}>
+          {problem ? <HelperText testID="bim-import-problem" type="error" visible>{problem}</HelperText> : null}
+          <Button testID="bim-import-start-button" mode="contained" disabled={busy || !!problem} onPress={start}>{pmT('Import')}</Button>
+
+          {status.kind === 'busy' ? (
+            <View testID="bim-import-progress" style={{ gap: 6 }}>
+              <ProgressBar progress={Math.max(0.02, status.percent / 100)} />
+              <Text>{status.text} ({status.percent}%)</Text>
+            </View>
+          ) : null}
+          {status.kind === 'error' ? <HelperText testID="bim-import-error" type="error" visible>{status.text}</HelperText> : null}
+          {status.kind === 'cancelled' ? <Text testID="bim-import-cancelled">{pmT('Cancelled - nothing was changed.')}</Text> : null}
+          {status.kind === 'done' ? (
+            <View style={{ gap: 8 }}>
+              <Text testID="bim-import-done">{status.text}</Text>
+              <Button testID="bim-import-open" mode="contained-tonal" onPress={openView}>{pmT('Open the BIM view')}</Button>
+            </View>
+          ) : null}
+        </View>
+      </View>
+      <ScrollView contentContainerStyle={styles.page} style={styles.scroll}>
       <Card style={styles.card}>
         <Card.Title title={pmT('Import a BIM model (IFC)')} subtitle={pmT('Stages and tasks only - no costs, no lines. The 3D model is kept next to them.')} />
         <Card.Content style={{ gap: 12 }}>
@@ -106,6 +132,7 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
           <RadioButton.Group value={source} onValueChange={(v) => chooseSource(v as SourceKind)}>
             <RadioButton.Item testID="bim-import-source-example1" label={pmT('BIM example 1 - Structure Walls (58 walls, 4 storeys)')} value="example1" />
             <RadioButton.Item testID="bim-import-source-example2" label={pmT('BIM example 2 - Duplex Apartment (215 elements, 4 storeys)')} value="example2" />
+            <RadioButton.Item testID="bim-import-source-example3" label={pmT('BIM example 3 - Schependomlaan, residential building (49 MB, about 3 500 elements: grouped tasks; takes about a minute)')} value="example3" />
             <RadioButton.Item testID="bim-import-source-file" label={pmT('An IFC file of this device')} value="file" />
             <RadioButton.Item testID="bim-import-source-url" label={pmT('The address (https) of an IFC file')} value="url" />
           </RadioButton.Group>
@@ -131,35 +158,27 @@ export default function BIMToProjectImport(props: BIMToProjectImportProps) {
             <RadioButton.Item testID="bim-import-gran-group" label={pmT('One task per group (storey, class, type)')} value="group" />
           </RadioButton.Group>
           <View style={styles.row}>
+            <Switch testID="bim-import-openings" value={openings} onValueChange={setOpenings} />
+            <Text>{pmT('Openings of windows and doors as elements and tasks (translucent blue in the 3D view)')}</Text>
+          </View>
+          <View style={styles.row}>
             <Switch testID="bim-import-skip-empty" value={skipEmpty} onValueChange={setSkipEmpty} />
             <Text>{pmT('Skip storeys that hold no element')}</Text>
           </View>
           <TextInput testID="bim-import-start" label={pmT('First working day of the plan (YYYY-MM-DD, empty = today)')} value={startDate} onChangeText={setStartDate} autoCapitalize="none" />
 
-          {problem ? <HelperText testID="bim-import-problem" type="error" visible>{problem}</HelperText> : null}
-          <Button testID="bim-import-start-button" mode="contained" disabled={busy || !!problem} onPress={start}>{pmT('Import')}</Button>
-
-          {status.kind === 'busy' ? (
-            <View testID="bim-import-progress" style={{ gap: 6 }}>
-              <ProgressBar progress={Math.max(0.02, status.percent / 100)} />
-              <Text>{status.text} ({status.percent}%)</Text>
-            </View>
-          ) : null}
-          {status.kind === 'error' ? <HelperText testID="bim-import-error" type="error" visible>{status.text}</HelperText> : null}
-          {status.kind === 'cancelled' ? <Text testID="bim-import-cancelled">{pmT('Cancelled - nothing was changed.')}</Text> : null}
-          {status.kind === 'done' ? (
-            <View style={{ gap: 8 }}>
-              <Text testID="bim-import-done">{status.text}</Text>
-              <Button testID="bim-import-open" mode="contained-tonal" onPress={openView}>{pmT('Open the BIM view')}</Button>
-            </View>
-          ) : null}
         </Card.Content>
       </Card>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  root: { flex: 1 },
+  bar: { alignItems: 'center', paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, borderBottomWidth: StyleSheet.hairlineWidth },
+  barInner: { width: '100%', maxWidth: 720, gap: 8 },
+  scroll: { flex: 1 },
   page: { padding: 16, alignItems: 'center' },
   card: { width: '100%', maxWidth: 720 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },

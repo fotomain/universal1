@@ -36,6 +36,8 @@ export const pmRpcKanbanEnsureProjectStages = 'pm_kanban_ensure_project_stages';
 export const pmRpcApplySchedule = 'pm_apply_schedule';
 /** bulk insert of the tasks of an imported project file (SQL PART 40): the progress of the project is calculated once per chunk, not once per row */
 export const pmRpcImportTasks = 'project_import_tasks';
+/** deletes ALL tasks of a project in one statement (SQL PART 40): the replace of an import; a plain delete of thousands of rows hits the statement timeout */
+export const pmRpcDeleteProjectTasks = 'project_delete_tasks';
 /** the finance lines of a task (Time / Material / Expense / Revenue); an imported project file may carry them */
 export const pmTaskLineTable = 'task_line_table';
 export const pmRpcDependencyCreatesCycle = 'pm_dependency_creates_cycle';

@@ -25,6 +25,7 @@ def main(argv=None):
     ap.add_argument('--keep-empty', action='store_true', help='keep storeys without elements as empty stages')
     ap.add_argument('--start', help='project start date YYYY-MM-DD (default today)')
     ap.add_argument('--no-properties', action='store_true')
+    ap.add_argument('--openings', action='store_true', help='the openings (windows / doors cut out of a wall) become elements and tasks of their own')
     a = ap.parse_args(argv)
     path, tmp, src_name = a.source, None, os.path.basename(a.source)
     if a.source.startswith('http://') or a.source.startswith('https://'):
@@ -35,7 +36,7 @@ def main(argv=None):
         path, src_name = tmp.name, os.path.basename(a.source.split('?')[0]).replace('%20', ' ')
     try:
         res = convert_ifc(path, a.project, a.name, src_name, a.granularity, not a.keep_empty, dt.date.fromisoformat(a.start) if a.start else None,
-                          with_properties=not a.no_properties, progress=lambda p, t: print(f'[{p:3d}%] {t}'))
+                          with_properties=not a.no_properties, include_openings=a.openings, progress=lambda p, t: print(f'[{p:3d}%] {t}'))
         info = write_bundle(res, a.out)
     finally:
         if tmp:

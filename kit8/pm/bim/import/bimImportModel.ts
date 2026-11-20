@@ -11,9 +11,11 @@ export interface BimImportOptions {
   skipEmptyStoreys: boolean;
   /** YYYY-MM-DD: the first working day of the imported plan (default today) */
   startDate?: string;
+  /** the openings of windows / doors (IfcOpeningElement) become elements and tasks of their own (a translucent solid in the hole); off = only holes in the wall */
+  includeOpenings?: boolean;
 }
 
-export const DEFAULT_BIM_IMPORT_OPTIONS: BimImportOptions = { granularity: 'auto', skipEmptyStoreys: true };
+export const DEFAULT_BIM_IMPORT_OPTIONS: BimImportOptions = { granularity: 'auto', skipEmptyStoreys: true, includeOpenings: true };
 
 export interface BimBundleStorey {
   ifcGuid: string | null;

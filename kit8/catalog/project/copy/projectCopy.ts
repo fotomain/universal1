@@ -1,6 +1,8 @@
 // Copy of a project (the menu of a card of /catalog/project: Copy, Copy with Tasks).
 //
 //   Copy             -> a NEW project (new rowGUID + treePath) with the settings of the source, no tasks
+//   Copy with BIM    -> the same as Copy with Tasks + the BIM model of the source (storeys, chunks, elements, properties; the chunk files are copied in Storage);
+//                       the tasks come first (their new ids tie the elements and the stages), the model after them (kit8/pm/bim/copy)
 //   Copy with Tasks  -> the same + every task / stage / milestone (new ids), the links between them and the task lines
 //                       (Time / Material / Expense / Revenue). It reuses the planner of the file import (planProjectImport:
 //                       new ids, rebuilt tree paths, links on the new ids), so a copy and an import of the exported file agree.
@@ -29,7 +31,12 @@ export interface ProjectCopyResult {
   tasks: number;
   dependencies: number;
   taskLines: number;
+  /** elements of the copied BIM model (0 = no BIM copy, or the source has none) */
+  bimElements: number;
 }
+
+/** copies the BIM model of the source into the target; idMap = old task guid -> new task guid (kit8/pm/bim/copy/copyBimModel.ts) */
+export type CopyBimFn = (sourceGUID: string, targetGUID: string, idMap: Record<string, string>) => Promise<{ copied: boolean; elements: number }>;
 
 /** "X (copy)", then "X (copy 2)", "X (copy 3)" ... - the first one no other project has. */
 export function copyProjectName(name: string, existingNames: string[]): string {
@@ -71,26 +78,29 @@ export async function copyProject(
   api: ProjectCopyApi,
   source: PMProjectRow,
   ownerGUID: string,
-  opts: { withTasks: boolean; name: string; orderInList: number; makeGUID?: () => string }
+  opts: { withTasks: boolean; name: string; orderInList: number; makeGUID?: () => string; withBim?: boolean; copyBim?: CopyBimFn }
 ): Promise<ProjectCopyResult> {
   const makeGUID = opts.makeGUID ?? newGUID;
   const row = planProjectCopy(source, ownerGUID, opts.name, opts.orderInList, makeGUID);
 
   // read + plan BEFORE anything is written: a broken source stops with nothing created
+  if (opts.withBim && !opts.copyBim) throw new Error('Copy with BIM needs the BIM copy function.');
   let plan: ReturnType<typeof planProjectImport> | null = null;
-  if (opts.withTasks) {
+  if (opts.withTasks || opts.withBim) {
     const [data, taskLines] = await Promise.all([api.readProjectData(source.rowGUID), api.readProjectTaskLines(source.rowGUID)]);
     const file = { ...buildProjectExchangeFile(source, data.tasks, data.deps), taskLines };
     plan = planProjectImport(file, row, ownerGUID, makeGUID);
   }
 
+  let bimElements = 0;
   const created = await api.createProject(row);
-  if (!plan) return { project: created, tasks: 0, dependencies: 0, taskLines: 0 };
+  if (!plan) return { project: created, tasks: 0, dependencies: 0, taskLines: 0, bimElements: 0 };
   try {
     const tasks = plan.tasks.map(withoutSubprojectMark);
     for (let i = 0; i < tasks.length; i += CHUNK) await api.importTasks(row.rowGUID, tasks.slice(i, i + CHUNK));
     for (let i = 0; i < plan.dependencies.length; i += DEP_CHUNK) await api.createDependencies(plan.dependencies.slice(i, i + DEP_CHUNK));
     for (let i = 0; i < plan.taskLines.length; i += LINE_CHUNK) await api.createTaskLines(plan.taskLines.slice(i, i + LINE_CHUNK));
+    if (opts.withBim) bimElements = (await opts.copyBim!(source.rowGUID, row.rowGUID, plan.idMap)).elements;
   } catch (e) {
     // no half-made project is left behind (its tasks, links and lines go with the row)
     try {
@@ -100,5 +110,5 @@ export async function copyProject(
     }
     throw e;
   }
-  return { project: created, tasks: plan.tasks.length, dependencies: plan.dependencies.length, taskLines: plan.taskLines.length };
+  return { project: created, tasks: plan.tasks.length, dependencies: plan.dependencies.length, taskLines: plan.taskLines.length, bimElements };
 }

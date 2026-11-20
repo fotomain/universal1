@@ -2,7 +2,7 @@
 """BIM converter server (phase 2 of documentation/BIM_WBS.html): a small stateless HTTP service. Standard library only + ifc_convert.
 
   GET  /health                    -> {"ok": true, "version": ...}
-  POST /convert?projectGUID=&modelGUID=&name=&granularity=&skipEmpty=&startDate=&sourceName=
+  POST /convert?projectGUID=&modelGUID=&name=&granularity=&skipEmpty=&startDate=&sourceName=&openings=1&properties=0
        body = the IFC bytes (application/octet-stream)  OR  {"url": "https://..."} (application/json; the host must be in BIM_URL_ALLOWLIST)
        header Authorization: Bearer <the user's Supabase JWT>
        -> 202 {"jobId": ...}
@@ -100,7 +100,7 @@ def run_job(jid: str, ifc_path: str, token: str | None, q: dict):
         job['state'] = 'running'
         start = dt.date.fromisoformat(q['startDate']) if q.get('startDate') else None
         res = convert_ifc(ifc_path, q['projectGUID'], q.get('name') or None, q.get('sourceName') or None, q.get('granularity', 'auto'), q.get('skipEmpty', '1') != '0', start,
-                          progress=lambda p, t: progress(min(p, 85), t))
+                          progress=lambda p, t: progress(min(p, 85), t), include_openings=q.get('openings') == '1', with_properties=q.get('properties', '1') != '0')
         out = res.to_json()
         out['model']['modelGUID'] = q['modelGUID']
         if token and cfg('SUPABASE_URL'):

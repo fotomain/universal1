@@ -80,7 +80,7 @@ export async function runBimImport(deps: BimImportDeps, input: BimImportInput): 
   let tasksWritten = false;
   try {
     bundle = await deps.convert(
-      { projectGUID: input.projectGUID, modelGUID: begin.modelGUID, name: input.projectName, granularity: input.options.granularity, skipEmpty: input.options.skipEmptyStoreys, startDate: input.options.startDate },
+      { projectGUID: input.projectGUID, modelGUID: begin.modelGUID, name: input.projectName, granularity: input.options.granularity, skipEmpty: input.options.skipEmptyStoreys, startDate: input.options.startDate, openings: input.options.includeOpenings === true },
       input.source,
       (p, t) => step(5 + Math.round(p * 0.55), t)
     );

@@ -8,6 +8,8 @@ export interface ProjectCardActions {
   onCopy?: (projectGUID: string) => void;
   /** the same + tasks, links and task lines */
   onCopyWithTasks?: (projectGUID: string) => void;
+  /** the same + the BIM model (only offered for a BIM project: rowJSON.projectIsBIMBased) */
+  onCopyWithBim?: (projectGUID: string) => void;
 }
 
 export const ProjectCardActionsContext = createContext<ProjectCardActions>({});

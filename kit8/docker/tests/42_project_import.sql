@@ -37,4 +37,18 @@ SELECT tt.as_user('other@out.test', '33333333-3333-3333-3333-333333333333');
 SELECT tt.fails($q$SELECT public.project_import_tasks('aaaaaaaa-0000-4000-8000-000000000001', '[]'::jsonb)$q$, 'does not exist or is not yours', 'the project of another user is refused');
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
 SELECT tt.fails($q$SELECT public.project_import_tasks('aaaaaaaa-0000-4000-8000-000000000001', jsonb_build_array(jsonb_build_object('rowGUID','aaaaaaaa-0000-4000-8000-0000000000e5','treePath',public.pm_ltree_label('aaaaaaaa-0000-4000-8000-000000000001')::text||'.'||public.pm_ltree_label('aaaaaaaa-0000-4000-8000-0000000000e5')::text,'rowOwnerGUID','33333333-3333-3333-3333-333333333333','rowJSON','{}'::jsonb)))$q$, '', 'a row owned by somebody else is refused by the policy');
+
+-- project_delete_tasks = ALL tasks of the project in ONE statement (the replace of a BIM / file import: a plain delete of 4 000 rows took 6 s and hit the statement limit of Supabase)
+SELECT tt.fails($q$SELECT public.project_delete_tasks('aaaaaaaa-0000-4000-8000-000000000099')$q$, 'does not exist or is not yours', 'delete: a project that does not exist is refused');
+SELECT tt.as_user('other@out.test', '33333333-3333-3333-3333-333333333333');
+SELECT tt.fails($q$SELECT public.project_delete_tasks('aaaaaaaa-0000-4000-8000-000000000001')$q$, 'does not exist or is not yours', 'delete: the project of another user is refused');
+SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
+SELECT tt.eq(public.project_delete_tasks('aaaaaaaa-0000-4000-8000-000000000001'), 4, 'delete: the four rows are deleted and counted');
+SELECT tt.eq((SELECT count(*) FROM public.project_task_table WHERE "projectGUID" = 'aaaaaaaa-0000-4000-8000-000000000001'), 0::bigint, 'delete: no task is left');
+SELECT tt.eq((SELECT count(*) FROM public.project_task_dependencies_table WHERE "projectGUID" = 'aaaaaaaa-0000-4000-8000-000000000001'), 0::bigint, 'delete: the link went with its tasks');
+SELECT tt.eq((SELECT count(*) FROM public.project_task_dependency_closure_table WHERE "projectGUID" = 'aaaaaaaa-0000-4000-8000-000000000001'), 0::bigint, 'delete: and its closure');
+SELECT tt.eq((SELECT count(*) FROM public.user_calendar_event_table WHERE "rowJSON"->>'projectTaskGUID' IN ('aaaaaaaa-0000-4000-8000-0000000000c3','aaaaaaaa-0000-4000-8000-0000000000d4')), 0::bigint, 'delete: the calendar rows of the tasks are gone');
+SELECT tt.eq(current_setting('app.task_bulk', true), 'off', 'delete: the bulk switch is off again');
+SELECT tt.eq((SELECT "rowProgress" FROM public.project_table WHERE "rowGUID" = 'aaaaaaaa-0000-4000-8000-000000000001'), 0::numeric, 'delete: the progress of the empty project is 0');
+SELECT tt.eq(public.project_delete_tasks('aaaaaaaa-0000-4000-8000-000000000001'), 0, 'delete: an empty project is fine (0)');
 ROLLBACK;

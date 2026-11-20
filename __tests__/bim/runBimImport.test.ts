@@ -124,6 +124,16 @@ describe('runBimImport', () => {
     expect(t.calls).toContain('fail');
   });
 
+  it('the openings option goes to the converter (default off for a caller that does not say)', async () => {
+    const t = make();
+    const seen: any[] = [];
+    const conv = t.deps.convert;
+    t.deps.convert = async (p, s, o) => (seen.push(p.openings), conv(p, s, o));
+    await runBimImport(t.deps, input);
+    await runBimImport(t.deps, { ...input, options: { ...input.options, includeOpenings: true } });
+    expect(seen).toEqual([false, true]);
+  });
+
   it('progress goes up to 100', async () => {
     const t = make();
     const seen: number[] = [];

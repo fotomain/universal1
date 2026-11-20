@@ -119,6 +119,13 @@ export class FakeSupabase {
       for (const r of args.p_rows || []) this.tables[TASKS].push({ ...clone([r])[0], projectGUID: args.p_project });
       return { data: (args.p_rows || []).length, error: null };
     }
+    if (fn === 'project_delete_tasks') {
+      // SQL PART 40: every task of the project in one statement (the links go with them: FK cascade)
+      const gone = new Set(this.tables[TASKS].filter((t) => t.projectGUID === args.p_project).map((t) => t.rowGUID));
+      this.tables[TASKS] = this.tables[TASKS].filter((t) => !gone.has(t.rowGUID));
+      if (this.tables[DEPS]) this.tables[DEPS] = this.tables[DEPS].filter((d) => !gone.has(d.rowGUID) && !gone.has(d.rowDependsOnGUID));
+      return { data: gone.size, error: null };
+    }
     if (fn === 'pm_set_task_last_edit_place') {
       const t = this.task(args.p_task_guid);
       if (!t) return { data: 0, error: null };

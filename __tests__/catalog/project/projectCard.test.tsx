@@ -168,6 +168,23 @@ describe('ProjectCard', () => {
       expect(actions.onCopyWithTasks).toHaveBeenCalledWith('proj-999');
     });
 
+    it('Copy with BIM is offered only for a BIM project and calls onCopyWithBim', () => {
+      const actions = { onCopy: jest.fn(), onCopyWithTasks: jest.fn(), onCopyWithBim: jest.fn() };
+      mount(withActions(projectToCard(sampleProject), {}, actions));
+      press('project-menu-proj-999');
+      expect(q('project-menu-copy-bim-proj-999')).toBeNull();
+      act(() => root.unmount());
+      document.body.innerHTML = '';
+      const bimProject = { ...sampleProject, rowJSON: { ...(sampleProject as any).rowJSON, projectIsBIMBased: true } };
+      mount(withActions(projectToCard(bimProject as any), {}, actions));
+      press('project-menu-proj-999');
+      expect(q('project-menu-copy-bim-proj-999')).not.toBeNull();
+      expect(document.body.textContent).toContain('Copy with BIM');
+      press('project-menu-copy-bim-proj-999');
+      expect(actions.onCopyWithBim).toHaveBeenCalledWith('proj-999');
+      expect(actions.onCopyWithTasks).not.toHaveBeenCalled();
+    });
+
     it('Delete of the menu calls onDelete', () => {
       const onDelete = jest.fn();
       mount(withActions(projectToCard(sampleProject), { onDelete }));

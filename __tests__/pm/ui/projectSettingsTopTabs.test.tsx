@@ -595,4 +595,27 @@ describe('Project settings window TopTabs', () => {
       'Save this project first to manage task Kanban states.'
     );
   });
+  it('New project: the Save button creates the project and the window stays as Project settings (Save instead of Save / Create, BIM tab appears)', () => {
+    seedStore();
+    mockCreate.mockImplementation((_row: any, opts: any) => { opts?.onSuccess?.(); });
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    press('pm-project-add-menu-new');
+
+    // a new project: Cancel · Save · Create, no BIM tab (it needs a saved project)
+    expect(q('pm-project-save-stay')).not.toBeNull();
+    expect(textOf('pm-project-save')).toContain('Create');
+    expect(q('pm-project-tab-TabBIM')).toBeNull();
+
+    typeInto('pm-project-name', 'Saved and kept open');
+    press('pm-project-save-stay');
+    expect(mockCreate).toHaveBeenCalledTimes(1);
+    expect(mockCreate.mock.calls[0][0].rowJSON.name).toBe('Saved and kept open');
+
+    // the window is still open and now works like Project settings of that project
+    expect(q('pm-project-name')).not.toBeNull();
+    expect(q('pm-project-save-stay')).toBeNull();
+    expect(textOf('pm-project-save')).toContain('Save');
+    expect(q('pm-project-tab-TabBIM')).not.toBeNull();
+  });
 });

@@ -100,6 +100,8 @@ DROP FUNCTION IF EXISTS public.bim_import_fail(uuid, text, text[]) CASCADE;
 
 DROP FUNCTION IF EXISTS public.bim_delete_model(uuid) CASCADE;
 
+DROP FUNCTION IF EXISTS public.bim_copy_begin(uuid, uuid, jsonb) CASCADE;
+
 DROP FUNCTION IF EXISTS public.bim_model_manifest(uuid) CASCADE;
 
 DROP FUNCTION IF EXISTS public.bim_elements_page(uuid, uuid, integer) CASCADE;
@@ -456,6 +458,7 @@ DROP TABLE IF EXISTS public.task_template_header CASCADE;
 DROP FUNCTION IF EXISTS public.task_template_save(uuid, text, text);
 DROP FUNCTION IF EXISTS public.task_template_fill(uuid, uuid, boolean);
 DROP FUNCTION IF EXISTS public.project_import_tasks(uuid, jsonb);
+DROP FUNCTION IF EXISTS public.project_delete_tasks(uuid);
 DROP FUNCTION IF EXISTS public.task_template_set_title(uuid, text, text);
 DROP FUNCTION IF EXISTS public.task_template_visible(uuid);
 DROP FUNCTION IF EXISTS public.task_template_clean_task(jsonb);

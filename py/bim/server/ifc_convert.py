@@ -31,6 +31,7 @@ CLASS_COLOURS = {
     'IfcFurnishingElement': (190, 160, 120), 'IfcCovering': (215, 212, 205),
 }
 DEFAULT_COLOUR = (185, 185, 190)
+OPENING_COLOUR = (70, 140, 230, 110)   # an opening = a translucent blue solid in the hole
 
 
 @dataclass
@@ -112,7 +113,9 @@ def _props(e) -> dict:
 
 
 def convert_ifc(path: str, project_guid: str, project_name: str | None = None, source_name: str | None = None, granularity: str = 'auto', skip_empty: bool = True,
-                start_date: dt.date | None = None, threads: int | None = None, with_properties: bool = True, progress=None) -> ConvertResult:
+                start_date: dt.date | None = None, threads: int | None = None, with_properties: bool = True, progress=None, include_openings: bool = False) -> ConvertResult:
+    """include_openings: the openings (IfcOpeningElement = the voids of windows / doors cut out of a wall) become elements of their own (a translucent blue solid in the hole, a task in the storey of
+    the wall they are cut from). Off by default: then they are only holes in the wall mesh."""
     def say(p, text):
         if progress:
             progress(p, text)
@@ -144,7 +147,8 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
             n += 1
             product = f.by_id(sh.id)
             cls = product.is_a()
-            if cls not in SKIP_CLASSES and not any(product.is_a(c) for c in ('IfcOpeningElement', 'IfcSpace')):
+            is_opening = product.is_a('IfcOpeningElement')
+            if (cls not in SKIP_CLASSES or (is_opening and include_openings)) and not product.is_a('IfcSpace'):
                 gm = sh.geometry
                 verts = np.array(gm.verts, dtype=np.float64).reshape(-1, 3)
                 faces = np.array(gm.faces, dtype=np.int64).reshape(-1, 3)
@@ -153,11 +157,17 @@ def convert_ifc(path: str, project_guid: str, project_name: str | None = None, s
                     if len(mat_ids) != len(faces):
                         mat_ids = np.zeros(len(faces), dtype=np.int64)
                     colours = [_material_colour(m, cls) for m in gm.materials] or [(*CLASS_COLOURS.get(cls, DEFAULT_COLOUR), 255)]
+                    if is_opening:
+                        colours = [OPENING_COLOUR] * len(colours)
                     mat_ids = np.where((mat_ids >= 0) & (mat_ids < len(colours)), mat_ids, 0)
-                    storey = _storey_of(product)
+                    host = None
+                    if is_opening:
+                        voids = getattr(product, 'VoidsElements', None) or ()
+                        host = voids[0].RelatingBuildingElement if voids else None
+                    storey = _storey_of(host if host is not None else product)
                     typ = ue.get_type(product)
                     shapes.append({
-                        'guid': product.GlobalId, 'cls': cls, 'name': (getattr(product, 'Name', None) or '').strip(), 'typeName': ((typ.Name if typ is not None else None) or getattr(product, 'ObjectType', None) or '').strip(),
+                        'guid': product.GlobalId, 'cls': cls, 'name': ((('Opening in ' + (getattr(host, 'Name', None) or host.is_a())) if host is not None else (getattr(product, 'Name', None) or '')).strip() if is_opening else (getattr(product, 'Name', None) or '').strip()), 'typeName': ('Opening' if is_opening else ((typ.Name if typ is not None else None) or getattr(product, 'ObjectType', None) or '').strip()),
                         'tag': (getattr(product, 'Tag', None) or '').strip(), 'storey': storey.GlobalId if storey is not None else None,
                         'verts': verts, 'faces': faces, 'mat': mat_ids, 'colours': colours, 'product': product})
             if not it.next():

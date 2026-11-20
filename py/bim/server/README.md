@@ -35,3 +35,9 @@ Environment: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `BIM_URL_ALLOWLIST` (default `
 the Storage policy of PART 55 (`bim_storage_upload_ok`: the caller started this import, the folder is the model's, the project is writable) decides. The server holds no service key and writes nothing to the database.
 
 Memory: the vertices of all elements are held as float64 until the model origin is known (a 450 KB IFC = a few MB; a 100 MB IFC = a few GB). Not measured on a big IFC (the spike A5 of the plan).
+
+## Openings, example 3
+`--openings` (HTTP: `openings=1`) makes the openings (IfcOpeningElement) elements of their own; `properties=0` (HTTP) leaves the IFC properties out. Schependomlaan (49 MB, IFC2X3) measured 2026-11-20: 35 s, 1.1 GB peak, 3 504 elements, 329 grouped tasks, 2.8 MB of chunks:
+```bash
+python ifc_to_bim.py "IFC Schependomlaan.ifc" --project 3a427f72-98f9-4f46-8449-164e3a22e1de --name "BIM example 3 - Schependomlaan" --start 2026-11-23 --out out3
+```
