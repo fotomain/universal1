@@ -60,6 +60,7 @@
 --   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): the windows of a calendar day, the capacity windows of a resource, the minute keys of a task, the inputs of an hour leveling run; PART 42 (apply / clear / undo / server plan) also takes minutes
 --   54. create_application_admin.sql - APPLICATION ADMINISTRATORS: permission_application_admin() (the caller holds permissionApplicationAdmin), organization_visible(org) + the SELECT policy of organizationTable (a user sees only the organizations he is a member of; an application administrator sees ALL), isApplicationAdmin in perm_my_matrix
 --   55. create_bim.sql - BIM: RLS (read by the members of the project), the bim_import_* / bim_delete_model / read RPCs, the key projectIsBIMBased (a switch of the user; the import sets it), the file queue, the Storage bucket bim + its policies (bim_storage_setup), task_template_clean_task drops the BIM keys
+--   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: RLS + policies of language_catalog / catalogTranslationTable, permission_translate_catalog() (= permissionTranslateCatalog), the guard trigger; perm_my_matrix answers canTranslateCatalog
 -- ===============================================================================================
 
 DO $$
@@ -4680,8 +4681,11 @@ BEGIN
     v_contract := public.organization_contract_calendar(p_resource, p_day);      -- PART 23: the contract in force, latest start wins
     SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."personTable" x WHERE x."rowGUID" = p_resource;
   ELSIF p_kind = 'workCenter' THEN
-    -- PART 35: a work center is its own capacity unit: its calendar, else the Standard work week (it has no contract of its own)
-    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."workCenterTable" x WHERE x."rowGUID" = p_resource;
+    -- PART 35: a work center is its own capacity unit: its calendar, else the Standard work week. A PERSON work center stands for a person (2026-11-23: every Time line books a work center):
+    -- the contract of that person in force on the day wins, as it does for the person himself
+    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', ''),
+           CASE WHEN x."rowJSON"->>'workCenterKind' = 'person' THEN public.organization_contract_calendar(x."rowJSON"->>'workCenterBase', p_day) END
+      INTO v_resource, v_contract FROM public."workCenterTable" x WHERE x."rowGUID" = p_resource;
   ELSE
     SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_resource FROM public."equipmentTable" x WHERE x."rowGUID" = p_resource;
   END IF;
@@ -4908,6 +4912,10 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
   SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') FROM public."workCenterTable" x WHERE p_kind = 'workCenter' AND x."rowGUID" = p_guid
   UNION
   SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') FROM public."contractTable" c WHERE p_kind = 'person' AND c."rowOwnerGUID" = p_guid AND c."rowParentGUID" = 'person'
+  UNION
+  -- a Person work center: the contracts of the person it stands for (2026-11-23)
+  SELECT NULLIF(c."rowJSON"->>'resourceCalendar', '') FROM public."workCenterTable" w JOIN public."contractTable" c ON c."rowOwnerGUID" = w."rowJSON"->>'workCenterBase' AND c."rowParentGUID" = 'person'
+   WHERE p_kind = 'workCenter' AND w."rowGUID" = p_guid AND w."rowJSON"->>'workCenterKind' = 'person'
 $$;
 
 REVOKE ALL ON FUNCTION public.organization_resource_calendars(text, text) FROM PUBLIC, anon;
@@ -5154,7 +5162,8 @@ BEGIN
   PERFORM public.organization_lock_calendar(c) FROM (SELECT DISTINCT COALESCE(x, 'standardWorkWeekCalendar') AS c FROM unnest(ARRAY[v_old_cal, v_new_cal]) AS x ORDER BY 1) t;
   FOR v_day IN SELECT DISTINCT o."periodDay" FROM public.resource_occupancy_x_movement o
                 WHERE o."resourceKind" = v_kind AND o."resourceGUID" = NEW."rowGUID" AND o."statusOfLine" = 'posted' ORDER BY 1 LOOP
-    v_contract := CASE WHEN v_kind = 'person' THEN public.organization_contract_calendar(NEW."rowGUID", v_day) END;     -- a contract calendar wins either way
+    v_contract := CASE WHEN v_kind = 'person' THEN public.organization_contract_calendar(NEW."rowGUID", v_day)
+                       WHEN v_kind = 'workCenter' AND NEW."rowJSON"->>'workCenterKind' = 'person' THEN public.organization_contract_calendar(NEW."rowJSON"->>'workCenterBase', v_day) END;     -- a contract calendar wins either way
     v_oldh := public.organization_calendar_day_hours(COALESCE(v_contract, v_old_cal, 'standardWorkWeekCalendar'), v_day);
     v_newh := public.organization_calendar_day_hours(COALESCE(v_contract, v_new_cal, 'standardWorkWeekCalendar'), v_day);
     PERFORM public.organization_assert_capacity(v_kind, NEW."rowGUID", v_day, v_oldh, v_newh);
@@ -5188,6 +5197,7 @@ DECLARE
   v_day    date;
   v_oldc   text;
   v_newc   text;
+  v_wc     record;
 BEGIN
   IF COALESCE(NEW."rowParentGUID", OLD."rowParentGUID") <> 'person' THEN RETURN COALESCE(NEW, OLD); END IF;
   IF TG_OP = 'UPDATE' AND (OLD."rowJSON"->'resourceCalendar') IS NOT DISTINCT FROM (NEW."rowJSON"->'resourceCalendar')
@@ -5207,6 +5217,18 @@ BEGIN
     PERFORM public.organization_assert_capacity('person', v_person, v_day,
               public.organization_calendar_day_hours(COALESCE(v_oldc, v_res, 'standardWorkWeekCalendar'), v_day),
               public.organization_calendar_day_hours(COALESCE(v_newc, v_res, 'standardWorkWeekCalendar'), v_day));
+  END LOOP;
+  -- the work centers of this person (2026-11-23: every Time line books a work center): the contract wins over the calendar of the work center
+  FOR v_wc IN SELECT w."rowGUID" AS g, NULLIF(w."rowJSON"->>'resourceCalendar', '') AS cal FROM public."workCenterTable" w
+               WHERE w."rowJSON"->>'workCenterKind' = 'person' AND w."rowJSON"->>'workCenterBase' = v_person LOOP
+    FOR v_day IN SELECT DISTINCT o."periodDay" FROM public.resource_occupancy_x_movement o
+                  WHERE o."resourceKind" = 'workCenter' AND o."resourceGUID" = v_wc.g AND o."statusOfLine" = 'posted' ORDER BY 1 LOOP
+      v_oldc := public.organization_contract_calendar(v_person, v_day, v_guid, v_extra);
+      v_newc := public.organization_contract_calendar(v_person, v_day);
+      PERFORM public.organization_assert_capacity('workCenter', v_wc.g, v_day,
+                public.organization_calendar_day_hours(COALESCE(v_oldc, v_wc.cal, 'standardWorkWeekCalendar'), v_day),
+                public.organization_calendar_day_hours(COALESCE(v_newc, v_wc.cal, 'standardWorkWeekCalendar'), v_day));
+    END LOOP;
   END LOOP;
   RETURN COALESCE(NEW, OLD);
 END;
@@ -11316,6 +11338,128 @@ REVOKE ALL ON FUNCTION public.work_center_copy_variant_settings(text, boolean) F
 GRANT EXECUTE ON FUNCTION public.work_center_copy_variant_settings(text, boolean) TO authenticated;
 
 
+-- ---- a Time line ALWAYS books a work center (2026-11-23) -------------------------------------------------------------------------
+-- task_line_table.rowJSON.taskResourceItem of a Time line is a workCenterTable row, nothing else; the kinds of work center a line may pick are chosen by the column "Resource" (rowJSON.taskWorkCenterKind).
+-- A Time line that still names a person / equipment directly (made before work centers, a script, an old file) is made a work center line by the trigger below; the work center of that person / equipment
+-- is made when it does not exist yet (`work_center_ensure`: base = the item, the business unit most used by its lines else the first leaf unit, the calendar of the person / equipment, the variant of the line copied).
+-- The one-time migration of the lines already stored is at the end of this PART.
+CREATE OR REPLACE FUNCTION public.work_center_ensure(p_kind text, p_base text, p_base_variant text DEFAULT NULL) RETURNS text
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_id   text;
+  v_unit text;
+  v_cal  text;
+  v_json jsonb;
+BEGIN
+  IF p_kind NOT IN ('person', 'equipment') THEN
+    RAISE EXCEPTION 'work_center_ensure: kind "%" (person | equipment): a Partner work center is made by hand', p_kind;
+  END IF;
+  SELECT w."rowGUID" INTO v_id FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterKind' = p_kind AND w."rowJSON"->>'workCenterBase' = p_base LIMIT 1;
+  IF v_id IS NOT NULL THEN
+    RETURN v_id;
+  END IF;
+  IF p_kind = 'person' AND NOT EXISTS (SELECT 1 FROM public."personTable" x WHERE x."rowGUID" = p_base) THEN
+    RAISE EXCEPTION 'work_center_ensure: "%" is not a person', p_base;
+  ELSIF p_kind = 'equipment' AND NOT EXISTS (SELECT 1 FROM public."equipmentTable" x WHERE x."rowGUID" = p_base) THEN
+    RAISE EXCEPTION 'work_center_ensure: "%" is not an equipment', p_base;
+  END IF;
+  -- the business unit: the one most used by the Time lines of this resource, else the first leaf unit
+  SELECT t.u INTO v_unit FROM (
+    SELECT l."rowJSON"->>'businessUnitTaskLine' AS u, count(*) AS n FROM public.task_line_table l
+     WHERE l."rowParentGUID" = 'timeGenus' AND COALESCE(NULLIF(l."rowJSON"->>'taskResourceKind', ''), 'person') = p_kind AND l."rowJSON"->>'taskResourceItem' = p_base
+       AND EXISTS (SELECT 1 FROM public."businessUnitTable" b WHERE b."rowGUID" = l."rowJSON"->>'businessUnitTaskLine')
+     GROUP BY 1) t ORDER BY t.n DESC, t.u LIMIT 1;
+  IF v_unit IS NULL THEN
+    SELECT b."rowGUID" INTO v_unit FROM public."businessUnitTable" b
+     WHERE NOT EXISTS (SELECT 1 FROM public."businessUnitTable" c WHERE c."rowParentGUID" = b."rowGUID") ORDER BY b."orderInList", b."rowGUID" LIMIT 1;
+  END IF;
+  IF v_unit IS NULL THEN
+    RAISE EXCEPTION 'work_center_ensure: there is no business unit - make one (Catalogs, Business units) so that the work center of "%" can be made', p_base;
+  END IF;
+  SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_cal FROM public."personTable" x WHERE p_kind = 'person' AND x."rowGUID" = p_base;
+  IF p_kind = 'equipment' THEN
+    SELECT NULLIF(x."rowJSON"->>'resourceCalendar', '') INTO v_cal FROM public."equipmentTable" x WHERE x."rowGUID" = p_base;
+  END IF;
+  v_json := jsonb_build_object('workCenterKind', p_kind, 'workCenterBase', p_base, 'businessUnit', v_unit, 'isActive', true);
+  IF v_cal IS NOT NULL THEN v_json := v_json || jsonb_build_object('resourceCalendar', v_cal); END IF;
+  IF p_base_variant IS NOT NULL AND EXISTS (SELECT 1 FROM public."variantTable" v WHERE v."rowOwnerGUID" = p_base AND v."rowJSON"->>'descriptorKey' = p_base_variant) THEN
+    v_json := v_json || jsonb_build_object('workCenterBaseVariant', p_base_variant);
+  END IF;
+  v_id := gen_random_uuid()::text;
+  INSERT INTO public."workCenterTable" ("rowGUID", "rowParentGUID", "rowJSON") VALUES (v_id, v_unit, v_json);
+  IF v_json ? 'workCenterBaseVariant' THEN
+    PERFORM public.work_center_copy_variant_settings(v_id, false);
+  END IF;
+  RETURN v_id;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.work_center_ensure(text, text, text) FROM PUBLIC, anon, authenticated;
+
+-- BEFORE INSERT / UPDATE of a task line: a Time line books a work center (see above). Name starting with aa_: it runs before the other BEFORE triggers of the table, which read the kind
+CREATE OR REPLACE FUNCTION public.task_line_work_center() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text;
+  v_item text;
+  v_wc   text;
+  v_json jsonb;
+BEGIN
+  IF NEW."rowParentGUID" IS DISTINCT FROM 'timeGenus' THEN
+    RETURN NEW;
+  END IF;
+  v_json := NEW."rowJSON";
+  v_kind := COALESCE(NULLIF(v_json->>'taskResourceKind', ''), 'person');
+  v_item := NULLIF(v_json->>'taskResourceItem', '');
+  IF v_kind NOT IN ('person', 'equipment', 'workCenter') THEN
+    RETURN NEW;                                -- an unknown kind is refused by task_line_resource_kind_chk
+  END IF;
+  IF v_kind = 'workCenter' THEN
+    -- the menu follows the work center (an empty menu = person)
+    IF v_item IS NOT NULL THEN
+      SELECT w."rowJSON"->>'workCenterKind' INTO v_kind FROM public."workCenterTable" w WHERE w."rowGUID" = v_item;
+      IF v_kind IS NULL THEN
+        RAISE EXCEPTION 'task_line_table: the resource of a Time line must be a work center (workCenterTable), "%" is not one', v_item;
+      END IF;
+      v_json := v_json || jsonb_build_object('taskWorkCenterKind', v_kind);
+    ELSE
+      v_json := v_json || jsonb_build_object('taskWorkCenterKind', COALESCE(NULLIF(v_json->>'taskWorkCenterKind', ''), 'person'));
+    END IF;
+  ELSE
+    -- a person / equipment named directly: its work center
+    IF v_item IS NOT NULL THEN
+      v_wc := public.work_center_ensure(v_kind, v_item, NULLIF(v_json->>'taskResourceAttributesKey', ''));
+      v_json := v_json || jsonb_build_object('taskResourceItem', v_wc);
+      IF COALESCE((v_json->>'taskIsPosted')::boolean, false) THEN
+        v_json := v_json || jsonb_build_object('taskIsPosted', false);        -- the posted plan names the old resource: Post again
+      END IF;
+    END IF;
+    v_json := v_json || jsonb_build_object('taskResourceKind', 'workCenter', 'taskWorkCenterKind', v_kind);
+  END IF;
+  NEW."rowJSON" := v_json;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_task_line_work_center ON public.task_line_table;
+
+CREATE TRIGGER aa_task_line_work_center BEFORE INSERT OR UPDATE ON public.task_line_table
+  FOR EACH ROW EXECUTE FUNCTION public.task_line_work_center();
+
+-- the one-time migration of the Time lines stored before: the trigger above turns each of them into a work center line (the work center of its person / equipment is made when missing;
+-- a posted line becomes "Post needed": its posted plan still names the person / equipment). Idempotent: nothing is left to convert the second time.
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.task_line_table l WHERE l."rowParentGUID" = 'timeGenus' AND COALESCE(l."rowJSON"->>'taskResourceKind', '') <> 'workCenter') THEN
+    UPDATE public.task_line_table l SET "rowJSON" = l."rowJSON"
+     WHERE l."rowParentGUID" = 'timeGenus' AND COALESCE(l."rowJSON"->>'taskResourceKind', '') <> 'workCenter';
+  END IF;
+  -- after the migration the rule is a CHECK as well
+  ALTER TABLE public.task_line_table DROP CONSTRAINT IF EXISTS task_line_time_work_center_chk;
+  ALTER TABLE public.task_line_table ADD CONSTRAINT task_line_time_work_center_chk CHECK ("rowParentGUID" <> 'timeGenus' OR "rowJSON"->>'taskResourceKind' = 'workCenter');
+END $$;
+
+
 -- ---- realtime ------------------------------------------------------------------------------------------------------------------
 DO $$
 DECLARE
@@ -16774,7 +16918,10 @@ BEGIN
              ORDER BY r."rowParentGUID", r."rowJSON"->>'permissionObject', (r."rowOwnerGUID" = 'permissionCatalog')) s
       CROSS JOIN LATERAL regexp_split_to_table(s.st, '') AS ch
      WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.obj) q;
-  RETURN jsonb_build_object('profiles', to_jsonb(v_profiles) || CASE WHEN public.permission_application_admin() THEN '["permissionApplicationAdmin"]'::jsonb ELSE '[]'::jsonb END, 'crud', v_crud, 'uxui', v_uxui,
+  RETURN jsonb_build_object('profiles', to_jsonb(v_profiles) || CASE WHEN public.permission_application_admin() THEN '["permissionApplicationAdmin"]'::jsonb ELSE '[]'::jsonb END
+                                                            || CASE WHEN public.permission_translate_catalog() THEN '["permissionTranslateCatalog"]'::jsonb ELSE '[]'::jsonb END, 'crud', v_crud, 'uxui', v_uxui,
+                            -- PART 56: the caller may write the translations of catalog items (a Translate tab can be edited)
+                            'canTranslateCatalog', public.permission_translate_catalog(),
                             'isAdmin', 'permissionOrganizationAdmin' = ANY (v_profiles),
                             -- PART 54: the caller sees ALL organizations (application_permission_table)
                             'isApplicationAdmin', public.permission_application_admin(),
@@ -17175,12 +17322,16 @@ BEGIN
   IF TG_TABLE_NAME = 'personTable' THEN
     IF NEW."rowJSON"->>'personEmail' IS NOT DISTINCT FROM OLD."rowJSON"->>'personEmail' THEN RETURN NEW; END IF;
     FOR r IN SELECT DISTINCT l."rowOwnerGUID" AS task FROM public.task_line_table l
-              WHERE l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'taskResourceItem' = NEW."rowGUID" LOOP
+              WHERE l."rowParentGUID" = 'timeGenus'
+                AND (l."rowJSON"->>'taskResourceItem' = NEW."rowGUID"
+                     OR l."rowJSON"->>'taskResourceItem' IN (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterKind' = 'person' AND w."rowJSON"->>'workCenterBase' = NEW."rowGUID")) LOOP
       PERFORM public.task_user_permission_rebuild(NULL, r.task);
     END LOOP;
   ELSE
     FOR r IN SELECT DISTINCT l."rowOwnerGUID" AS task FROM public."personTable" pe
-               JOIN public.task_line_table l ON l."rowParentGUID" = 'timeGenus' AND l."rowJSON"->>'taskResourceItem' = pe."rowGUID"
+               JOIN public.task_line_table l ON l."rowParentGUID" = 'timeGenus'
+                AND (l."rowJSON"->>'taskResourceItem' = pe."rowGUID"
+                     OR l."rowJSON"->>'taskResourceItem' IN (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterKind' = 'person' AND w."rowJSON"->>'workCenterBase' = pe."rowGUID"))
               WHERE lower(btrim(COALESCE(pe."rowJSON"->>'personEmail', ''))) = NEW."rowOwnerGUID" LOOP
       PERFORM public.task_user_permission_rebuild(NULL, r.task);
     END LOOP;
@@ -20858,6 +21009,112 @@ END $$;
 -- bim_import_model is an internal helper of the three import functions; a client has no use for it
 REVOKE ALL ON FUNCTION public.bim_import_model(uuid) FROM authenticated;
 
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 56: create_catalog_translation.sql
+-- TRANSLATIONS OF CATALOG ITEMS (tables in start1 PART 56). permissionTranslateCatalog = the right to write catalogTranslationTable, for ALL catalogs. It is NOT one of the 11 profiles of the matrix (it
+-- has no letters per table); it is held by:
+--   * the organization administrator (permissionOrganizationAdmin of the active organization),
+--   * a project manager (permissionProjectManager held anywhere in the active organization: owner of a project, or by an assignment row),
+--   * an application administrator (permission_application_admin(), PART 54),
+--   * a user the administrator gave it to: a row of project_permission_profile_user_table with rowOwnerGUID = the organization, permissionProfileGUID = 'permissionTranslateCatalog'.
+-- Everybody signed in reads the languages and the translations (a catalog is shared); only the holders write them.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.language_catalog') IS NULL OR to_regclass('public."catalogTranslationTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 56 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.permission_translate_catalog() RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me  text := public.app_user_guid()::text;
+  v_org text;
+BEGIN
+  IF v_me IS NULL THEN RETURN false; END IF;
+  IF public.permission_application_admin() THEN RETURN true; END IF;
+  v_org := public.organization_of_current_user();
+  IF v_org IS NOT NULL AND public.organization_is_admin(v_org) THEN RETURN true; END IF;
+  IF 'permissionProjectManager' = ANY (public.perm_profiles(NULL, NULL, 'catalogTranslationTable')) THEN RETURN true; END IF;
+  RETURN v_org IS NOT NULL AND EXISTS (SELECT 1 FROM public.project_permission_profile_user_table x
+                                        WHERE x."rowOwnerGUID" = v_org AND x."rowParentGUID" = v_me AND x."rowJSON"->>'permissionProfileGUID' = 'permissionTranslateCatalog');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_translate_catalog() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.permission_translate_catalog() TO authenticated;
+
+SELECT public.kit8_setup_def_table('language_catalog');
+
+SELECT public.kit8_setup_def_table('catalogTranslationTable');
+
+REVOKE ALL ON public.language_catalog FROM anon, authenticated;
+
+REVOKE ALL ON public."catalogTranslationTable" FROM anon, authenticated;
+
+GRANT SELECT ON public.language_catalog TO authenticated;
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON public."catalogTranslationTable" TO authenticated;
+
+DROP POLICY IF EXISTS "language_catalog_select" ON public.language_catalog;
+
+CREATE POLICY "language_catalog_select" ON public.language_catalog FOR SELECT TO authenticated USING (true);
+
+DO $$
+DECLARE
+  t text := 'catalogTranslationTable';
+BEGIN
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.permission_translate_catalog())', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.permission_translate_catalog()) WITH CHECK (public.permission_translate_catalog())', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.permission_translate_catalog())', t || '_delete', t);
+END $$;
+
+-- the text is trimmed; the catalog item of a row is not moved (the language and the field may be changed in the row: the unique index decides)
+CREATE OR REPLACE FUNCTION public.catalog_translation_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+BEGIN
+  IF COALESCE(btrim(NEW."rowOwnerGUID"), '') IN ('', 'empty') THEN
+    RAISE EXCEPTION 'catalogTranslationTable: a translation needs the catalog item (rowOwnerGUID)' USING ERRCODE = '23514';
+  END IF;
+  IF TG_OP = 'UPDATE' AND NEW."rowOwnerGUID" IS DISTINCT FROM OLD."rowOwnerGUID" THEN
+    RAISE EXCEPTION 'catalogTranslationTable: the catalog item of a translation is not changed - delete it and make a new one' USING ERRCODE = '42501';
+  END IF;
+  NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('translationText', btrim(COALESCE(NEW."rowJSON"->>'translationText', '')));
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_catalogTranslation_guard ON public."catalogTranslationTable";
+
+CREATE TRIGGER trg_catalogTranslation_guard BEFORE INSERT OR UPDATE ON public."catalogTranslationTable"
+  FOR EACH ROW EXECUTE FUNCTION public.catalog_translation_guard();
+
+-- realtime
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'catalogTranslationTable') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public."catalogTranslationTable";
+    END IF;
+  END IF;
+END $$;
+
+-- (the 15 language rows are in start4_sql_insert_missing.sql, PART 56)
 NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================

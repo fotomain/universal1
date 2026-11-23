@@ -11,10 +11,17 @@ import IconApp from '../../../ui/components/common/IconApp';
 import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
 import { usePMStore } from '../../../pm/store/store_pm';
 import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
+import { catalogEditCard } from '../../translation/CatalogEditModalCard';
+import { translatedTitleColumns } from '../../translation/translatedTitleColumn';
+import { useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
+
 import type { VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { BUDGET_ITEM_DIRECTIONS, BUDGET_ITEM_KEY_MATRIX, BUDGET_ITEM_KEY_TABLE } from '../../budget/item/budgetItemKeyModel';
 import { MANAGEMENT_ACTIVITY_GENUS_CODES, MANAGEMENT_ACTIVITY_GENUS_TABLE, managementActivityGenusShortTitle } from './managementActivityGenusModel';
 import { useManagementActivityGenusData } from './useManagementActivityGenusData';
+
+// the card of an activity (a click on a row: the table is read only, the Translate tab is not): Main + Translate
+const ActivityRowCard = catalogEditCard('swap_vert');
 
 const READ_ONLY = { crudPanelEnabled: false, selectionEnabled: false, contextMenuEnabled: false } as const;
 
@@ -23,6 +30,7 @@ export default function ManagementActivityGenusCRUD() {
   const selectRowCheckBoxForm = usePMStore((s: any) => s.selectRowCheckBoxForm);
   const { activityRows, keyRows, itemsPerActivity, itemsPerKey, error, reload } = useManagementActivityGenusData(true);
   const activity = MANAGEMENT_ACTIVITY_GENUS_TABLE;
+  const translationsVersion = useCatalogTranslationVersion(); // the translated title column follows the interface language
   const key = BUDGET_ITEM_KEY_TABLE;
 
   const codeCell = (testID: string) => (row: any) => (
@@ -35,6 +43,7 @@ export default function ManagementActivityGenusCRUD() {
   const activityColumns = useMemo<VisualColumn[]>(() => [
     { key: 'n', title: '#', type: 'rowNumber' },
     { key: 'title', title: 'Activity', type: 'text', width: 180, editable: false },
+    ...translatedTitleColumns(),
     { key: 'code', title: 'Code', type: 'custom', width: 170, editable: false, renderCell: codeCell('activity-genus-code'), searchText: (row) => String((row as any).rowGUID ?? '') },
     { key: 'description', title: 'Description', type: 'text', width: 380, editable: false },
     { key: 'webIfrsName', title: 'Web + IFRS', type: 'text', width: 340, editable: false },
@@ -45,7 +54,7 @@ export default function ManagementActivityGenusCRUD() {
     { key: 'items', title: 'Budget items', type: 'custom', width: 110, editable: false, align: 'center',
       renderCell: countCell('activity-genus-items', (row) => itemsPerActivity[row.rowGUID] ?? 0) },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  ], [c.text, itemsPerActivity]);
+  ], [c.text, itemsPerActivity, translationsVersion]);
 
   const keyColumns = useMemo<VisualColumn[]>(() => [
     { key: 'n', title: '#', type: 'rowNumber' },
@@ -96,11 +105,12 @@ export default function ManagementActivityGenusCRUD() {
           listParentGUID="empty"
           visualColumns={activityColumns}
           defaultRowJSON={activity.emptyRowJSON}
+          EditRowModalCard={ActivityRowCard}
           {...READ_ONLY}
           selectRowCheckBoxForm={selectRowCheckBoxForm}
           resizeColumnWidth
           realtime
-          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch' }}
+          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', inlineEdit: false }}
         />
         <Text style={[styles.h2, { color: c.text, marginTop: 18 }]}>Budget item keys = activity × management genus</Text>
         <ReusableTable

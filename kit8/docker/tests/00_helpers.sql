@@ -44,6 +44,12 @@ END $$;
 CREATE OR REPLACE FUNCTION tt.line(p_task uuid, p_kind text, p_resource text, p_unit text DEFAULT NULL) RETURNS uuid LANGUAGE plpgsql AS $$
 DECLARE v uuid := gen_random_uuid();
 BEGIN
+  -- a Time line books a work center (2026-11-23): a person / equipment named here is made when missing, the trigger gives the line its work center
+  IF p_kind = 'person' AND p_resource IS NOT NULL THEN
+    INSERT INTO public."personTable" ("rowGUID", "rowJSON") VALUES (p_resource, jsonb_build_object('personFirstName', initcap(split_part(p_resource, '-', 2)), 'personLastName', 'T')) ON CONFLICT DO NOTHING;
+  ELSIF p_kind = 'equipment' AND p_resource IS NOT NULL THEN
+    INSERT INTO public."equipmentTable" ("rowGUID", "rowJSON") VALUES (p_resource, jsonb_build_object('equipmentTitle', p_resource)) ON CONFLICT DO NOTHING;
+  END IF;
   INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowJSON")
   VALUES (v, p_task, 'timeGenus', jsonb_strip_nulls(jsonb_build_object('taskResourceKind', p_kind, 'taskResourceItem', p_resource, 'measureUnitTaskLine', p_unit)));
   RETURN v;

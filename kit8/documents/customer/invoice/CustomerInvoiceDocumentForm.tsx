@@ -27,7 +27,8 @@ import { MANAGEMENT_GENUS } from '../../../catalog/management/genus/managementGe
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
 import { parseDayInput } from '../../fact/input/factInputModel';
 import { useDocumentLineMenu } from '../../vendor/lineplace/useDocumentLineMenu';
-import PaymentFactBasedOn from '../../payment/fact/PaymentFactBasedOn';
+import PaymentFactBasedOn, { usePaymentFactInvoiceActionItems } from '../../payment/fact/PaymentFactBasedOn';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import { pmT } from '../../../pm/i18n/pmT';
 import { useDocumentRights } from '../../../permissions/usePermissions';
 import { buildCustomerInvoiceColumns } from './customerInvoiceColumns';
@@ -88,6 +89,8 @@ export default function CustomerInvoiceDocumentForm({ documents, onClose, testID
   };
   const dayError = !!day.trim() && parseDayInput(day) === null;
 
+  // Actions: the Payment fact that is paid by THIS invoice comes first (a posted invoice)
+  const invoiceActionItems = usePaymentFactInvoiceActionItems('customer', testID);
   const rights = useDocumentRights('customer_invoice_header');   // PART 46 / 47: the buttons the database would refuse are disabled
   const doPost = async () => {
     if (!header) return;
@@ -133,6 +136,7 @@ export default function CustomerInvoiceDocumentForm({ documents, onClose, testID
           <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {header && <PaymentFactBasedOn kind="customer" invoiceGUID={header.guid} status={header.status} disabled={doc.busy} testID={testID} />}
+        {header && <DocumentActionsGoTo kind="customerInvoice" taskGUID={header.taskGUID} projectGUID={header.projectGUID} actionItems={invoiceActionItems(header.guid, header.status)} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
           // a status, not a command: the same BIG button as Post (nothing to press)

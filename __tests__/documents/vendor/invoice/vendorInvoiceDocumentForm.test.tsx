@@ -12,6 +12,9 @@ const mockPicker = jest.fn();
 const mockLineMenu = jest.fn(() => []);
 jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => mockLineMenu }));
 jest.mock('../../../../kit8/pm/view/project/pick/PMProjectPickerModal', () => ({ __esModule: true, default: (p: any) => { mockPicker(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): here the form only has to give them the task of the document and the items of the invoice
+const mockActionsGoTo = jest.fn();
+jest.mock('../../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: (p: any) => { mockActionsGoTo(p); return p.taskGUID ? require('react').createElement('div', { 'data-testid': `${p.testID}-actions-goto` }) : null; } }));
 jest.mock('../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useVendorInvoiceDocuments: () => mockDoc, useVendorInvoiceLinePlaces: () => mockPlaces }));
 jest.mock('../../../../kit8/pm/view/task/finances/useTaskLineCatalogs', () => ({ useTaskLineCatalogs: () => require('../../../../kit8/pm/view/task/finances/taskLineCatalogs').emptyTaskLineCatalogs() }));
 const mockButtons: Record<string, any> = {};
@@ -85,6 +88,23 @@ describe('the bar', () => {
     expect(mockButtons['vendor-invoice-unpost'].size).toBe('small');
     expect(q('vendor-invoice-post')).toBeNull();
     expect(q('vendor-invoice-delete')).toBeNull();
+  });
+  it('Actions and Go to sit before Close: they get the task and project of the invoice; a posted invoice adds "Payment fact (pays this invoice)" to Actions', () => {
+    setDoc([header('d1', { taskGUID: 't1', projectGUID: 'p1' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} onClose={jest.fn()} />);
+    expectInOrder(['vendor-invoice-actions-goto', 'vendor-invoice-close', 'vendor-invoice-post']);
+    expect(mockActionsGoTo.mock.calls.at(-1)![0]).toMatchObject({ taskGUID: 't1', projectGUID: 'p1', actionItems: [], testID: 'vendor-invoice' });
+    cleanupUI();
+    setDoc([header('d1', { status: 'posted', taskGUID: 't1', projectGUID: 'p1' })]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} onClose={jest.fn()} />);
+    const items = mockActionsGoTo.mock.calls.at(-1)![0].actionItems;
+    expect(items).toHaveLength(1);
+    expect(items[0].label).toContain('pays this invoice');
+  });
+  it('an invoice without a task (independent): no Actions / Go to', () => {
+    setDoc([header('d1')]);
+    renderUI(<VendorInvoiceDocumentForm documents={['d1']} />);
+    expect(q('vendor-invoice-actions-goto')).toBeNull();
   });
   it('a draft without lines cannot be posted', () => {
     setDoc([header('d1')], {}, []);

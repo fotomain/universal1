@@ -12,6 +12,8 @@ import * as Clipboard from 'expo-clipboard';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
+import { PAYMENT_FACT_LIST_ROUTE } from '../../taskScope/taskScopeModel';
 import IconApp from '../../../ui/components/common/IconApp';
 import type { ReusableTableRow } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
@@ -170,6 +172,7 @@ export default function PMPaymentFactDocumentForm({ documents, onClose, testID =
         {header && canUnpostPaymentFact(header) && (
           <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
+        {header && <DocumentActionsGoTo kind="paymentFact" taskGUID={header.taskGUID} projectGUID={header.projectGUID} ownList={{ route: PAYMENT_FACT_LIST_ROUTE, label: 'Payment facts', icon: 'account_balance' }} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
           // a status, not a command: the same BIG button as Post (nothing to press)

@@ -1,5 +1,7 @@
 -- the list of fact documents (task_fact_document_list): totals of each document, the fast filters, who sees what
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}'), ('p-clara','{"personFirstName":"Clara","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');
 SELECT public.organization_ensure_user('marko@acme.test', '22222222-2222-2222-2222-222222222222', 'Marko', 'T');
@@ -59,7 +61,7 @@ SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('projectGUID', :
 SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('businessUnitGUID', 'bu_team1costs'))->>'totalCount')::int, 1, 'factBusinessUnitFilter (the unit of the line)');
 SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('roleGUID', :'role2'))->>'totalCount')::int, 2, 'factRoleFilter: the role is on a line of both documents');
 SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('roleGUID', :'role1'))->>'totalCount')::int, 1, '... and role 1 on one');
-SELECT tt.eq((public.task_fact_document_list('{"resourceGUID":"p-clara"}')->'rows'->0->>'documentGUID'), :'d2', 'factResourceFilter');
+SELECT tt.eq((public.task_fact_document_list(jsonb_build_object('resourceGUID', (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-clara')))->'rows'->0->>'documentGUID'), :'d2', 'factResourceFilter (the work center of the person)');
 SELECT tt.eq((public.task_fact_document_list('{"author":"ann"}')->>'totalCount')::int, 2, 'authorFilter: a part of the name');
 SELECT tt.eq((public.task_fact_document_list('{"author":"nobody"}')->>'totalCount')::int, 0, '... no author like that');
 SELECT tt.eq((public.task_fact_document_list('{"status":"posted"}')->>'totalCount')::int, 1, 'status');

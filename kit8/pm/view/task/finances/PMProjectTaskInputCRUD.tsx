@@ -148,11 +148,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   // the tab picked by the user (or by the place of the last edit) may have been switched off meanwhile: the first offered tab is shown instead
   const genus = visibleGenus.some((g) => g.genus === pickedGenus) ? pickedGenus : (visibleGenus[0]?.genus ?? pickedGenus);
   const def = taskLineGenusDef(genus) ?? TASK_LINE_GENUS[0];
-  // the Time lines book WORK CENTERS (master on, or the task already has such a line); a project made before keeps a person / equipment of the catalog
-  const timeWorkCenters = useMemo(
-    () => scope.workCenters || taskLines.some((l) => l.rowParentGUID === MANAGEMENT_GENUS.time && l.rowJSON?.taskResourceKind === 'workCenter'),
-    [scope, taskLines],
-  );
+  // the Time lines ALWAYS book WORK CENTERS (2026-11-23)
+  const timeWorkCenters = true;
   const timeKinds = useMemo(
     () => timeKindsOffered(scope, taskLines.filter((l) => l.rowParentGUID === MANAGEMENT_GENUS.time).map((l) => lineMenuKind(data, l.rowJSON || {}))),
     [scope, taskLines, data],

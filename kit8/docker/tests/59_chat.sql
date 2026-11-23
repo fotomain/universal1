@@ -133,7 +133,7 @@ INSERT INTO public.task_line_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", 
 SELECT tt.eq((SELECT count(*) FROM public."chatMembersTable" WHERE "rowParentGUID" = :'tht' AND "rowOwnerGUID" = '59555555-5555-5555-5555-555555555555'), 1::bigint, 'a new Time line adds its user to the chat at once');
 DELETE FROM public.task_line_table WHERE "rowGUID" = 'cccccccc-0000-0000-0000-000000000592';
 SELECT tt.eq((SELECT count(*) FROM public."chatMembersTable" WHERE "rowParentGUID" = :'tht' AND "rowOwnerGUID" = '59333333-3333-3333-3333-333333333333'), 0::bigint, 'a deleted Time line removes its user (clara) from the chat');
-UPDATE public.task_line_table SET "rowJSON" = "rowJSON" || '{"taskResourceItem": "person-clara"}' WHERE "rowGUID" = 'cccccccc-0000-0000-0000-000000000593';
+UPDATE public.task_line_table SET "rowJSON" = "rowJSON" || jsonb_build_object('taskResourceItem', (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'person-clara')) WHERE "rowGUID" = 'cccccccc-0000-0000-0000-000000000593';
 SELECT tt.eq((SELECT count(*) FROM public."chatMembersTable" WHERE "rowParentGUID" = :'tht' AND "rowOwnerGUID" = '59555555-5555-5555-5555-555555555555'), 0::bigint, 'a changed person: the old one leaves ...');
 SELECT tt.eq((SELECT count(*) FROM public."chatMembersTable" WHERE "rowParentGUID" = :'tht' AND "rowOwnerGUID" = '59333333-3333-3333-3333-333333333333'), 1::bigint, '... the new one joins');
 SELECT tt.fails($q$SELECT public.chat_member_remove(current_setting('tt.tht'), '59333333-3333-3333-3333-333333333333')$q$, 'comes from Time', 'a member from the RACI is not excluded by hand');

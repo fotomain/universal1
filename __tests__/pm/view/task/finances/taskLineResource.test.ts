@@ -76,17 +76,28 @@ function data(): TaskLineCatalogData {
     row('eq_small', 'equipmentCatalog', 'empty', { equipmentTitle: 'Mini excavator', equipmentType: 'equipmentTypeHeavy', isActive: true }),
     row('eq_old', 'equipmentCatalog', 'empty', { equipmentTitle: 'Old crane', equipmentType: 'equipmentTypeHeavy', isActive: false }),
   ];
+  // every Time line books a WORK CENTER (2026-11-23): the work centers of the person and of the equipment; their OWN variants (copies of the base variants, owner = the work center)
+  const wc = (guid: string, json: any) => row(guid, 'workCenterCatalog', 'bu_it', { workCenterTitle: guid, isActive: true, ...json });
+  d.workCenter = [
+    wc('wc_anna', { workCenterTitle: 'Anna line', workCenterKind: 'person', workCenterBase: 'p_anna', businessUnit: 'bu_it' }),
+    wc('wc_cat', { workCenterTitle: 'CAT line', workCenterKind: 'equipment', workCenterBase: 'eq_cat' }),
+    wc('wc_small', { workCenterTitle: 'Mini line', workCenterKind: 'equipment', workCenterBase: 'eq_small' }),
+    wc('wc_old', { workCenterTitle: 'Old crane line', workCenterKind: 'equipment', workCenterBase: 'eq_old', isActive: false }),
+  ];
+  d.variant = [...d.variant, row('wc_cat_v1', 'wc_cat', 'empty', { title: 'Heavy, With operator', descriptorKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op', isActive: true }, 1),
+    row('wc_cat_v2', 'wc_cat', 'empty', { title: 'Heavy, Dry hire', descriptorKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_dry', isActive: true }, 2)];
   return d;
 }
+/** a Time line that books a work center */
+const wcl = (item: string | null, extra: any = {}) => ({ taskResourceKind: 'workCenter' as const, taskResourceItem: item, ...extra });
 
 describe('the kind of a line', () => {
-  it('Time: the line says it; no kind = person (every line made before equipment). The other genus book products', () => {
-    expect(lineResourceKind(TIME, {})).toBe('person');
-    expect(lineResourceKind(TIME, { taskResourceKind: null })).toBe('person');
-    expect(lineResourceKind(TIME, { taskResourceKind: 'person' })).toBe('person');
-    expect(lineResourceKind(TIME, { taskResourceKind: 'equipment' })).toBe('equipment');
+  it('Time: ALWAYS a work center (2026-11-23), whatever the row says; the other genus book products', () => {
+    expect(lineResourceKind(TIME, {})).toBe('workCenter');
+    expect(lineResourceKind(TIME, { taskResourceKind: null })).toBe('workCenter');
+    expect(lineResourceKind(TIME, { taskResourceKind: 'person' })).toBe('workCenter');
+    expect(lineResourceKind(TIME, undefined)).toBe('workCenter');
     expect(lineResourceKind(MATERIAL, { taskResourceKind: 'equipment' })).toBe('product');
-    expect(lineResourceKind(TIME, undefined)).toBe('person');
   });
   it('the genus defs: Time can book a person, an equipment or a work center, the others a product', () => {
     expect(TASK_LINE_GENUS.map((g) => [g.genus, g.resources])).toEqual([
@@ -97,12 +108,14 @@ describe('the kind of a line', () => {
     expect(isWorkerKind('workCenter')).toBe(true);
     expect(isWorkerKind('product')).toBe(false);
   });
-  it('a new line has no kind (null = person)', () => {
+  it('a new line has no kind in its blank form; the compute makes it a work center line', () => {
     expect(emptyTaskLine().taskResourceKind).toBeNull();
+    expect(computeTaskLineRowJSON(data(), TIME, {}).taskResourceKind).toBe('workCenter');
+    expect(computeTaskLineRowJSON(data(), MATERIAL, {}).taskResourceKind).toBeUndefined();
   });
 });
 
-describe('the role of a line is a role of its kind', () => {
+describe('the role of a line is a role of the kind of its work center (or of the menu Resource until one is chosen)', () => {
   const d = data();
   it('the role type says: no resourceKind = person (old data), equipment only when it says so', () => {
     expect(resourceKindOfRoleType(undefined)).toBe('person');
@@ -114,148 +127,150 @@ describe('the role of a line is a role of its kind', () => {
   });
   it('roleFitsLine: the roles of the genus AND of the kind of the line', () => {
     const [da, exc] = d.resourceRole;
-    expect(roleFitsLine(d, TIME, {}, da)).toBe(true);
+    expect(roleFitsLine(d, TIME, {}, da)).toBe(true);                                       // the menu Resource says Person until it is changed
     expect(roleFitsLine(d, TIME, {}, exc)).toBe(false);
-    expect(roleFitsLine(d, TIME, { taskResourceKind: 'equipment' }, exc)).toBe(true);
-    expect(roleFitsLine(d, TIME, { taskResourceKind: 'equipment' }, da)).toBe(false);
+    expect(roleFitsLine(d, TIME, { taskWorkCenterKind: 'equipment' }, exc)).toBe(true);     // the menu says Equipment, no work center yet
+    expect(roleFitsLine(d, TIME, { taskWorkCenterKind: 'equipment' }, da)).toBe(false);
+    expect(roleFitsLine(d, TIME, wcl('wc_cat'), exc)).toBe(true);
+    expect(roleFitsLine(d, TIME, wcl('wc_cat'), da)).toBe(false);
     expect(roleFitsLine(d, MATERIAL, {}, da)).toBe(false);
     expect(roleFitsLine(d, TIME, {}, undefined)).toBe(false);
   });
   it('a role of the other kind is marked (never refused)', () => {
-    expect(lineProblems(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_da' })).toEqual(['The role is not an equipment role']);
-    expect(lineProblems(d, TIME, { taskResourceKind: 'person', resourceRoleItem: 'role_exc' })).toEqual(['The role is not a person role']);
+    expect(lineProblems(d, TIME, wcl('wc_cat', { resourceRoleItem: 'role_da' }))).toEqual(['The role is not an equipment role']);
+    expect(lineProblems(d, TIME, wcl('wc_anna', { resourceRoleItem: 'role_exc' }))).toEqual(['The role is not a person role']);
     expect(lineProblems(d, TIME, { resourceRoleItem: 'role_da' })).toEqual([]);
-    expect(lineProblems(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc' })).toEqual([]);
+    expect(lineProblems(d, TIME, wcl('wc_cat', { resourceRoleItem: 'role_exc' }))).toEqual([]);
   });
 });
 
-describe('the equipment of a line', () => {
+describe('the work center of a line', () => {
   const d = data();
-  it('an equipment that is gone or inactive is marked', () => {
-    expect(lineProblems(d, TIME, { taskResourceKind: 'equipment', taskResourceItem: 'nope' })).toEqual(['The equipment does not exist any more']);
-    expect(lineProblems(d, TIME, { taskResourceKind: 'equipment', taskResourceItem: 'eq_old' })).toEqual(['The equipment is not active']);
-    expect(lineProblems(d, TIME, { taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' })).toEqual([]);
+  it('a work center that is gone or inactive is marked', () => {
+    expect(lineProblems(d, TIME, wcl('nope'))).toEqual(['The work center does not exist any more']);
+    expect(lineProblems(d, TIME, wcl('wc_old'))).toEqual(['The work center is not active']);
+    expect(lineProblems(d, TIME, wcl('wc_cat'))).toEqual([]);
   });
-  it('the same GUID on a person line is not checked against the equipment catalog', () => {
-    expect(lineProblems(d, TIME, { taskResourceItem: 'nope' })).toEqual([]);
+  it('a person GUID on a Time line is no work center: it does not exist', () => {
+    expect(lineProblems(d, TIME, wcl('p_anna'))).toEqual(['The work center does not exist any more']);
   });
-  it('titles: person, equipment, product - by kind, by owner, by GUID', () => {
+  it('titles: work center, person, equipment, product - by kind, by owner, by GUID', () => {
     expect(resourceRowTitle('person', d.person[0])).toBe('Anna Berg');
     expect(resourceRowTitle('equipment', d.equipment[0])).toBe('Excavator CAT 320');
     expect(resourceTitleOfRow(d.person[0])).toBe('Anna Berg');
     expect(resourceTitleOfRow(d.equipment[0])).toBe('Excavator CAT 320');
-    expect(lineResourceTitle(d, TIME, { taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' })).toBe('Excavator CAT 320');
-    expect(lineResourceTitle(d, TIME, { taskResourceItem: 'p_anna' })).toBe('Anna Berg');
-    expect(lineResourceTitle(d, TIME, { taskResourceKind: 'equipment', taskResourceItem: 'p_anna' })).toBe('');
+    expect(resourceTitleOfRow(d.workCenter[1])).toBe('CAT line');
+    expect(lineResourceTitle(d, TIME, wcl('wc_cat'))).toBe('CAT line');
+    expect(lineResourceTitle(d, TIME, wcl('p_anna'))).toBe('');
+    expect(anyResourceTitle(d, 'wc_small')).toBe('Mini line');
     expect(anyResourceTitle(d, 'eq_small')).toBe('Mini excavator');
     expect(anyResourceTitle(d, 'p_anna')).toBe('Anna Berg');
     expect(anyResourceTitle(d, null)).toBe('');
   });
   it('a resource of the OTHER kind: found in the other catalog only', () => {
-    expect(resourceBelongsToOtherKind(d, 'equipment', 'p_anna')).toBe(true);
-    expect(resourceBelongsToOtherKind(d, 'person', 'eq_cat')).toBe(true);
-    expect(resourceBelongsToOtherKind(d, 'person', 'p_anna')).toBe(false);
-    expect(resourceBelongsToOtherKind(d, 'equipment', 'eq_cat')).toBe(false);
-    expect(resourceBelongsToOtherKind(d, 'equipment', 'unknown')).toBe(false);
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'p_anna')).toBe(true);
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'eq_cat')).toBe(true);
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'wc_cat')).toBe(false);
+    expect(resourceBelongsToOtherKind(d, 'workCenter', 'unknown')).toBe(false);
     expect(resourceBelongsToOtherKind(d, 'product', 'p_anna')).toBe(false);
   });
 });
 
-describe('the cost of an hour of equipment = the rate of the role (it has no contract)', () => {
+describe('the cost of an hour of an equipment work center = the rate of the role (it has no contract)', () => {
   const d = data();
   it('suggestForLine: the role rate and the unit hour', () => {
-    const s = suggestForLine(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat' }, '2026-10-09');
+    const s = suggestForLine(d, TIME, wcl('wc_cat', { resourceRoleItem: 'role_exc' }), '2026-10-09');
     expect(s).toMatchObject({ price: 95, priceSource: 'role', measureUnit: 'unit_hour' });
   });
-  it('a contract left on an equipment line is not used', () => {
+  it('a contract left on an equipment work center line is not used', () => {
     const withContract = { ...d, contract: [row('c1', 'eq_cat', 'person', { contractSumBeforeVAT: 100, contractPaymentsPeriod: 'Day' })] };
-    const s = suggestForLine(withContract, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat', taskResourceContract: 'c1' }, '2026-10-09');
+    const s = suggestForLine(withContract, TIME, wcl('wc_cat', { resourceRoleItem: 'role_exc', taskResourceContract: 'c1' }), '2026-10-09');
     expect(s?.priceSource).toBe('role');
     expect(s?.price).toBe(95);
   });
   it('computeTaskLineRowJSON prices the line: qty x price', () => {
-    const patch = computeTaskLineRowJSON(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat', qtyTaskLine: 8 }, '2026-10-09');
+    const patch = computeTaskLineRowJSON(d, TIME, wcl('wc_cat', { resourceRoleItem: 'role_exc', qtyTaskLine: 8 }), '2026-10-09');
     expect(patch).toMatchObject({ priceTaskLine: 95, priceSourceTaskLine: 'role', sumForContract: 760, taskIsPosted: false });
   });
 });
 
-describe('changing the kind of a line clears what depended on it', () => {
+describe('changing the kind of a line (the menu Resource) clears what depended on it', () => {
   const d = data();
-  it('a person line switched to Equipment: the person, his variant and his contract go; the person role goes', () => {
-    const patch = computeTaskLineRowJSON(d, TIME, {
-      taskResourceKind: 'equipment', resourceRoleItem: 'role_da', resourceRoleAttributeSetKey: 'x', taskResourceItem: 'p_anna', taskResourceAttributesKey: 'dp1=v', taskResourceContract: 'c_anna',
-    });
+  it('the menu Person -> Equipment: the person work center, its variant and contract go; the person role goes', () => {
+    const patch = computeTaskLineRowJSON(d, TIME, wcl('wc_anna', {
+      taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_da', resourceRoleAttributeSetKey: 'x', taskResourceAttributesKey: 'dp1=v', taskResourceContract: 'c_anna',
+    }));
     expect(patch).toMatchObject({ taskResourceItem: null, taskResourceAttributesKey: null, taskResourceContract: null, resourceRoleItem: null, resourceRoleAttributeSetKey: null });
   });
-  it('an equipment line switched to Person: the equipment and the equipment role go', () => {
-    const patch = computeTaskLineRowJSON(d, TIME, { taskResourceKind: 'person', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' });
+  it('the menu Equipment -> Person: the equipment work center and the equipment role go', () => {
+    const patch = computeTaskLineRowJSON(d, TIME, wcl('wc_cat', { taskWorkCenterKind: 'person', resourceRoleItem: 'role_exc', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' }));
     expect(patch).toMatchObject({ taskResourceItem: null, taskResourceAttributesKey: null, resourceRoleItem: null });
   });
-  it('a consistent line is left alone (a person line without a kind; an equipment line)', () => {
-    const person = computeTaskLineRowJSON(d, TIME, { resourceRoleItem: 'role_da', taskResourceItem: 'p_anna' });
+  it('a consistent line is left alone (a person work center, an equipment work center)', () => {
+    const person = computeTaskLineRowJSON(d, TIME, wcl('wc_anna', { taskWorkCenterKind: 'person', resourceRoleItem: 'role_da' }));
     expect(person.taskResourceItem).toBeUndefined();
     expect(person.resourceRoleItem).toBeUndefined();
-    const eq = computeTaskLineRowJSON(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' });
+    const eq = computeTaskLineRowJSON(d, TIME, wcl('wc_cat', { taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' }));
     expect(eq.taskResourceItem).toBeUndefined();
     expect(eq.taskResourceAttributesKey).toBeUndefined();
     expect(eq.resourceRoleItem).toBeUndefined();
   });
-  it('an equipment line carrying a contract: the contract goes', () => {
-    const patch = computeTaskLineRowJSON(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_cat', taskResourceContract: 'c1' });
+  it('an equipment work center line carrying a contract: the contract goes', () => {
+    const patch = computeTaskLineRowJSON(d, TIME, wcl('wc_cat', { resourceRoleItem: 'role_exc', taskResourceContract: 'c1' }));
     expect(patch.taskResourceContract).toBeNull();
   });
-  it('the variant of an equipment must be one of ITS variants', () => {
-    const patch = computeTaskLineRowJSON(d, TIME, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq_small', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' });
+  it('the variant of a work center must be one of ITS OWN variants', () => {
+    const patch = computeTaskLineRowJSON(d, TIME, wcl('wc_small', { resourceRoleItem: 'role_exc', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' }));
     expect(patch.taskResourceAttributesKey).toBeNull();
   });
 });
 
-describe('an equipment matches what the role asks for - on the descriptor, as a person does', () => {
+describe('an equipment work center matches what the role asks for - on the descriptor, as a person does', () => {
   const d = data();
-  const base = { taskResourceKind: 'equipment' as const, resourceRoleItem: 'role_exc', resourceRoleAttributeSetKey: 'dp_r_cls=dv_heavy|dp_r_hire=dv_op' };
-  it('the variants of an equipment, found by its GUID (the same function serves persons)', () => {
-    expect(resourceVariants(d, 'eq_cat').map((v) => v.title)).toEqual(['Heavy, With operator', 'Heavy, Dry hire']);
-    expect(resourceVariants(d, 'eq_small')).toHaveLength(1);
+  const base = { taskResourceKind: 'workCenter' as const, resourceRoleItem: 'role_exc', resourceRoleAttributeSetKey: 'dp_r_cls=dv_heavy|dp_r_hire=dv_op' };
+  it('the variants of a work center, found by its GUID (the same function serves persons)', () => {
+    expect(resourceVariants(d, 'wc_cat').map((v) => v.title)).toEqual(['Heavy, With operator', 'Heavy, Dry hire']);
+    expect(resourceVariants(d, 'wc_small')).toHaveLength(0);                                // the variants of the BASE do not count until Copy Variant settings
   });
   it('automatic = the first variant that covers the role; the picker marks which cover', () => {
-    expect(effectivePersonVariant(d, { ...base, taskResourceItem: 'eq_cat' })?.title).toBe('Heavy, With operator');
-    const opts = personVariantOptions(d, { ...base, taskResourceItem: 'eq_cat' });
+    expect(effectivePersonVariant(d, { ...base, taskResourceItem: 'wc_cat' })?.title).toBe('Heavy, With operator');
+    const opts = personVariantOptions(d, { ...base, taskResourceItem: 'wc_cat' });
     expect(opts.map((o) => [o.label, o.hint])).toEqual([['Heavy, With operator', 'covers the role'], ['Heavy, Dry hire', 'does not cover the role']]);
   });
-  it('no variant covers the role: the message names the equipment, not a person', () => {
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'eq_small' })).toEqual(
-      expect.arrayContaining(['The equipment has no variant that covers the role: needs Class = Heavy, Hire mode = With operator']),
+  it('no variant covers the role: the message names the work center', () => {
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'wc_small' })).toEqual(
+      expect.arrayContaining(['The work center has no variants: the role needs Class = Heavy, Hire mode = With operator']),
     );
     expect(resourceMatchProblems).toBe(personMatchProblems);
   });
-  it('a chosen variant that does not cover the role; a variant of another equipment', () => {
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'eq_cat', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_dry' })[0])
+  it('a chosen variant that does not cover the role; a variant of another work center', () => {
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'wc_cat', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_dry' })[0])
       .toBe('The variant "Heavy, Dry hire" does not cover the role: needs Hire mode = With operator');
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'eq_cat', taskResourceAttributesKey: 'dp_h_cls=dv_light|dp_h_hire=dv_dry' })[0])
-      .toBe('The variant is not a variant of this equipment');
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'wc_cat', taskResourceAttributesKey: 'dp_h_cls=dv_light|dp_h_hire=dv_dry' })[0])
+      .toBe('The variant is not a variant of this work center');
   });
-  it('a property: "needs at least 100 kW" - the equipment answers with Engine power (satisfies Min. engine power)', () => {
+  it('a property: "needs at least 100 kW" - the BASE equipment answers with Engine power (satisfies Min. engine power)', () => {
     expect(unmetRequirements(d, 'role_exc', 'eq_cat', 'equipment')).toEqual([]);
     expect(unmetRequirements(d, 'role_exc', 'eq_small', 'equipment')).toEqual(['Engine power, kW: needs at least 100, has 60 kW']);
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'eq_small', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' }).join(' | '))
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'wc_small', taskResourceAttributesKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op' }).join(' | '))
       .toContain('Engine power, kW: needs at least 100, has 60 kW');
   });
-  it('a covering equipment has no problem at all; a Material line is never matched', () => {
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'eq_cat' })).toEqual([]);
-    expect(personMatchProblems(d, MATERIAL, { ...base, taskResourceItem: 'eq_small' })).toEqual([]);
-    expect(taskLineErrors(d, TIME, { ...base, taskResourceItem: 'eq_cat' })).toEqual([]);
+  it('a covering work center has no problem at all; a Material line is never matched', () => {
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'wc_cat' })).toEqual([]);
+    expect(personMatchProblems(d, MATERIAL, { ...base, taskResourceItem: 'wc_small' })).toEqual([]);
+    expect(taskLineErrors(d, TIME, { ...base, taskResourceItem: 'wc_cat' })).toEqual([]);
   });
 });
 
-describe('the columns of the Time table follow the kinds the project offers', () => {
+describe('the columns of the Time table follow the kinds the project offers (always work centers)', () => {
   const d = data();
   const keys = (timeKinds?: ('person' | 'equipment')[]) => buildTaskLineColumns({ data: d, genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds }).map((c) => c.key);
-  it('person only (and the default) = the columns as before equipment, plus the RACI column after the person', () => {
-    expect(keys()).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'person', 'raci', 'personVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
+  it('person only (and the default): no menu, ONE resource column of work centers, RACI after it, its variant, the contract', () => {
+    expect(keys()).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'resource', 'raci', 'resourceVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
     expect(keys(['person'])).toEqual(keys());
   });
-  it('equipment only: Equipment and its variant, no Contract', () => {
-    expect(keys(['equipment'])).toEqual(['budgetItem', 'n', 'role', 'roleAttributes', 'equipment', 'raci', 'equipmentVariant', 'qty', 'unit', 'price', 'vat', 'distribution', 'sum', 'sumVAT', 'currency']);
+  it('equipment only: the same columns (the contract stays: it lists the contracts of the person of a Person work center only)', () => {
+    expect(keys(['equipment'])).toEqual(keys());
   });
   it('both: the menu Resource comes BEFORE the role and the resource; ONE resource column and ONE variant column', () => {
     const k = keys(['person', 'equipment']);
@@ -263,30 +278,28 @@ describe('the columns of the Time table follow the kinds the project offers', ()
     expect(k.indexOf('resourceKind')).toBeLessThan(k.indexOf('role'));
     expect(k.indexOf('resourceKind')).toBeLessThan(k.indexOf('resource'));
   });
-  it('the menu stores taskResourceKind and offers the two kinds', () => {
+  it('the menu stores taskWorkCenterKind and offers the two kinds', () => {
     const col: any = buildTaskLineColumns({ data: d, genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds: ['person', 'equipment'] }).find((c) => c.key === 'resourceKind');
-    expect(col).toMatchObject({ type: 'select', field: 'taskResourceKind', allowEmpty: false });
+    expect(col).toMatchObject({ type: 'select', field: 'taskWorkCenterKind', allowEmpty: false });
     expect(col.options.map((o: any) => o.value)).toEqual(['person', 'equipment']);
   });
-  it('the resource column: the catalog follows the Resource of the row; titles from both catalogs; an inactive equipment is not offered', () => {
+  it('the resource column lists WORK CENTERS only, of the kind of the menu; an inactive one is not offered', () => {
     const col: any = buildTaskLineColumns({ data: d, genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds: ['person', 'equipment'] }).find((c) => c.key === 'resource');
-    expect(col).toMatchObject({ type: 'catalog', field: 'taskResourceItem', catalogEntityName: 'personReusable', catalogEntityNames: ['personReusable', 'equipmentReusable'] });
-    expect(col.catalogEntityNameOf({ rowJSON: {} })).toBe('personReusable');
-    expect(col.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'person' } })).toBe('personReusable');
-    expect(col.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'equipment' } })).toBe('equipmentReusable');
-    expect(col.titleExtractor(d.person[0])).toBe('Anna Berg');
-    expect(col.titleExtractor(d.equipment[0])).toBe('Excavator CAT 320');
-    expect(col.filterItem(d.equipment[2], { rowJSON: {} })).toBe(false);
-    expect(col.filterItem(d.equipment[2], { rowJSON: { taskResourceItem: 'eq_old' } })).toBe(true);
-    expect(col.filterItem(d.person[0], { rowJSON: {} })).toBe(true);
+    expect(col).toMatchObject({ type: 'catalog', field: 'taskResourceItem', catalogEntityName: 'workCenterReusable' });
+    expect(col.catalogEntityNameOf).toBeUndefined();
+    expect(col.titleExtractor(d.workCenter[1])).toBe('CAT line');
+    expect(col.filterItem(d.workCenter[3], { rowJSON: { taskWorkCenterKind: 'equipment' } })).toBe(false);
+    expect(col.filterItem(d.workCenter[3], { rowJSON: { taskWorkCenterKind: 'equipment', taskResourceItem: 'wc_old' } })).toBe(true);
+    expect(col.filterItem(d.workCenter[0], { rowJSON: {} })).toBe(true);                     // no menu value = Person
+    expect(col.filterItem(d.workCenter[0], { rowJSON: { taskWorkCenterKind: 'equipment' } })).toBe(false);
   });
-  it('the role picker follows the kind of the line', () => {
+  it('the role picker follows the menu Resource', () => {
     const col: any = buildTaskLineColumns({ data: d, genus: TIME, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds: ['person', 'equipment'] }).find((c) => c.key === 'role');
     const [da, exc] = d.resourceRole;
     expect(col.filterItem(da, { rowJSON: {} })).toBe(true);
     expect(col.filterItem(exc, { rowJSON: {} })).toBe(false);
-    expect(col.filterItem(exc, { rowJSON: { taskResourceKind: 'equipment' } })).toBe(true);
-    expect(col.filterItem(da, { rowJSON: { taskResourceKind: 'equipment' } })).toBe(false);
+    expect(col.filterItem(exc, { rowJSON: { taskWorkCenterKind: 'equipment' } })).toBe(true);
+    expect(col.filterItem(da, { rowJSON: { taskWorkCenterKind: 'equipment' } })).toBe(false);
   });
   it('the Material table is not touched by any of it', () => {
     const k = buildTaskLineColumns({ data: d, genus: MATERIAL, textColor: '#000', errorColor: '#f00', showErrors: false, timeKinds: ['person', 'equipment'] }).map((c) => c.key);
@@ -350,7 +363,7 @@ describe('a work center on a Time line', () => {
     ];
     d.contract = [row('c_anna', 'p_anna', 'person', { contractSumBeforeVAT: 3360, contractPaymentsPeriod: 'Month', contractCurrency: 'EUR' }), row('c_boris', 'p_boris', 'person', { contractSumBeforeVAT: 1680, contractPaymentsPeriod: 'Month' })];
     // the work center's OWN variants (owner = the work center), copies of the base variants
-    d.variant = [...d.variant, row('wc_cat_v1', 'wc_cat', 'empty', { title: 'Heavy, With operator', descriptorKey: 'dp_h_cls=dv_heavy|dp_h_hire=dv_op', isActive: true }, 1)];
+    d.variant = d.variant.filter((v) => v.rowGUID !== 'wc_cat_v2');                         // this section has ONE own variant of the CAT work center
     return d;
   }
   const line = (kind: string, item: string | null, extra: any = {}) => ({ ...emptyTaskLine(), taskResourceKind: kind as any, taskResourceItem: item, ...extra });
@@ -361,7 +374,6 @@ describe('a work center on a Time line', () => {
     expect(lineResourceKind(MATERIAL, { taskResourceKind: 'workCenter' })).toBe('product');
     expect(lineWorkCenter(d, TIME, line('workCenter', 'wc_anna'))?.rowGUID).toBe('wc_anna');
     expect(lineWorkCenter(d, TIME, line('workCenter', 'nope'))).toBeNull();
-    expect(lineWorkCenter(d, TIME, line('person', 'wc_anna'))).toBeNull();
     expect(resourceEntityOfKind('workCenter')).toBe('workCenterReusable');
     expect(resourceEntityOfKind('equipment')).toBe('equipmentReusable');
     expect(resourceEntityOfKind(undefined)).toBe('personReusable');
@@ -372,9 +384,9 @@ describe('a work center on a Time line', () => {
     expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_anna'))).toBe('person');
     expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_cat'))).toBe('equipment');
     expect(lineWorkerKind(d, TIME, line('workCenter', 'wc_acme'))).toBe('equipment');
-    expect(lineWorkerKind(d, TIME, line('workCenter', null))).toBe('equipment');
-    expect(lineWorkerKind(d, TIME, line('person', 'p_anna'))).toBe('person');
-    expect(lineWorkerKind(d, TIME, line('equipment', 'eq_cat'))).toBe('equipment');
+    expect(lineWorkerKind(d, TIME, line('workCenter', null))).toBe('person');                    // none chosen yet: the menu Resource (Person by default)
+    expect(lineWorkerKind(d, TIME, line('workCenter', null, { taskWorkCenterKind: 'equipment' }))).toBe('equipment');
+    expect(lineWorkerKind(d, TIME, line('workCenter', null, { taskWorkCenterKind: 'partner' }))).toBe('equipment');
     expect(lineWorkerKind(d, MATERIAL, line('workCenter', 'wc_anna'))).toBe('product');
   });
 
@@ -382,9 +394,10 @@ describe('a work center on a Time line', () => {
     const d = wcData();
     expect(lineBaseItem(d, TIME, line('workCenter', 'wc_anna'))).toBe('p_anna');
     expect(lineBaseItem(d, TIME, line('workCenter', 'wc_acme'))).toBe('pa_acme');
-    expect(lineBaseItem(d, TIME, line('person', 'p_anna'))).toBe('p_anna');
+    expect(lineBaseItem(d, TIME, line('person', 'p_anna'))).toBeNull();                          // a person GUID is no work center
     expect(lineBaseItem(d, TIME, line('workCenter', 'nope'))).toBeNull();
     expect(lineBaseItem(d, TIME, line('person', null))).toBeNull();
+    expect(lineBaseItem(d, MATERIAL, line('person', 'prod_1'))).toBe('prod_1');                    // the other genus: the product itself
   });
 
   it('titles: the work center by its title; any GUID of a line row finds a work center; the base name', () => {
@@ -468,8 +481,8 @@ describe('a work center on a Time line', () => {
     expect(legacy).toMatchObject({ taskResourceKind: 'workCenter', taskResourceItem: null, taskResourceAttributesKey: null, taskResourceContract: null });
     // a new line: the menu alone
     expect(computeTaskLineRowJSON(d, TIME, line('person', null, { taskWorkCenterKind: 'partner' })).taskResourceKind).toBe('workCenter');
-    // a line without the menu is not touched
-    expect(computeTaskLineRowJSON(d, TIME, line('person', 'p_anna')).taskResourceKind).toBeUndefined();
+    // a line without the menu is a work center line too (always), and a person it held directly goes
+    expect(computeTaskLineRowJSON(d, TIME, line('person', 'p_anna'))).toMatchObject({ taskResourceKind: 'workCenter', taskResourceItem: null });
   });
 
   it('changing the menu to another kind clears the work center of the old kind; choosing a work center makes the menu follow it', () => {
@@ -487,7 +500,7 @@ describe('a work center on a Time line', () => {
     const d = wcData();
     expect(lineMenuKind(d, { taskResourceKind: 'workCenter', taskWorkCenterKind: 'equipment' })).toBe('equipment');
     expect(lineMenuKind(d, { taskResourceKind: 'workCenter', taskResourceItem: 'wc_acme' })).toBe('partner');
-    expect(lineMenuKind(d, { taskResourceKind: 'equipment' })).toBe('equipment');
+    expect(lineMenuKind(d, { taskResourceKind: 'equipment' })).toBe('person');
     expect(lineMenuKind(d, {})).toBe('person');
     expect(lineMenuKind(d, undefined)).toBe('person');
   });
@@ -520,28 +533,26 @@ describe('a work center on a Time line', () => {
       expect(menu.options.map((o: any) => o.label)).toEqual(['Person', 'Equipment', 'Partner']);
       const resource = get(list, 'resource');
       expect(resource.title).toBe('Person / Equipment / Partner');
-      expect(resource).toMatchObject({ type: 'catalog', field: 'taskResourceItem', catalogEntityName: 'workCenterReusable', catalogEntityNames: ['personReusable', 'equipmentReusable', 'workCenterReusable'] });
+      expect(resource).toMatchObject({ type: 'catalog', field: 'taskResourceItem', catalogEntityName: 'workCenterReusable' });
       expect(resource.titleExtractor(wcData().workCenter[0])).toBe('Anna line');
       expect(get(list, 'resourceVariant').title).toBe('Variant');
     });
 
-    it('the menu shows the kind of the line: the chosen work center kind, the kind of the work center it books, a legacy line its own kind', () => {
+    it('the menu shows the kind of the line: the chosen work center kind, the kind of the work center it books', () => {
       const menu = get(cols(['person', 'equipment', 'partner']), 'resourceKind');
       const shown = (json: any) => menu.fromStored(json.taskWorkCenterKind, { rowJSON: json });
       expect(shown({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'partner' })).toBe('partner');
       expect(shown({ taskResourceKind: 'workCenter', taskResourceItem: 'wc_cat' })).toBe('equipment');
       expect(shown({ taskResourceKind: 'workCenter', taskResourceItem: 'wc_acme' })).toBe('partner');
       expect(shown({ taskResourceKind: 'workCenter' })).toBe('person');
-      expect(shown({ taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' })).toBe('equipment');
       expect(shown({})).toBe('person');
     });
 
-    it('the column picks WORK CENTERS for a work center line, and still the person / equipment catalog for a line that holds one directly (made before work centers)', () => {
+    it('the column picks WORK CENTERS for every line - there is no other catalog behind it', () => {
       const resource = get(cols(['person', 'equipment', 'partner']), 'resource');
-      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' } })).toBe('workCenterReusable');
-      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'person', taskResourceItem: 'p_anna' } })).toBe('personReusable');
-      expect(resource.catalogEntityNameOf({ rowJSON: { taskResourceKind: 'equipment', taskResourceItem: 'eq_cat' } })).toBe('equipmentReusable');
-      expect(resource.catalogEntityNameOf({ rowJSON: {} })).toBe('workCenterReusable');           // a new line
+      expect(resource.catalogEntityName).toBe('workCenterReusable');
+      expect(resource.catalogEntityNameOf).toBeUndefined();
+      expect(resource.catalogEntityNames).toBeUndefined();
     });
 
     it('only the work centers of the kind of the menu are offered, active ones (the one already on the line stays)', () => {
@@ -553,14 +564,6 @@ describe('a work center on a Time line', () => {
       expect(offered('equipment')).toEqual(['wc_cat', 'wc_small']);
       expect(offered('partner')).toEqual(['wc_acme']);
       expect(offered('person', 'wc_off')).toEqual(['wc_anna', 'wc_off']);
-    });
-
-    it('without work centers the menu, the title and the list are as before', () => {
-      const list = cols(['person', 'equipment'], false);
-      expect(get(list, 'resource').title).toBe('Person / Equipment');
-      expect(get(list, 'resourceKind')).toMatchObject({ field: 'taskResourceKind' });
-      expect(get(list, 'resourceKind').options.map((o: any) => o.value)).toEqual(['person', 'equipment']);
-      expect(get(list, 'resourceKind').fromStored).toBeUndefined();
     });
 
     it('the kinds switched on name the column; ONE kind = no menu, the column is named after it', () => {
@@ -579,7 +582,6 @@ describe('a work center on a Time line', () => {
       const list = cols(['person']);
       expect(get(list, 'person')).toBeUndefined();
       expect(get(list, 'resource')).toMatchObject({ title: 'Person', catalogEntityName: 'workCenterReusable' });
-      expect(get(cols(['person'], false), 'person')).toMatchObject({ catalogEntityName: 'personReusable' });   // a project made before: as it was
     });
 
     it('the contract of a work center line is one of ITS person (the base): other contracts are not offered', () => {
@@ -588,8 +590,6 @@ describe('a work center on a Time line', () => {
       expect(contract).toMatchObject({ dependsOn: 'resource', dependsOnScopesCatalog: false });
       expect(contract.filterItem(d.contract[0], { rowJSON: line('workCenter', 'wc_anna') })).toBe(true);
       expect(contract.filterItem(d.contract[1], { rowJSON: line('workCenter', 'wc_anna') })).toBe(false);
-      // a person line: the person himself
-      expect(contract.filterItem(d.contract[1], { rowJSON: line('person', 'p_boris') })).toBe(true);
     });
 
     it('the role picker follows the base of the work center', () => {

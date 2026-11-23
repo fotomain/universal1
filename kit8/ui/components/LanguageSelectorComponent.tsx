@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {FlatList, StyleSheet, TouchableOpacity, View} from 'react-native';
+import {useTranslation} from 'react-i18next';
 import {IconButton, Surface, Text, TextInput as PaperTextInput, useTheme} from 'react-native-paper';
 import {changeAppLanguage, LanguageItem, LANGUAGES} from '../../i18n/i18n';
 import {getUserSettings, saveUserSettings} from '../../settings/userSettings';
@@ -12,6 +13,7 @@ export interface LanguageSelectorProps {
 
 export default function LanguageSelectorComponent({ onSelectLanguage }: LanguageSelectorProps) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const { user: googleUser } = useAuthWithGoogle();
   const [userGUID, setUserGUID] = useState<string>('guest');
   const [currentLang, setCurrentLang] = useState<LanguageItem>(LANGUAGES[0]);
@@ -146,7 +148,7 @@ export default function LanguageSelectorComponent({ onSelectLanguage }: Language
       <View style={styles.inputWrapper}>
         <PaperTextInput
           ref={inputRef}
-          label="Language"
+          label={t('drawer.language')}
           value={inputText}
           selection={selection}
           onSelectionChange={(e) => setSelection(e.nativeEvent.selection)}

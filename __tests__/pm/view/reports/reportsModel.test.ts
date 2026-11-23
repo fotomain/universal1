@@ -21,12 +21,13 @@ describe('Costs', () => {
     expect(r.equipment).toMatchObject({ count: 1, sum: 300 });
     expect(r.persons).toMatchObject({ count: 2, sum: 110 });
   });
-  it('the Time lines of a work center are their own part (not the persons\'): Time of work centers', () => {
-    const withWc = buildProjectReport([...lines, line('l7', 't3', 'timeGenus', { taskResourceKind: 'workCenter', sumForContract: 40, sumVATForContract: 8 })] as any, 'costs');
-    expect(withWc.workCenters).toMatchObject({ count: 1, sum: 40 });
-    expect(withWc.persons).toMatchObject({ count: 2, sum: 110 });
-    expect(withWc.equipment).toMatchObject({ count: 1, sum: 300 });
-    expect(withWc.totals.sum).toBe(500.5);
+  it('a Time line books a work center (2026-11-23): its menu says person / equipment / partner; a partner work center is "Time of work centers"', () => {
+    const wc = (id: string, kind: string, sum: number) => line(id, 't3', 'timeGenus', { taskResourceKind: 'workCenter', taskWorkCenterKind: kind, sumForContract: sum, sumVATForContract: 0 });
+    const withWc = buildProjectReport([...lines, wc('l7', 'partner', 40), wc('l8', 'person', 5), wc('l9', 'equipment', 7), wc('l10', undefined as any, 3)] as any, 'costs');
+    expect(withWc.workCenters).toMatchObject({ count: 1, sum: 40 });                       // the partner work centers
+    expect(withWc.persons).toMatchObject({ count: 4, sum: 118 });                           // the old person lines + the person work center + a work center line with no menu (= person)
+    expect(withWc.equipment).toMatchObject({ count: 2, sum: 307 });
+    expect(withWc.totals.sum).toBe(460.5 + 40 + 5 + 7 + 3);
     expect(r.workCenters).toMatchObject({ count: 0, sum: 0 });
   });
   it('by genus, in the order of the page', () => {

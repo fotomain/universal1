@@ -24,7 +24,7 @@ describe('taskInputSwitchesOf: a switch that was never saved reads as its defaul
 
 describe('taskInputScopeOf', () => {
   it('master off = legacy: person Time lines, Material, Expenses, Revenues - whatever the other switches say', () => {
-    const legacy = { time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: false, workCenters: false };
+    const legacy = { time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: false, workCenters: true };
     expect(taskInputScopeOf(undefined)).toEqual(legacy);
     expect(taskInputScopeOf({ projectExpenseBudgetNeeded: false, projectTimeCostsNeeded: false, projectTimeOfEquipmentNeeded: true, projectMaterialCostsNeeded: false })).toEqual(legacy);
   });
@@ -52,9 +52,9 @@ describe('the three kinds of work center (person, equipment, partner)', () => {
     expect(taskInputScopeOf(on({ projectTimeCostsNeeded: false, projectTimeOfPartnerNeeded: true })).time).toEqual({ person: false, equipment: false, partner: false });
     expect(taskInputScopeOf(on()).workCenters).toBe(true);
   });
-  it('a project made before (master off) books a person of the catalog: no work centers, and the Partner switch is ignored', () => {
+  it('a project made before (master off): the Time lines book work centers too (always), of the kind Person; the Partner switch is ignored', () => {
     const legacy = taskInputScopeOf({ projectTimeOfPartnerNeeded: true });
-    expect(legacy.workCenters).toBe(false);
+    expect(legacy.workCenters).toBe(true);
     expect(legacy.time).toEqual({ person: true, equipment: false, partner: false });
   });
   it('Partner alone is a kind: the Time tab and the cost budget stay on', () => {

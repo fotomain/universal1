@@ -21,7 +21,7 @@ export interface ReusableTableHeaderCellProps {
   delimiter?: boolean;
   /** "Filter & sort" button ▾ (undefined = the column has none) */
   onMenu?: (columnKey: string, x: number, y: number) => void;
-  /** context menu on right-click (web) or long-press (touch) */
+  /** context menu on right-click (web), double click / double tap or long-press */
   onContextMenu?: (columnKey: string, x: number, y: number) => void;
   /** the table is sorted by this column */
   sortDirection?: 'asc' | 'desc' | null;
@@ -31,6 +31,8 @@ export interface ReusableTableHeaderCellProps {
 }
 
 const GRIP_W = 10;
+/** two presses within this time = a double click / double tap (a bit under the 500 ms default of macOS / Windows) */
+export const HEADER_DOUBLE_TAP_MS = 400;
 
 export default function ReusableTableHeaderCell({ columnKey, title, width, justify, colors, draggable, resizable, onDragEnd, onResize, onResizeEnd, onMenu, onContextMenu, sortDirection, filtered, delimiter, testID }: ReusableTableHeaderCellProps) {
   const dragX = useRef(new Animated.Value(0)).current;
@@ -40,6 +42,16 @@ export default function ReusableTableHeaderCell({ columnKey, title, width, justi
   const live = useRef({ width, onDragEnd, onResize, onResizeEnd, columnKey });
   live.current = { width, onDragEnd, onResize, onResizeEnd, columnKey };
   const startWidth = useRef(width);
+  const lastTap = useRef(0);
+  /** web + touch: the second press on the title within HEADER_DOUBLE_TAP_MS (a double click / double tap) opens the context menu (RN-web's Pressable does not pass onDoubleClick on) */
+  const onTitlePress = (e: any) => {
+    if (!onContextMenu) return;
+    const now = Date.now();
+    if (now - lastTap.current <= HEADER_DOUBLE_TAP_MS) {
+      lastTap.current = 0;
+      onContextMenu(columnKey, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0);
+    } else lastTap.current = now;
+  };
 
   const drag = useMemo(() => PanResponder.create({
     onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 4 && Math.abs(g.dx) > Math.abs(g.dy),
@@ -75,6 +87,7 @@ export default function ReusableTableHeaderCell({ columnKey, title, width, justi
       <Pressable
         {...(draggable ? drag.panHandlers : {})}
         delayLongPress={400}
+        onPress={onTitlePress}
         onLongPress={onContextMenu ? (e: any) => onContextMenu(columnKey, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}
         style={[styles.label, { justifyContent: justify }, Platform.OS === 'web' && draggable ? ({ cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none' } as any) : null]}
       >

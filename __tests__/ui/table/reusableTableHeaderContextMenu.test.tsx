@@ -122,6 +122,18 @@ describe('ReusableTable column header context menu', () => {
     expect(fillItem?.textContent).toContain('Fill all lines');
   });
 
+  it('a double click on a column header opens the same context menu', () => {
+    mount();
+    expect(q(`${T}-header-context-menu`)).toBeNull();
+    // the title text is inside the Pressable: click it twice at once
+    const title = q(`${T}-header-title`)!;
+    act(() => { (title.querySelector('div[tabindex], [role]') as HTMLElement ?? title.firstElementChild as HTMLElement).click(); });
+    expect(q(`${T}-header-context-menu`)).toBeNull();                 // one click does nothing
+    act(() => { (title.querySelector('div[tabindex], [role]') as HTMLElement ?? title.firstElementChild as HTMLElement).click(); });
+    expect(q(`${T}-header-context-menu`)).not.toBeNull();
+    expect(q(`${T}-header-menu-copy-name`)!.textContent).toContain('Copy header name');
+  });
+
   it('has "Copy header name" for EVERY column, also the row number and a column that is not editable: it puts the title on the clipboard', () => {
     const Clipboard = require('expo-clipboard');
     mount({ visualColumns: [...columns, { key: 'sum', title: 'Sum total', type: 'number', editable: false }] });
@@ -138,11 +150,55 @@ describe('ReusableTable column header context menu', () => {
     }
   });
 
-  it('"Copy header name" comes first, "Fill all lines" stays (disabled for # and read-only columns)', () => {
+  it('"Copy header name" is before "Fill all lines" (disabled for # and read-only columns)', () => {
     mount();
     act(() => { q(`${T}-header-n`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
     const ids = Array.from(document.querySelectorAll(`[data-testid^="${T}-header-menu-"]`)).map((e) => e.getAttribute('data-testid')).filter((id) => /-(copy-name|fill-all)$/.test(String(id)));
     expect(ids).toEqual([`${T}-header-menu-copy-name`, `${T}-header-menu-fill-all`]);
+  });
+
+  it('has "Filter & Sort" (the same popup as the ▾ button) for a column that can be filtered, not for # ', () => {
+    mount();
+    const open = (key: string) => act(() => { q(`${T}-header-${key}`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
+    open('n');
+    expect(q(`${T}-header-menu-filter-sort`)).toBeNull();
+    act(() => { q(`${T}-header-context-menu`)?.dispatchEvent(new MouseEvent('click', { bubbles: true })); });
+    document.body.innerHTML = '';
+    mount();
+    open('title');
+    const item = q(`${T}-header-menu-filter-sort`);
+    expect(item).not.toBeNull();
+    expect(item!.textContent).toContain('Filter & Sort');
+    expect(q(`${T}-column-menu-sort-asc`)).toBeNull();
+    press(`${T}-header-menu-filter-sort`);
+    expect(q(`${T}-header-context-menu`)).toBeNull();           // the context menu closes
+    expect(q(`${T}-column-menu-sort-asc`)).not.toBeNull();      // the Filter & sort popup of the column opens
+  });
+
+  it('has "Clear filter": disabled while the column has no filter, removes the filter of THAT column only and closes the menu', () => {
+    mount();
+    const open = (key: string) => act(() => { q(`${T}-header-${key}`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
+    const isDisabled = () => { const el = q(`${T}-header-menu-clear-filter`)!; return el.getAttribute('aria-disabled') === 'true' || (el as any).disabled === true; };
+    // no filter yet: the item is there but disabled; the # column has no filter at all
+    open('n');
+    expect(q(`${T}-header-menu-clear-filter`)).toBeNull();
+    document.body.innerHTML = '';
+    mount();
+    open('title');
+    expect(q(`${T}-header-menu-clear-filter`)).not.toBeNull();
+    expect(q(`${T}-header-menu-clear-filter`)!.textContent).toContain('Clear filter');
+    expect(isDisabled()).toBe(true);
+    // set a filter through Filter & Sort (Empty: 0 of the 2 rows have an empty title), the toolbar shows its own clear icon
+    press(`${T}-header-menu-filter-sort`);
+    press(`${T}-column-menu-op-empty`);
+    press(`${T}-column-menu-apply`);
+    expect(q(`${T}-clear-filters`)).not.toBeNull();
+    // the item is enabled now and clears it
+    open('title');
+    expect(isDisabled()).toBe(false);
+    press(`${T}-header-menu-clear-filter`);
+    expect(q(`${T}-header-context-menu`)).toBeNull();
+    expect(q(`${T}-clear-filters`)).toBeNull();
   });
 
   it('opens fill modal on pressing "Fill all lines", and fills all lines with entered value', () => {

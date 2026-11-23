@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000000000000000000000. delete_catalog_translation.sql - PART 56: drops catalogTranslationTable (data included: ALL translations of catalog items) and language_catalog, permission_translate_catalog / catalog_translation_guard, and gives perm_my_matrix its old answer back at the next start2 (runs very first: it is the newest)
 --  1a-0000000000000000000000. delete_bim.sql - PART 55: drops the bim_ tables (data included: the models, storeys, chunk rows, elements, properties and import history of ALL projects), the bim_ functions, the Storage policies of the bucket bim; the files of the bucket and the key projectIsBIMBased stay (use delete_bim_data.sql BEFORE this to remove the data and the files properly; runs very first: it is the newest)
 --  1a-000000000000000000000. delete_application_admin.sql - PART 54: drops application_permission_table (data included: the list of the application administrators) and permission_application_admin / organization_visible, and gives organizationTable its old public SELECT policy back (runs very first: it is the newest)
 --  1a-00000000000000000000. delete_time_of_day_model.sql - PART 53: drops task_line_plan_hour_movements (data included: the hour rows of ALL posted Time lines; the day rows stay), the hm_* / organization_calendar_day_windows* / organization_resource_capacity_windows / organization_resource_busy_check_hours / task_line_plan_hours_write / project_resource_leveling_inputs_hours functions and the triggers of the day windows and of the minute keys (runs very first: it is the newest)
@@ -48,6 +49,18 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-00000000000000000000000: delete_catalog_translation.sql  (PART 56 of the structure file: the TRANSLATIONS of catalog items - runs before everything else, it is the newest)
+-- =====================================================================================
+DROP TABLE IF EXISTS public."catalogTranslationTable" CASCADE;
+
+DROP TABLE IF EXISTS public.language_catalog CASCADE;
+
+DROP FUNCTION IF EXISTS public.catalog_translation_guard() CASCADE;
+
+DROP FUNCTION IF EXISTS public.permission_translate_catalog() CASCADE;
 
 
 -- =====================================================================================
@@ -645,7 +658,16 @@ BEGIN
     DROP TRIGGER IF EXISTS trg_workCenterTable_delete ON public."workCenterTable";
   END IF;
 END $$;
+DO $$
+BEGIN
+  IF to_regclass('public.task_line_table') IS NOT NULL THEN
+    DROP TRIGGER IF EXISTS aa_task_line_work_center ON public.task_line_table;
+    ALTER TABLE public.task_line_table DROP CONSTRAINT IF EXISTS task_line_time_work_center_chk;
+  END IF;
+END $$;
 DROP TABLE IF EXISTS public."workCenterTable" CASCADE;
+DROP FUNCTION IF EXISTS public.task_line_work_center();
+DROP FUNCTION IF EXISTS public.work_center_ensure(text, text, text);
 DROP FUNCTION IF EXISTS public.work_center_copy_variant_settings(text, boolean);
 DROP FUNCTION IF EXISTS public.work_center_delete_guard();
 DROP FUNCTION IF EXISTS public.work_center_check();

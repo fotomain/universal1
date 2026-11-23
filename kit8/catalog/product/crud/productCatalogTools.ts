@@ -5,6 +5,7 @@
 //   R13 the valid price = latest validFrom <= day; a variant row beats the "all variants" row
 import { MODE_PROPERTY, MODE_VARIANT, PRODUCT_TABLE_KEYS, ProductTableKey } from '../productModel';
 import type { DefRow } from '../productModel';
+import { translatedTitle } from '../../translation/catalogTranslationStore';
 
 /** every table of the catalog (rows as read into redux) */
 export type ProductCatalogData = Record<ProductTableKey, DefRow<any>[]>;
@@ -38,6 +39,9 @@ export function vatRateOfProduct(data: ProductCatalogData, product: DefRow<any> 
 /** the title of any catalog row ('' = none) */
 export function rowTitle(r: DefRow<any> | undefined | null): string {
   const j = r?.rowJSON || {};
+  // the translation of the item in the interface language (catalogTranslationTable), when there is one
+  const translated = translatedTitle(r?.rowGUID);
+  if (translated) return translated;
   return String(j.title ?? j.vatTableTitle ?? j.number ?? j.serialNumber ?? j.barcode ?? r?.rowGUID ?? '');
 }
 

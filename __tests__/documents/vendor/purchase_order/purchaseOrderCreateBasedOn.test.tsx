@@ -8,6 +8,8 @@ const mockToReceipt: Record<string, any> = {};
 const mockAnswer: { current: any } = { current: null };
 const mockTable = jest.fn();
 const mockList = jest.fn();
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): they need the Supabase / router providers, here the form is tested alone
+jest.mock('../../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => () => [{ testID: 'task-item', label: 'Open task', onPress: () => {} }] }));
 jest.mock('../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({
   usePurchaseOrderDocuments: () => mockDoc, usePurchaseOrderLinePlaces: () => ({}),

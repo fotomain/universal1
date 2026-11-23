@@ -30,7 +30,8 @@ import { moneyAccountLabel } from '../../../catalog/money_account/moneyAccountMo
 import { pmT } from '../../../pm/i18n/pmT';
 import TaskScopeChip from '../../taskScope/TaskScopeChip';
 import { useTaskScope } from '../../taskScope/useTaskScope';
-import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import { PAYMENT_FACT_LIST_ROUTE, taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import {
   EMPTY_PAYMENT_FACT_FILTER, PAYMENT_FACT_HEADER_ENTITY, PAYMENT_FACT_ROUTE, PaymentFactDirection, PaymentFactListFilter, PaymentFactListRow, formatMoney, paymentFactDateErrors, paymentFactFilterActive, paymentFactFolderNodes,
 } from './paymentFactModel';
@@ -87,6 +88,9 @@ export default function PMPaymentFactDocumentList({ testID = 'payment-fact-list'
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, PaymentFactListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => paymentFactListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   const nodes = useMemo(() => paymentFactFolderNodes(list.answer.rows), [list.answer.rows]);
@@ -180,6 +184,8 @@ export default function PMPaymentFactDocumentList({ testID = 'payment-fact-list'
           reorderEnabled={false}
           addEnabled={!creating}
           onAdd={() => { void create(); }}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="paymentFact" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} ownList={{ route: PAYMENT_FACT_LIST_ROUTE, label: 'Payment facts', icon: 'account_balance' }} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: PAYMENT_FACT_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
           emptyText={list.isLoading ? pmT('Loading…') : paymentFactFilterActive(applied) || taskScope.active ? pmT('No payment fact matches the filters.') : pmT('No payment facts yet. Press "+" or right-click a task → Create based on this → Payment fact.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}

@@ -14,6 +14,7 @@ import {
 import type { ProductLabels } from '../crud/productLabels';
 import { itemNumberTaken, NO_PRODUCT_FIELDS, type ProductFields } from '../productFieldsModel';
 import DescriptorValueCell from './DescriptorValueCell';
+import { catalogTranslationCount, catalogTranslationLanguage, translatedTitle } from '../../translation/catalogTranslationStore';
 
 /** a filter above a table: picks ONE owner / parent / rowJSON value; new rows get it too */
 export interface ScopeFilterDef {
@@ -115,6 +116,8 @@ export function buildDashboardTables(data: ProductCatalogData, L: ProductLabels,
       columns: [
         rowNo,
         { key: 'title', title: 'Title', type: 'text', width: 220, placeholder: 'Product title' },
+        // the title in the INTERFACE language (catalogTranslationTable, written on the Translate tab of the card): a read only column, there only while a translation exists; the Title above stays the item's own text
+        ...(catalogTranslationCount() > 0 ? [count('titleTranslated', `Title (${catalogTranslationLanguage().toUpperCase()})`, (r) => translatedTitle(r.rowGUID) ?? '', 220)] : []),
         // ItemNumber / SearchName: before the SKU, only while Enabled AND VisibleInProjects are on (organization default settings)
         ...(fields.itemNumber.shown ? [{ key: 'itemNumber', title: 'Item number', type: 'text', width: 130, placeholder: 'Item number',
           validate: (v, row) => (itemNumberTaken(data.product, v, row.rowGUID) ? `Item number "${String(v).trim()}" is already used` : null) } as VisualColumn] : []),

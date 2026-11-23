@@ -26,6 +26,7 @@ import { pmT } from '../../../pm/i18n/pmT';
 import TaskScopeChip from '../../taskScope/TaskScopeChip';
 import { useTaskScope } from '../../taskScope/useTaskScope';
 import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import { EMPTY_FACT_LIST_FILTER, FACT_HEADER_ENTITY, FactListFilter, FactListRow, factListDateErrors, factListFilterActive } from './factInputModel';
 import { createFactDocument } from './factInputApi';
 import { factListColumns } from './factListColumns';
@@ -79,6 +80,9 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, FactListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => factListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // a document made / posted / deleted elsewhere (realtime) changes the entity: the list is read again
@@ -168,6 +172,8 @@ export default function PMFactInputDocumentList({ testID = 'fact-list', projectG
           rowFilter={rowFilter}
           reorderEnabled={false}
           onAdd={() => { setCreateError(null); setCreating(true); }}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="factInput" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { const r = byGuid.get(row.rowGUID); if (r) openFactInput({ taskGUID: r.taskGUID, projectGUID: r.projectGUID, documentGUID: r.documentGUID }); }}
           emptyText={list.isLoading ? pmT('Loading…') : factListFilterActive(applied) || taskScope.active ? pmT('No document matches the filters.') : pmT('No fact input documents yet. Right-click a line of a task → Facts input.')}
         />

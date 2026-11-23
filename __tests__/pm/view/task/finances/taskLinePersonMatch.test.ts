@@ -51,6 +51,8 @@ function sheet(): TaskLineCatalogData {
     // person Ivan (Contractor): a certificate only
     row('pp_cert_ivan', 'ivan', 'dp_con_p2', { descriptorValueGUID: 'dv20' }),
   ];
+  // every Time line books a work center (2026-11-23): a Person work center for each person - FIXTURE SHORTCUT: its rowGUID is the GUID of the person, so the variants owned by the person are its own
+  d.workCenter = ['john', 'anna', 'ivan'].map((g) => row(g, 'workCenterCatalog', 'empty', { workCenterKind: 'person', workCenterBase: g }));
   d.person = [
     row('john', 'personCatalog', 'empty', { personType: 'personTypeEmployee' }), row('anna', 'personCatalog', 'empty', { personType: 'personTypeEmployee' }),
     row('ivan', 'personCatalog', 'empty', { personType: 'personTypeContractor' }),
@@ -144,11 +146,11 @@ describe('personMatchProblems (the mark on the Time line)', () => {
       .toEqual(['The variant "Middle, English" does not cover the role: needs Seniority = Senior']);
   });
   it('automatic with no covering variant: says so (with the variants or without)', () => {
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'anna' })[0]).toBe('The person has no variant that covers the role: needs Seniority = Senior, Working language = English');
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'ivan' })[0]).toBe('The person has no variants: the role needs Seniority = Senior, Working language = English');
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'anna' })[0]).toBe('The work center has no variant that covers the role: needs Seniority = Senior, Working language = English');
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'ivan' })[0]).toBe('The work center has no variants: the role needs Seniority = Senior, Working language = English');
   });
   it('a variant of somebody else is reported; the unmet properties follow', () => {
-    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'john', taskResourceAttributesKey: 'dp_emp_v1=dv12|dp_emp_v2=dv16' })[0]).toBe('The variant is not a variant of this person');
+    expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'john', taskResourceAttributesKey: 'dp_emp_v1=dv12|dp_emp_v2=dv16' })[0]).toBe('The variant is not a variant of this work center');
     expect(personMatchProblems(d, TIME, { ...base, taskResourceItem: 'anna' }).slice(1)).toEqual(['Experience, years: needs at least 5, has 3 years', 'Certification: PMP is missing']);
   });
   it('only a Time line with a role and a person; the role asking for no variant asks for nothing', () => {

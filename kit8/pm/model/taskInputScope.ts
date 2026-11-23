@@ -7,8 +7,8 @@
 //         projectTimeOfPartnerNeeded    a Time line may pick a WORK CENTER of a partner (a supplier)
 //       projectMaterialCostsNeeded      the Material tab
 //       projectExpenseCostsNeeded       the Expenses tab
-//   MASTER ON = the Time lines book WORK CENTERS (kit8/catalog/work_center): the menu "Resource" lists the kinds switched on (one kind = no menu) and the column "Person / Equipment / Partner" the work
-//   centers of that kind. MASTER OFF (every project made before these switches) = the screens work exactly as before: person Time lines (a person of the catalog), Material, Expenses, Revenues.
+//   A Time line ALWAYS books a WORK CENTER (kit8/catalog/work_center; taskResourceItem = workCenterTable.rowGUID, 2026-11-23): the menu "Resource" lists the kinds switched on (one kind = no menu) and the column
+//   "Person / Equipment / Partner" the work centers of that kind. MASTER OFF (every project made before these switches) = the kind Person only, Material, Expenses, Revenues.
 //   A switch that is not saved yet reads as its default: Time / Person / Material / Expense = on, Equipment / Partner = off.
 //   Hidden is not deleted: a switch under a parent that is off keeps its value; a tab that already has lines is never hidden (`tabVisible`), a Time line made before work centers keeps its person / equipment.
 import { MANAGEMENT_GENUS } from '../../catalog/management/genus/managementGenusModel';
@@ -81,14 +81,14 @@ export interface TaskInputScope {
   revenue: boolean;
   /** the project chose its inputs (master on); false = legacy behaviour */
   configured: boolean;
-  /** the Time lines book WORK CENTERS (= configured): the menu is the kinds of work center switched on. false = a person of the catalog, as before work centers */
+  /** the Time lines book WORK CENTERS: ALWAYS true (kept for the callers); the menu is the kinds of work center switched on */
   workCenters: boolean;
 }
 
 /** The inputs a project offers. Master off = legacy: person Time lines, Material, Expenses, Revenues. */
 export function taskInputScopeOf(json: Partial<Record<TaskInputSwitchKey, unknown>> | null | undefined): TaskInputScope {
   const s = taskInputSwitchesOf(json);
-  if (!s.projectExpenseBudgetNeeded) return { time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: false, workCenters: false };
+  if (!s.projectExpenseBudgetNeeded) return { time: { person: true, equipment: false, partner: false }, material: true, expense: true, revenue: true, configured: false, workCenters: true };
   const time = s.projectTimeCostsNeeded;
   return {
     time: { person: time && s.projectTimeOfPersonNeeded, equipment: time && s.projectTimeOfEquipmentNeeded, partner: time && s.projectTimeOfPartnerNeeded },

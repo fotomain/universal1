@@ -13,7 +13,7 @@ export const TASK_LINE_ENTITY = 'taskLineReusable';
 
 /**
  * who the resource of a line is: a person (personTable), an equipment (equipmentTable) or a work center (workCenterTable) on a Time line, a product (productTable) on the others.
- * The kind of a Time line is the line's own `taskResourceKind` (empty = person, every line made before equipment); see taskLineResource.ts.
+ * 2026-11-23: a Time line ALWAYS books a WORK CENTER (`taskResourceKind = 'workCenter'`, `taskResourceItem` = workCenterTable.rowGUID; the database trigger makes it so); see taskLineResource.ts.
  * A work center stands for ONE person / equipment / partner (its base): the line books the work center, the rules of the person / equipment (role kind, contract, variants) follow the base.
  */
 export type TaskLineResourceKind = 'person' | 'equipment' | 'workCenter' | 'product';
@@ -53,16 +53,16 @@ export interface TaskLineRowJSON {
   resourceRoleItem: string | null;
   /** descriptorKey of the variant the role needs (variantTable.rowJSON.descriptorKey of the role's variants) */
   resourceRoleAttributeSetKey: string | null;
-  /** Time: 'person' | 'equipment' | 'workCenter' = which catalog taskResourceItem belongs to; empty = person (every Time line made before equipment). Not used by the other genus. */
+  /** Time: ALWAYS 'workCenter' (the values 'person' | 'equipment' are the old lines; SQL turns them into work center lines). Not used by the other genus. */
   taskResourceKind: 'person' | 'equipment' | 'workCenter' | null;
   /** Time: the RACI item of the person on the task = a rowGUID of managementRACIGenusTable (raciResponsibleGUID | raciAccountableGUID | raciConsultedGUID | raciInformedGUID). Never empty on a Time line (the database and a new row default to Responsible); not used by the other genus. kit8/catalog/management/raci_genus */
   raciItem?: string | null;
   /**
    * Time, a line that books WORK CENTERS: the menu "Resource: Person | Equipment | Partner" = the kind of the work centers the resource column offers (the kind of the work center chosen, once there is one).
-   * Setting it makes the line a work center line (taskResourceKind = 'workCenter'); empty on a line that holds a person / equipment directly (every line made before work centers).
+   * It decides WHICH work centers the line may pick; the menu follows the work center once one is chosen (SQL fills it on every Time line).
    */
   taskWorkCenterKind?: 'person' | 'equipment' | 'partner' | null;
-  /** personTable.rowGUID | equipmentTable.rowGUID | workCenterTable.rowGUID (Time, by taskResourceKind) | productTable.rowGUID */
+  /** workCenterTable.rowGUID (Time, ALWAYS) | productTable.rowGUID (Material / Expense / Revenue) */
   taskResourceItem: string | null;
   /**
    * Time: the descriptorKey of the VARIANT OF THE PERSON / EQUIPMENT / WORK CENTER the line books (variantTable, owner = person / equipment / work center: "Senior, English",

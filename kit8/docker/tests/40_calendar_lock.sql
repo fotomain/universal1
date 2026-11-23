@@ -56,18 +56,18 @@ SELECT tt.fails($q$SELECT public.fill_management_calendar('standardWorkWeekCalen
 -- the preview for the screen
 SELECT tt.eq((SELECT count(*) FROM public.organization_calendar_change_conflicts('standardWorkWeekCalendar', '2026-10-12', '2026-10-18', '{"2026-10-14": 6, "2026-10-16": 13, "2026-10-17": 0}'::jsonb)), 1::bigint, 'preview: only Wednesday 6 h would break (Friday 13 h raises, Saturday has no booking of the standard calendar)');
 
--- the pointer of a resource -----------------------------------------------------------------------------------------------------------------------
-SELECT tt.fails($q$UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "partTime4hCalendar"}' WHERE "rowGUID" = 'p-boris'$q$, 'capacity cannot be less than 8', 'Boris on a 4 h calendar: refused');
-SELECT tt.fails($q$UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sevenDayWeekCalendar"}' WHERE "rowGUID" = 'p-boris'$q$, 'capacity cannot be less than 12', 'Boris on the 7-day week: Friday would fall from 9 to 8 h under the 12 posted: refused');
+-- the pointer of a resource (the calendar of its WORK CENTER: every Time line books one, 2026-11-23) -----------------------------------------------------------------------------------------------------------------------
+SELECT tt.fails($q$UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "partTime4hCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-boris'$q$, 'capacity cannot be less than 8', 'Boris on a 4 h calendar: refused');
+SELECT tt.fails($q$UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sevenDayWeekCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-boris'$q$, 'capacity cannot be less than 12', 'Boris on the 7-day week: Friday would fall from 9 to 8 h under the 12 posted: refused');
 -- the same hours on the booked Saturday: allowed
-UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sevenDayWeekCalendar"}' WHERE "rowGUID" = 'p-clara';
-SELECT tt.eq(public.organization_resource_capacity('person','p-clara','2026-10-17'), 8::numeric, 'Clara from the 6-day to the 7-day week (Saturday 8 h either way): allowed');
-UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sixDayWeekCalendar"}' WHERE "rowGUID" = 'p-clara';
-SELECT tt.fails($q$UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "standardWorkWeekCalendar"}' WHERE "rowGUID" = 'p-clara'$q$, 'capacity cannot be less than 6', 'Clara from the 6-day week to the standard one (Saturday 0 h): refused');
-SELECT tt.fails($q$UPDATE public."equipmentTable" SET "rowJSON" = "rowJSON" - 'resourceCalendar' WHERE "rowGUID" = 'e-crane'$q$, 'Tower crane', 'the crane without its 6-day calendar: refused, with its name');
+UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sevenDayWeekCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-clara';
+SELECT tt.eq(public.organization_resource_capacity('workCenter',(SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-clara'),'2026-10-17'), 8::numeric, 'Clara from the 6-day to the 7-day week (Saturday 8 h either way): allowed');
+UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "sixDayWeekCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-clara';
+SELECT tt.fails($q$UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "standardWorkWeekCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-clara'$q$, 'capacity cannot be less than 6', 'Clara from the 6-day week to the standard one (Saturday 0 h): refused');
+SELECT tt.fails($q$UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" - 'resourceCalendar' WHERE "rowJSON"->>'workCenterBase' = 'e-crane'$q$, 'Tower crane', 'the crane without its 6-day calendar: refused, with its name');
 -- a resource whose calendar nobody uses on the booked days can change
-UPDATE public."personTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "partTime4hCalendar"}' WHERE "rowGUID" = 'p-dan';
-SELECT tt.eq(public.organization_resource_capacity('person','p-dan','2026-10-18'), 8::numeric, 'Dan: the contract calendar wins, so his own pointer does not change his Sunday');
+UPDATE public."workCenterTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "partTime4hCalendar"}' WHERE "rowJSON"->>'workCenterBase' = 'p-dan';
+SELECT tt.eq(public.organization_resource_capacity('workCenter',(SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-dan'),'2026-10-18'), 8::numeric, 'Dan: the contract calendar wins, so his own pointer does not change his Sunday');
 
 -- the contracts of a person --------------------------------------------------------------------------------------------------------------------------
 SELECT tt.fails($q$DELETE FROM public."contractTable" WHERE "rowGUID" = 'c-dan-7d'$q$, 'capacity cannot be less than 4', 'deleting the contract whose 7-day calendar covers the booked Sunday: refused');
@@ -75,7 +75,7 @@ SELECT tt.fails($q$UPDATE public."contractTable" SET "rowJSON" = "rowJSON" || '{
 SELECT tt.fails($q$UPDATE public."contractTable" SET "rowJSON" = "rowJSON" || '{"resourceCalendar": "partTime4hCalendar"}' WHERE "rowGUID" = 'c-dan-7d'$q$, 'capacity cannot be less than 4', 'another calendar of the contract (Sunday 0 h): refused');
 SELECT tt.fails($q$INSERT INTO public."contractTable" ("rowGUID","rowOwnerGUID","rowParentGUID","rowJSON") VALUES ('c-dan-pt','p-dan','person','{"contractPartyType":"person","contractSumBeforeVAT":1,"contractStartDate":"2026-10-18","contractFinishDate":"2026-10-18","contractNumber":"8","resourceCalendar":"partTime4hCalendar"}')$q$, 'capacity cannot be less than 4', 'a new contract that covers the booked Sunday with a worse calendar: refused');
 INSERT INTO public."contractTable" ("rowGUID","rowOwnerGUID","rowParentGUID","rowJSON") VALUES ('c-dan-late','p-dan','person','{"contractPartyType":"person","contractSumBeforeVAT":1,"contractStartDate":"2026-11-01","contractFinishDate":null,"contractNumber":"9","resourceCalendar":"partTime4hCalendar"}');
-SELECT tt.eq(public.organization_resource_capacity('person','p-dan','2026-11-02'), 4::numeric, 'a contract that starts after every booking is allowed (Monday 2 Nov: its part-time calendar, 4 h)');
+SELECT tt.eq(public.organization_resource_capacity('workCenter',(SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-dan'),'2026-11-02'), 4::numeric, 'a contract that starts after every booking is allowed (Monday 2 Nov: its part-time calendar, 4 h)');
 UPDATE public."contractTable" SET "rowJSON" = "rowJSON" || '{"contractNumber": "7b"}' WHERE "rowGUID" = 'c-dan-7d';
 SELECT tt.eq((SELECT "rowJSON"->>'contractNumber' FROM public."contractTable" WHERE "rowGUID" = 'c-dan-7d'), '7b', 'a change of an unrelated key of the contract is not guarded');
 

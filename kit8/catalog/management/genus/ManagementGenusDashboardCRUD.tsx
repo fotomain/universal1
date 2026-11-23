@@ -16,9 +16,16 @@ import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
 import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
+import { catalogEditCard } from '../../translation/CatalogEditModalCard';
+import { translatedTitleColumns } from '../../translation/translatedTitleColumn';
+import { useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
+
 import { isManagementGenusFolder, MANAGEMENT_GENUS_TABLE, managementGenusFolders, managementGenusItems, managementGenusPath } from './managementGenusModel';
 import { useManagementGenusData } from './useManagementGenusData';
 import { useManagementGenusTree } from './useManagementGenusTree';
+
+// the card of a row (menu Edit; in the read-only catalog a click on a row): Main + Translate
+const GenusRowCard = catalogEditCard('hub');
 
 export interface ManagementGenusDashboardCRUDProps {
   /** true (default): read-only catalog, false: full CRUD */
@@ -33,6 +40,7 @@ export default function ManagementGenusDashboardCRUD({ noCrud: noCrudProp = true
   const { rows, roleTypes, loaded, error, reload } = useManagementGenusData(true);
   const { foldersTree } = useManagementGenusTree(rows, !noCrud, reload);
   const def = MANAGEMENT_GENUS_TABLE;
+  const translationsVersion = useCatalogTranslationVersion(); // the translated title column follows the interface language
 
   const folders = useMemo(() => managementGenusFolders(rows), [rows]);
   const items = useMemo(() => managementGenusItems(rows), [rows]);
@@ -52,6 +60,7 @@ export default function ManagementGenusDashboardCRUD({ noCrud: noCrudProp = true
     const cols: VisualColumn[] = [
       { key: 'n', title: '#', type: 'rowNumber' },
       { key: 'title', title: 'Genus', type: 'text', width: 200 },
+      ...translatedTitleColumns(),
       { key: 'code', title: 'Code', type: 'custom', width: 190, editable: false, renderCell: (row) => <Text numberOfLines={1} testID={`genus-code-${row.rowGUID}`} style={{ color: c.text, opacity: 0.75, fontSize: 13 }}>{row.rowGUID}</Text>, searchText: (row) => row.rowGUID },
       { key: 'parent', title: 'Folder', type: 'select', target: 'rowParentGUID', width: 200, allowEmpty: false, placeholder: 'Choose folder…', options: folderOptions },
       { key: 'description', title: 'Description', type: 'text', width: 380 },
@@ -59,7 +68,7 @@ export default function ManagementGenusDashboardCRUD({ noCrud: noCrudProp = true
     ];
     // read-only: every cell shows, none is edited
     return noCrud ? cols.map((col) => ({ ...col, editable: false })) : cols;
-  }, [rows, folders, roleTypes, noCrud, c.text]);
+  }, [rows, folders, roleTypes, noCrud, c.text, translationsVersion]);
 
   return (
     <View testID="genus-dashboard" style={[styles.root, { backgroundColor: c.background }]}>
@@ -93,6 +102,7 @@ export default function ManagementGenusDashboardCRUD({ noCrud: noCrudProp = true
           listParentGUID={REUSABLE_TABLE_ALL}
           visualColumns={columns}
           defaultRowJSON={def.emptyRowJSON}
+          EditRowModalCard={GenusRowCard}
           rowFilter={itemsOnly}
           newRowDefaults={newRowDefaults}
           crudPanelEnabled={!noCrud}
@@ -102,7 +112,7 @@ export default function ManagementGenusDashboardCRUD({ noCrud: noCrudProp = true
           resizeColumnWidth
           realtime
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}
-          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270 }}
+          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270, inlineEdit: !noCrud }}
         />
       </ScrollView>
     </View>

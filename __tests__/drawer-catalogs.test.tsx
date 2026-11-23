@@ -11,7 +11,8 @@ jest.mock('expo-router/drawer', () => {
   return { DrawerContentScrollView: ({ children }: any) => R.createElement(View, null, children) };
 });
 jest.mock('react-native-paper', () => ({ Drawer: { Item: () => null } }));
-jest.mock('react-i18next', () => ({ useTranslation: () => ({ t: (k: string) => k }) }));
+// the real dictionaries (English): the labels of the menu are the texts of the `drawer` block
+jest.mock('react-i18next', () => ({ initReactI18next: { type: '3rdParty', init: () => {} }, useTranslation: () => ({ t: (k: string) => require('../kit8/i18n/i18n').default.t(k) }) }));
 jest.mock('react-redux', () => ({ useSelector: (sel: any) => sel({ activeUserState: { activeUserEmail: 'a@b.com' } }) }));
 jest.mock('../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
@@ -311,8 +312,8 @@ it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, setting
   expect(labels['/pm/project/dashboard']).toBe('Project Dashboard');
   expect(labels['/catalog/money/account']).toBe('Money accounts');
   expect(labels['/user/visits']).toBe('Routes visits');
-  expect(labels['/user/userprofile']).toBe('menu.userProfile'); // signed in
-  expect(labels['/settings']).toBe('menu.settings');
+  expect(labels['/user/userprofile']).toBe('User Profile'); // signed in
+  expect(labels['/settings']).toBe('Settings');
   act(() => mockTopProps[mockTopProps.length - 1].onSelectRoute('/catalog/money/account'));
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });
@@ -324,4 +325,43 @@ it('Chat (after Scan, before Catalogs) navigates to /chat', () => {
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-chat') + 1);
   press('drawer-item-chat');
   expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/chat$/));
+});
+
+// ---- the hamburger menu in every language of the app (kit8/i18n/i18n.ts, block `drawer`) ----
+describe('the menu in every language', () => {
+  const i18n = require('../kit8/i18n/i18n');
+  const { LANGUAGES } = i18n;
+  const en = i18n.default.getResourceBundle('en', 'translation').drawer as Record<string, string>;
+
+  it('every language has every text of the `drawer` block, filled', () => {
+    expect(LANGUAGES.length).toBe(15);
+    for (const { code } of LANGUAGES) {
+      const d = i18n.default.getResourceBundle(code, 'translation').drawer;
+      expect({ code, missing: Object.keys(en).filter((k) => !d?.[k] || !String(d[k]).trim()) }).toEqual({ code, missing: [] });
+    }
+  });
+
+  it('a language other than English translates the labels (technical names and words spelt the same may stay)', () => {
+    const same = new Set(['monitor01', 'nfc', 'audio', 'video', 'chat', 'photo']);
+    for (const { code } of LANGUAGES.filter((l: any) => l.code !== 'en')) {
+      const d = i18n.default.getResourceBundle(code, 'translation').drawer;
+      const untranslated = Object.keys(en).filter((k) => !same.has(k) && d[k] === en[k]);
+      // a few words are the same in a language (Documents, Budgets in French / Dutch ...): at most 8 of the 60
+      expect({ code, ok: untranslated.length <= 8, untranslated }).toEqual({ code, ok: true, untranslated });
+    }
+  });
+
+  it('the drawer shows the labels of the app language, then English again', async () => {
+    await i18n.changeAppLanguage('lv');
+    mount('/home');
+    press('drawer-item-catalogs');
+    expect(q('drawer-item-catalogs')!.textContent).toContain('Katalogi');
+    expect(q('drawer-item-documents')!.textContent).toContain('Dokumenti');
+    expect(q('drawer-subitem-currencies')!.textContent).toContain('Valūtas');
+    expect(q('drawer-item-darkmode')?.textContent ?? 'Tumšais režīms').toContain('Tumšais režīms');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    await i18n.changeAppLanguage('en');
+    mount('/home');
+    expect(q('drawer-item-catalogs')!.textContent).toContain('Catalogs');
+  });
 });

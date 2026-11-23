@@ -78,152 +78,152 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
   const mainNavItems: MenuItem[] = [
     { id: 'home', label: t('menu.home'), icon: 'home', route: 'home' },
-    { id: 'developer1', label: 'Developer 1', icon: 'logo_dev', route: 'developer1' },
-    { id: 'posts', label: 'Media Posts', icon: 'list_alt', route: 'posts/mediapostcrud' },
+    { id: 'developer1', label: t('drawer.developer1'), icon: 'logo_dev', route: 'developer1' },
+    { id: 'posts', label: t('drawer.mediaPosts'), icon: 'list_alt', route: 'posts/mediapostcrud' },
     // record with the camera / microphone and play audio / video (kit8/ui/components/media): web, iOS, Android
     {
       id: 'record',
-      label: 'Record',
+      label: t('drawer.record'),
       icon: 'videocam',
       // negative-space camera + microphone monogram (black / white, takes the colour of the row)
       renderIcon: ({ size, color }) => <RecordMenuIcon size={size} color={color} />,
       route: '',
       children: [
-        { id: 'record-audio', label: 'Audio', icon: 'mic', route: 'media/record/audio' },
-        { id: 'record-video', label: 'Video', icon: 'videocam', route: 'media/record/video' },
-        { id: 'record-photo', label: 'Photo', icon: 'photo_camera', route: 'media/record/photo' },
+        { id: 'record-audio', label: t('drawer.audio'), icon: 'mic', route: 'media/record/audio' },
+        { id: 'record-video', label: t('drawer.video'), icon: 'videocam', route: 'media/record/video' },
+        { id: 'record-photo', label: t('drawer.photo'), icon: 'photo_camera', route: 'media/record/photo' },
       ],
     },
     {
       id: 'play',
-      label: 'Play',
+      label: t('drawer.play'),
       icon: 'play_circle',
       route: '',
       children: [
-        { id: 'play-audio', label: 'Audio', icon: 'headphones', route: 'media/play/audio' },
-        { id: 'play-video', label: 'Video', icon: 'movie', route: 'media/play/video' },
+        { id: 'play-audio', label: t('drawer.audio'), icon: 'headphones', route: 'media/play/audio' },
+        { id: 'play-video', label: t('drawer.video'), icon: 'movie', route: 'media/play/video' },
       ],
     },
     // scan with the camera (QR code, barcode) or with the NFC reader (kit8/ui/components/media/scan, .../nfc): open to guests too
     {
       id: 'scan',
-      label: 'Scan',
+      label: t('drawer.scan'),
       icon: 'qr_code_scanner',
       route: '',
       children: [
-        { id: 'scan-codes', label: 'QR / Barcode', icon: 'qr_code_scanner', route: 'media/scan' },
-        { id: 'scan-nfc', label: 'NFC', icon: 'nfc', route: 'media/nfc' },
+        { id: 'scan-codes', label: t('drawer.qrBarcode'), icon: 'qr_code_scanner', route: 'media/scan' },
+        { id: 'scan-nfc', label: t('drawer.nfc'), icon: 'nfc', route: 'media/nfc' },
         // ID card or passport: photo of the zone -> text recognised on the phone -> NFC scan (kit8/ui/components/media/nfc/identification; the chip reader = nfc/iddocread)
-        { id: 'scan-identification', label: 'Identification', icon: 'badge', route: 'media/nfc/identification' },
+        { id: 'scan-identification', label: t('drawer.identification'), icon: 'badge', route: 'media/nfc/identification' },
       ],
     },
     // the chat (kit8/chat): the themes of the user and the chats of the tasks he works on; the red number of the new messages is in the application bar
-    { id: 'chat', label: 'Chat', icon: 'chat', route: 'chat' },
+    { id: 'chat', label: t('drawer.chat'), icon: 'chat', route: 'chat' },
     {
       id: 'catalogs',
-      label: 'Catalogs',
+      label: t('drawer.catalogs'),
       icon: 'menu_book',
       route: '',
       // sorted by name
       children: [
         // activity genus (operating / investing / financing) + the allowed budget item keys activity x genus: read-only tables
-        { id: 'activitygenus', label: 'Activity genus', icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
+        { id: 'activitygenus', label: t('drawer.activityGenus'), icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
         // budget items (articles a task line is budgeted as), each with its management genus: a tree of folders + a table
-        { id: 'budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
+        { id: 'budgetitems', label: t('drawer.budgetItems'), icon: 'payments', route: 'catalog/budget/item/list' },
         // the scenarios a project budgets in (Plan | Fact): a plain table
-        { id: 'budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
+        { id: 'budgetscenarios', label: t('drawer.budgetScenarios'), icon: 'flag', route: 'catalog/budget/scenario/list' },
         // the business units (a tree of any depth; cost / revenue / profit / investment centers) - replaces the old Departments catalog
-        { id: 'businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
-        { id: 'countries', label: 'Countries', icon: 'public', route: 'catalog/country' },
-        { id: 'currencies', label: 'Currencies', icon: 'payments', route: 'catalog/currency/list' },
+        { id: 'businessunits', label: t('drawer.businessUnits'), icon: 'account_tree', route: 'catalog/business/unit' },
+        { id: 'countries', label: t('drawer.countries'), icon: 'public', route: 'catalog/country' },
+        { id: 'currencies', label: t('drawer.currencies'), icon: 'payments', route: 'catalog/currency/list' },
         // how a budget is spread over the days of a task line (front-loaded, uniform, normal ...): a read-only tree + table
-        { id: 'distributions', label: 'Distribution', icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
+        { id: 'distributions', label: t('drawer.distribution'), icon: 'stacked_line_chart', route: 'catalog/distribution/list' },
         // equipment: types (Heavy machinery, Vehicle), properties (what a machine is) and variants (what it can be booked as); a Time line of a task can book it
-        { id: 'equipmentdashboard', label: 'Equipment (properties and variants)', icon: 'construction', route: 'catalog/equipment/dashboard' },
-        { id: 'kanban-stages', label: 'Kanban Stages', icon: 'view_column', route: 'pm/kanbanstage/list' },
+        { id: 'equipmentdashboard', label: t('drawer.equipmentProps'), icon: 'construction', route: 'catalog/equipment/dashboard' },
+        { id: 'kanban-stages', label: t('drawer.kanbanStages'), icon: 'view_column', route: 'pm/kanbanstage/list' },
         // the companies the vendor invoices are issued to (folders = countries)
-        { id: 'legalentities', label: 'Legal entities', icon: 'domain', route: 'catalog/legal/entity' },
+        { id: 'legalentities', label: t('drawer.legalEntities'), icon: 'domain', route: 'catalog/legal/entity' },
         // the working calendars (Project / Resource role / Person) and their days: a task plan skips the excluded days
         // the bank accounts and cash desks the payment facts move money on (folders = legal entities), with their rests
-        { id: 'moneyaccounts', label: 'Money accounts', icon: 'account_balance', route: 'catalog/money/account' },
-        { id: 'managementcalendars', label: 'Management calendars', icon: 'calendar_month', route: 'catalog/management/calendar/list' },
+        { id: 'moneyaccounts', label: t('drawer.moneyAccounts'), icon: 'account_balance', route: 'catalog/money/account' },
+        { id: 'managementcalendars', label: t('drawer.managementCalendars'), icon: 'calendar_month', route: 'catalog/management/calendar/list' },
         // management genus (costs: time / material / expense, revenue, payments): a read-only tree + table
-        { id: 'managementgenus', label: 'Management genus', icon: 'hub', route: 'catalog/management/genus/list' },
-        { id: 'organizations', label: 'Organizations', icon: 'corporate_fare', route: 'catalog/organization' },
+        { id: 'managementgenus', label: t('drawer.managementGenus'), icon: 'hub', route: 'catalog/management/genus/list' },
+        { id: 'organizations', label: t('drawer.organizations'), icon: 'corporate_fare', route: 'catalog/organization' },
         // who is a member of the active organization: invitations, administrators (organizationMemberTable)
-        { id: 'organizationmembers', label: 'Organization members', icon: 'group', route: 'catalog/organization/members' },
-        { id: 'partners', label: 'Partners', icon: 'handshake', route: 'catalog/partner/list' },
-        { id: 'persons', label: 'Persons', icon: 'person', route: 'catalog/person/list' },
+        { id: 'organizationmembers', label: t('drawer.organizationMembers'), icon: 'group', route: 'catalog/organization/members' },
+        { id: 'partners', label: t('drawer.partners'), icon: 'handshake', route: 'catalog/partner/list' },
+        { id: 'persons', label: t('drawer.persons'), icon: 'person', route: 'catalog/person/list' },
         // persons: types (Employee / Contractor), properties (what a person is) and variants (what he can be booked as), ReusableTable approach
-        { id: 'persondashboard', label: 'Persons (properties and variants)', icon: 'badge', route: 'catalog/person/dashboard' },
+        { id: 'persondashboard', label: t('drawer.personsProps'), icon: 'badge', route: 'catalog/person/dashboard' },
         // product catalog: all product tables (CRUD), checks, product card
-        { id: 'products', label: 'Products', icon: 'inventory_2', route: 'catalog/product/dashboard' },
-        { id: 'catalog-projects', label: 'Projects', icon: 'view_timeline', route: 'catalog/project' },
+        { id: 'products', label: t('drawer.products'), icon: 'inventory_2', route: 'catalog/product/dashboard' },
+        { id: 'catalog-projects', label: t('drawer.projects'), icon: 'view_timeline', route: 'catalog/project' },
         // the contract a task line asks for before a partner is known (Material / Expense / Revenue / Time), per management genus
-        { id: 'templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
+        { id: 'templateresourcecontracts', label: t('drawer.resourceContractTemplates'), icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
         // resource role catalog: role types, roles (folder tree + table), properties, variants, hourly rates, checks
-        { id: 'resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
+        { id: 'resourceroles', label: t('drawer.resourceRoles'), icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
         // a Person, an Equipment or a Partner (supplier) as a resource with its own calendar and variant, in folders = business units; a Time line of a task can book it
-        { id: 'workcenters', label: 'Work centers', icon: 'precision_manufacturing', route: 'catalog/work/center' },
+        { id: 'workcenters', label: t('drawer.workCenters'), icon: 'precision_manufacturing', route: 'catalog/work/center' },
       ],
     },
     // documents (what is filled in and posted), sorted by name: the fact input documents (Actuals, kit8/documents/fact/input) and the vendor invoices (one vendor + one contract each; folders legal entity → vendor)
     {
       id: 'documents',
-      label: 'Documents',
+      label: t('drawer.documents'),
       icon: 'description',
       route: '',
       children: [
-        { id: 'documents-factinput', label: 'Fact input', icon: 'fact_check', route: 'pm/fact/list' },
+        { id: 'documents-factinput', label: t('drawer.factInput'), icon: 'fact_check', route: 'pm/fact/list' },
         // ONE bank transaction: the payments of the plan that were really paid (folders money account → payee)
-        { id: 'documents-paymentfacts', label: 'Payment facts', icon: 'account_balance', route: 'pm/payment-fact/list' },
-        { id: 'documents-productreceipts', label: 'Product receipts', icon: 'move_to_inbox', route: 'pm/product-receipt/list' },
-        { id: 'documents-purchaseorders', label: 'Purchase orders', icon: 'shopping_cart', route: 'pm/purchase-order/list' },
-        { id: 'documents-timesheets', label: 'Time sheets', icon: 'schedule', route: 'pm/timesheet/list' },
-        { id: 'documents-vendorinvoices', label: 'Vendor invoices', icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
-        { id: 'documents-customerinvoices', label: 'Customer invoices', icon: 'payments', route: 'pm/customer-invoice/list' },
+        { id: 'documents-paymentfacts', label: t('drawer.paymentFacts'), icon: 'account_balance', route: 'pm/payment-fact/list' },
+        { id: 'documents-productreceipts', label: t('drawer.productReceipts'), icon: 'move_to_inbox', route: 'pm/product-receipt/list' },
+        { id: 'documents-purchaseorders', label: t('drawer.purchaseOrders'), icon: 'shopping_cart', route: 'pm/purchase-order/list' },
+        { id: 'documents-timesheets', label: t('drawer.timeSheets'), icon: 'schedule', route: 'pm/timesheet/list' },
+        { id: 'documents-vendorinvoices', label: t('drawer.vendorInvoices'), icon: 'receipt_long', route: 'pm/vendor-invoice/list' },
+        { id: 'documents-customerinvoices', label: t('drawer.customerInvoices'), icon: 'payments', route: 'pm/customer-invoice/list' },
       ],
     },
-    { id: 'pm-projects', label: 'Project Dashboard', icon: 'timeline', route: 'pm/project/dashboard' },
+    { id: 'pm-projects', label: t('drawer.projectDashboard'), icon: 'timeline', route: 'pm/project/dashboard' },
     // reports: Monitor01 (planned · contracted · received · used per resource role, month and task; the FULL data set, live), Monitor02 ROI now, Monitor03 ROI history, Monitor07 Customer / Vendor balance, Monitor08 Consolidation
     {
       id: 'reports',
-      label: 'Reports',
+      label: t('drawer.reports'),
       icon: 'assessment',
       route: '',
       children: [
-        { id: 'reports-monitor01', label: 'Monitor01', icon: 'monitoring', route: 'pm/reports/monitor01' },
-        { id: 'reports-monitor02', label: 'Monitor02 ROI now', icon: 'trending_up', route: 'pm/reports/monitor02' },
-        { id: 'reports-monitor03', label: 'Monitor03 ROI history', icon: 'show_chart', route: 'pm/reports/monitor03' },
-        { id: 'reports-monitor07-customer', label: 'Monitor07 Customer balance', icon: 'account_balance', route: 'pm/reports/monitor07/customer' },
-        { id: 'reports-monitor07-vendor', label: 'Monitor07 Vendor balance', icon: 'account_balance_wallet', route: 'pm/reports/monitor07/vendor' },
-        { id: 'reports-monitor08', label: 'Monitor08 Consolidation', icon: 'currency_exchange', route: 'pm/reports/monitor08' },
+        { id: 'reports-monitor01', label: t('drawer.monitor01'), icon: 'monitoring', route: 'pm/reports/monitor01' },
+        { id: 'reports-monitor02', label: t('drawer.monitor02'), icon: 'trending_up', route: 'pm/reports/monitor02' },
+        { id: 'reports-monitor03', label: t('drawer.monitor03'), icon: 'show_chart', route: 'pm/reports/monitor03' },
+        { id: 'reports-monitor07-customer', label: t('drawer.monitor07Customer'), icon: 'account_balance', route: 'pm/reports/monitor07/customer' },
+        { id: 'reports-monitor07-vendor', label: t('drawer.monitor07Vendor'), icon: 'account_balance_wallet', route: 'pm/reports/monitor07/vendor' },
+        { id: 'reports-monitor08', label: t('drawer.monitor08'), icon: 'currency_exchange', route: 'pm/reports/monitor08' },
       ],
     },
 
     // budgets: shortcuts to the catalogs a budget is built from (the same pages as in Catalogs), sorted by name
     {
       id: 'budgets',
-      label: 'Budgets',
+      label: t('drawer.budgets'),
       icon: 'account_balance_wallet',
       route: '',
       children: [
-        { id: 'budgets-activitygenus', label: 'Activity genus', icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
-        { id: 'budgets-budgetitems', label: 'Budget Items', icon: 'payments', route: 'catalog/budget/item/list' },
-        { id: 'budgets-budgetscenarios', label: 'Budget scenarios', icon: 'flag', route: 'catalog/budget/scenario/list' },
-        { id: 'budgets-businessunits', label: 'Business units', icon: 'account_tree', route: 'catalog/business/unit' },
-        { id: 'budgets-templateresourcecontracts', label: 'Resource contract templates', icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
-        { id: 'budgets-resourceroles', label: 'Resource roles', icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
+        { id: 'budgets-activitygenus', label: t('drawer.activityGenus'), icon: 'swap_vert', route: 'catalog/management/activity_genus/list' },
+        { id: 'budgets-budgetitems', label: t('drawer.budgetItems'), icon: 'payments', route: 'catalog/budget/item/list' },
+        { id: 'budgets-budgetscenarios', label: t('drawer.budgetScenarios'), icon: 'flag', route: 'catalog/budget/scenario/list' },
+        { id: 'budgets-businessunits', label: t('drawer.businessUnits'), icon: 'account_tree', route: 'catalog/business/unit' },
+        { id: 'budgets-templateresourcecontracts', label: t('drawer.resourceContractTemplates'), icon: 'description', route: 'catalog/management/templateresourcecontract/list' },
+        { id: 'budgets-resourceroles', label: t('drawer.resourceRoles'), icon: 'engineering', route: 'catalog/resourcerole/dashboard' },
       ],
     },
 
     // system settings of the user: how often each screen was opened (kit8/catalog/user/visit)
     {
       id: 'systemsettings',
-      label: 'System settings',
+      label: t('drawer.systemSettings'),
       icon: 'settings_applications',
       route: '',
-      children: [{ id: 'system-routevisits', label: 'Routes visits', icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: 'Permissions', icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: 'Application texts', icon: 'translate', route: 'catalog/organization/texts' }, { id: 'system-costcalculator', label: 'Cost calculator', icon: 'calculate', route: 'system/costcalculator' }],
+      children: [{ id: 'system-routevisits', label: t('drawer.routesVisits'), icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: t('drawer.permissions'), icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: t('drawer.applicationTexts'), icon: 'translate', route: 'catalog/organization/texts' }, { id: 'system-costcalculator', label: t('drawer.costCalculator'), icon: 'calculate', route: 'system/costcalculator' }],
     },
   ];
 

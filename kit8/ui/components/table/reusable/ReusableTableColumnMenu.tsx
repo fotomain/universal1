@@ -1,5 +1,5 @@
 // ReusableTable - "Filter & sort" popup of one column (opened by the ▾ button of its header).
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import type { VisualColumn } from './reusableTableTypes';
@@ -25,6 +25,16 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
   const ops = filterOpsOf(col);
   const [op, setOp] = useState<ColumnFilterOp>(filter?.op ?? ops[0]);
   const [value, setValue] = useState(filter?.value ?? '');
+  const inputRef = useRef<TextInput>(null);
+  const needsValue = filterNeedsValue(op);
+  // the cursor goes into the text field by itself: autoFocus alone loses to the Modal, which takes the focus after it is mounted (web) - so focus again once it has settled, and whenever
+  // the operator changes to one that needs a text (the field is mounted then)
+  useEffect(() => {
+    if (!needsValue) return undefined;
+    inputRef.current?.focus();
+    const t = setTimeout(() => inputRef.current?.focus(), 60);
+    return () => clearTimeout(t);
+  }, [needsValue, op]);
   const numeric = col.type === 'integer' || col.type === 'number';
   const mySort = sort?.key === col.key ? sort.direction : null;
   const left = Math.max(8, Math.min(x, win.width - W - 8));
@@ -57,7 +67,7 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
           ))}
         </View>
         {filterNeedsValue(op) && (
-          <TextInput testID={id('value')} value={value} onChangeText={setValue} onSubmitEditing={apply} autoFocus placeholder={numeric ? 'Number…' : 'Text…'}
+          <TextInput ref={inputRef} testID={id('value')} value={value} onChangeText={setValue} onSubmitEditing={apply} autoFocus placeholder={numeric ? 'Number…' : 'Text…'}
             placeholderTextColor={c.text + '70'} keyboardType={numeric ? 'decimal-pad' : 'default'}
             style={[styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.background }]} />
         )}

@@ -11,6 +11,12 @@ import type { DefRow } from '../product/productModel';
 import { BUSINESS_UNIT_TABLE, businessUnitNodes, businessUnitPath, effectiveCfr } from './businessUnitModel';
 import { cfrTypeOptions, cfrTypeTitle } from './cfrTypeModel';
 import { useBusinessUnitData } from './useBusinessUnitData';
+import { catalogEditCard } from '../translation/CatalogEditModalCard';
+import { translatedTitleColumns } from '../translation/translatedTitleColumn';
+import { useCatalogTranslationVersion } from '../translation/catalogTranslationStore';
+
+// the card of a unit (menu Edit; in the read-only catalog a click on a row): Main + Translate
+const BusinessUnitRowCard = catalogEditCard('account_tree');
 
 export interface BusinessUnitCRUDProps {
   /** false (default): full CRUD, true: read-only catalog */
@@ -23,10 +29,12 @@ export default function BusinessUnitCRUD({ noCrud = false }: BusinessUnitCRUDPro
   const { rows, cfrRows } = data;
   const nodes = useMemo(() => businessUnitNodes(rows), [rows]);
   const cfrOptions = useMemo(() => cfrTypeOptions(cfrRows), [cfrRows]);
+  const translationsVersion = useCatalogTranslationVersion(); // the translated title column follows the interface language
 
   const columns = useCallback(({ rows: all }: { rows: DefRow<any>[]; noCrud: boolean }): VisualColumn[] => [
     { key: 'n', title: '#', type: 'rowNumber' },
     { key: 'title', title: 'Business unit', type: 'text', width: 240 },
+    ...translatedTitleColumns(),
     { key: 'code', title: 'Code', type: 'text', width: 110 },
     { key: 'cfrAssigned', title: 'CFR', type: 'select', width: 170, allowEmpty: true, placeholder: 'Inherited', options: cfrOptions },
     {
@@ -45,7 +53,7 @@ export default function BusinessUnitCRUD({ noCrud = false }: BusinessUnitCRUDPro
     },
     { key: 'isActive', title: 'Active', type: 'boolean', width: 80 },
     { key: 'description', title: 'Description', type: 'text', width: 320 },
-  ], [cfrOptions, cfrRows, c.text]);
+  ], [cfrOptions, cfrRows, c.text, translationsVersion]);
 
   return (
     <CatalogTreeReusableCRUD
@@ -58,6 +66,7 @@ export default function BusinessUnitCRUD({ noCrud = false }: BusinessUnitCRUDPro
       testID="business-unit"
       allLabel="All business units"
       noCrud={noCrud}
+      EditRowModalCard={BusinessUnitRowCard}
       deleteHint="A unit with sub-units, or one used by a project, a line or a contract, is not deleted: deactivate it instead."
       setupHint="Run kit8/sql/start/start1_sql_tables.sql + start2_sql_code.sql and then start4_sql_insert_missing.sql (PART 18) in the Supabase SQL editor and sign in."
     />

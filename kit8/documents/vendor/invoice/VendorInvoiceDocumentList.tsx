@@ -6,12 +6,14 @@
 //             Create = the documents are made from a task (context menu "Vendor Invoice"), the + button says so
 //   quick filters (ONE row, scrolls sideways when narrow; TextInputApp / DateInputApp / the select, each with a Clear icon inside its field) for every column that is not a number:
 //             invoice number · date from - to · legal entity · vendor · contract · currency · status · author - applied by the DATABASE (vendor_invoice_list)
+//   toolbar   Actions · Go to (DocumentActionsGoTo, icons): ENABLED only while exactly ONE document is checked and it has a task - the Task menu items of its task (+ "Payment fact (pays this invoice)" of a posted one)
 //   scope     taskGUID / taskLineGUID (props = route params): the documents that invoice that task / task line (menu "Go to → Vendor invoices"); a chip above the filters says it, its x clears it
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
-import { usePaymentFactBasedOnRowMenu } from '../../payment/fact/PaymentFactBasedOn';
+import { usePaymentFactBasedOnRowMenu, usePaymentFactInvoiceActionItems } from '../../payment/fact/PaymentFactBasedOn';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -81,6 +83,7 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list', task
   const list = useVendorInvoiceList(applied, 1000, taskScopeToRpc(taskScope.scope));
   const [hint, setHint] = useState(false);
   const [folder, setFolder] = useState<string>(TREE_ALL_ID);
+  const [checked, setChecked] = useState<string[]>([]);
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, VendorInvoiceListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
@@ -91,6 +94,9 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list', task
   const taskMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
   // "Create based on → Payment fact" of a POSTED invoice (the draft opens in a new browser window)
   const basedOn = usePaymentFactBasedOnRowMenu('vendor', testID);
+  const invoiceActionItems = usePaymentFactInvoiceActionItems('vendor', testID);
+  // Actions / Go to of the toolbar: for the ONE checked document
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const rowMenu = useCallback((row: { rowGUID: string }, close: () => void) => [...basedOn(row.rowGUID, byGuid.get(row.rowGUID)?.documentStatus, close), ...taskMenu(row as any, close)], [basedOn, taskMenu, byGuid]);
   // the tree: legal entity → vendor, of the documents that exist
   const nodes = useMemo(() => vendorInvoiceFolderNodes(list.answer.rows), [list.answer.rows]);
@@ -165,6 +171,8 @@ export default function VendorInvoiceDocumentList({ testID = 'vendor-list', task
           rowFilter={rowFilter}
           reorderEnabled={false}
           extraMenuItems={rowMenu}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="vendorInvoice" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} actionItems={invoiceActionItems(one?.documentGUID, one?.documentStatus)} disabled={!one} testID={`${testID}-doc`} />}
           onAdd={() => setHint(true)}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: VENDOR_INVOICE_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
           emptyText={list.isLoading ? pmT('Loading…') : vendorInvoiceFilterActive(applied) || taskScope.active ? pmT('No vendor invoice matches the filters.') : pmT('No vendor invoices yet. Right-click a line of a task → Vendor Invoice.')}

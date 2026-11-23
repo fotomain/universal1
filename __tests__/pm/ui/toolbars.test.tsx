@@ -209,6 +209,13 @@ describe('PMRecentProjectsToolbar (project bar)', () => {
     expect(q('pm-project-demo')).toBeNull(); // Demo button removed from the bar
   });
 
+  it('Go to sits right after Actions, before Import / Export and the project settings button', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    expectInOrder(['pm-project-actions', 'pm-project-goto', 'pm-project-import-export', 'pm-project-edit']);
+    expect(mustGet('pm-project-goto').style.width).toBe(`${PM_SETTINGS_BUTTON_WIDTH}px`);
+  });
+
   it('pressing a chip selects the project; ✕ removes it from the ribbon only', () => {
     const { demo } = seedStore();
     const [p1, p2] = demo.projects;

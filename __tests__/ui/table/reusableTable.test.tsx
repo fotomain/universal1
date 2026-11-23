@@ -229,6 +229,22 @@ it('column menu: sort by hours, filter hours >= 5, clear', () => {
   expect(q(`${T}-cell-r1-tableRowNumber`)!.textContent).toBe('1');
 });
 
+it('column menu: the cursor is in the filter text field at once, and again after the operator changes to one that needs a text', async () => {
+  mount(seed());
+  press(`${T}-column-menu-button-hours`);
+  const input = q(`${T}-column-menu-value`) as HTMLInputElement | null;
+  expect(input).not.toBeNull();
+  await act(async () => { await new Promise((r) => setTimeout(r, 120)); });
+  expect(document.activeElement).toBe(input);
+  // "Not empty" needs no text: the field is gone; "Contains" brings it back WITH the cursor
+  press(`${T}-column-menu-op-notEmpty`);
+  expect(q(`${T}-column-menu-value`)).toBeNull();
+  press(`${T}-column-menu-op-gte`);
+  const again = q(`${T}-column-menu-value`) as HTMLInputElement | null;
+  expect(again).not.toBeNull();
+  expect(document.activeElement).toBe(again);
+});
+
 it('header check box: − when some rows are selected, ✓ when all, empty when none', () => {
   mount(seed());
   const head = () => q(`${T}-select-all`)!;

@@ -17,6 +17,7 @@ import * as Clipboard from 'expo-clipboard';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import IconApp from '../../../ui/components/common/IconApp';
 import type { ReusableTableRow } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { useTaskLineCatalogs } from '../../../pm/view/task/finances/useTaskLineCatalogs';
@@ -177,6 +178,7 @@ export default function PMPurchaseOrderDocumentForm({ documents, onClose, testID
         {header && canCreateReceiptFromOrder(header.status) && (
           <ButtonApp testID={`${testID}-create-based-on`} title={pmT('Create based on')} icon="add_circle" variant="outlined" size="small" disabled={doc.busy || toReceipt.busy} onPress={() => setBasedOnMenu(true)} />
         )}
+        {header && <DocumentActionsGoTo kind="purchaseOrder" taskGUID={header.taskGUID} projectGUID={header.projectGUID} actionItems={header.status === 'posted' ? [{ testID: `${testID}-actions-product-receipt`, label: pmT('Product receipt'), icon: 'move_to_inbox', onPress: () => { void doCreateReceipt(); } }] : []} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
           // a status, not a command: the same BIG button as Post (nothing to press)

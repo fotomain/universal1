@@ -1,5 +1,7 @@
 -- PART 24: the fact input document (documentation/FACT_INPUT.html): task_fact_header, task_fact_usage_timeline, post / unpost, the strong and the free input
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

@@ -13,9 +13,11 @@ export interface MyMatrix {
   projectIsReadonly: boolean;
   /** permissionApplicationAdmin (SQL PART 54, application_permission_table): the caller SEES ALL ORGANIZATIONS; every other user sees only those he is a member of */
   isApplicationAdmin: boolean;
+  /** permissionTranslateCatalog (SQL PART 56): the caller may write the translations of catalog items (organization administrator, project manager, application administrator, or given by hand) */
+  canTranslateCatalog: boolean;
 }
 
-export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false };
+export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false, canTranslateCatalog: false };
 
 export const PROFILE_TITLES: Record<string, string> = {
   permissionOrganizationAdmin: 'Organization administrator',
@@ -33,7 +35,9 @@ export const PROFILE_TITLES: Record<string, string> = {
 
 /** the application level permission (not one of the 11 profiles of the matrix: it has no letters, it widens the SEE of the organizations only) */
 export const APPLICATION_ADMIN_PROFILE = 'permissionApplicationAdmin';
-export const profileTitleOf = (profile: string): string => (profile === APPLICATION_ADMIN_PROFILE ? 'Application administrator' : PROFILE_TITLES[profile] ?? profile);
+/** the permission to write the translations of catalog items (SQL PART 56): not one of the 11 profiles (no letters per table); held automatically by the organization administrator, a project manager and the application administrator */
+export const TRANSLATE_CATALOG_PROFILE = 'permissionTranslateCatalog';
+export const profileTitleOf = (profile: string): string => (profile === APPLICATION_ADMIN_PROFILE ? 'Application administrator' : profile === TRANSLATE_CATALOG_PROFILE ? 'Translate catalogs' : PROFILE_TITLES[profile] ?? profile);
 
 /** the profiles a project manager / administrator may give by hand (the others are derived from RACI or come from the members screen) */
 export const ASSIGNABLE_PROFILES = [
@@ -61,6 +65,7 @@ export function matrixOf(raw: any): MyMatrix {
     canCreateProject: raw.canCreateProject === true,
     projectIsReadonly: raw.projectIsReadonly === true,
     isApplicationAdmin: raw.isApplicationAdmin === true,
+    canTranslateCatalog: raw.canTranslateCatalog === true,
   };
 }
 

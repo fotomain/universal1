@@ -64,7 +64,7 @@ export default function HamburgerMenuUnmovable({ renderItem, onSelectLanguage, o
         <LanguageSelectorComponent onSelectLanguage={onSelectLanguage} />
       </View>
       {/* a row like the others: the icon and the text stand in the same columns, the switch at the end */}
-      {renderItem({ id: 'darkmode', label: t('menu.darkMode', { defaultValue: 'Dark mode' }), icon: 'dark_mode', route: '', right: <DarkThemeSwitchComponent showLabel={false} bare testID="darkModeSwitch1" /> })}
+      {renderItem({ id: 'darkmode', label: t('drawer.darkMode'), icon: 'dark_mode', route: '', right: <DarkThemeSwitchComponent showLabel={false} bare testID="darkModeSwitch1" /> })}
     </View>
   );
 }

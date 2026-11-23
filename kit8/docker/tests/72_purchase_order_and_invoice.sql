@@ -1,5 +1,7 @@
 -- PART 28 + 26: a PURCHASE ORDER and a VENDOR INVOICE on the same task lines - separate documents, separate register kinds (ordered / invoiced), two columns of Monitor01
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

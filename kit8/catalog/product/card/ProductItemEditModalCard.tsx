@@ -4,6 +4,7 @@
 //   Prices      the prices of the product (productPriceTable) - a ReusableTable of its rows, add / edit / sql_for_delete in place
 //   Variants    the variants of the product (variantTable): owned by its type / by the product, see variantOwnerOfProduct
 //   Properties  the property values of the product (propertyValueTable)
+//   Translate   the title / description of the product in other languages (catalogTranslationTable, kit8/catalog/translation; written by permissionTranslateCatalog)
 // The three tables reuse the column definitions of the dashboard (buildDashboardTables), so a cell works exactly as there.
 // Opened by ReusableTable: row menu "Edit" (right-click / long-press / ⋮) or a click on a row with uxuiTable.inlineEdit = false.
 //
@@ -28,11 +29,13 @@ import ReusableTableCell from '../../../ui/components/table/reusable/ReusableTab
 import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { EditRowModalCardProps, ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { cellValue, optionsOf, parseNumberInput } from '../../../ui/components/table/reusable/tableRows';
+import CatalogTranslationTable from '../../translation/CatalogTranslationTable';
+import { useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
 import { PRODUCT_TABLES, ProductTableKey } from '../productModel';
 import { isSet, ProductCatalogData, rowTitle, variantOwnerOfProduct, variantsOfProduct } from '../crud/productCatalogTools';
 import type { DashboardTableConfig } from '../dashboard/productDashboardTables';
 
-export type ProductItemTab = 'main' | 'prices' | 'variants' | 'properties';
+export type ProductItemTab = 'main' | 'prices' | 'variants' | 'properties' | 'translate';
 
 export interface ProductItemEditModalCardProps extends EditRowModalCardProps {
   data: ProductCatalogData;
@@ -47,6 +50,7 @@ const TABS: { key: ProductItemTab; label: string; icon: string }[] = [
   { key: 'prices', label: 'Prices', icon: 'sell' },
   { key: 'variants', label: 'Variants', icon: 'style' },
   { key: 'properties', label: 'Properties', icon: 'tune' },
+  { key: 'translate', label: 'Translate', icon: 'translate' },
 ];
 
 /** how the window of the card looks in a design system (the rest is drawn by the design-system components inside) */
@@ -192,6 +196,7 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
   const { width, height } = useWindowDimensions();
   const look = productModalLook(activeSystem, isDark, activeSystem === 'applemacui' ? apple?.colors?.backdrop : undefined);
   const [tab, setTab] = useState<ProductItemTab>(initialTab);
+  useCatalogTranslationVersion(); // the titles in the header follow the interface language
   const product = data.product.find((p) => p.rowGUID === row.rowGUID) ?? (row as any);
   const variantOwner = variantOwnerOfProduct(data, product);
   const counts: Record<ProductItemTab, number | undefined> = {
@@ -199,6 +204,7 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
     prices: data.productPrice.filter((p) => p.rowOwnerGUID === row.rowGUID).length,
     variants: variantsOfProduct(data, product).length,
     properties: data.propertyValue.filter((p) => p.rowOwnerGUID === row.rowGUID).length,
+    translate: undefined,
   };
   const fields = useMemo(() => visualColumns.filter((col) => col.type !== 'rowNumber' && col.type !== 'custom'), [visualColumns]);
   const title = rowTitle(row as any);
@@ -259,6 +265,7 @@ export default function ProductItemEditModalCard({ row, itemLabel, visualColumns
             )}
             {tab === 'prices' && <OwnerTable tableKey="productPrice" tables={tables} ownerGUID={row.rowGUID} hideColumn="product" testID={`${testID}-prices`} />}
             {tab === 'properties' && <OwnerTable tableKey="propertyValue" tables={tables} ownerGUID={row.rowGUID} hideColumn="product" testID={`${testID}-properties`} />}
+            {tab === 'translate' && <CatalogTranslationTable catalogItemGUID={row.rowGUID} testID={`${testID}-translate`} />}
             {tab === 'variants' && (isSet(variantOwner)
               ? (
                 <View style={{ gap: 8 }}>

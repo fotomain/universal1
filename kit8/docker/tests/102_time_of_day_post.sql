@@ -36,7 +36,8 @@ SELECT tt.eq((SELECT sum("qtyTaskLine") FROM public.task_line_plan_hour_movement
 SELECT tt.eq((SELECT sum("minutes") FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = :'la1'), 480::bigint, 'their minutes add up to the working minutes of the day');
 SELECT tt.eq((SELECT "minuteFrom" || '-' || "minuteTo" FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = :'la1' ORDER BY "minuteFrom" LIMIT 1), '540-780', 'the first slice is 09:00-13:00');
 SELECT tt.eq((SELECT ("periodStart" AT TIME ZONE 'Europe/Riga')::text FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = :'la1' ORDER BY "minuteFrom" LIMIT 1), '2026-10-14 09:00:00', 'periodStart is the wall clock in the zone of the post');
-SELECT tt.eq((SELECT "resourceKind" || ':' || "resourceGUID" FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = :'la1' LIMIT 1), 'person:p-boris', 'the resource is on the slice');
+SELECT tt.eq((SELECT "resourceKind" || ':' || "resourceGUID" FROM public.task_line_plan_hour_movements WHERE "rowParentGUID" = :'la1' LIMIT 1),
+             'workCenter:' || (SELECT w."rowGUID" FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-boris'), 'the resource (the work center of the person) is on the slice');
 SELECT tt.eq((SELECT count(*)::int FROM public.task_line_plan_movements WHERE "rowParentGUID" = :'la1'), 1, 'the day row is still there: every report reads it');
 SELECT tt.eq((:'r1'::jsonb->>'rows')::int, 1, 'the answer of Post counts the day rows as before');
 -- Post again: the earlier slices are replaced
@@ -90,7 +91,8 @@ SELECT tt.eq((:'r8'::jsonb->'busy'->0->>'notFilled')::boolean, false, 'it is not
 
 -- 5. the posted slices of one project are the foreign load of the other -------------------------------------------------------------------------------------------------------
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
-SELECT public.project_resource_leveling_inputs_hours(:'pa', '2026-10-12', '2026-10-16', '[{"k": "person", "g": "p-boris"}]') AS inp \gset
+SELECT w."rowGUID" AS wcb FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-boris' \gset
+SELECT public.project_resource_leveling_inputs_hours(:'pa', '2026-10-12', '2026-10-16', jsonb_build_array(jsonb_build_object('k', 'workCenter', 'g', :'wcb'))) AS inp \gset
 SELECT tt.eq(jsonb_array_length(:'inp'::jsonb->'foreign'), 1, 'Marko''s posted slice is Anna''s foreign load (one slice, not spread: it has hour rows)');
 SELECT tt.eq((:'inp'::jsonb->'foreign'->0->>'s') || ' ' || (:'inp'::jsonb->'foreign'->0->>'e') || ' ' || (:'inp'::jsonb->'foreign'->0->>'h'), '2026-10-14T14:00:00 2026-10-14T18:00:00 4.000000', '14:00-18:00, 4 hours');
 

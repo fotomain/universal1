@@ -67,11 +67,20 @@ Titles are never copied: the app reads them from the catalogs.
   bar button for the whole tab) is the separate algorithm: it ignores the snapshot and takes the rates again. No rate = no sum and a ⚠ with the reason (strict).
 * **Currency** - visible only (not stored): the partner contract's, else the resource contract's, else the project's `currencyForContract`.
 
-## Equipment on a Time line (`taskResourceKind`, `taskLineResource.ts`; the design: `recommendation/EQUIPMENT_TIME.html`)
+## A Time line ALWAYS books a WORK CENTER (`taskResourceKind`, `taskLineResource.ts`; since 2026-11-23)
 
-A Time line books a **person** or an **equipment** (`kit8/catalog/equipment`: a machine with its own Properties and Variants, the analog of the person). The kind is the line's own
-`rowJSON.taskResourceKind`; **empty = person**, so every Time line made before equipment stays valid. ONE helper (`lineResourceKind(genus, json)`) answers who the line books
-- the places that asked `genus.resource === 'person'` use it. Material / Expense / Revenue lines always book a product.
+`task_line_table.rowJSON.taskResourceItem` of a Time line is a `workCenterTable` row (`kit8/catalog/work_center`) and nothing else; `taskResourceKind` is always `workCenter`. Which KIND of work
+center the line may pick is chosen by the column **Resource** (`taskWorkCenterKind`: Person | Equipment | Partner, the kinds the project switches on; one kind = no menu). The work center stands for
+a person / an equipment / a partner (its base) and the rules follow the base (`lineWorkerKind`, `lineBaseItem`): the roles of the kind, the contract of the person, the property values of the
+base; the variants are the work center's OWN. Until a work center is chosen the menu decides the kind of the roles offered. Material / Expense / Revenue lines still book a product (`taskResourceItem` = productTable).
+**SQL** (start2 PART 35): the trigger `aa_task_line_work_center` turns a Time line that still names a person / equipment into a work center line (`work_center_ensure` makes the work center when it does
+not exist: the business unit most used by the lines of that resource else the first leaf unit, the calendar of the base, the variant of the line copied), a posted line becomes "Post needed"; the CHECK
+`task_line_time_work_center_chk` keeps it; the lines already stored are migrated once when start2 runs. Older text below that talks about a person / equipment held directly describes the time before that.
+
+### Earlier text: equipment on a Time line (the design: `recommendation/EQUIPMENT_TIME.html`)
+
+A Time line booked a **person** or an **equipment** (`kit8/catalog/equipment`: a machine with its own Properties and Variants, the analog of the person). The kind was the line's own
+`rowJSON.taskResourceKind`; empty = person. ONE helper (`lineResourceKind(genus, json)`) answers who the line books.
 
 * **Input switches** (project settings → Finances → Budgets, `kit8/pm/model/taskInputScope.ts`): while "Expense budget needed" is on, **Time input needed** (with **Time of person input needed** /
   **Time of equipment input needed**), **Material input needed**, **Expense input needed** decide what this view offers. **Master off = exactly as before** (person Time lines, all four tabs).

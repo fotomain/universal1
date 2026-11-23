@@ -32,6 +32,7 @@ import { buildProductLabels } from '../crud/productLabels';
 import { issuesByTable, validateProductCatalog } from '../crud/productValidation';
 import ProductCardView from '../card/ProductCardView';
 import { useProductCatalogData } from './useProductCatalogData';
+import { useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
 import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { useProductFields } from '../useProductFields';
 import { buildDashboardTables, DASHBOARD_GROUPS, DASHBOARD_TABLE_ORDER, matchesScopeFilters, newRowFromScopeFilters, ScopeFilterDef } from './productDashboardTables';
@@ -58,7 +59,9 @@ export default function ProductDashboardCRUD() {
   const { data, status, reload, roleOwned } = useProductCatalogData(true);
   // ItemNumber / SearchName of the Product: switched on in the default project settings of the organization (Product tab)
   const productFields = useProductFields();
-  const labels = useMemo(() => buildProductLabels(data, productFields), [data, productFields]);
+  // the titles of the catalog items follow the interface language (catalogTranslationTable): the labels and the tables are built again when the translations change
+  const translationsVersion = useCatalogTranslationVersion();
+  const labels = useMemo(() => buildProductLabels(data, productFields), [data, productFields, translationsVersion]);
   const issues = useMemo(() => validateProductCatalog(data), [data]);
   const issuesPerTable = useMemo(() => issuesByTable(issues), [issues]);
 
@@ -93,7 +96,7 @@ export default function ProductDashboardCRUD() {
       const code = assignNextBarcode(dispatch, data, row);
       if (code) dispatch(showSnackbar({ message: `Barcode ${code} assigned` }));
     },
-  }), [data, labels, dispatch, openTable, businessUnitColumn, productFields]);
+  }), [data, labels, dispatch, openTable, businessUnitColumn, productFields, translationsVersion]);
 
   const tableKey = isTableKey(tab) ? tab : null;
   const cfg = tableKey ? tables[tableKey] : null;

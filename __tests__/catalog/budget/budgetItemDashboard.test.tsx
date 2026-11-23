@@ -94,6 +94,8 @@ import { BUDGET_ITEM_TABLE } from '../../../kit8/catalog/budget/item/budgetItemM
 import { MANAGEMENT_GENUS_TABLE } from '../../../kit8/catalog/management/genus/managementGenusModel';
 import { MANAGEMENT_ACTIVITY_GENUS_TABLE } from '../../../kit8/catalog/management/activity_genus/managementActivityGenusModel';
 
+import { setCatalogTranslations } from '../../../kit8/catalog/translation/catalogTranslationStore';
+
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -311,5 +313,46 @@ describe('the second level of the tree: the activity of the items (operating / i
     expect(q(`${TREE}-row-costsBudgetFolder-count`)!.textContent).toBe('3');
     pickFolder('costsBudgetFolder');
     expect(rowIds().sort()).toEqual(['expenseBudgetItem', 'materialBudgetItem', 'timeBudgetItem']);
+  });
+});
+
+describe('Translate tab of the card (SQL PART 56)', () => {
+  const tr = (guid: string, owner: string, lang: string, field: string, text: string) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: lang, rowJSON: { translationField: field, translationText: text } });
+  const withTranslations = () => { mockState.catalogTranslationReusable = { entityDataFromServer: [tr('t1', 'timeBudgetItem', 'lv', 'title', 'Tulkojums'), tr('t2', 'some-other-row', 'ru', 'title', 'Другой')], readSuccessful: 1 }; };
+  const translatedIds = (card: string) => qa(`${card}-translate-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${card}-translate-row-`, '')).filter((x) => !x.includes('-'));
+
+  it('a click on a row of the READ ONLY table opens the card: Main (the fields) and Translate (the translations of THIS row only)', () => {
+    mount({ noCrud: true });
+    withTranslations();
+    press(`budget-item-table-open-timeBudgetItem-title`);
+    const card = 'budget-item-table-edit';
+    expect(q(card)).not.toBeNull();
+    expect(q(`${card}-main`)).not.toBeNull();
+    expect(q(`${card}-tab-translate`)!.textContent).toBe('Translate');
+    press(`${card}-tab-translate`);
+    expect(translatedIds(card)).toEqual(['t1']);
+    press(`${card}-tab-main`);
+    expect(q(`${card}-main`)).not.toBeNull();
+    press(`${card}-done`);
+    expect(q(card)).toBeNull();
+  });
+
+  it('editing on: the row menu "Edit" opens the same card', () => {
+    mount({ noCrud: false });
+    withTranslations();
+    press(`budget-item-table-menu-button-timeBudgetItem`);
+    press(`budget-item-table-menu-edit`);
+    press(`budget-item-table-edit-tab-translate`);
+    expect(translatedIds('budget-item-table-edit')).toEqual(['t1']);
+  });
+
+  it('the interface language: a read only "Title (LV)" column shows the translated title', () => {
+    setCatalogTranslations('lv', [{ rowOwnerGUID: 'timeBudgetItem', rowParentGUID: 'lv', rowJSON: { translationField: 'title', translationText: 'Tulkojums' } }]);
+    try {
+      mount({ noCrud: true });
+      expect(q('translated-title-timeBudgetItem')!.textContent).toBe('Tulkojums');
+    } finally {
+      setCatalogTranslations('en', []);
+    }
   });
 });

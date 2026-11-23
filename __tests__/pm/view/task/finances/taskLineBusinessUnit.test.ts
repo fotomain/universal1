@@ -36,18 +36,18 @@ describe('the kind of a line', () => {
 describe('the sources, in priority order', () => {
   const json = { budgetItemTaskLine: 'timeBudgetItem', taskResourceItem: 'p1', resourceRoleItem: 'r1', taskResourceContract: 'c1' };
   const all = (over: Partial<BusinessUnitLists> = {}) => lists({
-    person: [withUnit('p1', 'bu_cto') as any], resourceRole: [withUnit('r1', 'bu_erp') as any], contract: [withUnit('c1', 'bu_qm') as any],
+    workCenter: [withUnit('p1', 'bu_cto') as any], resourceRole: [withUnit('r1', 'bu_erp') as any], contract: [withUnit('c1', 'bu_qm') as any],
     budgetItem: budgetSeedRows().map((b: any) => (b.rowGUID === 'timeBudgetItem' ? { ...b, rowJSON: { ...b.rowJSON, businessUnitAssigned: 'bu_hrm' } } : b)), ...over,
   });
   it('resource > role > budget item > contract > project', () => {
     expect(resolveLineBusinessUnit(all(), time, json, project)).toEqual({ unit: 'bu_cto', source: 'resource' });
-    expect(resolveLineBusinessUnit(all({ person: [] }), time, json, project)).toEqual({ unit: 'bu_erp', source: 'role' });
-    expect(resolveLineBusinessUnit(all({ person: [], resourceRole: [] }), time, json, project)).toEqual({ unit: 'bu_hrm', source: 'budget' });
-    expect(resolveLineBusinessUnit(all({ person: [], resourceRole: [], budgetItem: budgetSeedRows() }), time, json, project)).toEqual({ unit: 'bu_qm', source: 'contract' });
-    expect(resolveLineBusinessUnit(all({ person: [], resourceRole: [], budgetItem: budgetSeedRows(), contract: [] }), time, json, project)).toEqual({ unit: 'bu_team1costs', source: 'project' });
+    expect(resolveLineBusinessUnit(all({ workCenter: [] }), time, json, project)).toEqual({ unit: 'bu_erp', source: 'role' });
+    expect(resolveLineBusinessUnit(all({ workCenter: [], resourceRole: [] }), time, json, project)).toEqual({ unit: 'bu_hrm', source: 'budget' });
+    expect(resolveLineBusinessUnit(all({ workCenter: [], resourceRole: [], budgetItem: budgetSeedRows() }), time, json, project)).toEqual({ unit: 'bu_qm', source: 'contract' });
+    expect(resolveLineBusinessUnit(all({ workCenter: [], resourceRole: [], budgetItem: budgetSeedRows(), contract: [] }), time, json, project)).toEqual({ unit: 'bu_team1costs', source: 'project' });
   });
   it('a source whose unit does not take the kind is SKIPPED, not an error: a revenue line of a person in a cost center goes to the project\'s revenue center', () => {
-    const l = lists({ person: [withUnit('p1', 'bu_team1costs') as any] });
+    const l = lists({ workCenter: [withUnit('p1', 'bu_team1costs') as any] });
     expect(resolveLineBusinessUnit(l, revenue, { budgetItemTaskLine: 'revenueBudgetItem', taskResourceItem: 'p1' }, project)).toEqual({ unit: 'bu_team1', source: 'project' });
     // ... and a cost line of the same person takes the person's unit
     expect(resolveLineBusinessUnit(l, time, { budgetItemTaskLine: 'timeBudgetItem', taskResourceItem: 'p1' }, project)).toEqual({ unit: 'bu_team1costs', source: 'resource' });
@@ -62,11 +62,11 @@ describe('the sources, in priority order', () => {
   it('an inactive or deleted unit is skipped; nothing found = null', () => {
     const off = unitRows().map((r) => (r.rowGUID === 'bu_cto' ? { ...r, rowJSON: { ...r.rowJSON, isActive: false } } : r));
     expect(resolveLineBusinessUnit(all({ businessUnit: off }), time, json, project).source).toBe('role');
-    expect(resolveLineBusinessUnit(lists({ person: [withUnit('p1', 'ghost') as any] }), time, { taskResourceItem: 'p1', budgetItemTaskLine: 'timeBudgetItem' }, null)).toEqual({ unit: null, source: null });
+    expect(resolveLineBusinessUnit(lists({ workCenter: [withUnit('p1', 'ghost') as any] }), time, { taskResourceItem: 'p1', budgetItemTaskLine: 'timeBudgetItem' }, null)).toEqual({ unit: null, source: null });
   });
-  it('the resource is read from the catalog of its kind: person / equipment (Time), product (the others)', () => {
-    const l = lists({ equipment: [withUnit('e1', 'bu_cloud') as any], product: [withUnit('pr1', 'bu_main' as any) as any] });
-    expect(resolveLineBusinessUnit(l, time, { budgetItemTaskLine: 'timeBudgetItem', taskResourceKind: 'equipment', taskResourceItem: 'e1' }, project)).toEqual({ unit: 'bu_cloud', source: 'resource' });
+  it('the resource is read from the catalog of its kind: work center (Time), product (the others)', () => {
+    const l = lists({ workCenter: [withUnit('e1', 'bu_cloud') as any], product: [withUnit('pr1', 'bu_main' as any) as any] });
+    expect(resolveLineBusinessUnit(l, time, { budgetItemTaskLine: 'timeBudgetItem', taskResourceKind: 'workCenter', taskResourceItem: 'e1' }, project)).toEqual({ unit: 'bu_cloud', source: 'resource' });
     expect(resolveLineBusinessUnit(lists({ product: [withUnit('pr1', 'bu_cloud') as any] }), taskLineGenusDef('materialGenus')!, { budgetItemTaskLine: 'materialBudgetItem', taskResourceItem: 'pr1' }, null)).toEqual({ unit: 'bu_cloud', source: 'resource' });
   });
   it('the contract: the person\'s, else the partner\'s', () => {
@@ -82,7 +82,7 @@ describe('the line follows the sources until the user chooses', () => {
   });
   it('while the unit equals the last suggestion it FOLLOWS: the new suggestion replaces it', () => {
     const line = { ...j, businessUnitTaskLine: 'bu_team1costs', businessUnitAutoTaskLine: 'bu_team1costs', businessUnitSourceTaskLine: 'project' as const };
-    expect(businessUnitPatch(lists({ person: [withUnit('p1', 'bu_cto') as any] }), time, { ...line, taskResourceItem: 'p1' }, project))
+    expect(businessUnitPatch(lists({ workCenter: [withUnit('p1', 'bu_cto') as any] }), time, { ...line, taskResourceItem: 'p1' }, project))
       .toEqual({ businessUnitTaskLine: 'bu_cto', businessUnitAutoTaskLine: 'bu_cto', businessUnitSourceTaskLine: 'resource' });
   });
   it('a unit the user chose stays (source "line") whatever the sources say', () => {
@@ -145,8 +145,8 @@ describe('a work center line (kit8/catalog/work_center)', () => {
     expect(resolveLineBusinessUnit(lists({ workCenter: [wc('wc1', {})] }), time, line('wc1'), project).source).toBe('project');
     expect(resolveLineBusinessUnit(lists(), time, line('nope'), project).source).toBe('project');
   });
-  it('a person keeps businessUnitAssigned: it wins over the folder fields of a row that is not a work center', () => {
+  it('a person GUID on a Time line is no work center: its unit is not read (the next source decides)', () => {
     const d = lists({ person: [withUnit('p1', 'bu_cto')] });
-    expect(resolveLineBusinessUnit(d, time, { taskResourceKind: 'person' as const, taskResourceItem: 'p1' }, project)).toEqual({ unit: 'bu_cto', source: 'resource' });
+    expect(resolveLineBusinessUnit(d, time, { taskResourceKind: 'workCenter' as const, taskResourceItem: 'p1' }, project).source).toBe('project');
   });
 });

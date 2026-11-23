@@ -31,6 +31,7 @@ import { pmT } from '../../../pm/i18n/pmT';
 import TaskScopeChip from '../../taskScope/TaskScopeChip';
 import { useTaskScope } from '../../taskScope/useTaskScope';
 import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import {
   EMPTY_PRODUCT_RECEIPT_FILTER, PRODUCT_RECEIPT_HEADER_ENTITY, PRODUCT_RECEIPT_ROUTE, ProductReceiptListFilter, ProductReceiptListRow, canCreateInvoiceFromReceipt, formatMoney, productReceiptDateErrors, productReceiptFilterActive,
   productReceiptFolderNodes,
@@ -84,6 +85,9 @@ export default function PMProductReceiptDocumentList({ testID = 'product-receipt
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, ProductReceiptListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => productReceiptListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
@@ -176,6 +180,8 @@ export default function PMProductReceiptDocumentList({ testID = 'product-receipt
           reorderEnabled={false}
           extraMenuItems={rowMenu}
           onAdd={() => setHint(true)}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="productReceipt" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} actionItems={one && canCreateInvoiceFromReceipt({ status: one.documentStatus }) ? [{ testID: `${testID}-actions-vendor-invoice`, label: pmT('Vendor Invoice'), icon: 'receipt_long', onPress: () => { void toInvoice.create(one.documentGUID, { taskGUID: one.taskGUID, projectGUID: one.projectGUID }); } }] : []} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: PRODUCT_RECEIPT_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
           emptyText={list.isLoading ? pmT('Loading…') : productReceiptFilterActive(applied) || taskScope.active ? pmT('No product receipt matches the filters.') : pmT('No product receipts yet. Open a posted purchase order → Create based on → Product receipt.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}

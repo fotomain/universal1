@@ -7,6 +7,8 @@ import { cleanupUI, expectInOrder, press, q, qa, renderUI, textOf, typeInto } fr
 const mockDoc: Record<string, any> = {};
 const mockOptions: Record<string, any> = {};
 const mockMy: Record<string, any> = {};
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): they need the Supabase / router providers, here the form is tested alone
+jest.mock('../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../kit8/documents/timesheet/useTimesheet', () => ({ useTimesheetDocument: () => mockDoc, useTimesheetOptions: () => mockOptions, useMyWorkCenter: () => mockMy }));
 const mockLines = jest.fn();
 jest.mock('../../../kit8/documents/timesheet/PMTimesheetDocumentLines', () => ({ __esModule: true, default: (p: any) => { mockLines(p); return require('react').createElement('div', { 'data-testid': 'lines-stub' }); } }));

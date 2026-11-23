@@ -16,6 +16,23 @@ Two submenus stand **before Delete** (and "Go to" right after "Create based on t
 | | Payment facts | `/pm/payment-fact/list?taskGUID=…` (`payment_fact_list`, PART 38: the key `taskGUID` = the document has a line of that task, or was made for it and has no lines; chip + x) |
 | | Subproject | only a task that stands for a project: `openProjectBoard` = `/pm/project/dashboard?projectGUID=<subproject>` in a new browser window (the dashboard selects that project: `useDashboardDeepLink`, a link with a project and no task) |
 
+## The buttons Actions / Go to of a document form
+`DocumentActionsGoTo.tsx` (`taskGUID`, `projectGUID` (optional: read from the task), `actionItems`, `goToItems`, `ownList`, `variant`, `alwaysShow`, `disabled`, `testID`): two buttons that open the SAME items as these submenus for the task of the document (the rowJSON of the task and its project are read from the database, `useTaskAndProjectRows`): **Actions** = `actionItems` of the document + "Create based on this"; **Go to** = `goToItems` / `ownList` + Open task + "Go to". In the BAR of a form (`variant="buttons"`) nothing is rendered without a task and without own items; in the TOOLBAR of a list (`variant="icons"`, `alwaysShow`, passed as `toolbarExtra` with `onSelectionChange`) the icons are always there and `disabled` unless exactly ONE document is checked.
+
+**Only the logically related items are shown** (`kind` prop, table `documentRelatedModel.ts`, unit test `documentRelatedModel.test.ts`): Go to = the documents around the document on the task's way plan → purchase order → product receipt → time sheet → fact input → vendor invoice → customer invoice → payment, plus Timeline data and Open task; Actions = its successor (own items) and, for a fact input, the invoices made from the task. E.g. a purchase order: Go to = Timeline data · Purchase orders · Product receipts · Vendor invoices; a vendor invoice: + Payment facts · Fact input; a customer invoice: Timeline data · Fact input · Customer invoices · Payment facts; a payment fact: Timeline data · Vendor invoices · Customer invoices · Payment facts. Never Subproject, Chat or the task's Time sheet. An item of the Task menu that is not in the table of the kind is left out; no `kind` = all.
+
+| Document | Form bar / list toolbar | Own items |
+|---|---|---|
+| Vendor invoice | yes / yes | Actions: "Payment fact (pays this invoice)" (posted) |
+| Purchase order | yes / yes | Actions: "Product receipt" (posted) |
+| Product receipt | yes / yes | Actions: "Vendor Invoice" (posted) |
+| Customer invoice | yes / yes | Actions: "Payment fact (is paid by this invoice)" (posted) |
+| Payment fact | yes / yes | Go to: "Payment facts" (the list) - the document has no ONE task, the task items work when its header has a task |
+| Time sheet | yes / yes | Go to: "Time sheets" (the list); no task, so Actions is disabled |
+| Fact input | yes / yes | the task items only |
+
+A Jest test that renders a form / list without the Supabase providers mocks the component (`jest.mock('…/taskScope/DocumentActionsGoTo')`); `documentActionsWiring.test.ts` checks that every form and list mounts it.
+
 ## The filter of the lists (the "scope")
 `VendorInvoiceDocumentList` and `PMFactInputDocumentList` take the props `taskGUID` / `taskLineGUID` (the routes `app/pm/vendor-invoice/list`, `app/pm/fact/list` read them from the URL). A **chip** under the title bar says "Task: <name>" or "Task line <id> · Task: <name>" with an **x** that shows all the documents again (`TaskScopeChip`, `useTaskScope`). The scope is not one of the quick filters ("Clear filters" does not touch it); it is sent to the list RPC as `taskGUID` / `taskLineGUID` (`taskScopeToRpc`). A new link opened while the list is mounted replaces the scope.
 

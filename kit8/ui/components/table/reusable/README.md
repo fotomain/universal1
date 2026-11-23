@@ -94,3 +94,7 @@ table body, the proportions stay, a column keeps at least 40 px, the row number 
 `onColumnsWidthsChange` like a dragged separator) · **Default settings** (column order / widths, sort, filters, search). The ⋮ menu: Export · Share,
 each to JSON, CSV, PDF - full data, PDF - visible (`tableExport.ts`, `tablePdf.ts`, `tableExportActions.ts`).
 Exports take the rows and columns as shown now; JSON / CSV / PDF full data add the GUIDs, PDF visible does not.
+
+## Vertical scrollbar + header menu (2026-11-23)
+- A table of a FIXED height (folders tree beside it, `alwaysFullHeight`) scrolls its rows in a body ScrollView that lies inside the wide horizontal ScrollView, so its native vertical indicator was at the far right end of the wide content (seen only after scrolling sideways). `ReusableTableVScrollbar` (+ `tableVScrollModel.ts`, pure geometry) is a bar OUTSIDE the horizontal scroll, always at the visible right edge, aligned under the header row: drag the thumb or press the track; shown only while the rows do not fit; the native indicator of the body is off. Test `__tests__/ui/table/reusableTableVScroll.test.tsx`.
+- Right click, **double click / double tap** (two presses on the title within 400 ms, `HEADER_DOUBLE_TAP_MS`; RN-web has no onDoubleClick) / long press on a column header opens the menu: **Filter & Sort** (same popup as the ▾ button; only for the columns that have it), **Clear filter** (removes the filter of THIS column only; disabled while it has none; the toolbar icon still clears search + all filters + sort), Copy header name, Fill all lines.

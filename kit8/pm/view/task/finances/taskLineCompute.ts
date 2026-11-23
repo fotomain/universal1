@@ -35,8 +35,8 @@ export function computeTaskLineRowJSON(
 
   if (merged.taskManagementGenusLine !== genus.genus) apply({ taskManagementGenusLine: genus.genus });
 
-  // the menu of work center kinds was used: the line books work centers now (a person / equipment it held directly is of the other catalog: cleared below)
-  if (genus.resource !== 'product' && merged.taskWorkCenterKind && lineResourceKind(genus, merged) !== 'workCenter') apply({ taskResourceKind: 'workCenter' });
+  // a Time line ALWAYS books a work center (2026-11-23): the kind is stored as such; a person / equipment GUID left on the line is of another catalog and is cleared below
+  if (genus.resource !== 'product' && merged.taskResourceKind !== 'workCenter') apply({ taskResourceKind: 'workCenter' });
 
   const kind = lineResourceKind(genus, merged);
   if (kind === 'workCenter') {

@@ -15,7 +15,7 @@ import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
 import { usePMStore } from '../../../pm/store/store_pm';
 import ReusableTable from '../table/reusable/ReusableTable';
 import { REUSABLE_TABLE_ALL } from '../table/reusable/reusableTableTypes';
-import type { VisualColumn } from '../table/reusable/reusableTableTypes';
+import type { EditRowModalCardProps, VisualColumn } from '../table/reusable/reusableTableTypes';
 import type { DefRow, ProductTableDef } from '../../../catalog/product/productModel';
 import { TREE_ALL_ID } from './folderTreeModel';
 import type { FolderTreeNode } from './folderTreeModel';
@@ -45,10 +45,12 @@ export interface CatalogTreeReusableCRUDProps {
   /** false (default): full CRUD, true: read-only catalog */
   noCrud?: boolean;
   deleteHint?: string;
+  /** the card of a row (menu Edit; in a read-only catalog a click on a row opens it): e.g. catalogEditCard(icon) = Main + Translate */
+  EditRowModalCard?: React.ComponentType<EditRowModalCardProps>;
 }
 
 export default function CatalogTreeReusableCRUD({
-  def, data, nodes, columns, title, icon = 'account_tree', testID, allLabel, titleField = 'title', newRowJSON, setupHint, banners, noCrud: noCrudProp = false, deleteHint,
+  def, data, nodes, columns, title, icon = 'account_tree', testID, allLabel, titleField = 'title', newRowJSON, setupHint, banners, noCrud: noCrudProp = false, deleteHint, EditRowModalCard,
 }: CatalogTreeReusableCRUDProps) {
   const { themeColors: c } = useDesignSystem();
   const selectRowCheckBoxForm = usePMStore((s: any) => s.selectRowCheckBoxForm);
@@ -102,6 +104,7 @@ export default function CatalogTreeReusableCRUD({
           listParentGUID={REUSABLE_TABLE_ALL}
           visualColumns={visualColumns}
           defaultRowJSON={def.emptyRowJSON}
+          EditRowModalCard={EditRowModalCard}
           newRowDefaults={newRowDefaults}
           crudPanelEnabled={!noCrud}
           selectionEnabled={!noCrud}
@@ -110,7 +113,7 @@ export default function CatalogTreeReusableCRUD({
           resizeColumnWidth
           realtime
           foldersTree={{ ...foldersTree, selectedFolderId: node, onSelectedFolderChange: setNode }}
-          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 300 }}
+          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 300, ...(EditRowModalCard ? { inlineEdit: !noCrud } : {}) }}
         />
       </ScrollView>
     </View>

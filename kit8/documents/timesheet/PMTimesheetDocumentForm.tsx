@@ -11,6 +11,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { showSnackbar } from '../../redux/uxuiSlice';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import ButtonApp from '../../ui/components/common/ButtonApp';
+import DocumentActionsGoTo from '../taskScope/DocumentActionsGoTo';
+import { TIMESHEET_LIST_ROUTE } from '../taskScope/taskScopeModel';
 import IconApp from '../../ui/components/common/IconApp';
 import { ModalAskComponent } from '../../ui/components/common/ModalAskComponent';
 import ModalWindowListToSelect from '../../ui/components/common/ModalWindowListToSelect';
@@ -137,6 +139,7 @@ export default function PMTimesheetDocumentForm({ documentGUID, onClose, testID 
         {header && canUnpostTimesheet(header) && (
           <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
+        {header && <DocumentActionsGoTo kind="timesheet" ownList={{ route: TIMESHEET_LIST_ROUTE, label: 'Time sheets', icon: 'schedule' }} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
           // a status, not a command: the same BIG button as Post (nothing to press)

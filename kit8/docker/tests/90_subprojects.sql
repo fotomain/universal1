@@ -1,6 +1,8 @@
 -- PART 29: SUBPROJECTS (documentation/SUBPROJECTS_BRD_TRD.html): the settings, the task flag + the subproject, no recursion, the dates of the origin task, many origins, the guards,
 -- the aggregation of Time / Material / Expense into the origin task in Monitor01 (+ its drill-down), the repair function and the install defaults
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

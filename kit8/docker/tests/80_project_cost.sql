@@ -1,6 +1,8 @@
 -- PART 27: the project cost total (documentation/UPDATE_PROJECT_COST.html): project_task_cost_total = Time + Material + Expense of the plan, summed into the stages above; step 3 of monitor01_apply (the delta),
 -- project_cost_rebuild / project_cost_verify / update_project_cost_total, the gate project_cost_budget_on, the move / delete queue, the policies
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

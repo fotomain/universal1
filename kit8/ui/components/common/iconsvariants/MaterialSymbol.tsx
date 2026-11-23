@@ -31,6 +31,9 @@ const ROTATION_MAP: Record<string, string> = {
     chevron_backward: '180deg',
     chevronbackward: '180deg',
     'chevron-backward': '180deg',
+    // "Go to" button of the project bar: the arrow of fonts.google.com/icons turned half way round
+    arrow_top_left: '180deg',
+    'arrow-top-left': '180deg',
 };
 
 // Helper to convert snake_case to PascalCase (e.g., "arrow_back" -> "ArrowBack")

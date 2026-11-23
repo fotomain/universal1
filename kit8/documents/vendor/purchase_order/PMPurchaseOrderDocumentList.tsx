@@ -32,6 +32,7 @@ import { pmT } from '../../../pm/i18n/pmT';
 import TaskScopeChip from '../../taskScope/TaskScopeChip';
 import { useTaskScope } from '../../taskScope/useTaskScope';
 import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import {
   EMPTY_PURCHASE_ORDER_FILTER, PURCHASE_ORDER_HEADER_ENTITY, PURCHASE_ORDER_ROUTE, PurchaseOrderListFilter, PurchaseOrderListRow, formatMoney, purchaseOrderDateErrors, purchaseOrderFilterActive,
   purchaseOrderFolderNodes,
@@ -85,6 +86,9 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list', ta
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, PurchaseOrderListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => purchaseOrderListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Vendor Invoice, Purchase Order, Copy task GUID)
@@ -177,6 +181,8 @@ export default function PMPurchaseOrderDocumentList({ testID = 'vendor-list', ta
           reorderEnabled={false}
           extraMenuItems={rowMenu}
           onAdd={() => setHint(true)}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="purchaseOrder" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} actionItems={one && canCreateReceiptFromOrder(one.documentStatus) ? [{ testID: `${testID}-actions-product-receipt`, label: pmT('Product receipt'), icon: 'move_to_inbox', onPress: () => { void toReceipt.create(one.documentGUID); } }] : []} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: PURCHASE_ORDER_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
           emptyText={list.isLoading ? pmT('Loading…') : purchaseOrderFilterActive(applied) || taskScope.active ? pmT('No purchase order matches the filters.') : pmT('No purchase orders yet. Right-click a line of a task → Purchase Order.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}

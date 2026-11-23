@@ -1,9 +1,10 @@
 #!/bin/zsh
 # =========================================================================
 # UNIVERSAL1 - run the structure SQL on the LINKED Supabase project with the Supabase CLI
-#   runs, in this order:  start1_*.sql (the tables)  then  start2_*.sql (functions, triggers, policies, realtime, backfills)  then  start3_*.sql (the pg_cron schedule of the Monitor01 worker)
-#   both are idempotent: safe to run again, an existing database is upgraded, nothing is deleted.
-#   NOT run on purpose: start4 (seeds, only when seeds changed), start5 (overwrites seed rows), delete_sql_structure.sql (drops tables WITH their data).
+#   runs, in this order:  start1_*.sql (the tables)  then  start2_*.sql (functions, triggers, policies, realtime, backfills)  then  start4_*.sql (the seed rows, INSERT ... ON CONFLICT DO NOTHING)
+#   then  start3_*.sql (the pg_cron schedule of the Monitor01 worker: LAST, it switches the paused workers on again)
+#   all are idempotent: safe to run again, an existing database is upgraded, nothing is deleted.
+#   NOT run on purpose: start5 (overwrites seed rows), delete_sql_structure.sql (drops tables WITH their data).
 #
 #   ./run_sql_cli.command          shows the project and the files, waits for Enter, runs, then checks the cost total objects
 #   ./run_sql_cli.command -y       no question
@@ -51,19 +52,19 @@ if [ -z "$REF" ] && [ -f supabase/.temp/linked-project.json ]; then
 fi
 [ -n "$REF" ] || die "no project: run 'supabase link' in $REPO_DIR or set PROJECT_REF"
 
-# the files: every start1_*.sql, then every start2_*.sql, then start3_sql_pg_cron.sql (start1_sql_structure.sql no longer exists; the order is the install order)
+# the files: every start1_*.sql, then every start2_*.sql, then start4_sql_insert_missing.sql (seeds), then start3_sql_pg_cron.sql LAST (it resumes the paused workers; start4 runs while they are still paused)
 FILES=()
-for pattern in "start1_*.sql" "start2_*.sql" "start3_*.sql"; do
+for pattern in "start1_*.sql" "start2_*.sql" "start4_*.sql" "start3_*.sql"; do
   for f in "$SQL_DIR"/${~pattern}(N); do FILES+=("$f"); done
 done
-[ ${#FILES[@]} -gt 0 ] || die "no start1_*.sql / start2_*.sql / start3_*.sql in $SQL_DIR"
+[ ${#FILES[@]} -gt 0 ] || die "no start1_*.sql / start2_*.sql / start4_*.sql / start3_*.sql in $SQL_DIR"
 
 echo "=============================================================================="
 echo "  UNIVERSAL1 -> SUPABASE: run the structure SQL"
 echo "  Project ref : $REF"
 echo "  Files       :"
 for f in "${FILES[@]}"; do echo "    - $(basename "$f")  ($(wc -c < "$f" | tr -d ' ') bytes)"; done
-echo "  Not run     : start4 (seeds), start5 (seed upsert), delete_sql_structure.sql"
+echo "  Not run     : start5 (seed upsert), delete_sql_structure.sql"
 echo "  WARNING     : the install drops / creates triggers (ACCESS EXCLUSIVE locks) for a few seconds: a Post or an edit made in the app AT THAT MOMENT"
 echo "                can fail with \"deadlock detected\" (40P01) and is NOT saved - run it when nobody edits, or edit again"
 echo "=============================================================================="

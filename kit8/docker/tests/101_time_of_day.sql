@@ -69,12 +69,13 @@ SELECT tt.eq(public.task_template_clean_task('{"taskLevelingDelayMinutes": 30, "
 SELECT tt.as_user('marko@acme.test', '22222222-2222-2222-2222-222222222222');
 SELECT tt.post(:'tm1', format('[{"line": "%s", "days": {"2026-10-14": 8}}]', :'lm1')::jsonb) AS r1 \gset
 SELECT tt.as_user('anna@acme.test', '11111111-1111-1111-1111-111111111111');
-SELECT public.project_resource_leveling_inputs_hours(:'pa', '2026-10-12', '2026-10-16', '[{"k": "person", "g": "p-boris"}]') AS inp \gset
+SELECT w."rowGUID" AS wcb FROM public."workCenterTable" w WHERE w."rowJSON"->>'workCenterBase' = 'p-boris' \gset
+SELECT public.project_resource_leveling_inputs_hours(:'pa', '2026-10-12', '2026-10-16', jsonb_build_array(jsonb_build_object('k', 'workCenter', 'g', :'wcb'))) AS inp \gset
 SELECT tt.eq((SELECT e->'w' FROM jsonb_array_elements(:'inp'::jsonb->'capacity') e WHERE e->>'d' = '2026-10-14'), '[[540, 780], [840, 1080]]'::jsonb, 'the capacity of a day is its windows');
 SELECT tt.eq((SELECT e->'w' FROM jsonb_array_elements(:'inp'::jsonb->'capacity') e WHERE e->>'d' = '2026-10-13'), '[[540, 780], [840, 1080]]'::jsonb, 'a day without windows of its own: the pattern of the calendar (set in section 1)');
 SELECT tt.eq((SELECT e->'w' FROM jsonb_array_elements(:'inp'::jsonb->'capacity') e WHERE e->>'d' = '2026-10-15'), '[]'::jsonb, 'a closed day is [] (known), not missing');
 SELECT tt.eq(jsonb_array_length(:'inp'::jsonb->'foreign'), 2, 'the other project holds the person: its day hours are spread over the two windows (a line that has only day rows)');
-SELECT tt.eq((:'inp'::jsonb->'foreign'->0)::text, '{"e": "2026-10-14T13:00:00", "g": "p-boris", "h": 4.000000, "k": "person", "s": "2026-10-14T09:00:00"}', 'the first slice: 09:00-13:00, 4 hours');
+SELECT tt.eq((:'inp'::jsonb->'foreign'->0)::text, jsonb_build_object('e', '2026-10-14T13:00:00', 'g', :'wcb', 'h', 4.000000, 'k', 'workCenter', 's', '2026-10-14T09:00:00')::text, 'the first slice: 09:00-13:00, 4 hours');
 SELECT tt.eq((:'inp'::jsonb->'foreign'->1->>'s'), '2026-10-14T14:00:00', 'the second slice starts at 14:00');
 SELECT tt.eq((SELECT sum((e->>'h')::numeric) FROM jsonb_array_elements(:'inp'::jsonb->'foreign') e), 8::numeric, 'together 8 hours: nothing is lost');
 SELECT tt.eq(:'inp'::jsonb::text LIKE '%Task 111%', false, 'no title, no project, no task of a colleague is in the answer');

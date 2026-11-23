@@ -10,6 +10,8 @@ const mockPlaces: Record<string, any> = {};
 const mockPicker = jest.fn();
 // the Task context menu items of a line have their own test (lineplace/useDocumentLineMenu.test.tsx): here the table only has to receive them
 const mockLineMenu = jest.fn(() => []);
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): they need the Supabase / router providers, here the form is tested alone
+jest.mock('../../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => mockLineMenu }));
 jest.mock('../../../../kit8/pm/view/project/pick/PMProjectPickerModal', () => ({ __esModule: true, default: (p: any) => { mockPicker(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
 jest.mock('../../../../kit8/documents/vendor/purchase_order/usePurchaseOrder', () => ({ usePurchaseOrderDocuments: () => mockDoc, usePurchaseOrderLinePlaces: () => mockPlaces }));

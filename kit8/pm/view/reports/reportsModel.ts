@@ -64,8 +64,10 @@ export function buildProjectReport(lines: TaskLineRow[], page: ReportPage, accou
     byItem.set(item, add(byItem.get(item) ?? emptyAmounts(), sum, vat));
     byTask.set(l.rowOwnerGUID, add(byTask.get(l.rowOwnerGUID) ?? emptyAmounts(), sum, vat));
     if (l.rowParentGUID === MANAGEMENT_GENUS.time) {
-      if (l.rowJSON?.taskResourceKind === 'equipment') equipment = add(equipment, sum, vat);
-      else if (l.rowJSON?.taskResourceKind === 'workCenter') workCenters = add(workCenters, sum, vat);
+      // a Time line books a work center (2026-11-23): its menu (taskWorkCenterKind) says whether it is the time of a person, of an equipment or of a partner (a supplier)
+      const kind = l.rowJSON?.taskResourceKind === 'workCenter' ? (l.rowJSON?.taskWorkCenterKind === 'partner' ? 'partner' : l.rowJSON?.taskWorkCenterKind === 'equipment' ? 'equipment' : 'person') : l.rowJSON?.taskResourceKind;
+      if (kind === 'equipment') equipment = add(equipment, sum, vat);
+      else if (kind === 'partner') workCenters = add(workCenters, sum, vat);
       else persons = add(persons, sum, vat);
     }
   }

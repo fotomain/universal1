@@ -92,6 +92,8 @@ import BusinessUnitCRUD from '../../../kit8/catalog/business_unit/BusinessUnitCR
 import { BUSINESS_UNIT_TABLE } from '../../../kit8/catalog/business_unit/businessUnitModel';
 import { CFR_TYPE_TABLE } from '../../../kit8/catalog/business_unit/cfrTypeModel';
 
+import { setCatalogTranslations } from '../../../kit8/catalog/translation/catalogTranslationStore';
+
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -192,4 +194,45 @@ describe('editing is on by default; the lock makes it read-only', () => {
 it('no rows: the setup hint names PART 18 of the SQL file', () => {
   mount({}, []);
   expect(q('business-unit-setup')!.textContent).toContain('PART 18');
+});
+
+describe('Translate tab of the card (SQL PART 56)', () => {
+  const tr = (guid: string, owner: string, lang: string, field: string, text: string) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: lang, rowJSON: { translationField: field, translationText: text } });
+  const withTranslations = () => { mockState.catalogTranslationReusable = { entityDataFromServer: [tr('t1', 'bu_sales', 'lv', 'title', 'Tulkojums'), tr('t2', 'some-other-row', 'ru', 'title', 'Другой')], readSuccessful: 1 }; };
+  const translatedIds = (card: string) => qa(`${card}-translate-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${card}-translate-row-`, '')).filter((x) => !x.includes('-'));
+
+  it('a click on a row of the READ ONLY table opens the card: Main (the fields) and Translate (the translations of THIS row only)', () => {
+    mount({ noCrud: true });
+    withTranslations();
+    press(`business-unit-table-open-bu_sales-title`);
+    const card = 'business-unit-table-edit';
+    expect(q(card)).not.toBeNull();
+    expect(q(`${card}-main`)).not.toBeNull();
+    expect(q(`${card}-tab-translate`)!.textContent).toBe('Translate');
+    press(`${card}-tab-translate`);
+    expect(translatedIds(card)).toEqual(['t1']);
+    press(`${card}-tab-main`);
+    expect(q(`${card}-main`)).not.toBeNull();
+    press(`${card}-done`);
+    expect(q(card)).toBeNull();
+  });
+
+  it('editing on: the row menu "Edit" opens the same card', () => {
+    mount({ noCrud: false });
+    withTranslations();
+    press(`business-unit-table-menu-button-bu_sales`);
+    press(`business-unit-table-menu-edit`);
+    press(`business-unit-table-edit-tab-translate`);
+    expect(translatedIds('business-unit-table-edit')).toEqual(['t1']);
+  });
+
+  it('the interface language: a read only "Title (LV)" column shows the translated title', () => {
+    setCatalogTranslations('lv', [{ rowOwnerGUID: 'bu_sales', rowParentGUID: 'lv', rowJSON: { translationField: 'title', translationText: 'Tulkojums' } }]);
+    try {
+      mount({ noCrud: true });
+      expect(q('translated-title-bu_sales')!.textContent).toBe('Tulkojums');
+    } finally {
+      setCatalogTranslations('en', []);
+    }
+  });
 });

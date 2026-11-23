@@ -61,6 +61,7 @@ import SelectProjectFromList from "../SelectProjectFromList";
 import OrganizationFilter from "../../../../catalog/organization/switch/OrganizationFilter";
 import ImportExportProject, { type PMExchangeTab } from "../../../crud/exchange/project/ImportExportProject";
 import PMProjectImportExportButton from "../buttons/PMProjectImportExportButton";
+import PMProjectGoToButton from "../buttons/PMProjectGoToButton";
 import PMExportProjectWindow from "../../../crud/exchange/project/PMExportProjectWindow";
 import SwitchApp from "../../../../ui/components/common/SwitchApp";
 import { projectIsReadonly } from "../../../model/projectReadonly";
@@ -808,6 +809,14 @@ export default function PMRecentProjectsToolbar({
         costBudgetOn={projectCostBudgetOn(selected?.rowJSON)}
         color={themeColors.text}
         disabled={!selected || selectedReadonly || !projectPermissions.can('task_line_table', 'U')}
+        width={PM_SETTINGS_BUTTON_WIDTH}
+        size={PM_SETTINGS_ICON_SIZE}
+      />
+      {/* Go to (after Actions): the "Go to" submenu of the Task menu for the selected task */}
+      <PMProjectGoToButton
+        projectGUID={selectedProjectGUID}
+        color={themeColors.text}
+        disabled={!selected}
         width={PM_SETTINGS_BUTTON_WIDTH}
         size={PM_SETTINGS_ICON_SIZE}
       />

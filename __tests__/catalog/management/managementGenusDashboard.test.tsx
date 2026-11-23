@@ -92,6 +92,8 @@ import { MANAGEMENT_GENUS_TABLE } from '../../../kit8/catalog/management/genus/m
 import { beginFolderDrag, endFolderDrag } from '../../../kit8/ui/components/tree/folderTreeDnd';
 import { RESOURCE_ROLE_OWN_TABLES } from '../../../kit8/catalog/resourcerole/resourceRoleModel';
 
+import { setCatalogTranslations } from '../../../kit8/catalog/translation/catalogTranslationStore';
+
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -237,4 +239,45 @@ describe('editing on request', () => {
 it('no rows: the setup hint names the SQL file', () => {
   mount({}, []);
   expect(q('genus-setup')!.textContent).toContain('create_management_genus_table.sql');
+});
+
+describe('Translate tab of the card (SQL PART 56)', () => {
+  const tr = (guid: string, owner: string, lang: string, field: string, text: string) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: lang, rowJSON: { translationField: field, translationText: text } });
+  const withTranslations = () => { mockState.catalogTranslationReusable = { entityDataFromServer: [tr('t1', 'timeGenus', 'lv', 'title', 'Tulkojums'), tr('t2', 'some-other-row', 'ru', 'title', 'Другой')], readSuccessful: 1 }; };
+  const translatedIds = (card: string) => qa(`${card}-translate-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${card}-translate-row-`, '')).filter((x) => !x.includes('-'));
+
+  it('a click on a row of the READ ONLY table opens the card: Main (the fields) and Translate (the translations of THIS row only)', () => {
+    mount();
+    withTranslations();
+    press(`genus-table-open-timeGenus-title`);
+    const card = 'genus-table-edit';
+    expect(q(card)).not.toBeNull();
+    expect(q(`${card}-main`)).not.toBeNull();
+    expect(q(`${card}-tab-translate`)!.textContent).toBe('Translate');
+    press(`${card}-tab-translate`);
+    expect(translatedIds(card)).toEqual(['t1']);
+    press(`${card}-tab-main`);
+    expect(q(`${card}-main`)).not.toBeNull();
+    press(`${card}-done`);
+    expect(q(card)).toBeNull();
+  });
+
+  it('editing on: the row menu "Edit" opens the same card', () => {
+    mount({ noCrud: false });
+    withTranslations();
+    press(`genus-table-menu-button-timeGenus`);
+    press(`genus-table-menu-edit`);
+    press(`genus-table-edit-tab-translate`);
+    expect(translatedIds('genus-table-edit')).toEqual(['t1']);
+  });
+
+  it('the interface language: a read only "Title (LV)" column shows the translated title', () => {
+    setCatalogTranslations('lv', [{ rowOwnerGUID: 'timeGenus', rowParentGUID: 'lv', rowJSON: { translationField: 'title', translationText: 'Tulkojums' } }]);
+    try {
+      mount();
+      expect(q('translated-title-timeGenus')!.textContent).toBe('Tulkojums');
+    } finally {
+      setCatalogTranslations('en', []);
+    }
+  });
 });

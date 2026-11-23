@@ -9,6 +9,8 @@ const mockPicker = jest.fn();
 const mockPlan = jest.fn();
 let mockPlaces: Record<string, any> = {};
 const mockLineMenu = jest.fn(() => []);
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): they need the Supabase / router providers, here the form is tested alone
+jest.mock('../../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../../kit8/documents/vendor/lineplace/useDocumentLineMenu', () => ({ useDocumentLineMenu: () => mockLineMenu }));
 jest.mock('../../../../kit8/pm/view/project/pick/PMProjectPickerModal', () => ({ __esModule: true, default: (p: any) => { mockPicker(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
 jest.mock('../../../../kit8/documents/payment/fact/usePaymentFact', () => ({ usePaymentFactDocuments: () => mockDoc }));

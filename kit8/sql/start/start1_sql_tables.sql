@@ -61,6 +61,7 @@
 --   53. create_time_of_day_model.sql - THE TIME-OF-DAY MODEL (documentation/RESOURCE_LEVELING_HOURS_WBS.html): task_line_plan_hour_movements = the hour rows (window slices) of a posted Time line, derived next to the day rows
 --   54. create_application_admin.sql - APPLICATION ADMINISTRATORS (documentation/PERMISSIONS_WBS.html section 13): application_permission_table = the e-mails that hold permissionApplicationAdmin (one row each); the code is in start2_sql_code.sql
 --   55. create_bim.sql - BIM (documentation/BIM_WBS.html): bim_model_table / bim_storey_table / bim_chunk_table / bim_element_table / bim_property_table / bim_import_job_table / bim_storage_cleanup_table = the model of an IFC import (rows only: the geometry is chunk files in the Storage bucket bim), foreign keys to the project and its tasks
+--   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: language_catalog (the languages, rowGUID = the language code) + catalogTranslationTable (one row = ONE field of ONE catalog item in ONE language); the code is in start2_sql_code.sql
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -4221,6 +4222,44 @@ BEGIN
     END IF;
   END LOOP;
 END $$;
+
+
+-- ===============================================================================================
+-- PART 56: create_catalog_translation.sql
+-- TRANSLATIONS OF CATALOG ITEMS (the Translate tab of a catalog card: kit8/catalog/translation). Any catalog row can be translated: title and description.
+--   language_catalog          the languages: rowGUID = the language code (en, lv, ru ...) - the same codes as LANGUAGES of kit8/i18n/i18n.ts - rowOwnerGUID 'languageCatalog' - rowJSON { title, code, abbr }
+--   catalogTranslationTable   rowOwnerGUID = the GUID of the catalog item (any catalog) - rowParentGUID = the language (language_catalog.rowGUID) - rowGUID = own id
+--                             rowJSON { translationField: 'title' | 'description', translationText }
+--                             Unique: item + language + field (an item has one title and one description per language). A missing row = the text of the item itself.
+-- Written by who holds permissionTranslateCatalog (start2 PART 56: the organization administrator, a project manager and the application administrator automatically), read by everybody signed in.
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.language_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'languageCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public."catalogTranslationTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL,
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'en' REFERENCES public.language_catalog("rowGUID") ON DELETE CASCADE,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{"translationField": "title", "translationText": ""}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT "catalogTranslation_field_chk" CHECK ("rowJSON"->>'translationField' IN ('title', 'description'))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "uq_catalogTranslation" ON public."catalogTranslationTable" ("rowOwnerGUID", "rowParentGUID", ("rowJSON"->>'translationField'));
+
+CREATE INDEX IF NOT EXISTS "idx_catalogTranslation_language" ON public."catalogTranslationTable" ("rowParentGUID");
 
 
 -- ===============================================================================================

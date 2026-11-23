@@ -34,6 +34,7 @@ import FolderTreeDragGhost from '../../tree/FolderTreeDragGhost';
 import { FolderDragPayload, measureViewRect } from '../../tree/folderTreeDnd';
 import { buildTreeIndex, countItemsByFolder, subtreeIds, TREE_ALL_ID, TREE_NONE_ID } from '../../tree/folderTreeModel';
 import ReusableTableFolderGrip from './ReusableTableFolderGrip';
+import ReusableTableVScrollbar, { useTableVScroll } from './ReusableTableVScrollbar';
 import ReusableTableRowGrip from './ReusableTableRowGrip';
 import ReusableTableCell from './ReusableTableCell';
 import ReusableTableRowMenu, { RowMenuState } from './ReusableTableRowMenu';
@@ -54,6 +55,9 @@ import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColu
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
 
 type ServiceColumn = 'select' | 'drag';
+
+/** a row with the horizontal scroll + the vertical bar (a fixed-height table); a plain pass-through (no extra View) while the table has no fixed height */
+const VScrollRow: any = ({ children, ...rest }: any) => (rest.style ? <View {...rest}>{children}</View> : <>{children}</>);
 
 /** header of a service column: dragged towards the other service column (direction 1 = right, -1 = left) it swaps with it */
 function ServiceHeaderCell({ width, draggable, direction, onSwap, children, delimiterColor, testID }: { delimiterColor?: string; width: number; draggable: boolean; direction: 1 | -1; onSwap: () => void; children: React.ReactNode; testID: string }) {
@@ -151,6 +155,8 @@ export default function ReusableTable(props: ReusableTableProps) {
   const openEdit = EditRowModalCard ? (guid: string) => setEditGUID(guid) : onRowOpen ? (guid: string) => { const r = crud.rows.find((x) => x.rowGUID === guid); if (r) onRowOpen(r); } : undefined;
   /** px of the table body (measured): the columns are stretched to fill it */
   const [bodyWidth, setBodyWidth] = useState(0);
+  /** the vertical scrollbar for the mouse beside the wide horizontal scroll (a table of a fixed height only) */
+  const vScroll = useTableVScroll();
   /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
   const folderDragOn = showTree && !treeHidden;
   // the ⠿ column: web = drag and drop (BodyWeb); iOS / Android = the grip below drags the row up / down (a folders tree beside the table keeps its own grip)
@@ -544,7 +550,9 @@ export default function ReusableTable(props: ReusableTableProps) {
         </View>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator testID={`${testID}-scroll-x`} style={tableFixedH !== null ? { flex: 1 } : undefined} contentContainerStyle={tableFixedH !== null ? { minWidth: '100%', height: '100%' } : { minWidth: '100%' }} keyboardShouldPersistTaps="handled"
+      {/* fixed height: [horizontal scroll][vertical bar] side by side, so the vertical bar is always at the visible right edge */}
+      <VScrollRow {...(tableFixedH !== null ? { style: { flex: 1, flexDirection: 'row' } } : {})}>
+      <ScrollView horizontal showsHorizontalScrollIndicator testID={`${testID}-scroll-x`} style={tableFixedH !== null ? { flex: 1, minWidth: 0 } : undefined} contentContainerStyle={tableFixedH !== null ? { minWidth: '100%', height: '100%' } : { minWidth: '100%' }} keyboardShouldPersistTaps="handled"
         onLayout={(e) => { const w = Math.floor(e.nativeEvent.layout.width); if (w !== bodyWidth) setBodyWidth(w); }}>
         <View style={{ minWidth: totalWidth, flex: 1 }}>
           {/* ---- header ---- */}
@@ -602,7 +610,7 @@ export default function ReusableTable(props: ReusableTableProps) {
               </>
             );
             return tableFixedH !== null
-              ? <ScrollView testID={`${testID}-body-scroll`} style={{ flex: 1 }} nestedScrollEnabled keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator>{bodyEl}</ScrollView>
+              ? <ScrollView testID={`${testID}-body-scroll`} style={{ flex: 1 }} nestedScrollEnabled keyboardShouldPersistTaps="handled" {...vScroll.bodyProps}>{bodyEl}</ScrollView>
               : bodyEl;
           })()}
 
@@ -624,6 +632,11 @@ export default function ReusableTable(props: ReusableTableProps) {
           </View>
         </View>
       </ScrollView>
+      {tableFixedH !== null && (
+        <ReusableTableVScrollbar testID={`${testID}-scroll-y`} metrics={vScroll.metrics} scrollTo={vScroll.scrollTo}
+          thumbColor={c.primary} trackColor={c.background} headerColor={headersBackground} borderColor={c.border} />
+      )}
+      </VScrollRow>
 
       <ReusableTableRowMenu menu={menu} rows={rows} crud={crud} itemLabel={itemLabel} reorderEnabled={reorderEnabled} addEnabled={addEnabled && !onAdd && !props.readOnly} deleteEnabled={props.deleteEnabled !== false && !props.readOnly} openLabel={openLabel} filtered={viewFiltered}
         onDelete={(guid) => askDelete([guid])} onEdit={openEdit} onClose={() => setMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
@@ -652,6 +665,28 @@ export default function ReusableTable(props: ReusableTableProps) {
           caption={headerContextMenu.col.title}
           onClose={() => setHeaderContextMenu(null)}
           items={[
+            // the same "Filter & sort" popup as the ▾ button of the header (only for the columns that have that button)
+            ...(columnSortAndFilter && isSortFilterColumn(headerContextMenu.col) ? [{
+              testID: `${testID}-header-menu-filter-sort`,
+              label: 'Filter & Sort',
+              icon: 'filter_alt',
+              onPress: () => {
+                const { col, x, y } = headerContextMenu;
+                setHeaderContextMenu(null);
+                setColumnMenu({ key: col.key, x, y });
+              },
+            }, {
+              // removes the filter of THIS column only (the toolbar icon clears search, all filters and the sort); disabled while the column has no filter
+              testID: `${testID}-header-menu-clear-filter`,
+              label: 'Clear filter',
+              icon: 'filter_alt_off',
+              disabled: !columnFilters[headerContextMenu.col.key],
+              onPress: () => {
+                const key = headerContextMenu.col.key;
+                setHeaderContextMenu(null);
+                setColumnFilters((all) => { const next = { ...all }; delete next[key]; return next; });
+              },
+            }] : []),
             {
               // EVERY column (also # and the read-only ones): the title of the header on the clipboard
               testID: `${testID}-header-menu-copy-name`,

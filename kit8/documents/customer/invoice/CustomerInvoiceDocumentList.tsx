@@ -11,7 +11,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDocumentLineMenu } from '../../vendor/lineplace/useDocumentLineMenu';
-import { usePaymentFactBasedOnRowMenu } from '../../payment/fact/PaymentFactBasedOn';
+import { usePaymentFactBasedOnRowMenu, usePaymentFactInvoiceActionItems } from '../../payment/fact/PaymentFactBasedOn';
 import { useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import ButtonApp from '../../../ui/components/common/ButtonApp';
@@ -31,6 +31,7 @@ import { pmT } from '../../../pm/i18n/pmT';
 import TaskScopeChip from '../../taskScope/TaskScopeChip';
 import { useTaskScope } from '../../taskScope/useTaskScope';
 import { taskScopeToRpc } from '../../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import {
   EMPTY_CUSTOMER_INVOICE_FILTER, CUSTOMER_INVOICE_HEADER_ENTITY, CUSTOMER_INVOICE_ROUTE, CustomerInvoiceListFilter, CustomerInvoiceListRow, formatMoney, customerInvoiceDateErrors, customerInvoiceFilterActive,
   customerInvoiceFolderNodes,
@@ -84,6 +85,9 @@ export default function CustomerInvoiceDocumentList({ testID = 'customer-list', 
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text and totals from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, CustomerInvoiceListRow>(list.answer.rows.map((r) => [r.documentGUID, r])), [list.answer.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => customerInvoiceListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // the Task context menu items on a document row: the task the document was made from (Open task, Facts input, Customer Invoice, Purchase Order, Copy task GUID)
@@ -91,6 +95,7 @@ export default function CustomerInvoiceDocumentList({ testID = 'customer-list', 
   const taskMenu = useDocumentLineMenu(`${testID}-lines`, resolveTask as any);
   // "Create based on → Payment fact" of a POSTED invoice (the draft opens in a new browser window)
   const basedOn = usePaymentFactBasedOnRowMenu('customer', testID);
+  const invoiceActionItems = usePaymentFactInvoiceActionItems('customer', testID);
   const rowMenu = useCallback((row: { rowGUID: string }, close: () => void) => [...basedOn(row.rowGUID, byGuid.get(row.rowGUID)?.documentStatus, close), ...taskMenu(row as any, close)], [basedOn, taskMenu, byGuid]);
   // the tree: legal entity → customer, of the documents that exist
   const nodes = useMemo(() => customerInvoiceFolderNodes(list.answer.rows), [list.answer.rows]);
@@ -166,6 +171,8 @@ export default function CustomerInvoiceDocumentList({ testID = 'customer-list', 
           reorderEnabled={false}
           extraMenuItems={rowMenu}
           onAdd={() => setHint(true)}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="customerInvoice" variant="icons" alwaysShow taskGUID={one?.taskGUID} projectGUID={one?.projectGUID} actionItems={invoiceActionItems(one?.documentGUID, one?.documentStatus)} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) router.push({ pathname: CUSTOMER_INVOICE_ROUTE, params: { documentGUID: row.rowGUID } } as any); }}
           emptyText={list.isLoading ? pmT('Loading…') : customerInvoiceFilterActive(applied) || taskScope.active ? pmT('No customer invoice matches the filters.') : pmT('No customer invoices yet. Right-click a line of a task → Customer Invoice.')}
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}

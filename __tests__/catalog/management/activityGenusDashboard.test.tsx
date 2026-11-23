@@ -94,6 +94,8 @@ import { MANAGEMENT_ACTIVITY_GENUS_TABLE } from '../../../kit8/catalog/managemen
 import { BUDGET_ITEM_KEY_MATRIX, BUDGET_ITEM_KEY_TABLE, budgetItemKeyOf } from '../../../kit8/catalog/budget/item/budgetItemKeyModel';
 import { BUDGET_ITEM_TABLE } from '../../../kit8/catalog/budget/item/budgetItemModel';
 
+import { setCatalogTranslations } from '../../../kit8/catalog/translation/catalogTranslationStore';
+
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
 let root: any;
@@ -182,4 +184,38 @@ it('empty tables: the setup hint names the SQL files and PART 32', () => {
   mount([], [], []);
   expect(q('activity-genus-setup')!.textContent).toContain('start2_sql_code.sql');
   expect(q('activity-genus-setup')!.textContent).toContain('PART 32');
+});
+
+describe('Translate tab of the card (SQL PART 56)', () => {
+  const press = (id: string) => act(() => { const el = q(id); if (!el) throw new Error(`${id} not found`); el.click(); });
+  const qa = (prefix: string) => Array.from(document.querySelectorAll(`[data-testid^="${prefix}"]`));
+  const tr = (guid: string, owner: string, lang: string, field: string, text: string) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: lang, rowJSON: { translationField: field, translationText: text } });
+  const withTranslations = () => { mockState.catalogTranslationReusable = { entityDataFromServer: [tr('t1', 'operatingActivity', 'lv', 'title', 'Tulkojums'), tr('t2', 'some-other-row', 'ru', 'title', 'Другой')], readSuccessful: 1 }; };
+  const translatedIds = (card: string) => qa(`${card}-translate-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${card}-translate-row-`, '')).filter((x) => !x.includes('-'));
+
+  it('a click on a row of the READ ONLY table opens the card: Main (the fields) and Translate (the translations of THIS row only)', () => {
+    mount();
+    withTranslations();
+    press(`activity-genus-table-open-operatingActivity-title`);
+    const card = 'activity-genus-table-edit';
+    expect(q(card)).not.toBeNull();
+    expect(q(`${card}-main`)).not.toBeNull();
+    expect(q(`${card}-tab-translate`)!.textContent).toBe('Translate');
+    press(`${card}-tab-translate`);
+    expect(translatedIds(card)).toEqual(['t1']);
+    press(`${card}-tab-main`);
+    expect(q(`${card}-main`)).not.toBeNull();
+    press(`${card}-done`);
+    expect(q(card)).toBeNull();
+  });
+
+  it('the interface language: a read only "Title (LV)" column shows the translated title', () => {
+    setCatalogTranslations('lv', [{ rowOwnerGUID: 'operatingActivity', rowParentGUID: 'lv', rowJSON: { translationField: 'title', translationText: 'Tulkojums' } }]);
+    try {
+      mount();
+      expect(q('translated-title-operatingActivity')!.textContent).toBe('Tulkojums');
+    } finally {
+      setCatalogTranslations('en', []);
+    }
+  });
 });

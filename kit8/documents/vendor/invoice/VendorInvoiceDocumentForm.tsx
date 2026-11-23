@@ -2,7 +2,7 @@
 //
 //   documents   the route gives one or MORE documents (the vendors the user checked in the choice window): a TAB for each (vendor · contract). On the web a real BROWSER TAB of its own can be opened for
 //               each document (the icon on the tab; the choice window opens one for every document it made); on a phone the tab strip is the tab bar.
-//   the bar     Delete · Unpost · Create based on… (→ Payment fact, a POSTED invoice: PaymentFactBasedOn) · Close - and the POST button is the LAST (a large button; the Posted state is the same size)
+//   the bar     Delete · Unpost · Create based on… (→ Payment fact, a POSTED invoice: PaymentFactBasedOn) · Actions · Go to (DocumentActionsGoTo: the Task menu items of the task of the invoice) · Close - and the POST button is the LAST (a large button; the Posted state is the same size)
 //   header      TextInputApp / DateInputApp / the catalog select: document number · legal entity · vendor · contract · currency (read only) · the NUMBER printed on the invoice · its DATE · the totals
 //   DocumentTabs All (default) · Time · Material · Expenses, with the number of lines of each - the same look as the Finances table of a task
 //   the lines   a ReusableTable on the redux entity VENDOR_INVOICE_LINES_ENTITY (VendorInvoiceLines; realtime, optimistic): quantity, price and VAT % of a DRAFT are editable and can be deleted; no new
@@ -34,7 +34,8 @@ import ModalWindowListToSelect from '../../../ui/components/common/ModalWindowLi
 import type { PMPickedPlace } from '../../../pm/view/project/pick/pmPickerContext';
 import { extractGUID, placeChange, placesSignature } from '../lineplace/linePlaceModel';
 import { useDocumentLineMenu } from '../lineplace/useDocumentLineMenu';
-import PaymentFactBasedOn from '../../payment/fact/PaymentFactBasedOn';
+import PaymentFactBasedOn, { usePaymentFactInvoiceActionItems } from '../../payment/fact/PaymentFactBasedOn';
+import DocumentActionsGoTo from '../../taskScope/DocumentActionsGoTo';
 import type { PlaceField } from '../lineplace/linePlaceModel';
 import { pmT } from '../../../pm/i18n/pmT';
 import { useDocumentRights } from '../../../permissions/usePermissions';
@@ -148,6 +149,8 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
       if (rest.length) setSelected(rest[0]); else onClose?.();
     }
   };
+  // Actions -> Create based on: the Payment fact that pays THIS invoice comes first (a posted invoice)
+  const invoiceActionItems = usePaymentFactInvoiceActionItems('vendor', testID)(header?.guid, header?.status);
   const missing = header ? vendorInvoiceMissing({ ...header, vendorInvoiceNumber: number, day: parseDayInput(day) ?? '' }, docRows.length) : [];
   const openInBrowserTab = (guid: string) => {
     if (Platform.OS === 'web' && typeof window !== 'undefined') window.open(vendorInvoiceDocumentPath(guid), '_blank');
@@ -174,6 +177,7 @@ export default function VendorInvoiceDocumentForm({ documents, onClose, testID =
           <ButtonApp testID={`${testID}-unpost`} title={pmT('Unpost')} icon="undo" variant="outlined" size="small" disabled={doc.busy || !rights.canChange} onPress={doUnpost} />
         )}
         {header && <PaymentFactBasedOn kind="vendor" invoiceGUID={header.guid} status={header.status} disabled={doc.busy} testID={testID} />}
+        {header && <DocumentActionsGoTo kind="vendorInvoice" taskGUID={header.taskGUID} projectGUID={header.projectGUID} actionItems={invoiceActionItems} disabled={doc.busy} testID={testID} />}
         {onClose && <ButtonApp testID={`${testID}-close`} title={pmT('Close')} variant="text" size="small" onPress={onClose} />}
         {header && header.status === 'posted' && (
           // a status, not a command: the same BIG button as Post (nothing to press)

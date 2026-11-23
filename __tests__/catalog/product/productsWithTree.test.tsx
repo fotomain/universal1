@@ -29,6 +29,7 @@ const mockActionsFor = (entity: string) => ({
 });
 jest.mock('../../../kit8/redux/SystemMetaData', () => ({ SystemMetaData: new Proxy({}, { get: (_t, k: string) => ({ actions: mockActionsFor(k) }) }) }));
 let mockState: any = {};
+let mockTranslations: any[] = [];
 const mockDispatch = jest.fn();
 jest.mock('react-redux', () => ({ ...jest.requireActual('react-redux'), useSelector: (fn: any) => fn(mockState), useDispatch: () => mockDispatch, shallowEqual: jest.requireActual('react-redux').shallowEqual }));
 jest.mock('../../../kit8/catalog/inner/select_element/SelectElementFromCatalog', () => ({ __esModule: true, defaultTitleExtractor: (r: any) => r?.rowJSON?.title || '', default: () => null }));
@@ -92,6 +93,7 @@ import ProductDashboardCRUD from '../../../kit8/catalog/product/dashboard/Produc
 import { PRODUCT_TABLE_KEYS, PRODUCT_TABLES } from '../../../kit8/catalog/product/productModel';
 import type { ProductCatalogData } from '../../../kit8/catalog/product/crud/productCatalogTools';
 import { beginFolderDrag, endFolderDrag } from '../../../kit8/ui/components/tree/folderTreeDnd';
+import { setCatalogTranslations } from '../../../kit8/catalog/translation/catalogTranslationStore';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
@@ -106,7 +108,7 @@ const pickFolder = (id: string) => act(() => { (q(`${TREE}-row-${id}`)!.querySel
 const productRows = () => qa(`${TABLE}-row-`).filter((e) => /-row-[^-]+$/.test(String(e.getAttribute('data-testid'))));
 
 function stateOf(data: ProductCatalogData) {
-  const s: any = { uxuiState: { askBeforeDeletePost: true } };
+  const s: any = { uxuiState: { askBeforeDeletePost: true }, catalogTranslationReusable: { entityDataFromServer: mockTranslations, readSuccessful: 1 } };
   for (const k of PRODUCT_TABLE_KEYS) s[PRODUCT_TABLES[k].entity] = { entityDataFromServer: data[k], readSuccessful: 1 };
   return s;
 }
@@ -124,7 +126,7 @@ function mount(data = seedCatalog()) {
   root = createRoot(el);
   act(() => root.render(<ProductDashboardCRUD />));
 }
-afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; restore?.(); jest.clearAllMocks(); mockCalls.length = 0; });
+afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; restore?.(); jest.clearAllMocks(); mockCalls.length = 0; mockTranslations = []; });
 const calls = (kind: string, entity: string) => mockCalls.filter((c) => c[0] === kind && c[1] === entity).map((c) => c[2]);
 const rowY = (id: string, frac = 0.5) => 144 + rowTop(q(`${TREE}-row-${id}`)!) + 32 * frac;
 
@@ -336,6 +338,41 @@ describe('ProductItemEditModalCard (right-click a product -> Edit)', () => {
     expect(own.every((g) => q(`${V}-row-${g}`))).toBe(true);
     expect(q(`${CARD}-variants-owner`)!.textContent).toContain('Smartphone');
     expect(q(`${V}-cell-${own[0]}-owner`)).toBeNull();
+  });
+
+  it('Translate tab: the translations of THIS product (language, field, text), "+" gives the first free language / field pair', () => {
+    const tr = (guid: string, owner: string, lang: string, field: string, text: string) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: lang, rowJSON: { translationField: field, translationText: text } });
+    mockTranslations = [tr('t1', 'prod2', 'lv', 'title', 'Planšete'), tr('t2', 'prod2', 'lv', 'description', 'Viedā planšete'), tr('t3', 'prod1', 'ru', 'title', 'Другой')];
+    mount();
+    openCard('prod2');
+    expect(q(`${CARD}-tab-translate`)!.textContent).toBe('Translate');
+    press(`${CARD}-tab-translate`);
+    const T = `${CARD}-translate`;
+    expect(q(T)).not.toBeNull();
+    const shown = qa(`${T}-row-`).map((e) => String(e.getAttribute('data-testid')).replace(`${T}-row-`, '')).filter((x) => !x.includes('-'));
+    expect(shown.sort()).toEqual(['t1', 't2']);
+    expect(q(`${T}-cell-t1-translationText`)).not.toBeNull();
+    expect(q(`${T}-cell-t1-translationField`)).not.toBeNull();
+    expect(q(`${T}-cell-t1-language`)).not.toBeNull();
+    press(`${T}-add`);
+    const created = calls('create', 'catalogTranslationReusable');
+    expect(created).toHaveLength(1);
+    expect(created[0]).toEqual(expect.objectContaining({ rowOwnerGUID: 'prod2', rowParentGUID: 'en' }));
+    expect(created[0].rowJSON).toEqual(expect.objectContaining({ translationField: 'title' }));
+  });
+
+  it('the interface language: the Products table shows a read only "Title (LV)" column and the card header the translated title; the own Title stays editable text', () => {
+    setCatalogTranslations('lv', [{ rowOwnerGUID: 'prod2', rowParentGUID: 'lv', rowJSON: { translationField: 'title', translationText: 'Planšete' } }]);
+    try {
+      mount();
+      expect(q(`${TABLE}-cell-prod2-titleTranslated`) ?? q(`${TABLE}-cell-prod2-title`)).not.toBeNull();
+      const translated = q(`count-titleTranslated-prod2`);
+      expect(translated?.textContent).toBe('Planšete');
+      openCard('prod2');
+      expect(q(`${CARD}-title`)!.textContent).toBe('Planšete');
+    } finally {
+      setCatalogTranslations('en', []);
+    }
   });
 
   it('Done closes the card', () => {

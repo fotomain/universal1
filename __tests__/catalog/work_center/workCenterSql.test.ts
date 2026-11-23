@@ -110,7 +110,12 @@ describe('PART 1a-000 of the delete file', () => {
     expect(undo).toContain('DROP TABLE IF EXISTS public."workCenterTable" CASCADE');
     expect(undo).toContain('DELETE FROM public."variantTable" v WHERE v."rowOwnerGUID" IN (SELECT w."rowGUID" FROM public."workCenterTable" w)');
     const created = [...code35.matchAll(/CREATE OR REPLACE FUNCTION public\.(work_center_\w+)\(/g)].map((m) => m[1]);
-    expect(created.sort()).toEqual(['work_center_base_title', 'work_center_check', 'work_center_copy_variant_settings', 'work_center_delete_guard', 'work_center_title_of']);
+    expect(created.sort()).toEqual(['work_center_base_title', 'work_center_check', 'work_center_copy_variant_settings', 'work_center_delete_guard', 'work_center_ensure', 'work_center_title_of']);
+    // every Time line books a work center (2026-11-23): the line trigger + its function + the CHECK go too
+    expect(code35).toContain('CREATE TRIGGER aa_task_line_work_center BEFORE INSERT OR UPDATE ON public.task_line_table');
+    expect(undo).toContain('DROP TRIGGER IF EXISTS aa_task_line_work_center ON public.task_line_table');
+    expect(undo).toContain('DROP FUNCTION IF EXISTS public.task_line_work_center()');
+    expect(undo).toContain('task_line_time_work_center_chk');
     for (const f of created) expect(undo).toContain(`DROP FUNCTION IF EXISTS public.${f}(`);
   });
 });

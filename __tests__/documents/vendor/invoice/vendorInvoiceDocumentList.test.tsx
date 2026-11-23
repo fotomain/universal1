@@ -17,8 +17,11 @@ jest.mock('../../../../kit8/catalog/legal_entity/useLegalEntityData', () => ({ u
 jest.mock('../../../../kit8/redux/reusable/useRealtimeEntity', () => ({ useRealtimeEntity: jest.fn() }));
 const mockPush = jest.fn();
 jest.doMock('expo-router', () => ({ useRouter: () => ({ push: mockPush, replace: jest.fn(), back: jest.fn(), canGoBack: () => false, navigate: jest.fn() }) }));
+// the buttons Actions / Go to have their own test (documents/taskScope/documentActionsGoTo.test.tsx): here the list only has to say when they are enabled and for which task
+const mockActionsGoTo = jest.fn();
+jest.mock('../../../../kit8/documents/taskScope/DocumentActionsGoTo', () => ({ __esModule: true, default: (p: any) => { mockActionsGoTo(p); return null; } }));
 const mockTable = jest.fn();
-jest.mock('../../../../kit8/ui/components/table/reusable/ReusableTable', () => ({ __esModule: true, default: (p: any) => { mockTable(p); return require('react').createElement('div', { 'data-testid': p.testID }); } }));
+jest.mock('../../../../kit8/ui/components/table/reusable/ReusableTable', () => ({ __esModule: true, default: (p: any) => { mockTable(p); return require('react').createElement('div', { 'data-testid': p.testID }, p.toolbarExtra); } }));
 const mockSelects: Record<string, any> = {};
 jest.mock('../../../../kit8/ui/components/common/SelectItemFromListApp', () => {
   const R = require('react');
@@ -55,6 +58,39 @@ beforeEach(() => {
   };
 });
 afterEach(() => { cleanupUI(); jest.clearAllMocks(); (globalThis as any).__pmTestReduxState = undefined; });
+
+describe('toolbar: Actions and Go to', () => {
+  const lastButtons = () => mockActionsGoTo.mock.calls.at(-1)![0];
+  const select = (guids: string[]) => act(() => { lastTable().onSelectionChange(guids); });
+  beforeEach(() => {
+    mockAnswer.current.rows = [doc('d1', { taskGUID: 't1', projectGUID: 'p1' }), doc('d2', { documentStatus: 'posted', taskGUID: 't2', projectGUID: 'p2' }), doc('d3')];
+  });
+  it('icons in the toolbar, always shown, DISABLED while no document (or more than one) is checked', () => {
+    renderUI(<VendorInvoiceDocumentList />);
+    expect(lastTable().toolbarExtra).toBeTruthy();
+    expect(lastButtons()).toMatchObject({ variant: 'icons', alwaysShow: true, disabled: true, testID: 'vendor-list-doc' });
+    select(['d1', 'd2']);
+    expect(lastButtons().disabled).toBe(true);
+  });
+  it('ONE checked document: enabled, for ITS task and project', () => {
+    renderUI(<VendorInvoiceDocumentList />);
+    select(['d1']);
+    expect(lastButtons()).toMatchObject({ disabled: false, taskGUID: 't1', projectGUID: 'p1', actionItems: [] });
+    select([]);
+    expect(lastButtons().disabled).toBe(true);
+  });
+  it('a posted document adds "Payment fact (pays this invoice)" to Actions', () => {
+    renderUI(<VendorInvoiceDocumentList />);
+    select(['d2']);
+    expect(lastButtons().actionItems).toHaveLength(1);
+    expect(lastButtons().actionItems[0].label).toContain('pays this invoice');
+  });
+  it('a document with no task (independent): the buttons get no task (they stay disabled)', () => {
+    renderUI(<VendorInvoiceDocumentList />);
+    select(['d3']);
+    expect(lastButtons().taskGUID).toBeFalsy();
+  });
+});
 
 describe('the table (ReusableTable with a folders tree)', () => {
   it('reads the documents of the redux entity (all owners, newest first); the cells read the list rows by GUID', () => {

@@ -52,6 +52,8 @@ function catalogs(): TaskLineCatalogData {
   ];
   // two persons with their own variants (separate from the variants of the role)
   d.person = [row('p_emp', 'personCatalog', 'empty', { personType: 'personTypeEmployee' }), row('p_con', 'personCatalog', 'empty', { personType: 'personTypeContractor' })];
+  // every Time line books a work center (2026-11-23): a Person work center for each person - FIXTURE SHORTCUT: its rowGUID is the GUID of the person, so the variants owned by the person are its own
+  d.workCenter = d.person.map((p) => row(p.rowGUID, 'workCenterCatalog', 'empty', { workCenterKind: 'person', workCenterBase: p.rowGUID }));
   d.descriptorPlan = [row('dp_emp_v1', 'ds_emp_var', 'seniority', { required: true, sort: 10 }), row('dp_emp_v2', 'ds_emp_var', 'workLanguage', { required: true, sort: 20 })];
   d.variant.push(row('pvar_emp_1', 'p_emp', 'empty', { title: 'Senior, English', descriptorKey: 'dp_emp_v1=dv13|dp_emp_v2=dv15', isActive: true }));
   d.resourceContractTemplate = [row('tpl_mat', 'materialGenus', 'empty', { title: 'Material supply' }), row('tpl_time', 'timeGenus', 'empty', { title: 'Time service' })];
@@ -187,9 +189,9 @@ describe('the cost of a person: his contract first, else the rate of the role', 
     expect(suggestForLine(d, TIME, { taskResourceContract: 'c_emp' }, DAY)).toEqual({ price: 20, priceSource: 'contract', measureUnit: 'unit_hour', vatPercent: null });
   });
   it('the price follows the contract until the user types one: choosing / removing the contract re-prices the line', () => {
-    const first = computeTaskLineRowJSON(d, TIME, { ...withRole, qtyTaskLine: 10 }, DAY);
+    const first = computeTaskLineRowJSON(d, TIME, { ...withRole, taskResourceItem: 'p_emp', qtyTaskLine: 10 }, DAY);       // the contract belongs to the person of the work center
     expect(first).toMatchObject({ priceTaskLine: 40, priceSourceTaskLine: 'role', sumForContract: 400 });
-    const withContract = { ...withRole, qtyTaskLine: 10, ...first, taskResourceContract: 'c_emp' };
+    const withContract = { ...withRole, taskResourceItem: 'p_emp', qtyTaskLine: 10, ...first, taskResourceContract: 'c_emp' };
     const second = computeTaskLineRowJSON(d, TIME, withContract, DAY);
     expect(second).toMatchObject({ priceTaskLine: 20, priceAutoTaskLine: 20, priceSourceTaskLine: 'contract', sumForContract: 200 });
     const back = computeTaskLineRowJSON(d, TIME, { ...withContract, ...second, taskResourceContract: null }, DAY);

@@ -1,5 +1,7 @@
 -- PART 26: the legal entity catalog, the main vendor, the vendor invoice (one vendor + one contract per document), its posting into the project status register
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-boris','{"personFirstName":"Boris","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

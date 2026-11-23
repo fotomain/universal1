@@ -51,3 +51,16 @@ export function usePaymentFactBasedOnRowMenu(kind: PaymentFactInvoiceKind, testI
       : []
   );
 }
+
+/**
+ * The item of Actions (kit8/documents/taskScope/DocumentActionsGoTo) of a POSTED invoice: "Payment fact (pays this invoice)" - the same draft as the button Create based on.
+ *   const item = usePaymentFactInvoiceActionItems(kind, testID);   actionItems = item(invoiceGUID, status)
+ */
+export function usePaymentFactInvoiceActionItems(kind: PaymentFactInvoiceKind, testID: string) {
+  const toPayment = useCreatePaymentFactFromInvoice();
+  return (invoiceGUID: string | undefined, status: string | undefined): PMMenuItemProps[] => (
+    invoiceGUID && status && canCreatePaymentFactFromInvoice({ status })
+      ? [{ testID: `${testID}-actions-payment-fact`, label: `${pmT(PAYMENT_FACT_BASED_ON_ITEM.title)} (${pmT(kind === 'customer' ? 'is paid by this invoice' : 'pays this invoice')})`, icon: PAYMENT_FACT_BASED_ON_ITEM.icon, onPress: () => { void toPayment.create(kind, invoiceGUID); } }]
+      : []
+  );
+}

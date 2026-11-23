@@ -2,9 +2,9 @@
 // A WORK CENTER (kit8/catalog/work_center, taskResourceKind = 'workCenter', taskResourceItem = workCenterTable.rowGUID) stands for ONE person / equipment / partner (its base). The line books the
 // work center - its calendar and its own variants - but the rules of the person / equipment still decide: `lineWorkerKind` = the kind of the BASE (person -> person; equipment and partner ->
 // equipment: no contract, the hour is costed by the rate of the role), `lineBaseItem` = the base, `lineVariantOwner` = who owns the variants the line books (the work center).
-// Before equipment, every place asked `genus.resource === 'person'`; now a Time line says it itself: rowJSON.taskResourceKind = 'person' | 'equipment'
-// (empty = person: every Time line made before equipment stays valid with no migration) and ONE helper answers the question for all of them.
-//   taskResourceItem   personTable.rowGUID | equipmentTable.rowGUID | workCenterTable.rowGUID | productTable.rowGUID, by the kind
+// 2026-11-23: a Time line ALWAYS books a work center. rowJSON.taskResourceKind = 'workCenter' and taskResourceItem = workCenterTable.rowGUID; the kinds of work center the line may pick
+// are chosen by the column "Resource" (taskWorkCenterKind). Lines made earlier with a person / equipment are migrated by SQL (`work_center_ensure`, trigger `trg_task_line_work_center`).
+//   taskResourceItem   workCenterTable.rowGUID (a Time line) | productTable.rowGUID (Material / Expense / Revenue)
 //   the role of a Time line must be a role of the same kind: resourceRoleTypeTable.rowJSON.resourceKind ('person' default | 'equipment')
 import type { DefRow } from '../../../../catalog/product/productModel';
 import { isSet, rowTitle } from '../../../../catalog/product/crud/productCatalogTools';
@@ -16,10 +16,12 @@ import type { WorkCenterKind } from '../../../../catalog/work_center/workCenterM
 import type { TaskLineCatalogData } from './taskLineCatalogs';
 import type { TaskLineGenusDef, TaskLineResourceKind, TaskLineRowJSON } from './taskLineModel';
 
-/** the kind a line books: Material / Expense / Revenue = product; Time = the line's own kind, a missing one = person */
-export function lineResourceKind(genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): TaskLineResourceKind {
-  if (genus.resource === 'product') return 'product';
-  return json?.taskResourceKind === 'equipment' ? 'equipment' : json?.taskResourceKind === 'workCenter' ? 'workCenter' : 'person';
+/**
+ * the kind a line books: Material / Expense / Revenue = product; a Time line ALWAYS = workCenter (2026-11-23: taskResourceItem of a Time line is a workCenterTable row, nothing else;
+ * the SQL trigger `trg_task_line_work_center` makes a line that still holds a person / equipment a work center line). `json` is kept for the callers.
+ */
+export function lineResourceKind(genus: TaskLineGenusDef, _json?: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): TaskLineResourceKind {
+  return genus.resource === 'product' ? 'product' : 'workCenter';
 }
 
 /** the kind of resource a line books is a worker (a person, an equipment or a work center): it has Properties + Variants of its own */
@@ -27,24 +29,26 @@ export const isWorkerKind = (kind: TaskLineResourceKind): kind is 'person' | 'eq
 
 /** the work center a line books (null = the line books no work center, or it is not in the catalog) */
 export function lineWorkCenter(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): DefRow<any> | null {
-  if (lineResourceKind(genus, json) !== 'workCenter' || !isSet(json?.taskResourceItem)) return null;
+  if (lineResourceKind(genus) !== 'workCenter' || !isSet(json?.taskResourceItem)) return null;
   return (d.workCenter || []).find((w) => w.rowGUID === json!.taskResourceItem) ?? null;
 }
 
 /**
- * The kind of the WORKER a line books for the rules that depend on it (which roles fit, whether there is a contract): person | equipment | product. A person and an equipment are what they are;
- * a work center follows its BASE: a Person work center is a person, an Equipment and a Partner work center are an equipment (no contract: the hour is costed by the rate of the role).
- * A work center that is not chosen yet (or not in the catalog) is an equipment: it has no contract.
+ * The kind of the WORKER a line books for the rules that depend on it (which roles fit, whether there is a contract): person | equipment | product. A work center follows its BASE: a Person
+ * work center is a person, an Equipment and a Partner work center are an equipment (no contract: the hour is costed by the rate of the role). A work center that is not chosen yet (or not in the
+ * catalog) follows the menu "Resource" of the line (`lineMenuKind`: Person = person, Equipment / Partner = equipment), so the roles of the kind are offered before the work center is picked.
  */
 export function lineWorkerKind(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): 'person' | 'equipment' | 'product' {
-  const kind = lineResourceKind(genus, json);
+  const kind = lineResourceKind(genus);
   if (kind !== 'workCenter') return kind;
-  return lineWorkCenter(d, genus, json)?.rowJSON?.workCenterKind === 'person' ? 'person' : 'equipment';
+  const wcKind = lineWorkCenter(d, genus, json)?.rowJSON?.workCenterKind;
+  if (wcKind) return wcKind === 'person' ? 'person' : 'equipment';
+  return lineMenuKind(d, json) === 'person' ? 'person' : 'equipment';
 }
 
 /** the catalog item the resource of the line IS: the person / equipment / partner / product; for a work center its BASE ('' = none) */
 export function lineBaseItem(d: TaskLineCatalogData, genus: TaskLineGenusDef, json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): string | null {
-  if (lineResourceKind(genus, json) !== 'workCenter') return isSet(json?.taskResourceItem) ? json!.taskResourceItem : null;
+  if (lineResourceKind(genus) !== 'workCenter') return isSet(json?.taskResourceItem) ? json!.taskResourceItem : null;
   const base = lineWorkCenter(d, genus, json)?.rowJSON?.workCenterBase;
   return isSet(base) ? base : null;
 }
@@ -53,17 +57,13 @@ export function lineBaseItem(d: TaskLineCatalogData, genus: TaskLineGenusDef, js
 export const lineVariantOwner = (json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): string | null => (isSet(json?.taskResourceItem) ? json!.taskResourceItem : null);
 
 /**
- * The menu "Resource: Person | Equipment | Partner" of a line: the kind of the work centers the line picks from (taskWorkCenterKind), else the kind of the work center it books, else - a line that holds
- * a person / equipment directly, made before work centers - its own kind (a line without one is a person's).
+ * The menu "Resource: Person | Equipment | Partner" of a line: the kind of the work centers the line picks from (taskWorkCenterKind), else the kind of the work center it books, else Person.
  */
 export function lineMenuKind(d: Pick<TaskLineCatalogData, 'workCenter'>, json: Partial<TaskLineRowJSON> | Record<string, any> | null | undefined): WorkCenterKind {
   const chosen = json?.taskWorkCenterKind;
   if (chosen === 'person' || chosen === 'equipment' || chosen === 'partner') return chosen;
-  if (json?.taskResourceKind === 'workCenter') {
-    const kind = (d.workCenter || []).find((w) => w.rowGUID === json.taskResourceItem)?.rowJSON?.workCenterKind;
-    return kind === 'equipment' || kind === 'partner' ? kind : 'person';
-  }
-  return json?.taskResourceKind === 'equipment' ? 'equipment' : 'person';
+  const kind = (d.workCenter || []).find((w) => w.rowGUID === json?.taskResourceItem)?.rowJSON?.workCenterKind;
+  return kind === 'equipment' || kind === 'partner' ? kind : 'person';
 }
 
 /** the catalog (redux entity) a resource of this kind is picked from; a row without a kind is a person's */

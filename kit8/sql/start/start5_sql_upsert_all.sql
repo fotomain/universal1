@@ -7240,3 +7240,23 @@ ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInLi
 INSERT INTO public.application_permission_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
   ('permissionApplicationAdmin:foto888999@gmail.com', 'foto888999@gmail.com', 'empty', 1000, '{"permissionApplicationAdmin": true}'::jsonb)
 ON CONFLICT ("rowOwnerGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
+
+-- Languages (PART 56 of start1_sql_tables.sql + start2_sql_code.sql): upsert
+INSERT INTO public.language_catalog ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('en', 'languageCatalog', 'empty', 1000, '{"title": "English", "code": "en", "abbr": "EN"}'::jsonb),
+  ('zh', 'languageCatalog', 'empty', 2000, '{"title": "Mandarin Chinese", "code": "zh", "abbr": "ZH"}'::jsonb),
+  ('hi', 'languageCatalog', 'empty', 3000, '{"title": "Hindi", "code": "hi", "abbr": "HI"}'::jsonb),
+  ('es', 'languageCatalog', 'empty', 4000, '{"title": "Spanish", "code": "es", "abbr": "ES"}'::jsonb),
+  ('ar', 'languageCatalog', 'empty', 5000, '{"title": "Standard Arabic (Arabian)", "code": "ar", "abbr": "AR"}'::jsonb),
+  ('fr', 'languageCatalog', 'empty', 6000, '{"title": "French", "code": "fr", "abbr": "FR"}'::jsonb),
+  ('bn', 'languageCatalog', 'empty', 7000, '{"title": "Bengali", "code": "bn", "abbr": "BN"}'::jsonb),
+  ('pt', 'languageCatalog', 'empty', 8000, '{"title": "Portuguese", "code": "pt", "abbr": "PT"}'::jsonb),
+  ('ru', 'languageCatalog', 'empty', 9000, '{"title": "Russian", "code": "ru", "abbr": "RU"}'::jsonb),
+  ('de', 'languageCatalog', 'empty', 10000, '{"title": "Deutsch", "code": "de", "abbr": "DE"}'::jsonb),
+  ('nl', 'languageCatalog', 'empty', 11000, '{"title": "Dutch", "code": "nl", "abbr": "NL"}'::jsonb),
+  ('lv', 'languageCatalog', 'empty', 12000, '{"title": "Latvian", "code": "lv", "abbr": "LV"}'::jsonb),
+  ('fa', 'languageCatalog', 'empty', 13000, '{"title": "Farsi", "code": "fa", "abbr": "FA"}'::jsonb),
+  ('lt', 'languageCatalog', 'empty', 14000, '{"title": "Lithuanian", "code": "lt", "abbr": "LT"}'::jsonb),
+  ('et', 'languageCatalog', 'empty', 15000, '{"title": "Estonian", "code": "et", "abbr": "ET"}'::jsonb)
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
+

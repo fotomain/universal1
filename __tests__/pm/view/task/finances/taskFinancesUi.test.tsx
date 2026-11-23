@@ -143,6 +143,7 @@ import { MANAGEMENT_GENUS_TABLE } from '../../../../../kit8/catalog/management/g
 import { CONTRACT_ENTITY } from '../../../../../kit8/catalog/contract/contractModel';
 import { PERSON_ENTITY } from '../../../../../kit8/catalog/person/personModel';
 import { EQUIPMENT_ENTITY } from '../../../../../kit8/catalog/equipment/equipmentModel';
+import { WORK_CENTER_ENTITY } from '../../../../../kit8/catalog/work_center/workCenterModel';
 import { TEMPLATE_RESOURCE_CONTRACT_ENTITY, TEMPLATE_RESOURCE_CONTRACT_ROUTES } from '../../../../../kit8/catalog/management/templateresourcecontract/templateResourceContractModel';
 import { BUDGET_ITEM_TABLE } from '../../../../../kit8/catalog/budget/item/budgetItemModel';
 import { TASK_LINE_ENTITY } from '../../../../../kit8/pm/view/task/finances/taskLineModel';
@@ -158,7 +159,8 @@ const T = 'fin';
 const TT = `${T}-table`;
 
 const def = (guid: string, owner: string, parent: string, json: any, order = 0) => ({ rowGUID: guid, rowOwnerGUID: owner, rowParentGUID: parent, orderInList: order, rowJSON: json });
-const line = (guid: string, genus: string, order: number, json: any, task = 't1') => def(guid, task, genus, { taskManagementGenusLine: genus, ...json }, order);
+// every Time line books a work center (2026-11-23): it carries the kind (the database trigger makes it)
+const line = (guid: string, genus: string, order: number, json: any, task = 't1') => def(guid, task, genus, { taskManagementGenusLine: genus, ...(genus === 'timeGenus' ? { taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' } : {}), ...json }, order);
 
 function catalogState() {
   return {
@@ -180,6 +182,11 @@ function catalogState() {
       def('rp_exc', 'role_exc', 'empty', { priceTypeGUID: 'pt_cost', price: 95, measureUnit: 'unit_hour', validFrom: '2020-01-01' }),
     ] },
     [EQUIPMENT_ENTITY]: { entityDataFromServer: [def('eq1', 'equipmentCatalog', 'empty', { equipmentTitle: 'Excavator CAT 320', equipmentType: 'equipmentTypeHeavy', isActive: true })] },
+    // the work centers: wc_p1 stands for the person p1 (his OWN variants are owned by it), wc_eq1 for the equipment eq1
+    [WORK_CENTER_ENTITY]: { entityDataFromServer: [
+      def('wc_p1', 'workCenterCatalog', 'bu1', { workCenterTitle: 'John line', workCenterKind: 'person', workCenterBase: 'p1', isActive: true }),
+      def('wc_eq1', 'workCenterCatalog', 'bu1', { workCenterTitle: 'CAT line', workCenterKind: 'equipment', workCenterBase: 'eq1', isActive: true }),
+    ] },
     [PRODUCT_TABLES.priceType.entity]: { entityDataFromServer: [def('pt_cost', 'priceTypeCatalog', 'empty', { title: 'Cost' })] },
     [PRODUCT_TABLES.valueAddedTax.entity]: { entityDataFromServer: [def('vat_0', 'valueAddedTaxCatalog', 'empty', { vatTablePercent: 0 })] },
     [PRODUCT_TABLES.measureUnit.entity]: { entityDataFromServer: [def('unit_hour', 'measureUnitCatalog', 'empty', { title: 'hour' }), def('unit_pcs', 'measureUnitCatalog', 'empty', { title: 'pcs' })] },
@@ -196,8 +203,8 @@ function catalogState() {
     // the person p1 (Employee) with two variants of HIS OWN, and his contract: 3360 per Month = 20 per hour
     [PERSON_ENTITY]: { entityDataFromServer: [def('p1', 'personCatalog', 'empty', { personType: 'personTypeEmployee', personFirstName: 'John', personLastName: 'Doe' })] },
     [PRODUCT_TABLES.variant.entity]: { entityDataFromServer: [
-      def('pv1', 'p1', 'empty', { title: 'Senior, English', descriptorKey: 'dp_emp_v1=dvSenior|dp_emp_v2=dvEn', isActive: true }, 1),
-      def('pv2', 'p1', 'empty', { title: 'Junior, Latvian', descriptorKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv', isActive: true }, 2),
+      def('pv1', 'wc_p1', 'empty', { title: 'Senior, English', descriptorKey: 'dp_emp_v1=dvSenior|dp_emp_v2=dvEn', isActive: true }, 1),
+      def('pv2', 'wc_p1', 'empty', { title: 'Junior, Latvian', descriptorKey: 'dp_emp_v1=dvJunior|dp_emp_v2=dvLv', isActive: true }, 2),
       // the variant of the ROLE type (Human resources): what the role asks for
       def('rv1', 'type_hr', 'empty', { title: 'Senior, English', descriptorKey: 'dp1=dvSenior|dp2=dvEn', isActive: true }),
     ] },
@@ -266,16 +273,16 @@ describe('tabs and tables', () => {
     for (const p of reads()) expect(p.match).toEqual({ rowOwnerGUID: 't1' });
   });
 
-  it('Time has a person, his variant and his contract; Material has a product, a contract template, a supplier and the supplier contract', () => {
+  it('Time has a work center, its variant and the contract; Material has a product, a contract template, a supplier and the supplier contract', () => {
     mount();
-    for (const key of ['role', 'roleAttributes', 'person', 'personVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'sum', 'sumVAT', 'currency']) expect(q(`${TT}-header-${key}`)).not.toBeNull();
+    for (const key of ['role', 'roleAttributes', 'resource', 'resourceVariant', 'contract', 'qty', 'unit', 'price', 'vat', 'sum', 'sumVAT', 'currency']) expect(q(`${TT}-header-${key}`)).not.toBeNull();
     expect(q(`${TT}-header-product`)).toBeNull();
     press(`${T}-tab-materialGenus`);
     expect(selectedTab('materialGenus')).toBe(true);
     expect(q(`${TT}-row-mat1`)).not.toBeNull();
     expect(q(`${TT}-row-time1`)).toBeNull();
     for (const key of ['role', 'product', 'productAttributes', 'contractTemplate', 'partner', 'partnerContract', 'qty', 'sum']) expect(q(`${TT}-header-${key}`)).not.toBeNull();
-    expect(q(`${TT}-header-person`)).toBeNull();
+    expect(q(`${TT}-header-resource`)).toBeNull();
     expect(q(`${TT}-header-contract`)).toBeNull(); // the contract of a person is a Time cell; the others ask for a TEMPLATE
     expect(q(`${TT}-header-partner`)!.textContent).toContain('Supplier');
     press(`${T}-tab-revenueGenus`);
@@ -453,10 +460,10 @@ describe('the remembered place', () => {
 
 describe('Person variant (the person\'s OWN variants, separate from the role\'s)', () => {
   const pa = (extra: any = {}) => line('pa1', 'timeGenus', 1, {
-    resourceRoleItem: 'role_da', taskResourceItem: 'p1', resourceRoleAttributeSetKey: 'dp1=dvSenior|dp2=dvEn', taskResourceAttributesKey: null,
+    resourceRoleItem: 'role_da', taskResourceItem: 'wc_p1', resourceRoleAttributeSetKey: 'dp1=dvSenior|dp2=dvEn', taskResourceAttributesKey: null,
     qtyTaskLine: 8, priceTaskLine: 40, priceAutoTaskLine: 40, priceSourceTaskLine: 'role', measureUnitTaskLine: 'unit_hour', vatRatioTaskLine: 0, sumForContract: 320, sumVATForContract: 0, ...extra,
   });
-  const cell = `${TT}-cell-pa1-personVariant`;
+  const cell = `${TT}-cell-pa1-resourceVariant`;
 
   it('empty = automatic; the picker lists the variants of THE PERSON and marks the one that covers the role', () => {
     mount({ lines: [pa()] });
@@ -506,7 +513,7 @@ describe('Person variant (the person\'s OWN variants, separate from the role\'s)
 
 describe('the cost of a Time line: the contract of the person, else the rate of the role', () => {
   it('choosing the contract of the person prices the line per hour from it (3360 per Month = 20 per hour)', () => {
-    mount({ lines: [line('c1l', 'timeGenus', 1, { resourceRoleItem: 'role_da', taskResourceItem: 'p1' })] });
+    mount({ lines: [line('c1l', 'timeGenus', 1, { resourceRoleItem: 'role_da', taskResourceItem: 'wc_p1' })] });
     mockPick[CONTRACT_ENTITY] = 'c1';
     press(`${TT}-cell-c1l-contract`);
     expect(mockActions.updateOne).toHaveBeenLastCalledWith({
@@ -516,7 +523,7 @@ describe('the cost of a Time line: the contract of the person, else the rate of 
   });
 
   it('a line with a role and no contract is priced by the role rate', () => {
-    mount({ lines: [line('r1', 'timeGenus', 1, { resourceRoleItem: null, taskResourceItem: 'p1' })] });
+    mount({ lines: [line('r1', 'timeGenus', 1, { resourceRoleItem: null, taskResourceItem: 'wc_p1' })] });
     mockPick.resourceRoleReusable = 'role_da';
     press(`${TT}-cell-r1-role`);
     expect(mockActions.updateOne).toHaveBeenLastCalledWith(expect.objectContaining({ rowJSON: expect.objectContaining({ priceTaskLine: 40, priceSourceTaskLine: 'role' }) }));
@@ -570,7 +577,7 @@ describe('the sums in the accounting and the budget currency (D365 style rates)'
   // the contract currency of the project is USD; accounting EUR (Default rates), budget GBP (Budget rates)
   const project = { currencyForContract: 'USD', currencyForAccounting: 'EUR', currencyForBudget: 'GBP' };
   const fxLine = (extra: any = {}) => line('fx1', 'timeGenus', 1, {
-    resourceRoleItem: 'role_da', taskResourceItem: 'p1', qtyTaskLine: 10, priceTaskLine: 40, priceAutoTaskLine: 40, priceSourceTaskLine: 'role', measureUnitTaskLine: 'unit_hour',
+    resourceRoleItem: 'role_da', taskResourceItem: 'wc_p1', qtyTaskLine: 10, priceTaskLine: 40, priceAutoTaskLine: 40, priceSourceTaskLine: 'role', measureUnitTaskLine: 'unit_hour',
     vatRatioTaskLine: 21, sumForContract: 400, sumVATForContract: 84, ...extra,
   });
   const lastPatch = () => mockActions.updateOne.mock.calls[mockActions.updateOne.mock.calls.length - 1][0].rowJSON;
@@ -1035,19 +1042,19 @@ describe('input switches: the tabs and the kinds of a Time line a project offers
   it('the switches are off (every project made before them): all four tabs, person lines, no menu, no equipment - exactly as before', () => {
     mount({ lines: [time1] });
     expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus']);
-    expect(heads()).toContain('person');
-    expect(heads()).toContain('personVariant');
+    expect(heads()).toContain('resource');
+    expect(heads()).toContain('resourceVariant');
     expect(heads()).not.toContain('resourceKind');
     expect(heads()).not.toContain('equipment');
     press(`${TT}-add`);
-    // no kind is chosen: a line without a kind is a person's
-    expect(mockActions.createOne.mock.calls[0][0].rowJSON.taskResourceKind).toBeNull();
+    // a Time line ALWAYS books a work center; with one kind offered the menu is the kind Person
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'person' });
   });
 
   it('master on with the defaults (Person on, Equipment off): the same as before', () => {
     mount({ lines: [time1], project: ON });
     expect(tabs()).toEqual(['timeGenus', 'materialGenus', 'expenseGenus', 'revenueGenus']);
-    expect(heads()).toContain('person');
+    expect(heads()).toContain('resource');
     expect(heads()).not.toContain('resourceKind');
   });
 
@@ -1065,24 +1072,24 @@ describe('input switches: the tabs and the kinds of a Time line a project offers
   it('a new Time line of such a project says its kind: a person (the first choice of the menu)', () => {
     mount({ lines: [], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
     press(`${TT}-add`);
-    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'person', taskManagementGenusLine: 'timeGenus' });
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'person', taskManagementGenusLine: 'timeGenus' });
   });
 
-  it('the menu changes the kind; the resource column then picks from the equipment catalog; the person, the contract and the person role go', () => {
-    mount({ lines: [line('tl1', 'timeGenus', 1, { resourceRoleItem: 'role_da', taskResourceItem: 'p1', taskResourceContract: 'c1', qtyTaskLine: 2 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
-    // before: a person row - the resource cell reads the person catalog
-    expect(mockSelectProps[`${TT}-cell-tl1-resource`].entityName).toBe('personReusable');
+  it('the menu changes the kind of the work centers offered; the work center of the person, the contract and the person role go', () => {
+    mount({ lines: [line('tl1', 'timeGenus', 1, { resourceRoleItem: 'role_da', taskResourceItem: 'wc_p1', taskResourceContract: 'c1', qtyTaskLine: 2 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    // the resource cell always reads the catalog of WORK CENTERS
+    expect(mockSelectProps[`${TT}-cell-tl1-resource`].entityName).toBe('workCenterReusable');
     press(`${TT}-cell-tl1-resourceKind`);
     press(`${TT}-cell-tl1-resourceKind-picker-option-equipment`);
     const patch = mockActions.updateOne.mock.calls.at(-1)![0];
     expect(patch).toMatchObject({ rowGUID: 'tl1', rowOwnerGUID: 't1' });
-    expect(patch.rowJSON).toMatchObject({ taskResourceKind: 'equipment', taskResourceItem: null, taskResourceContract: null, resourceRoleItem: null, taskIsPosted: false });
+    expect(patch.rowJSON).toMatchObject({ taskWorkCenterKind: 'equipment', taskResourceItem: null, taskResourceContract: null, resourceRoleItem: null, taskIsPosted: false });
   });
 
-  it('an equipment line: the resource cell reads the equipment catalog; the role picker offers the equipment roles only', () => {
-    mount({ lines: [line('tl2', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq1', qtyTaskLine: 8 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
-    expect(mockSelectProps[`${TT}-cell-tl2-resource`].entityName).toBe('equipmentReusable');
-    expect(q(`${TT}-cell-tl2-resource`)!.textContent).toBe('eq1|on');
+  it('an equipment work center line: the resource cell reads the work center catalog; the role picker offers the equipment roles only', () => {
+    mount({ lines: [line('tl2', 'timeGenus', 1, { taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'wc_eq1', qtyTaskLine: 8 })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    expect(mockSelectProps[`${TT}-cell-tl2-resource`].entityName).toBe('workCenterReusable');
+    expect(q(`${TT}-cell-tl2-resource`)!.textContent).toBe('wc_eq1|on');
     const role = mockSelectProps[`${TT}-cell-tl2-role`];
     expect(role.filterItem(def('role_exc', 'type_eq', 'empty', {}))).toBe(true);
     expect(role.filterItem(def('role_da', 'type_hr', 'empty', {}))).toBe(false);
@@ -1090,25 +1097,25 @@ describe('input switches: the tabs and the kinds of a Time line a project offers
   });
 
   it('an equipment line is priced by the rate of the role (95 per hour), 8 hours = 760', () => {
-    mount({ lines: [line('tl3', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'eq1', qtyTaskLine: null })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    mount({ lines: [line('tl3', 'timeGenus', 1, { taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_exc', taskResourceItem: 'wc_eq1', qtyTaskLine: null })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
     setNumber(`${TT}-cell-tl3-qty`, '8');
     expect(mockActions.updateOne.mock.calls.at(-1)![0].rowJSON).toMatchObject({ qtyTaskLine: 8, priceTaskLine: 95, priceSourceTaskLine: 'role', sumForContract: 760 });
   });
 
   it('a role of the other kind on a line is marked, never refused', () => {
-    mount({ lines: [line('tl4', 'timeGenus', 1, { taskResourceKind: 'equipment', resourceRoleItem: 'role_da' })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
+    mount({ lines: [line('tl4', 'timeGenus', 1, { taskWorkCenterKind: 'equipment', resourceRoleItem: 'role_da' })], project: { ...ON, projectTimeOfEquipmentNeeded: true } });
     expect(q('task-line-problem-tl4')!.parentElement!.textContent).toContain('The role is not an equipment role');
   });
 
-  it('Equipment only: Equipment and its variant, no menu, no Contract; a new line is an equipment line', () => {
+  it('Equipment only: the column of work centers (named Equipment) and its variant, no menu; a new line is an equipment work center line', () => {
     mount({ lines: [], project: { ...ON, projectTimeOfPersonNeeded: false, projectTimeOfEquipmentNeeded: true } });
     const h = heads();
-    expect(h).toEqual(expect.arrayContaining(['equipment', 'equipmentVariant']));
+    expect(h).toEqual(expect.arrayContaining(['resource', 'resourceVariant']));
     expect(h).not.toContain('resourceKind');
+    expect(h).not.toContain('equipment');
     expect(h).not.toContain('person');
-    expect(h).not.toContain('contract');
     press(`${TT}-add`);
-    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'equipment' });
+    expect(mockActions.createOne.mock.calls[0][0].rowJSON).toMatchObject({ taskResourceKind: 'workCenter', taskWorkCenterKind: 'equipment' });
   });
 
   it('Equipment only, and the task already has a person line: both kinds are offered (a switch never hides data)', () => {

@@ -1,6 +1,8 @@
 -- PART 44: the RACI items (documentation/PERMISSIONS_WBS.html, section 3): managementRACIGenusTable (4 seeded rows, read only), task_line_table.rowJSON.raciItem of a Time line
 -- (default raciResponsibleGUID, only a row of the catalog), the trigger does not touch the other genus, a signed-in user cannot change the catalog
 BEGIN;
+-- (work center rule 2026-11-23) a Time line books a work center: the persons its lines name must exist, the trigger makes their work centers
+INSERT INTO public."personTable" ("rowGUID","rowJSON") VALUES ('p-x','{"personFirstName":"X","personLastName":"T"}') ON CONFLICT DO NOTHING;
 SELECT tt.as_admin();
 
 SELECT public.organization_ensure_user('anna@acme.test', '11111111-1111-1111-1111-111111111111', 'Anna', 'K');

@@ -37,11 +37,12 @@ describe('who a task line is paid to', () => {
     expect(linePayeeOf(d, 'revenueGenus', { taskResourceItem: 'prodMV' })).toEqual({ partner: null, person: null, contract: null });
   });
   it('Time: a PERSON line pays the person with his contract (persons are included)', () => {
-    expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'person', taskResourceItem: 'pers1', taskResourceContract: 'c_person' })).toEqual({ partner: null, person: 'pers1', contract: 'c_person' });
-    expect(linePayeeOf(d, 'timeGenus', { taskResourceItem: 'pers1', taskResourceContract: 'c_person' }).person).toBe('pers1');   // a line made before work centers is a person's
+    // every Time line books a work center: the work center of the person pays the person (its base)
+    expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcPerson', taskResourceContract: 'c_person' })).toEqual({ partner: null, person: 'pers1', contract: 'c_person' });
+    expect(linePayeeOf(d, 'timeGenus', { taskResourceItem: 'wcPerson', taskResourceContract: 'c_person' }).person).toBe('pers1');
   });
   it('Time: an equipment pays its main vendor; a work center follows its base (person | partner | equipment)', () => {
-    expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'equipment', taskResourceItem: 'eq1' })).toEqual({ partner: 'partnerC', person: null, contract: 'c_supC' });
+    expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcEq' })).toEqual({ partner: 'partnerC', person: null, contract: 'c_supC' });
     expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcPerson', taskResourceContract: 'c_person' })).toEqual({ partner: null, person: 'pers1', contract: 'c_person' });
     expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcPartner' })).toEqual({ partner: 'partnerA', person: null, contract: null });
     expect(linePayeeOf(d, 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcEq' }).partner).toBe('partnerC');
@@ -93,7 +94,7 @@ describe('planPaymentFill: a first press makes the payments with the defaults of
     expect(plan.create[0].rowJSON).toMatchObject({ paymentPlanPartner: 'custA', paymentPlanBudgetItem: 'bi_in', paymentPlanTimelineShiftDays: 10, paymentPlannedTransactionDate: '2026-10-11' });
   });
   it('Time lines of a PERSON make a payment to the person with his contract and the outbound item of it', () => {
-    const lines = [line('l1', 'timeGenus', { taskResourceKind: 'person', taskResourceItem: 'pers1', taskResourceContract: 'c_person', sumForContract: 800 })];
+    const lines = [line('l1', 'timeGenus', { taskResourceKind: 'workCenter', taskResourceItem: 'wcPerson', taskResourceContract: 'c_person', sumForContract: 800 })];
     const p = planPaymentFill(base({ genus: 'timeGenus', lines })).create[0];
     expect(p.rowJSON).toMatchObject({ paymentPlanPerson: 'pers1', paymentPlanPartner: null, paymentPlanContract: 'c_person', paymentPlanBudgetItem: 'bi_out2' });
   });

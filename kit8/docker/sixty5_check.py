@@ -69,7 +69,7 @@ ok(q('select count(*) from public.task_line_table where "rowProjectGUID" <> \'%s
 
 print('== the catalog the lines book')
 def zero(sql, what): ok(q(sql) == '0', what)
-zero('''select count(*) from public.task_line_table l where l."rowParentGUID" = 'timeGenus' and not exists (select 1 from public."personTable" p where p."rowGUID" = l."rowJSON"->>'taskResourceItem')''', 'every Time line books a person of the catalog')
+zero('''select count(*) from public.task_line_table l where l."rowParentGUID" = 'timeGenus' and not exists (select 1 from public."workCenterTable" w join public."personTable" p on p."rowGUID" = w."rowJSON"->>'workCenterBase' where w."rowGUID" = l."rowJSON"->>'taskResourceItem' and w."rowJSON"->>'workCenterKind' = 'person')''', 'every Time line books a person of the catalog')
 zero('''select count(*) from public.task_line_table l where not exists (select 1 from public."resourceRoleTable" r where r."rowGUID" = l."rowJSON"->>'resourceRoleItem')''', 'every line has a role of the catalog')
 zero('''select count(*) from public.task_line_table l where l."rowParentGUID" in ('materialGenus','expenseGenus') and not exists (select 1 from public."productTable" p where p."rowGUID" = l."rowJSON"->>'taskResourceItem')''', 'every Material / Expense line books a product of the catalog')
 zero('''select count(*) from public.task_line_table l where l."rowParentGUID" in ('materialGenus','expenseGenus') and not exists (select 1 from public."contractTable" c where c."rowGUID" = l."rowJSON"->>'taskLinePartnerContract' and c."rowOwnerGUID" = l."rowJSON"->>'taskLinePartnerItem')''', 'every Material / Expense line has a partner and a contract of THAT partner')

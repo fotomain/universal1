@@ -16,6 +16,7 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from '../../../ui/components/common/IconApp';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { useRealtimeEntity } from '../../../redux/reusable/useRealtimeEntity';
+import { translatedTitle, useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
 
 export interface SelectElementFromCatalogProps {
   /** SystemMetaData entity key (e.g. 'partnerReusable', 'contractReusable') */
@@ -61,6 +62,9 @@ export interface SelectElementFromCatalogProps {
 
 export function defaultTitleExtractor(row: any): string {
   if (!row) return '';
+  // the translation of the item in the interface language (catalogTranslationTable), when there is one
+  const translated = translatedTitle(row.rowGUID);
+  if (translated) return translated;
   const j = row.rowJSON || {};
   // Country
   if (j.countryName) {
@@ -132,6 +136,7 @@ export default function SelectElementFromCatalog({
   asInput = false,
 }: SelectElementFromCatalogProps) {
   const { themeColors: c } = useDesignSystem();
+  useCatalogTranslationVersion(); // the titles follow the interface language
   const [modalOpen, setModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 

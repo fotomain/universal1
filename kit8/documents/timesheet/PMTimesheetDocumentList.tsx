@@ -19,7 +19,8 @@ import { pmT } from '../../pm/i18n/pmT';
 import { parseDayInput } from '../fact/input/factInputModel';
 import TaskScopeChip from '../taskScope/TaskScopeChip';
 import { useTaskScope } from '../taskScope/useTaskScope';
-import { taskScopeToRpc } from '../taskScope/taskScopeModel';
+import { TIMESHEET_LIST_ROUTE, taskScopeToRpc } from '../taskScope/taskScopeModel';
+import DocumentActionsGoTo from '../taskScope/DocumentActionsGoTo';
 import { EMPTY_TIMESHEET_FILTER, TIMESHEET_HEADER_ENTITY, TIMESHEET_ROUTE, TimesheetListFilter, TimesheetListRow, roundHours, timesheetFilterActive } from './timesheetModel';
 import { timesheetListColumns } from './timesheetListColumns';
 import { useNewTimesheet, useTimesheetList, useTimesheetOptions } from './useTimesheet';
@@ -54,6 +55,9 @@ export default function PMTimesheetDocumentList({ testID = 'timesheet-list', tas
 
   // the table shows the header rows of the redux entity (realtime) that the database listed for the filters; a cell reads its text from the list row of the same GUID
   const byGuid = useMemo(() => new Map<string, TimesheetListRow>(list.rows.map((r) => [r.documentGUID, r])), [list.rows]);
+  // Actions / Go to of the toolbar: ENABLED only while exactly ONE document is checked (the items of ITS task and of the document)
+  const [checked, setChecked] = useState<string[]>([]);
+  const one = checked.length === 1 ? byGuid.get(checked[0]) : undefined;
   const columns = useMemo(() => timesheetListColumns((row) => byGuid.get(row.rowGUID)), [byGuid]);
   const rowFilter = useCallback((row: { rowGUID: string }) => byGuid.has(row.rowGUID), [byGuid]);
   // a sheet made / posted / deleted elsewhere (realtime) changes the entity: the list is read again
@@ -119,6 +123,8 @@ export default function PMTimesheetDocumentList({ testID = 'timesheet-list', tas
           rowFilter={rowFilter}
           reorderEnabled={false}
           onAdd={() => { void addNew(); }}
+          onSelectionChange={setChecked}
+          toolbarExtra={<DocumentActionsGoTo kind="timesheet" variant="icons" alwaysShow ownList={{ route: TIMESHEET_LIST_ROUTE, label: 'Time sheets', icon: 'schedule' }} disabled={!one} testID={`${testID}-doc`} />}
           onRowOpen={(row) => { if (byGuid.has(row.rowGUID)) open(row.rowGUID); }}
           emptyText={list.isLoading ? pmT('Loading…') : timesheetFilterActive(applied) || taskScope.active ? pmT('No time sheet matches the filters.') : pmT('No time sheets yet. Press New time sheet, or open a task → Create based on this → Time sheet.')}
           uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch' }}

@@ -17,6 +17,10 @@ import IconApp from '../../../ui/components/common/IconApp';
 import { PMIconButton } from '../../../pm/inner/buttons/PMIconButton';
 import { usePMStore } from '../../../pm/store/store_pm';
 import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
+import { catalogEditCard } from '../../translation/CatalogEditModalCard';
+import { translatedTitleColumns } from '../../translation/translatedTitleColumn';
+import { useCatalogTranslationVersion } from '../../translation/catalogTranslationStore';
+
 import { REUSABLE_TABLE_ALL } from '../../../ui/components/table/reusable/reusableTableTypes';
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
@@ -30,6 +34,9 @@ export interface PMBudgetItemCRUDProps {
   /** false (default): full CRUD, true: read-only catalog */
   noCrud?: boolean;
 }
+
+// the card of a row (menu Edit; in the read-only catalog a click on a row): Main + Translate
+const BudgetItemRowCard = catalogEditCard('receipt_long');
 
 export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudgetItemCRUDProps) {
   const { themeColors: c } = useDesignSystem();
@@ -62,11 +69,13 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
     return { rowOwnerGUID: def.catalogOwner as string, rowParentGUID: parent, rowJSON: { managementGenusItem, budgetItemGenericKey, direction: budgetItemKeyDirection(budgetItemGenericKey) } };
   }, [def.catalogOwner, folders, items, folder, genusOptions, rows]);
 
+  const translationsVersion = useCatalogTranslationVersion(); // the translated title column follows the interface language
   const columns = useMemo<VisualColumn[]>(() => {
     const folderOptions = folders.map((f) => ({ value: f.rowGUID, label: budgetItemPath(rows, f.rowGUID) }));
     const cols: VisualColumn[] = [
       { key: 'n', title: '#', type: 'rowNumber' },
       { key: 'title', title: 'Budget item', type: 'text', width: 220 },
+      ...translatedTitleColumns(),
       { key: 'code', title: 'Code', type: 'custom', width: 200, editable: false, renderCell: (row) => <Text numberOfLines={1} testID={`budget-item-code-${row.rowGUID}`} style={{ color: c.text, opacity: 0.75, fontSize: 13 }}>{row.rowGUID}</Text>, searchText: (row) => row.rowGUID },
       { key: 'parent', title: 'Folder', type: 'select', target: 'rowParentGUID', width: 180, allowEmpty: false, placeholder: 'Choose folder…', options: folderOptions },
       { key: 'managementGenusItem', title: 'Management genus', type: 'select', width: 200, allowEmpty: false, placeholder: 'Choose genus…', options: genusOptions, validate: (value) => budgetItemGenusError(value, genusRows) },
@@ -88,7 +97,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
     ];
     // read-only: every cell shows, none is edited
     return noCrud ? cols.map((col) => ({ ...col, editable: false })) : cols;
-  }, [rows, folders, genusOptions, genusRows, activityRows, noCrud, c.text, businessUnitColumn]);
+  }, [rows, folders, genusOptions, genusRows, activityRows, noCrud, c.text, businessUnitColumn, translationsVersion]);
 
   return (
     <View testID="budget-item-dashboard" style={[styles.root, { backgroundColor: c.background }]}>
@@ -139,6 +148,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
           listParentGUID={REUSABLE_TABLE_ALL}
           visualColumns={columns}
           defaultRowJSON={def.emptyRowJSON}
+          EditRowModalCard={BudgetItemRowCard}
           rowFilter={itemsOnly}
           newRowDefaults={newRowDefaults}
           computeRowJSON={budgetItemKeyPatch}
@@ -149,7 +159,7 @@ export default function PMBudgetItemCRUD({ noCrud: noCrudProp = false }: PMBudge
           resizeColumnWidth
           realtime
           foldersTree={{ ...foldersTree, selectedFolderId: folder, onSelectedFolderChange: setFolder }}
-          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270 }}
+          uxuiTable={{ tableBarLayoutVariant: 'leftCrudPanel_rightSearch', showFoldersTree: true, foldersTreeWidth: 270, inlineEdit: !noCrud }}
         />
       </ScrollView>
     </View>
