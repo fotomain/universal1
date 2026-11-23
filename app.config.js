@@ -264,4 +264,24 @@ const withGradleUrlAssignment = (config) =>
     return cfg;
   });
 
-module.exports = { expo: withGradleUrlAssignment(withFastGradle(expoConfig.expo)) };
+// Gradle version of the wrapper (prebuild --clean would bring the template's back). 9.3.1 = the NEWEST that works with React Native 0.86 (SDK 57):
+// its gradle plugin is compiled by Kotlin 2.1.20, which reads metadata up to 2.2; Gradle 9.4+ embeds Kotlin 2.3+ (9.9.2 failed 2026-11-23:
+// 'Module was compiled with an incompatible version of Kotlin ... 2.3.0, expected 2.1.0'). A newer Gradle needs a newer RN (SDK 58 = RN 0.88).
+const GRADLE_VERSION = '9.3.1';
+const { withDangerousMod } = require('expo/config-plugins');
+const withGradleVersion = (config) =>
+  withDangerousMod(config, [
+    'android',
+    async (cfg) => {
+      const fs = require('fs');
+      const path = require('path');
+      const file = path.join(cfg.modRequest.platformProjectRoot, 'gradle', 'wrapper', 'gradle-wrapper.properties');
+      if (fs.existsSync(file)) {
+        const text = fs.readFileSync(file, 'utf8');
+        fs.writeFileSync(file, text.replace(/gradle-[0-9.]+-bin\.zip/, `gradle-${GRADLE_VERSION}-bin.zip`));
+      }
+      return cfg;
+    },
+  ]);
+
+module.exports = { expo: withGradleVersion(withGradleUrlAssignment(withFastGradle(expoConfig.expo))) };

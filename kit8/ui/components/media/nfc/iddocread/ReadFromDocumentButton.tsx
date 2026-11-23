@@ -11,18 +11,21 @@ export interface ReadFromDocumentButtonProps {
   disabled?: boolean;
   /** the password fields below have a value: the button reads the whole document */
   withPassword: boolean;
+  /** the reading starts by itself when the document is held: shorter instructions */
+  auto?: boolean;
 }
 
-export default function ReadFromDocumentButton({ onPress, busy, disabled, withPassword }: ReadFromDocumentButtonProps) {
+export default function ReadFromDocumentButton({ onPress, busy, disabled, withPassword, auto }: ReadFromDocumentButtonProps) {
   const theme = useTheme();
+  const steps = auto ? AUTO_STEPS : READ_STEPS;
   return (
     <View style={styles.box} testID="id-read-box">
       <ButtonPrimaryApp icon="nfc" onPress={onPress} disabled={disabled || busy} loading={busy} testID="id-read-from-document">
         Read from document
       </ButtonPrimaryApp>
       <View style={styles.steps} testID="id-read-steps">
-        {READ_STEPS.map((line, i) => (
-          <Text key={line} variant="bodySmall" style={{ color: i === READ_STEPS.length - 1 ? ROSE : theme.colors.onSurfaceVariant }} testID={`id-read-step-${i + 1}`}>
+        {steps.map((line, i) => (
+          <Text key={line} variant="bodySmall" style={{ color: i === steps.length - 1 ? ROSE : theme.colors.onSurfaceVariant }} testID={`id-read-step-${i + 1}`}>
             {i + 1}. {line}
           </Text>
         ))}
@@ -44,6 +47,12 @@ const READ_STEPS = [
   'Hold the document against the back of the phone (the NFC antenna is usually near the camera) and keep it still.',
   'Press "Read from document".',
   'If the "Steps" window does not appear: take the document away and hold it again.',
+];
+
+/** the instructions when the reading starts by itself (Identification): hold the document, nothing to press */
+const AUTO_STEPS = [
+  'Hold the document against the back of the phone (the NFC antenna is usually near the camera) and keep it still: the reading starts by itself.',
+  'If the "Steps" window does not appear: take the document away and hold it again. The button reads again when a reading has finished.',
 ];
 
 const styles = StyleSheet.create({ box: { gap: 6 }, steps: { gap: 2 } });

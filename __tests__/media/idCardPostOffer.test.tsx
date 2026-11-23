@@ -11,7 +11,7 @@ jest.mock('../../kit8/ui/components/media/common/useWriteMediaPost', () => ({
   useWriteMediaPost: () => async (build: any) => { const post = build({ ownerGUID: 'u1', rowGUID: 'r1', platform: 'android' }); (globalThis as any).__offerPosts.push(post); return post; },
 }));
 
-jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({ isoDepSupported: () => true, openIsoDep: async () => { throw new Error('no card here'); } }));
+jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({ cancelIsoDepWait: async () => undefined, isoDepSupported: () => true, openIsoDep: async () => { throw new Error('no card here'); } }));
 
 import IdCardPostOffer from '../../kit8/ui/components/media/nfc/iddocread/IdCardPostOffer';
 
@@ -90,4 +90,9 @@ describe('the reader screen on Android', () => {
     expect(q('id-photo')).toBeNull();
     expect(text('id-photo-jp2')).toContain('kept in the file storage');
   });
+});
+
+it('the two buttons of the created screen have the same width (the test kit draws plain buttons, so the source is checked)', () => {
+  const src = fs.readFileSync(path.join(__dirname, '../../kit8/ui/components/media/nfc/iddocread/IdCardPostCreated.tsx'), 'utf8');
+  expect(src.match(/<Button(Primary|Secondary)App width=\{BUTTON_WIDTH\}/g)).toHaveLength(2);
 });

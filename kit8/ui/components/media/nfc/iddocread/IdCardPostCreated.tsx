@@ -6,6 +6,9 @@ import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../../common';
 import type { IdDocument } from './emrtd';
 import { useFaceImage } from './useFaceImage';
 
+/** both buttons of the screen have the same size */
+export const BUTTON_WIDTH = 200;
+
 export interface IdCardPostCreatedProps {
   photo: IdDocument['photo'];
   ownerName: string;
@@ -29,8 +32,8 @@ export default function IdCardPostCreated({ photo, ownerName, documentNumber, no
         {!!documentNumber && <Text variant="bodyLarge" style={[styles.center, { color: theme.colors.onSurfaceVariant }]}>{documentNumber}</Text>}
         {!!note && <Text variant="bodyMedium" style={[styles.center, { color: theme.colors.onSurfaceVariant }]} testID={`${testID}-screen-note`}>{note}</Text>}
         <View style={styles.buttons}>
-          <ButtonPrimaryApp icon="list_alt" onPress={onOpenPosts} testID={`${testID}-screen-open`}>Media posts</ButtonPrimaryApp>
-          <ButtonSecondaryApp onPress={onClose} testID={`${testID}-screen-close`}>Close</ButtonSecondaryApp>
+          <ButtonPrimaryApp width={BUTTON_WIDTH} icon="list_alt" onPress={onOpenPosts} testID={`${testID}-screen-open`}>Media posts</ButtonPrimaryApp>
+          <ButtonSecondaryApp width={BUTTON_WIDTH} onPress={onClose} testID={`${testID}-screen-close`}>Close</ButtonSecondaryApp>
         </View>
       </ScrollView>
     </Modal>

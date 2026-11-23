@@ -9,4 +9,8 @@ export async function openIsoDep(): Promise<OpenTransport> {
   throw new Error('A browser cannot read an ID card or passport over NFC. Use the phone app.');
 }
 
+export async function cancelIsoDepWait(): Promise<void> {
+  // nothing waits in a browser
+}
+
 export const isoDepSupported = (): boolean => false;
