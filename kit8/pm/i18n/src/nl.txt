@@ -746,3 +746,456 @@
 746|Dit is geen naam van een tijdzone, bijvoorbeeld Europe/Berlin.
 747|Het tijdstipmodel plant vanaf de projectstart; een planning vanaf de einddatum wordt daarin niet gebruikt.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(de rij waar u vandaan komt)
+750|Een fase heeft geen regels: selecteer een taak of mijlpaal om de regels te zien en te bewerken.
+751|Een fase heeft geen regels: selecteer een taak of mijlpaal om het plan van de regels te zien.
+752|Boekhouding
+753|Acties
+754|Geavanceerd
+755|Alle varianten
+756|Bedragen in
+757|Bedragen in de valuta van elke regel
+758|Elke
+759|Archiveren
+760|Volgende EAN-13 toewijzen
+761|Assistent
+762|Attributen
+763|BIM
+764|Terug naar {{tab}}
+765|Barcode
+766|Barcodes
+767|Basiseenheid
+768|Basiseenheden in verpakking
+769|Batchnummer
+770|Batches
+771|Boekbare items
+772|Budget
+773|Budgetverdeling
+774|Budgetpost
+775|Budgetten
+776|Bedrijfseenheid
+777|Per budgetpost
+778|Per soort
+779|Per taak
+780|Berekenen
+781|Project berekenen
+782|Kan zijn
+783|Kasstroom
+784|Kasstroom: het rapport van de geboekte betalingen komt later.
+785|Catalogus
+786|Chat
+787|Controles
+788|Genus kiezen…
+789|Kies de budgetverdeling van de regel
+790|Kies eerst de eigenschap
+791|Filter wissen
+792|Geschiedenis wissen
+793|Zoeken, filters en sortering wissen
+794|Klik op een taak in de boom om de regels te zien en te bewerken: tijd, materiaal, uitgaven en opbrengsten.
+795|Klik op een taak in de boom om de geboekte dagen van de regels te zien: het budget, het contractbedrag en de hoeveelheid verdeeld over de werkdagen.
+796|Code
+797|Code (UN/ECE, OKEI)
+798|Beperking…
+799|Contract
+800|Contractsjabloon
+801|Contracten en werknemersgegevens
+802|Gekopieerd
+803|Kopteksnaam kopiëren
+804|Regel-GUID kopiëren
+805|Tekst kopiëren
+806|Kosten
+807|Kosten
+808|Maken op basis van de aangevinkte regel
+809|Hierop gebaseerd maken
+810|Maken op basis van deze taak
+811|Nieuw maken
+812|Maakt varianten
+813|Valuta's van het project
+814|Valuta
+815|Klant
+816|Verkoopfactuur
+817|Verkoopfactuur
+818|Verkoopfacturen
+819|Standaard btw-tarief
+820|Standaardinstellingen
+821|Standaardeenheid
+822|Geselecteerde rijen verwijderen
+823|Op te leveren product
+824|Afhankelijkheidscycli
+825|Beschrijving
+826|Beschrijvingsmodi
+827|Descriptor
+828|Descriptorsleutel
+829|Descriptorsets
+830|Descriptorwaarden
+831|Descriptors
+832|Weergavetitel
+833|Klaar
+834|Naar een map slepen
+835|Geselecteerde rij dupliceren
+836|Bewerkopties
+837|De naam van de taak bewerken
+838|E-mail
+839|Voer een getal in…
+840|Voer een waarde in…
+841|Apparatuur
+842|Apparatuurgegevens
+843|Apparatuur van dit type
+844|Apparatuurtype
+845|Apparatuurtype → apparatuur → eigenschappen + varianten · {{items}} apparatuur · {{types}} typen · {{variants}} varianten · {{values}} eigenschapswaarden
+846|Apparatuurtypen
+847|Fouten
+848|Elke taak is al geboekt
+849|Wisselkoers
+850|Uitgave
+851|Uitgaven
+852|Verloopt
+853|Exporteren, delen
+854|Uitgebreid
+855|Werkelijk
+856|Invoer van werkelijke gegevens
+857|Invoer van werkelijke gegevens
+858|Bestanden
+859|Vullen
+860|Vullen / vernieuwen vanuit {{kind}}-regels
+861|Alle regels vullen
+862|Vullen vanuit sjabloon
+863|Filter
+864|Filteren en sorteren
+865|Financiën
+866|Einddatum
+867|Voornaam
+868|Aan breedte aanpassen
+869|Map
+870|Mappen
+871|Voor
+872|Gantt
+873|Varianten genereren
+874|Genus
+875|Ga naar
+876|Ga naar (documenten van de aangevinkte regel)
+877|Ga naar (documenten van de geselecteerde taak)
+878|Ga naar (documenten van deze taak)
+879|Naar chat
+880|Ga naar: selecteer eerst een taak
+881|Detailvenster verbergen
+882|Taakpad verbergen
+883|Hoe de catalogus is opgebouwd
+884|Project importeren / exporteren
+885|In variantentitel
+886|Inkomend
+887|Inventarisnr.
+888|Artikelnummer
+889|Kanban
+890|Achternaam
+891|Regel
+892|Regels
+893|Logistiek
+894|Eerst plaatsen
+895|Laatst plaatsen
+896|Managementgenus
+897|Fabrikant
+898|Werk als voltooid markeren tot de statusdatum
+899|Materiaal
+900|Leden
+901|Mijlpalen
+902|Modus
+903|Model
+904|Monitor01
+905|Meer
+906|Geselecteerde rijen omlaag verplaatsen
+907|Geselecteerde rijen omhoog verplaatsen
+908|Naam om het product te vinden
+909|Nieuw
+910|Nieuwe rijen krijgen de filterwaarden.
+911|Nee (Onwaar)
+912|Geen budgetpost
+913|Nog geen gegevens.
+914|Geen regel van deze taak heeft een budgetpost. Kies een budgetpost bij minstens één regel en druk dan op Boeken.
+915|Geen regels
+916|Nog geen regels. Druk op "+ Toevoegen".
+917|Geen overeenkomsten gevonden.
+918|Nog geen betalingen. Druk op "+ Toevoegen" of vul ze vanuit de regels van de taak.
+919|Geen product met deze tekst
+920|Nog geen zoekopdrachten
+921|Geen taak in de link.
+922|Geen variant
+923|Niet berekend · {{n}}
+924|Niet gekozen
+925|Niet ingesteld
+926|Nog niets geboekt. Kies een budgetpost bij de regels en druk op Boeken (Bewerken).
+927|Niets te boeken
+928|Niets te boeken: voeg betalingen toe
+929|Niets te boeken: kies een budgetpost bij de regels
+930|Niets te boeken: geen enkele taak heeft een regel met budgetpost
+931|Getal
+932|Getal…
+933|Uit
+934|Op kaart
+935|Openen
+936|Open (incl. btw)
+937|Overig
+938|Uitgaand
+939|Overzicht
+940|Eigenaar (roltype / rol)
+941|Eigenaar (type / product)
+942|Eigendom
+943|PDF - alle gegevens
+944|PDF - zichtbaar
+945|Verpakking
+946|Verpakkingen
+947|Betaald (incl. btw)
+948|Bovenliggende map
+949|Partner
+950|Partnercontract
+951|Betaling
+952|Betalingsfeit
+953|Betalingsfeiten
+954|Betalingen
+955|Betalingen niet geboekt
+956|Per 1 eenheid
+957|Percentage
+958|Periode
+959|Persoonsgegevens
+960|Persoonstype
+961|Persoonstype → persoon → eigenschappen + varianten · {{persons}} personen · {{types}} typen · {{variants}} varianten · {{values}} eigenschapswaarden
+962|Persoonstypen
+963|Personen
+964|Personen van dit type
+965|Telefoon
+966|Plan
+967|Planregels
+968|Geplande datum
+969|Boeken
+970|Alle taken boeken
+971|Alle taken boeken?
+972|Niet-geboekte taken boeken
+973|Geboekt met een waarschuwing: deze resources zijn meer geboekt dan hun kalender toestaat.
+974|{{count}} betaling(en) geboekt
+975|{{lines}} regel(s) geboekt · {{rows}} dagrij(en)
+976|{{tasks}} taak/taken geboekt · {{rows}} dagrij(en)
+977|Prijs
+978|Prijstype
+979|Prijstypen
+980|Prijzen
+981|Prijzen
+982|Product
+983|Productkaart
+984|Productgegevens
+985|Productontvangst
+986|Productontvangsten
+987|Producttitel
+988|Producttype
+989|Producttype → product → eigenschappen + varianten · {{products}} producten · {{variants}} varianten
+990|Producttypen
+991|Producten
+992|Producten en mappen
+993|Producten van dit type
+994|Producten per hoofdmap
+995|Producten per type
+996|Voortgang
+997|Projectassistent
+998|Eigenschappen
+999|Eigenschap
+1000|Eigenschappenset
+1001|Eigenschapswaarden
+1002|Inkooporder
+1003|Inkooporders
+1004|Aantal
+1005|ROI
+1006|Alle apparatuurtabellen opnieuw lezen
+1007|Alle persoonstabellen opnieuw lezen
+1008|Alle producttabellen opnieuw lezen
+1009|Alle roltabellen opnieuw lezen
+1010|Alleen-lezen project
+1011|Valutabedragen herberekenen
+1012|Bedragen in de boekhoud- / budgetvaluta van elke regel van dit tabblad herberekenen met de huidige koersen
+1013|Bedragen in de boekhoud- / budgetvaluta van elke betaling van dit tabblad herberekenen met de huidige koersen
+1014|Herberekening van het project
+1015|De betalingen vernieuwen?
+1016|Het project vernieuwen
+1017|Rapporten
+1018|Verplicht
+1019|Onvoltooid werk opnieuw plannen
+1020|Resource
+1021|Resourcetype
+1022|Resourcerollen
+1023|Resources zijn bezet
+1024|Opbrengsten
+1025|Rol
+1026|Rolattributen
+1027|Rolgegevens
+1028|Roltitel
+1029|Roltype
+1030|Roltype → rol → eigenschappen + varianten + kosten · {{roles}} rollen · {{variants}} varianten · {{costs}} kostenregels
+1031|Roltypen
+1032|Rollen
+1033|Rollen en mappen
+1034|Rollen van dit type
+1035|Rollen per hoofdmap
+1036|Rollen per type
+1037|SKU
+1038|Instellingen opslaan in de organisatie
+1039|Opslaan als sjabloon
+1040|Naar de balk van de geselecteerde taak scrollen
+1041|Bedrijfseenheden zoeken…
+1042|Zoekgeschiedenis
+1043|Zoeknaam
+1044|Zoeken…
+1045|Selecteer eerst een partner
+1046|Selecteer een taak
+1047|Selecteer eerst een werkcentrum
+1048|Budgetpost selecteren…
+1049|Catalogusitem selecteren…
+1050|Contract selecteren…
+1051|Descriptor selecteren…
+1052|Apparatuurtype selecteren…
+1053|Apparatuur selecteren…
+1054|Partner selecteren…
+1055|Periode selecteren (een reeks maanden)
+1056|Persoonstype selecteren…
+1057|Persoon selecteren…
+1058|Product selecteren…
+1059|Eigenschap selecteren…
+1060|Roltype selecteren…
+1061|Rol selecteren…
+1062|Sjabloon selecteren…
+1063|Projectmanager selecteren...
+1064|Deze regel selecteren
+1065|Deze taak selecteren
+1066|Type selecteren…
+1067|Waarde selecteren…
+1068|Werkcentrum selecteren…
+1069|Selecteren…
+1070|Verkoopbare artikelen
+1071|Serienr.
+1072|Serienummer
+1073|Serie
+1074|Set
+1075|Baseline instellen
+1076|Meerdere waarden
+1077|Delen
+1078|Deelt varianten van
+1079|Verschuiving (dagen)
+1080|Verschuiving vanaf
+1081|Alles tonen
+1082|Het pad van deze taak tonen
+1083|Enkele eenheid
+1084|Sorteren
+1085|Fasen
+1086|Startdatum
+1087|Subproject
+1088|Subprojecten
+1089|Som
+1090|Som voor boekhouding
+1091|Som voor budget
+1092|Som voor contract
+1093|Som incl. btw
+1094|Leverancier
+1095|Tabelinstellingen
+1096|Tabelinstellingen: aan breedte aanpassen, standaardinstellingen
+1097|Einde van de taak
+1098|Taakinspecteur
+1099|Taakregel
+1100|Taakpad
+1101|Start van de taak
+1102|Taken
+1103|Sjablonen van deze taak: opslaan, vullen, opgeslagen
+1104|Opgeslagen sjablonen
+1105|Tekst…
+1106|De valuta van de regel is onbekend: kies een contract of stel de contractvaluta van het project in
+1107|De valuta van de betaling is onbekend: kies het contract
+1108|De verdelingen worden nog gelezen: probeer het zo opnieuw
+1109|De wisselkoersen zijn nog niet gelezen
+1110|De regel heeft geen hoeveelheid en geen bedrag om te boeken
+1111|De regels van deze resources zijn niet geboekt. Verplaats de taak, wijzig de resource of verlaag de uren en druk dan opnieuw op Boeken.
+1112|De betalingen zijn actueel
+1113|De betalingen kunnen niet worden geboekt
+1114|De betalingen konden niet worden geboekt
+1115|De geboekte dagen van {{count}} taak/taken worden opnieuw berekend en vervangen.
+1116|De koers wordt genomen voor de geplande datum: voer hem in
+1117|Start en einde van deze taak komen uit het subproject.
+1118|De bedragen zijn actueel
+1119|De taak kon niet worden geboekt
+1120|De taak heeft geen regels van dit soort
+1121|De taak heeft nog geen start- en einddatum
+1122|De taak heeft notities.
+1123|De taak wacht op een taak van een ander project.
+1124|De variantenset van deze eigenaar heeft geen verplichte descriptors.
+1125|Deze taak bestaat niet (verwijderd?).
+1126|Deze eenheid kan hier niet worden gekozen
+1127|Deze eenheid is niet actief
+1128|Tijd
+1129|Tijd van apparatuur
+1130|Tijd van personen
+1131|Tijd van werkcentra
+1132|Urenstaat
+1133|Urenstaten
+1134|Tijdlijn
+1135|Tijdlijngegevens
+1136|Titel
+1137|Totaal
+1138|Totaal incl. btw
+1139|Standaard van het type
+1140|Typ om een product te vinden
+1141|UX/UI
+1142|Uniek
+1143|Eenheid
+1144|Eenheid voor voorraad
+1145|Eenheid van
+1146|Eenheden
+1147|Project bijwerken
+1148|Projectkosten bijwerken
+1149|Percentage gebruiken
+1150|Werkdagen gebruiken
+1151|Gebruikt door {{n}} taak/taken
+1152|Gebruikt voor
+1153|Btw
+1154|Btw %
+1155|Btw inbegrepen
+1156|Btw-tarief
+1157|Btw-tarieven
+1158|Geldig vanaf
+1159|Waarde
+1160|Waardetype
+1161|Waarden
+1162|Variant
+1163|Eigenaar van de variant
+1164|Variantenset
+1165|Sjabloon voor varianttitel
+1166|Variantwaarden
+1167|Varianten
+1168|Leverancier
+1169|Inkoopfactuur
+1170|Inkoopfactuur
+1171|Inkoopfacturen
+1172|In bewerking
+1173|Waarschuwing: {{first}}
+1174|Werkcentrum
+1175|Ja (Waar)
+1176|Ja, herberekenen
+1177|alle
+1178|gewijzigd na het boeken - druk op Boeken (Bewerken)
+1179|product × variant
+1180|project {{project}} · taak {{task}} · {{hours}} u
+1181|project {{project}}, taak {{task}} ({{hours}} u)
+1182|vereisten van de rollen
+1183|rol × variant
+1184|naar CSV
+1185|naar JSON
+1186|incl. btw
+1187|{{count}} regel(s) niet geboekt, de resource is bezet: {{first}}
+1188|{{count}} regel(s) niet geboekt: {{first}}
+1189|{{count}} regel(s) herberekend
+1190|{{count}} niet geboekt: {{first}}
+1191|{{count}} betaling(en) herberekend
+1192|{{count}} producten komen overeen - typ meer
+1193|{{count}} totaal/totalen bijgewerkt
+1194|{{create}} betaling(en) gemaakt, {{update}} gewijzigd, {{remove}} verwijderd
+1195|{{resource}} is op {{day}} dubbel geboekt
+1196|{{resource}} is bezet op {{day}}: {{total}} u van {{capacity}} u (de kalender staat {{capacity}} u toe)
+1197|{{resource}} is bezet op {{day}}: {{total}} u van {{capacity}} u ({{others}} u zijn geboekt door andere taken van uw organisatie)
+1198|{{resource}} is {{hours}} u nodig op {{day}}, maar is al {{booked}} u van {{capacity}} u geboekt in: {{held}}. Kan de taak worden verplaatst of kunnen de uren worden verlaagd?
+1199|{{resource}} is {{hours}} u nodig op {{day}}, maar de kalender van de resource staat die dag {{capacity}} u toe. Kan de taak worden verplaatst of de kalender worden gewijzigd?
+1200|{{resource}}: de kalender heeft geen dag {{day}} (niet gevuld voor dat jaar), dus de {{hours}} u kunnen niet worden gecontroleerd
+1201|{{update}} betaling(en) wijzigen en {{remove}} worden verwijderd. Wat u bij een betaling hebt ingevoerd (data, budgetpost, begunstigde ...) blijft behouden.

@@ -746,3 +746,456 @@
 746|Das ist kein Zeitzonenname, zum Beispiel Europe/Berlin.
 747|Das Tageszeitmodell plant ab dem Projektstart; eine Planung ab dem Endtermin wird darin nicht verwendet.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(die Zeile, von der Sie kommen)
+750|Eine Phase hat keine Zeilen: Wählen Sie eine Aufgabe oder einen Meilenstein, um die Zeilen zu sehen und zu bearbeiten.
+751|Eine Phase hat keine Zeilen: Wählen Sie eine Aufgabe oder einen Meilenstein, um den Plan der Zeilen zu sehen.
+752|Buchhaltung
+753|Aktionen
+754|Erweitert
+755|Alle Varianten
+756|Beträge in
+757|Beträge in der Währung jeder Zeile
+758|Beliebig
+759|Archivieren
+760|Nächste EAN-13 zuweisen
+761|Assistent
+762|Attribute
+763|BIM
+764|Zurück zu {{tab}}
+765|Barcode
+766|Barcodes
+767|Basiseinheit
+768|Basiseinheiten im Gebinde
+769|Chargennummer
+770|Chargen
+771|Buchbare Elemente
+772|Budget
+773|Budgetverteilung
+774|Budgetposition
+775|Budgets
+776|Geschäftseinheit
+777|Nach Budgetposition
+778|Nach Art
+779|Nach Aufgabe
+780|Berechnen
+781|Projekt berechnen
+782|Kann sein
+783|Cashflow
+784|Cashflow: Der Bericht über die gebuchten Zahlungen folgt später.
+785|Katalog
+786|Chat
+787|Prüfungen
+788|Gattung wählen…
+789|Budgetverteilung der Zeile wählen
+790|Wählen Sie zuerst die Eigenschaft
+791|Filter löschen
+792|Verlauf löschen
+793|Suche, Filter und Sortierung löschen
+794|Klicken Sie im Baum auf eine Aufgabe, um ihre Zeilen zu sehen und zu bearbeiten: Zeit, Material, Ausgaben und Erlöse.
+795|Klicken Sie im Baum auf eine Aufgabe, um die gebuchten Tage ihrer Zeilen zu sehen: das Budget, die Vertragssumme und die auf die Arbeitstage verteilte Menge.
+796|Code
+797|Code (UN/ECE, OKEI)
+798|Beschränkung…
+799|Vertrag
+800|Vertragsvorlage
+801|Verträge und Mitarbeiterdaten
+802|Kopiert
+803|Spaltenname kopieren
+804|Zeilen-GUID kopieren
+805|Text kopieren
+806|Kosten
+807|Kosten
+808|Auf Basis der markierten Zeile erstellen
+809|Auf dieser Basis erstellen
+810|Auf Basis dieser Aufgabe erstellen
+811|Neu erstellen
+812|Erzeugt Varianten
+813|Währungen des Projekts
+814|Währung
+815|Kunde
+816|Kundenrechnung
+817|Kundenrechnung
+818|Kundenrechnungen
+819|Standard-MwSt.-Satz
+820|Standardeinstellungen
+821|Standardeinheit
+822|Markierte Zeilen löschen
+823|Liefergegenstand
+824|Abhängigkeitszyklen
+825|Beschreibung
+826|Beschreibungsarten
+827|Deskriptor
+828|Deskriptor-Schlüssel
+829|Deskriptor-Sets
+830|Deskriptorwerte
+831|Deskriptoren
+832|Anzeigetitel
+833|Fertig
+834|Auf einen Ordner ziehen
+835|Markierte Zeile duplizieren
+836|Bearbeitungsoptionen
+837|Name der Aufgabe bearbeiten
+838|E-Mail
+839|Zahl eingeben…
+840|Wert eingeben…
+841|Ausrüstung
+842|Ausrüstungsdaten
+843|Ausrüstung dieses Typs
+844|Ausrüstungstyp
+845|Ausrüstungstyp → Ausrüstung → Eigenschaften + Varianten · {{items}} Ausrüstung · {{types}} Typen · {{variants}} Varianten · {{values}} Eigenschaftswerte
+846|Ausrüstungstypen
+847|Fehler
+848|Alle Aufgaben sind bereits gebucht
+849|Wechselkurs
+850|Ausgabe
+851|Ausgaben
+852|Läuft ab
+853|Exportieren, teilen
+854|Erweitert
+855|Ist
+856|Ist-Erfassung
+857|Ist-Erfassung
+858|Dateien
+859|Füllen
+860|Aus {{kind}}-Zeilen füllen / aktualisieren
+861|Alle Zeilen füllen
+862|Aus Vorlage füllen
+863|Filter
+864|Filtern und sortieren
+865|Finanzen
+866|Enddatum
+867|Vorname
+868|An Breite anpassen
+869|Ordner
+870|Ordner
+871|Für
+872|Gantt
+873|Varianten erzeugen
+874|Gattung
+875|Gehe zu
+876|Gehe zu (Dokumente der markierten Zeile)
+877|Gehe zu (Dokumente der gewählten Aufgabe)
+878|Gehe zu (Dokumente dieser Aufgabe)
+879|Zum Chat
+880|Gehe zu: Wählen Sie zuerst eine Aufgabe
+881|Detailbereich ausblenden
+882|Aufgabenpfad ausblenden
+883|Wie der Katalog aufgebaut ist
+884|Projekt importieren / exportieren
+885|Im Variantentitel
+886|Eingehend
+887|Inventarnr.
+888|Artikelnummer
+889|Kanban
+890|Nachname
+891|Zeile
+892|Zeilen
+893|Logistik
+894|An den Anfang
+895|Ans Ende
+896|Management-Gattung
+897|Hersteller
+898|Arbeit bis zum Stichtag als abgeschlossen markieren
+899|Material
+900|Mitglieder
+901|Meilensteine
+902|Modus
+903|Modell
+904|Monitor01
+905|Mehr
+906|Markierte Zeilen nach unten
+907|Markierte Zeilen nach oben
+908|Name zum Finden des Produkts
+909|Neu
+910|Neue Zeilen erhalten die Filterwerte.
+911|Nein (Falsch)
+912|Keine Budgetposition
+913|Noch keine Daten.
+914|Keine Zeile dieser Aufgabe hat eine Budgetposition. Wählen Sie bei mindestens einer Zeile eine Budgetposition und drücken Sie dann Buchen.
+915|Keine Zeilen
+916|Noch keine Zeilen. Drücken Sie „+ Hinzufügen“.
+917|Keine Treffer gefunden.
+918|Noch keine Zahlungen. Drücken Sie „+ Hinzufügen“ oder füllen Sie sie aus den Zeilen der Aufgabe.
+919|Kein Produkt mit diesem Text
+920|Noch keine Suchen
+921|Keine Aufgabe im Link.
+922|Keine Variante
+923|Nicht berechnet · {{n}}
+924|Nicht gewählt
+925|Nicht festgelegt
+926|Noch nichts gebucht. Wählen Sie eine Budgetposition bei den Zeilen und drücken Sie Buchen (Bearbeiten).
+927|Nichts zu buchen
+928|Nichts zu buchen: Zahlungen hinzufügen
+929|Nichts zu buchen: Budgetposition bei den Zeilen wählen
+930|Nichts zu buchen: Keine Aufgabe hat eine Zeile mit Budgetposition
+931|Zahl
+932|Zahl…
+933|Aus
+934|Auf der Karte
+935|Öffnen
+936|Offen (mit MwSt.)
+937|Sonstiges
+938|Ausgehend
+939|Übersicht
+940|Eigentümer (Rollentyp / Rolle)
+941|Eigentümer (Typ / Produkt)
+942|Eigentum
+943|PDF – alle Daten
+944|PDF – sichtbar
+945|Gebinde
+946|Gebinde
+947|Bezahlt (mit MwSt.)
+948|Übergeordneter Ordner
+949|Partner
+950|Partnervertrag
+951|Zahlung
+952|Zahlungsfakt
+953|Zahlungsfakten
+954|Zahlungen
+955|Zahlungen nicht gebucht
+956|Pro 1 Einheit
+957|Prozent
+958|Zeitraum
+959|Personendaten
+960|Personentyp
+961|Personentyp → Person → Eigenschaften + Varianten · {{persons}} Personen · {{types}} Typen · {{variants}} Varianten · {{values}} Eigenschaftswerte
+962|Personentypen
+963|Personen
+964|Personen dieses Typs
+965|Telefon
+966|Plan
+967|Planzeilen
+968|Geplantes Datum
+969|Buchen
+970|Alle Aufgaben buchen
+971|Alle Aufgaben buchen?
+972|Ungebuchte Aufgaben buchen
+973|Mit Warnung gebucht: Diese Ressourcen sind stärker gebucht, als ihr Kalender erlaubt.
+974|{{count}} Zahlung(en) gebucht
+975|{{lines}} Zeile(n) gebucht · {{rows}} Tageszeile(n)
+976|{{tasks}} Aufgabe(n) gebucht · {{rows}} Tageszeile(n)
+977|Preis
+978|Preisart
+979|Preisarten
+980|Preise
+981|Preisgestaltung
+982|Produkt
+983|Produktkarte
+984|Produktdaten
+985|Wareneingang
+986|Wareneingänge
+987|Produkttitel
+988|Produkttyp
+989|Produkttyp → Produkt → Eigenschaften + Varianten · {{products}} Produkte · {{variants}} Varianten
+990|Produkttypen
+991|Produkte
+992|Produkte und Ordner
+993|Produkte dieses Typs
+994|Produkte pro oberstem Ordner
+995|Produkte pro Typ
+996|Fortschritt
+997|Projektassistent
+998|Eigenschaften
+999|Eigenschaft
+1000|Eigenschaftsset
+1001|Eigenschaftswerte
+1002|Bestellung
+1003|Bestellungen
+1004|Menge
+1005|ROI
+1006|Alle Ausrüstungstabellen neu lesen
+1007|Alle Personentabellen neu lesen
+1008|Alle Produkttabellen neu lesen
+1009|Alle Rollentabellen neu lesen
+1010|Schreibgeschütztes Projekt
+1011|Währungssummen neu berechnen
+1012|Die Summen in der Buchhaltungs- / Budgetwährung jeder Zeile dieses Tabs mit den aktuellen Kursen neu berechnen
+1013|Die Summen in der Buchhaltungs- / Budgetwährung jeder Zahlung dieses Tabs mit den aktuellen Kursen neu berechnen
+1014|Neuberechnung des Projekts
+1015|Zahlungen aktualisieren?
+1016|Projekt aktualisieren
+1017|Berichte
+1018|Erforderlich
+1019|Nicht abgeschlossene Arbeit neu planen
+1020|Ressource
+1021|Ressourcenart
+1022|Ressourcenrollen
+1023|Ressourcen sind belegt
+1024|Erlöse
+1025|Rolle
+1026|Rollenattribute
+1027|Rollendaten
+1028|Rollentitel
+1029|Rollentyp
+1030|Rollentyp → Rolle → Eigenschaften + Varianten + Kosten · {{roles}} Rollen · {{variants}} Varianten · {{costs}} Kostenzeilen
+1031|Rollentypen
+1032|Rollen
+1033|Rollen und Ordner
+1034|Rollen dieses Typs
+1035|Rollen pro oberstem Ordner
+1036|Rollen pro Typ
+1037|SKU
+1038|Einstellungen in der Organisation speichern
+1039|Als Vorlage speichern
+1040|Zum Balken der gewählten Aufgabe scrollen
+1041|Geschäftseinheiten suchen…
+1042|Suchverlauf
+1043|Suchname
+1044|Suchen…
+1045|Wählen Sie zuerst einen Partner
+1046|Aufgabe wählen
+1047|Wählen Sie zuerst ein Arbeitszentrum
+1048|Budgetposition wählen…
+1049|Katalogelement wählen…
+1050|Vertrag wählen…
+1051|Deskriptor wählen…
+1052|Ausrüstungstyp wählen…
+1053|Ausrüstung wählen…
+1054|Partner wählen…
+1055|Zeitraum wählen (Monatsbereich)
+1056|Personentyp wählen…
+1057|Person wählen…
+1058|Produkt wählen…
+1059|Eigenschaft wählen…
+1060|Rollentyp wählen…
+1061|Rolle wählen…
+1062|Vorlage wählen…
+1063|Projektleiter wählen…
+1064|Diese Zeile wählen
+1065|Diese Aufgabe wählen
+1066|Typ wählen…
+1067|Wert wählen…
+1068|Arbeitszentrum wählen…
+1069|Auswählen…
+1070|Verkaufsfähige Artikel
+1071|Seriennr.
+1072|Seriennummer
+1073|Serie
+1074|Set
+1075|Basisplan setzen
+1076|Mehrere Werte
+1077|Teilen
+1078|Teilt Varianten von
+1079|Verschiebung (Tage)
+1080|Verschiebung ab
+1081|Alle anzeigen
+1082|Pfad dieser Aufgabe anzeigen
+1083|Einzelne Einheit
+1084|Sortieren
+1085|Phasen
+1086|Startdatum
+1087|Teilprojekt
+1088|Teilprojekte
+1089|Summe
+1090|Summe für Buchhaltung
+1091|Summe für Budget
+1092|Summe für Vertrag
+1093|Summe mit MwSt.
+1094|Lieferant
+1095|Tabelleneinstellungen
+1096|Tabelleneinstellungen: An Breite anpassen, Standardeinstellungen
+1097|Aufgabenende
+1098|Aufgabeninspektor
+1099|Aufgabenzeile
+1100|Aufgabenpfad
+1101|Aufgabenbeginn
+1102|Aufgaben
+1103|Vorlagen dieser Aufgabe: speichern, füllen, gespeichert
+1104|Gespeicherte Vorlagen
+1105|Text…
+1106|Die Währung der Zeile ist unbekannt: Wählen Sie einen Vertrag oder legen Sie die Vertragswährung des Projekts fest
+1107|Die Währung der Zahlung ist unbekannt: Wählen Sie den Vertrag
+1108|Die Verteilungen werden noch gelesen: Versuchen Sie es gleich noch einmal
+1109|Die Wechselkurse sind noch nicht gelesen
+1110|Die Zeile hat weder Menge noch Summe zum Buchen
+1111|Die Zeilen dieser Ressourcen wurden nicht gebucht. Verschieben Sie die Aufgabe, ändern Sie die Ressource oder verringern Sie die Stunden und drücken Sie dann erneut Buchen.
+1112|Die Zahlungen sind aktuell
+1113|Die Zahlungen können nicht gebucht werden
+1114|Die Zahlungen konnten nicht gebucht werden
+1115|Die gebuchten Tage von {{count}} Aufgabe(n) werden neu berechnet und ersetzt.
+1116|Der Kurs wird für das geplante Datum genommen: Geben Sie ihn ein
+1117|Beginn und Ende dieser Aufgabe kommen aus dem Teilprojekt.
+1118|Die Summen sind aktuell
+1119|Die Aufgabe konnte nicht gebucht werden
+1120|Die Aufgabe hat keine Zeilen dieser Art
+1121|Die Aufgabe hat noch kein Start- und Enddatum
+1122|Die Aufgabe hat Notizen.
+1123|Die Aufgabe wartet auf eine Aufgabe eines anderen Projekts.
+1124|Das Variantenset dieses Eigentümers hat keine erforderlichen Deskriptoren.
+1125|Diese Aufgabe existiert nicht (gelöscht?).
+1126|Diese Einheit kann hier nicht gewählt werden
+1127|Diese Einheit ist nicht aktiv
+1128|Zeit
+1129|Zeit der Ausrüstung
+1130|Zeit der Personen
+1131|Zeit der Arbeitszentren
+1132|Zeiterfassung
+1133|Zeiterfassungen
+1134|Zeitachse
+1135|Zeitachsendaten
+1136|Titel
+1137|Gesamt
+1138|Gesamt mit MwSt.
+1139|Typ-Standard
+1140|Tippen, um ein Produkt zu finden
+1141|UX/UI
+1142|Eindeutig
+1143|Einheit
+1144|Einheit für den Bestand
+1145|Einheit aus
+1146|Einheiten
+1147|Projekt aktualisieren
+1148|Projektkosten aktualisieren
+1149|Prozent verwenden
+1150|Arbeitstage verwenden
+1151|Verwendet von {{n}} Aufgabe(n)
+1152|Verwendet für
+1153|MwSt.
+1154|MwSt. %
+1155|MwSt. enthalten
+1156|MwSt.-Satz
+1157|MwSt.-Sätze
+1158|Gültig ab
+1159|Wert
+1160|Werttyp
+1161|Werte
+1162|Variante
+1163|Variantenbesitzer
+1164|Variantenset
+1165|Vorlage für Variantentitel
+1166|Variantenwerte
+1167|Varianten
+1168|Lieferant
+1169|Lieferantenrechnung
+1170|Lieferantenrechnung
+1171|Lieferantenrechnungen
+1172|In Arbeit
+1173|Warnung: {{first}}
+1174|Arbeitszentrum
+1175|Ja (Wahr)
+1176|Ja, neu berechnen
+1177|alle
+1178|nach dem Buchen geändert – Buchen (Bearbeiten) drücken
+1179|Produkt × Variante
+1180|Projekt {{project}} · Aufgabe {{task}} · {{hours}} h
+1181|Projekt {{project}}, Aufgabe {{task}} ({{hours}} h)
+1182|Anforderungen der Rollen
+1183|Rolle × Variante
+1184|als CSV
+1185|als JSON
+1186|mit MwSt.
+1187|{{count}} Zeile(n) nicht gebucht, die Ressource ist belegt: {{first}}
+1188|{{count}} Zeile(n) nicht gebucht: {{first}}
+1189|{{count}} Zeile(n) neu berechnet
+1190|{{count}} nicht gebucht: {{first}}
+1191|{{count}} Zahlung(en) neu berechnet
+1192|{{count}} Produkte passen – mehr eingeben
+1193|{{count}} Summe(n) aktualisiert
+1194|{{create}} Zahlung(en) erstellt, {{update}} geändert, {{remove}} entfernt
+1195|{{resource}} ist am {{day}} doppelt gebucht
+1196|{{resource}} ist am {{day}} belegt: {{total}} h von {{capacity}} h (der Kalender erlaubt {{capacity}} h)
+1197|{{resource}} ist am {{day}} belegt: {{total}} h von {{capacity}} h ({{others}} h sind durch andere Aufgaben Ihrer Organisation gebucht)
+1198|{{resource}} wird am {{day}} {{hours}} h benötigt, ist aber bereits {{booked}} h von {{capacity}} h gebucht in: {{held}}. Kann die Aufgabe verschoben oder die Stundenzahl verringert werden?
+1199|{{resource}} wird am {{day}} {{hours}} h benötigt, aber der Kalender der Ressource erlaubt an diesem Tag {{capacity}} h. Kann die Aufgabe verschoben oder der Kalender geändert werden?
+1200|{{resource}}: Der Kalender hat keinen Tag {{day}} (für dieses Jahr nicht gefüllt), daher können die {{hours}} h nicht geprüft werden
+1201|{{update}} Zahlung(en) ändern sich und {{remove}} werden entfernt. Was Sie bei einer Zahlung eingegeben haben (Daten, Budgetposition, Zahlungsempfänger ...), bleibt erhalten.

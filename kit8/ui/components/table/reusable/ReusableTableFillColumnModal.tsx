@@ -7,6 +7,7 @@ import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import SelectElementFromCatalog from '../../../../catalog/inner/select_element/SelectElementFromCatalog';
 import type { VisualColumn } from './reusableTableTypes';
 import { optionsOf } from './tableRows';
+import { pmT } from '../../../../pm/i18n/pmT';
 
 export interface ReusableTableFillColumnModalProps {
   visible: boolean;
@@ -50,7 +51,7 @@ export default function ReusableTableFillColumnModal({ visible, col, onCancel, o
             rowOwnerGUID={col.catalogRowOwnerGUID}
             rowParentGUID={col.catalogRowParentGUID}
             scopeFetchByOwner={false}
-            placeholder={col.placeholder ?? 'Select catalog element…'}
+            placeholder={pmT(col.placeholder ?? 'Select catalog element…')}
             {...(col.titleExtractor ? { titleExtractor: col.titleExtractor } : {})}
             {...(col.subtitleExtractor ? { subtitleExtractor: col.subtitleExtractor } : {})}
           />
@@ -103,7 +104,7 @@ export default function ReusableTableFillColumnModal({ visible, col, onCancel, o
               },
             ]}
           >
-            <Text style={{ color: boolVal ? c.primary : c.text, fontWeight: boolVal ? '700' : '500' }}>Yes (True)</Text>
+            <Text style={{ color: boolVal ? c.primary : c.text, fontWeight: boolVal ? '700' : '500' }}>{pmT('Yes (True)')}</Text>
           </Pressable>
           <Pressable
             testID={id('bool-false')}
@@ -116,7 +117,7 @@ export default function ReusableTableFillColumnModal({ visible, col, onCancel, o
               },
             ]}
           >
-            <Text style={{ color: !boolVal ? c.primary : c.text, fontWeight: !boolVal ? '700' : '500' }}>No (False)</Text>
+            <Text style={{ color: !boolVal ? c.primary : c.text, fontWeight: !boolVal ? '700' : '500' }}>{pmT('No (False)')}</Text>
           </Pressable>
         </View>
       );
@@ -129,7 +130,7 @@ export default function ReusableTableFillColumnModal({ visible, col, onCancel, o
           testID={id('input')}
           value={String(val ?? '')}
           onChangeText={setVal}
-          placeholder={col.placeholder ?? (isNumeric ? 'Enter number…' : 'Enter value…')}
+          placeholder={pmT(col.placeholder ?? (isNumeric ? 'Enter number…' : 'Enter value…'))}
           placeholderTextColor={c.text + '70'}
           keyboardType={isNumeric ? 'decimal-pad' : 'default'}
           autoFocus
@@ -164,10 +165,10 @@ export default function ReusableTableFillColumnModal({ visible, col, onCancel, o
 
           <View style={styles.buttonRow}>
             <Pressable testID={id('cancel')} onPress={onCancel} style={[styles.btn, styles.cancelBtn, { borderColor: c.border }]}>
-              <Text style={[styles.btnText, { color: c.text }]}>Cancel</Text>
+              <Text style={[styles.btnText, { color: c.text }]}>{pmT('Cancel')}</Text>
             </Pressable>
             <Pressable testID={id('confirm')} onPress={handleFill} style={[styles.btn, styles.fillBtn, { backgroundColor: c.primary, borderColor: c.primary }]}>
-              <Text style={[styles.btnText, { color: '#ffffff', fontWeight: '700' }]}>Fill</Text>
+              <Text style={[styles.btnText, { color: '#ffffff', fontWeight: '700' }]}>{pmT('Fill')}</Text>
             </Pressable>
           </View>
         </View>

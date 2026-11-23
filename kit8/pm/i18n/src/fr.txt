@@ -746,3 +746,456 @@
 746|Ce n'est pas un nom de fuseau horaire, par exemple Europe/Berlin.
 747|Le modèle de l'heure du jour planifie à partir du début du projet ; une planification depuis la date de fin n'y est pas utilisée.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(la ligne d'où vous venez)
+750|Une étape n'a pas de lignes : sélectionnez une tâche ou un jalon pour voir et modifier ses lignes.
+751|Une étape n'a pas de lignes : sélectionnez une tâche ou un jalon pour voir le plan de ses lignes.
+752|Comptabilité
+753|Actions
+754|Avancé
+755|Toutes les variantes
+756|Montants en
+757|Montants dans la devise de chaque ligne
+758|Tous
+759|Archiver
+760|Attribuer le prochain EAN-13
+761|Assistant
+762|Attributs
+763|BIM
+764|Retour à {{tab}}
+765|Code-barres
+766|Codes-barres
+767|Unité de base
+768|Unités de base dans le colis
+769|Numéro de lot
+770|Lots
+771|Éléments réservables
+772|Budget
+773|Répartition du budget
+774|Poste budgétaire
+775|Budgets
+776|Unité commerciale
+777|Par poste budgétaire
+778|Par type
+779|Par tâche
+780|Calculer
+781|Calculer le projet
+782|Peut être
+783|Flux de trésorerie
+784|Flux de trésorerie : le rapport des paiements comptabilisés viendra plus tard.
+785|Catalogue
+786|Chat
+787|Contrôles
+788|Choisir un genre…
+789|Choisir la répartition du budget de la ligne
+790|Choisissez d'abord la propriété
+791|Effacer le filtre
+792|Effacer l'historique
+793|Effacer la recherche, les filtres et le tri
+794|Cliquez sur une tâche dans l'arbre pour voir et modifier ses lignes : temps, matériel, dépenses et revenus.
+795|Cliquez sur une tâche dans l'arbre pour voir les jours comptabilisés de ses lignes : le budget, le montant du contrat et la quantité répartie sur les jours ouvrés.
+796|Code
+797|Code (UN/ECE, OKEI)
+798|Contrainte…
+799|Contrat
+800|Modèle de contrat
+801|Contrats et données de l'employé
+802|Copié
+803|Copier le nom de l'en-tête
+804|Copier le GUID de la ligne
+805|Copier le texte
+806|Coût
+807|Coûts
+808|Créer à partir de la ligne cochée
+809|Créer à partir de ceci
+810|Créer à partir de cette tâche
+811|Créer
+812|Crée des variantes
+813|Devises du projet
+814|Devise
+815|Client
+816|Facture client
+817|Facture client
+818|Factures clients
+819|Taux de TVA par défaut
+820|Paramètres par défaut
+821|Unité par défaut
+822|Supprimer les lignes sélectionnées
+823|Livrable
+824|Cycles de dépendances
+825|Description
+826|Modes de description
+827|Descripteur
+828|Clé du descripteur
+829|Jeux de descripteurs
+830|Valeurs de descripteur
+831|Descripteurs
+832|Titre affiché
+833|Terminé
+834|Glisser sur un dossier
+835|Dupliquer la ligne sélectionnée
+836|Options de modification
+837|Modifier le nom de la tâche
+838|E-mail
+839|Saisir un nombre…
+840|Saisir une valeur…
+841|Équipement
+842|Données d'équipement
+843|Équipements de ce type
+844|Type d'équipement
+845|Type d'équipement → équipement → propriétés + variantes · {{items}} équipements · {{types}} types · {{variants}} variantes · {{values}} valeurs de propriété
+846|Types d'équipement
+847|Erreurs
+848|Toutes les tâches sont déjà comptabilisées
+849|Taux de change
+850|Dépense
+851|Dépenses
+852|Expire
+853|Exporter, partager
+854|Étendu
+855|Réel
+856|Saisie du réel
+857|Saisie du réel
+858|Fichiers
+859|Remplir
+860|Remplir / actualiser à partir des lignes {{kind}}
+861|Remplir toutes les lignes
+862|Remplir à partir d'un modèle
+863|Filtre
+864|Filtrer et trier
+865|Finances
+866|Date de fin
+867|Prénom
+868|Ajuster à la largeur
+869|Dossier
+870|Dossiers
+871|Pour
+872|Gantt
+873|Générer des variantes
+874|Genre
+875|Aller à
+876|Aller à (documents de la ligne cochée)
+877|Aller à (documents de la tâche sélectionnée)
+878|Aller à (documents de cette tâche)
+879|Aller au chat
+880|Aller à : sélectionnez d'abord une tâche
+881|Masquer le volet de détails
+882|Masquer le chemin de la tâche
+883|Comment le catalogue est construit
+884|Importer / exporter le projet
+885|Dans le titre de la variante
+886|Entrant
+887|N° d'inventaire
+888|Numéro d'article
+889|Kanban
+890|Nom
+891|Ligne
+892|Lignes
+893|Logistique
+894|Placer en premier
+895|Placer en dernier
+896|Genre de gestion
+897|Fabricant
+898|Marquer le travail comme terminé jusqu'à la date d'état
+899|Matériel
+900|Membres
+901|Jalons
+902|Mode
+903|Modèle
+904|Monitor01
+905|Plus
+906|Descendre les lignes sélectionnées
+907|Monter les lignes sélectionnées
+908|Nom utilisé pour trouver le produit
+909|Nouveau
+910|Les nouvelles lignes reçoivent les valeurs du filtre.
+911|Non (Faux)
+912|Aucun poste budgétaire
+913|Pas encore de données.
+914|Aucune ligne de cette tâche n'a de poste budgétaire. Choisissez un poste budgétaire sur au moins une ligne, puis appuyez sur Valider.
+915|Aucune ligne
+916|Pas encore de lignes. Appuyez sur « + Ajouter ».
+917|Aucun résultat.
+918|Pas encore de paiements. Appuyez sur « + Ajouter » ou remplissez-les à partir des lignes de la tâche.
+919|Aucun produit avec ce texte
+920|Pas encore de recherches
+921|Aucune tâche dans le lien.
+922|Aucune variante
+923|Non calculé · {{n}}
+924|Non choisi
+925|Non défini
+926|Rien de comptabilisé pour le moment. Choisissez un poste budgétaire sur les lignes et appuyez sur Valider (Modifier).
+927|Rien à comptabiliser
+928|Rien à comptabiliser : ajoutez des paiements
+929|Rien à comptabiliser : choisissez un poste budgétaire sur les lignes
+930|Rien à comptabiliser : aucune tâche n'a de ligne avec un poste budgétaire
+931|Nombre
+932|Nombre…
+933|Désactivé
+934|Sur la fiche
+935|Ouvrir
+936|Ouvert (TVA incluse)
+937|Autre
+938|Sortant
+939|Aperçu
+940|Propriétaire (type de rôle / rôle)
+941|Propriétaire (type / produit)
+942|Propriété
+943|PDF - toutes les données
+944|PDF - visible
+945|Colis
+946|Colis
+947|Payé (TVA incluse)
+948|Dossier parent
+949|Partenaire
+950|Contrat du partenaire
+951|Paiement
+952|Fait de paiement
+953|Faits de paiement
+954|Paiements
+955|Paiements non comptabilisés
+956|Par unité
+957|Pourcentage
+958|Période
+959|Données des personnes
+960|Type de personne
+961|Type de personne → personne → propriétés + variantes · {{persons}} personnes · {{types}} types · {{variants}} variantes · {{values}} valeurs de propriété
+962|Types de personne
+963|Personnes
+964|Personnes de ce type
+965|Téléphone
+966|Plan
+967|Lignes du plan
+968|Date prévue
+969|Valider
+970|Valider toutes les tâches
+971|Valider toutes les tâches ?
+972|Valider les tâches non validées
+973|Validé avec un avertissement : ces ressources sont réservées au-delà de ce que permet leur calendrier.
+974|{{count}} paiement(s) comptabilisé(s)
+975|{{lines}} ligne(s) comptabilisée(s) · {{rows}} ligne(s) de jour
+976|{{tasks}} tâche(s) comptabilisée(s) · {{rows}} ligne(s) de jour
+977|Prix
+978|Type de prix
+979|Types de prix
+980|Prix
+981|Tarification
+982|Produit
+983|Fiche produit
+984|Données produit
+985|Réception de produits
+986|Réceptions de produits
+987|Titre du produit
+988|Type de produit
+989|Type de produit → produit → propriétés + variantes · {{products}} produits · {{variants}} variantes
+990|Types de produit
+991|Produits
+992|Produits et dossiers
+993|Produits de ce type
+994|Produits par dossier racine
+995|Produits par type
+996|Avancement
+997|Assistant de projet
+998|Propriétés
+999|Propriété
+1000|Jeu de propriétés
+1001|Valeurs de propriété
+1002|Bon de commande
+1003|Bons de commande
+1004|Qté
+1005|ROI
+1006|Relire toutes les tables d'équipement
+1007|Relire toutes les tables de personnes
+1008|Relire toutes les tables de produits
+1009|Relire toutes les tables de rôles
+1010|Projet en lecture seule
+1011|Recalculer les sommes en devise
+1012|Recalculer avec les taux actuels les sommes en devise comptable / budgétaire de chaque ligne de cet onglet
+1013|Recalculer avec les taux actuels les sommes en devise comptable / budgétaire de chaque paiement de cet onglet
+1014|Recalcul du projet
+1015|Actualiser les paiements ?
+1016|Actualiser le projet
+1017|Rapports
+1018|Obligatoire
+1019|Replanifier le travail non terminé
+1020|Ressource
+1021|Type de ressource
+1022|Rôles de ressource
+1023|Les ressources sont occupées
+1024|Revenus
+1025|Rôle
+1026|Attributs du rôle
+1027|Données des rôles
+1028|Titre du rôle
+1029|Type de rôle
+1030|Type de rôle → rôle → propriétés + variantes + coût · {{roles}} rôles · {{variants}} variantes · {{costs}} lignes de coût
+1031|Types de rôle
+1032|Rôles
+1033|Rôles et dossiers
+1034|Rôles de ce type
+1035|Rôles par dossier racine
+1036|Rôles par type
+1037|UGS
+1038|Enregistrer les paramètres dans l'organisation
+1039|Enregistrer comme modèle
+1040|Défiler jusqu'à la barre de la tâche sélectionnée
+1041|Rechercher des unités commerciales…
+1042|Historique de recherche
+1043|Nom de recherche
+1044|Rechercher…
+1045|Sélectionnez d'abord un partenaire
+1046|Sélectionnez une tâche
+1047|Sélectionnez d'abord un centre de travail
+1048|Sélectionner un poste budgétaire…
+1049|Sélectionner un élément du catalogue…
+1050|Sélectionner un contrat…
+1051|Sélectionner un descripteur…
+1052|Sélectionner un type d'équipement…
+1053|Sélectionner un équipement…
+1054|Sélectionner un partenaire…
+1055|Sélectionner la période (une plage de mois)
+1056|Sélectionner un type de personne…
+1057|Sélectionner une personne…
+1058|Sélectionner un produit…
+1059|Sélectionner une propriété…
+1060|Sélectionner un type de rôle…
+1061|Sélectionner un rôle…
+1062|Sélectionner un modèle…
+1063|Sélectionner le chef de projet...
+1064|Sélectionner cette ligne
+1065|Sélectionner cette tâche
+1066|Sélectionner un type…
+1067|Sélectionner une valeur…
+1068|Sélectionner un centre de travail…
+1069|Sélectionner…
+1070|Articles vendables
+1071|N° de série
+1072|Numéro de série
+1073|Série
+1074|Jeu
+1075|Définir la planification initiale
+1076|Plusieurs valeurs
+1077|Partager
+1078|Partage les variantes de
+1079|Décalage (jours)
+1080|Décalage à partir de
+1081|Tout afficher
+1082|Afficher le chemin de cette tâche
+1083|Unité simple
+1084|Trier
+1085|Étapes
+1086|Date de début
+1087|Sous-projet
+1088|Sous-projets
+1089|Somme
+1090|Somme comptable
+1091|Somme budgétaire
+1092|Somme du contrat
+1093|Somme TVA incluse
+1094|Fournisseur
+1095|Paramètres du tableau
+1096|Paramètres du tableau : ajuster à la largeur, paramètres par défaut
+1097|Fin de la tâche
+1098|Inspecteur de tâche
+1099|Ligne de tâche
+1100|Chemin de la tâche
+1101|Début de la tâche
+1102|Tâches
+1103|Modèles de cette tâche : enregistrer, remplir, enregistrés
+1104|Modèles enregistrés
+1105|Texte…
+1106|La devise de la ligne est inconnue : choisissez un contrat ou définissez la devise de contrat du projet
+1107|La devise du paiement est inconnue : choisissez le contrat
+1108|Les répartitions sont encore en cours de lecture : réessayez dans un instant
+1109|Les taux de change ne sont pas encore lus
+1110|La ligne n'a ni quantité ni somme à comptabiliser
+1111|Les lignes de ces ressources n'ont pas été comptabilisées. Déplacez la tâche, changez la ressource ou réduisez les heures, puis appuyez de nouveau sur Valider.
+1112|Les paiements sont à jour
+1113|Les paiements ne peuvent pas être comptabilisés
+1114|Les paiements n'ont pas pu être comptabilisés
+1115|Les jours comptabilisés de {{count}} tâche(s) seront recalculés et remplacés.
+1116|Le taux est pris pour la date prévue : saisissez-le
+1117|Le début et la fin de cette tâche proviennent du sous-projet.
+1118|Les sommes sont à jour
+1119|La tâche n'a pas pu être comptabilisée
+1120|La tâche n'a pas de lignes de ce genre
+1121|La tâche n'a pas encore de date de début et de fin
+1122|La tâche a des notes.
+1123|La tâche attend une tâche d'un autre projet.
+1124|Le jeu de variantes de ce propriétaire n'a pas de descripteurs obligatoires.
+1125|Cette tâche n'existe pas (supprimée ?).
+1126|Cette unité ne peut pas être choisie ici
+1127|Cette unité n'est pas active
+1128|Temps
+1129|Temps des équipements
+1130|Temps des personnes
+1131|Temps des centres de travail
+1132|Feuille de temps
+1133|Feuilles de temps
+1134|Chronologie
+1135|Données de la chronologie
+1136|Titre
+1137|Total
+1138|Total TVA incluse
+1139|Défaut du type
+1140|Saisissez pour trouver un produit
+1141|UX/UI
+1142|Unique
+1143|Unité
+1144|Unité de stock
+1145|Unité de
+1146|Unités
+1147|Mettre à jour le projet
+1148|Mettre à jour le coût du projet
+1149|Utiliser le pourcentage
+1150|Utiliser les jours ouvrés
+1151|Utilisé par {{n}} tâche(s)
+1152|Utilisé pour
+1153|TVA
+1154|TVA %
+1155|TVA incluse
+1156|Taux de TVA
+1157|Taux de TVA
+1158|Valable à partir du
+1159|Valeur
+1160|Type de valeur
+1161|Valeurs
+1162|Variante
+1163|Propriétaire de la variante
+1164|Jeu de variantes
+1165|Modèle de titre de variante
+1166|Valeurs de variante
+1167|Variantes
+1168|Fournisseur
+1169|Facture fournisseur
+1170|Facture fournisseur
+1171|Factures fournisseurs
+1172|En cours
+1173|Avertissement : {{first}}
+1174|Centre de travail
+1175|Oui (Vrai)
+1176|Oui, recalculer
+1177|tout
+1178|modifié après validation - appuyez sur Valider (Modifier)
+1179|produit × variante
+1180|projet {{project}} · tâche {{task}} · {{hours}} h
+1181|projet {{project}}, tâche {{task}} ({{hours}} h)
+1182|exigences des rôles
+1183|rôle × variante
+1184|en CSV
+1185|en JSON
+1186|TVA incluse
+1187|{{count}} ligne(s) non comptabilisée(s), la ressource est occupée : {{first}}
+1188|{{count}} ligne(s) non comptabilisée(s) : {{first}}
+1189|{{count}} ligne(s) recalculée(s)
+1190|{{count}} non comptabilisé(s) : {{first}}
+1191|{{count}} paiement(s) recalculé(s)
+1192|{{count}} produits correspondent - saisissez plus
+1193|{{count}} total(aux) mis à jour
+1194|{{create}} paiement(s) créé(s), {{update}} modifié(s), {{remove}} supprimé(s)
+1195|{{resource}} est réservé deux fois le {{day}}
+1196|{{resource}} est occupé le {{day}} : {{total}} h sur {{capacity}} h (le calendrier autorise {{capacity}} h)
+1197|{{resource}} est occupé le {{day}} : {{total}} h sur {{capacity}} h ({{others}} h sont réservées par d'autres tâches de votre organisation)
+1198|{{resource}} est nécessaire {{hours}} h le {{day}}, mais est déjà réservé {{booked}} h sur {{capacity}} h dans : {{held}}. La tâche peut-elle être déplacée ou les heures réduites ?
+1199|{{resource}} est nécessaire {{hours}} h le {{day}}, mais le calendrier de la ressource autorise {{capacity}} h ce jour-là. La tâche peut-elle être déplacée ou le calendrier modifié ?
+1200|{{resource}} : le calendrier n'a pas le jour {{day}} (non rempli pour cette année), les {{hours}} h ne peuvent donc pas être vérifiées
+1201|{{update}} paiement(s) vont changer et {{remove}} seront supprimés. Ce que vous avez saisi sur un paiement (dates, poste budgétaire, bénéficiaire ...) est conservé.

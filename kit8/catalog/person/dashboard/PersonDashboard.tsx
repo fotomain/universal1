@@ -35,6 +35,7 @@ import { PERSON_DASHBOARD_GROUPS, PERSON_DASHBOARD_TABLE_ORDER, PERSON_TABLE_KEY
 import { usePersonCatalogData } from './usePersonCatalogData';
 import { useBusinessUnitColumn } from '../../business_unit/useBusinessUnitColumn';
 import { buildPersonTables, computePersonRowJSON, matchesScopeFilters, newRowFromPersonFilters, ScopeFilterDef } from './personDashboardTables';
+import { pmT, usePMLanguage } from '../../../pm/i18n/pmT';
 
 type Tab = 'checks' | PersonTableKey;
 /** where a table was opened from (a row menu: Properties, Variants ...): the back arrow of the table returns there */
@@ -42,6 +43,7 @@ interface Origin { tab: Tab; rowGUID?: string }
 const isTableKey = (t: unknown): t is PersonTableKey => typeof t === 'string' && (PERSON_TABLE_KEYS as string[]).includes(t);
 
 export default function PersonDashboard() {
+  usePMLanguage();
   const { themeColors: c } = useDesignSystem();
   const dispatch = useDispatch();
   const router = useRouter();
@@ -121,7 +123,7 @@ export default function PersonDashboard() {
           borderColor: active ? c.primary : c.border, borderLeftColor: active ? c.primary : 'transparent',
         }]}>
         <IconApp name={icon} size={16} color={active ? c.primary : c.text} />
-        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{pmT(label)}</Text>
         {n !== undefined && <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }}>{n}</Text>}
         {!!bad && <View testID={`person-nav-${key}-issues`} style={[styles.badge, { backgroundColor: c.error }]}><Text style={styles.badgeText}>{bad}</Text></View>}
       </Pressable>
@@ -132,7 +134,7 @@ export default function PersonDashboard() {
       {navItem('checks', 'Checks', 'fact_check', issues.length, errors || undefined)}
       {PERSON_DASHBOARD_GROUPS.map((g) => (
         <React.Fragment key={g}>
-          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{g}</Text>}
+          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{pmT(g)}</Text>}
           {PERSON_DASHBOARD_TABLE_ORDER.filter((k) => tables[k].group === g).map((k) => navItem(k, tables[k].title, tables[k].icon, (data as any)[k]?.length, (issuesPerTable[k] || []).filter((i) => i.severity === 'error').length || undefined))}
         </React.Fragment>
       ))}
@@ -150,7 +152,7 @@ export default function PersonDashboard() {
   // ---- Checks ----
   const checksView = (
     <View style={{ gap: 8 }} testID="person-checks">
-      <Text style={[styles.h2, { color: c.text }]}>Checks</Text>
+      <Text style={[styles.h2, { color: c.text }]}>{pmT('Checks')}</Text>
       <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>
         {issues.length === 0 ? 'No problems found.' : `${issues.length} finding${issues.length === 1 ? '' : 's'}: ${errors} error${errors === 1 ? '' : 's'}.`} Press a line to open its table.
       </Text>
@@ -159,7 +161,7 @@ export default function PersonDashboard() {
           style={[styles.issueBar, { borderColor: (i.severity === 'error' ? c.error : '#f59e0b') + '66', backgroundColor: (i.severity === 'error' ? c.error : '#f59e0b') + '0f' }]}>
           <IconApp name={i.severity === 'error' ? 'error' : 'warning'} size={16} color={i.severity === 'error' ? c.error : '#f59e0b'} />
           <Text style={{ color: c.text, flex: 1 }}><Text style={{ fontWeight: '700' }}>{i.rule}</Text> · {i.message}</Text>
-          <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }} numberOfLines={1}>{PERSON_RULES[i.rule] ? '' : ''}{tables[i.table]?.title}</Text>
+          <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }} numberOfLines={1}>{PERSON_RULES[i.rule] ? '' : ''}{pmT(tables[i.table]?.title ?? '')}</Text>
         </Pressable>
       ))}
     </View>
@@ -170,19 +172,19 @@ export default function PersonDashboard() {
     <View style={{ gap: 10 }}>
       <View style={styles.tableHead}>
         {origin && origin.tab !== tableKey && (
-          <PMIconButton tipScope="app" testID="person-table-back" icon="arrow_back" title={`Back to ${tabTitle(origin.tab)}${origin.rowGUID ? ' (the row you came from)' : ''}`} color={c.primary} onPress={goBack} />
+          <PMIconButton tipScope="app" testID="person-table-back" icon="arrow_back" title={pmT('Back to {{tab}}', { tab: pmT(tabTitle(origin.tab)) }) + (origin.rowGUID ? ` ${pmT('(the row you came from)')}` : '')} color={c.primary} onPress={goBack} />
         )}
         <IconApp name={cfg.icon} size={22} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text testID="person-table-title" style={[styles.h2, { color: c.text }]}>{cfg.title}</Text>
-          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{PERSON_TABLES[tableKey].purpose}</Text>
+          <Text testID="person-table-title" style={[styles.h2, { color: c.text }]}>{pmT(cfg.title)}</Text>
+          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{pmT(PERSON_TABLES[tableKey].purpose)}</Text>
         </View>
       </View>
       {(issuesPerTable[tableKey] || []).length > 0 && (
         <Pressable testID="person-table-issues" onPress={() => go('checks')} style={[styles.issueBar, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
           <IconApp name="warning" size={16} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>{(issuesPerTable[tableKey] || []).length} check{(issuesPerTable[tableKey] || []).length === 1 ? '' : 's'} need attention in this table: {(issuesPerTable[tableKey] || [])[0].message}</Text>
-          <Text style={{ color: c.primary, fontWeight: '700' }}>Checks</Text>
+          <Text style={{ color: c.primary, fontWeight: '700' }}>{pmT('Checks')}</Text>
         </Pressable>
       )}
       {cfg.filters.length > 0 && (
@@ -194,13 +196,13 @@ export default function PersonDashboard() {
               <View key={f.key} style={[styles.filterChip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary + '14' : c.surface }]}>
                 <Pressable testID={`person-filter-${f.key}`} onPress={() => setPickFilter(f)} style={styles.filterPress}>
                   <IconApp name="filter_alt" size={14} color={on ? c.primary : c.text} />
-                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{f.label}: {on ? optionLabel(f.options, v) : 'all'}</Text>
+                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{pmT(f.label)}: {on ? optionLabel(f.options, v) : pmT('all')}</Text>
                 </Pressable>
                 {on && <Pressable testID={`person-filter-${f.key}-clear`} onPress={() => setFilter(f.key, null)} hitSlop={6}><IconApp name="close" size={14} color={c.primary} /></Pressable>}
               </View>
             );
           })}
-          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>New rows get the filter values.</Text>}
+          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('New rows get the filter values.')}</Text>}
         </View>
       )}
       <ReusableTable
@@ -241,8 +243,8 @@ export default function PersonDashboard() {
       <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
         <IconApp name="badge" size={24} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.h1, { color: c.text }]}>Persons</Text>
-          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Person type → person → properties + variants · {data.person.length} persons · {data.personType.length} types · {data.variant.length} variants · {data.propertyValue.length} property values</Text>
+          <Text style={[styles.h1, { color: c.text }]}>{pmT('Persons')}</Text>
+          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Person type → person → properties + variants · {{persons}} persons · {{types}} types · {{variants}} variants · {{values}} property values', { persons: data.person.length, types: data.personType.length, variants: data.variant.length, values: data.propertyValue.length })}</Text>
         </View>
         <PMIconButton tipScope="app" testID="person-generate-variants-header" icon="library_add" title="Generate variants" color={c.primary} onPress={() => setGenerateFor(null)} />
         <PMIconButton tipScope="app" testID="person-reload" icon="refresh" title="Read all person tables again" color={c.text} onPress={reload} />

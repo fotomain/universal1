@@ -2399,7 +2399,7 @@ const resources = {
         developer1: 'Izstrādātājs 1',
         mediaPosts: 'Multivides ieraksti',
         record: 'Ierakstīt',
-        play: 'Atskaņot',
+        play: 'Ierakstīt',
         scan: 'Skenēt',
         chat: 'Tērzēšana',
         catalogs: 'Katalogi',

@@ -11,6 +11,7 @@ import DateInputApp from '../../common/date_input/DateInputApp';
 import { defaultFormatDateInput, defaultParseDateInput } from '../../common/date_input/dateInputFormat';
 import CalculatorTrigger from '../../calculator/CalculatorTrigger';
 import type { CalculatorTriggerHandle } from '../../calculator/CalculatorTrigger';
+import { pmT } from '../../../../pm/i18n/pmT';
 
 export interface ReusableTableCellProps {
   col: VisualColumn;
@@ -60,7 +61,7 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
         {col.renderPicker ? (
           <View style={styles.pickerWrap}>
             {col.renderPicker({
-              testID: id, value: value ?? null, onChange: (guid) => onChange(col.key, guid), disabled: !editable || waitsForParent, compact: !!dense, placeholder: col.placeholder, row,
+              testID: id, value: value ?? null, onChange: (guid) => onChange(col.key, guid), disabled: !editable || waitsForParent, compact: !!dense, placeholder: col.placeholder ? pmT(col.placeholder) : undefined, row,
               triggerStyle: { ...(col.detailsRoute ? { paddingRight: 2 } : {}), borderRadius: radius, borderWidth: border, ...(bordered ? {} : { backgroundColor: 'transparent' }) },
             })}
           </View>
@@ -79,7 +80,7 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
           compact={dense}
           triggerStyle={{ ...(col.detailsRoute ? { paddingRight: 2 } : {}), borderRadius: radius, borderWidth: border, ...(bordered ? {} : { backgroundColor: 'transparent' }) }}
           filterItem={col.filterItem ? (catalogRow: any) => col.filterItem!(catalogRow, row) : undefined}
-          placeholder={col.placeholder ?? 'Select…'}
+          placeholder={pmT(col.placeholder ?? 'Select…')}
           disabled={!editable || waitsForParent}
           disabledMessage={waitsForParent ? col.dependsOnMessage ?? 'Fill the previous column first' : undefined}
           {...(col.titleExtractor ? { titleExtractor: col.titleExtractor } : {})}
@@ -100,9 +101,9 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
 
   if (col.type === 'integer' || col.type === 'number') {
     if (col.renderNumber && editable) {
-      return <>{col.renderNumber({ testID: id, value, editable, integer: col.type === 'integer', min: col.min, max: col.max, radius, border, h, stepper: col.stepper !== false, step: col.step, placeholder: col.placeholder, align: col.align ?? (col.stepper !== false ? 'center' : 'right'), onCommit: (n) => onChange(col.key, n), calculator: col.calculator })}</>;
+      return <>{col.renderNumber({ testID: id, value, editable, integer: col.type === 'integer', min: col.min, max: col.max, radius, border, h, stepper: col.stepper !== false, step: col.step, placeholder: col.placeholder ? pmT(col.placeholder) : undefined, align: col.align ?? (col.stepper !== false ? 'center' : 'right'), onCommit: (n) => onChange(col.key, n), calculator: col.calculator })}</>;
     }
-    return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} calculator={col.calculator} onCommit={(n) => onChange(col.key, n)} />;
+    return <NumberCell testID={id} value={value} editable={editable} integer={col.type === 'integer'} min={col.min} max={col.max} radius={radius} border={border} h={h} stepper={col.stepper !== false} step={col.step} placeholder={col.placeholder ? pmT(col.placeholder) : undefined} align={col.align ?? (col.stepper !== false ? 'center' : 'right')} calculator={col.calculator} onCommit={(n) => onChange(col.key, n)} />;
   }
 
   if (col.type === 'boolean') {
@@ -124,7 +125,7 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
     const shown = selectedValues.map((v) => optionLabel(options, v)).join(', ');
     const dot = !multi && selectedValues[0] ? options.find((o) => o.value === selectedValues[0])?.color : undefined;
     return (
-      <OptionCell testID={id} title={col.title} shown={shown} dot={dot} placeholder={col.placeholder ?? (multi ? 'Select…' : 'Select…')} editable={editable} h={h} radius={radius} border={border}
+      <OptionCell testID={id} title={col.title} shown={shown} dot={dot} placeholder={pmT(col.placeholder ?? 'Select…')} editable={editable} h={h} radius={radius} border={border}
         options={options} multi={multi} selected={selectedValues} allowEmpty={col.type === 'select' ? col.allowEmpty !== false : true}
         onCommit={(next) => onChange(col.key, multi ? next : next[0] ?? null)} />
     );
@@ -144,13 +145,13 @@ export default function ReusableTableCell({ col, columns, row, rowIndex, onChang
   }
 
   if (col.type === 'date' && col.picker && editable) {
-    return <DatePickerCell testID={id} value={value} placeholder={col.placeholder} onCommit={(t) => onChange(col.key, t)} />;
+    return <DatePickerCell testID={id} value={value} placeholder={col.placeholder ? pmT(col.placeholder) : undefined} onCommit={(t) => onChange(col.key, t)} />;
   }
   if (col.type === 'date') {
     return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder ?? 'YYYY-MM-DD'} align={align} onCommit={(t) => onChange(col.key, t.trim() === '' ? null : t.trim())} />;
   }
 
-  return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder} align={align} onCommit={(t) => onChange(col.key, t)} />;
+  return <TextCell radius={radius} border={border} h={h} testID={id} value={value} editable={editable} placeholder={col.placeholder ? pmT(col.placeholder) : undefined} align={align} onCommit={(t) => onChange(col.key, t)} />;
 }
 
 /** select / multiSelect: the chosen labels; a press opens the picker */
@@ -201,8 +202,8 @@ function JsonCell({ testID, title, value, editable, h, onCommit }: { testID: str
                 style={[styles.jsonInput, { color: c.text, borderColor: error ? c.error : c.border }]} />
               {!!error && <Text testID={`${testID}-error`} style={{ color: c.error, marginTop: 6 }}>{error}</Text>}
               <View style={styles.jsonButtons}>
-                <Pressable testID={`${testID}-cancel`} onPress={() => setDraft(null)} style={[styles.jsonBtn, { borderColor: c.border }]}><Text style={{ color: c.text }}>Cancel</Text></Pressable>
-                {editable && <Pressable testID={`${testID}-save`} onPress={save} style={[styles.jsonBtn, { borderColor: c.primary, backgroundColor: c.primary }]}><Text style={{ color: '#fff', fontWeight: '700' }}>Save</Text></Pressable>}
+                <Pressable testID={`${testID}-cancel`} onPress={() => setDraft(null)} style={[styles.jsonBtn, { borderColor: c.border }]}><Text style={{ color: c.text }}>{pmT('Cancel')}</Text></Pressable>
+                {editable && <Pressable testID={`${testID}-save`} onPress={save} style={[styles.jsonBtn, { borderColor: c.primary, backgroundColor: c.primary }]}><Text style={{ color: '#fff', fontWeight: '700' }}>{pmT('Save')}</Text></Pressable>}
               </View>
             </Pressable>
           </Pressable>

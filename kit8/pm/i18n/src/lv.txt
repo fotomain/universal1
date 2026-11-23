@@ -746,3 +746,456 @@
 746|Tas nav laika joslas nosaukums, piemēram, Europe/Berlin.
 747|Diennakts laika modelis plāno no projekta sākuma; plānošana no beigu datuma tajā netiek izmantota.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(rinda, no kuras atnācāt)
+750|Posmam nav rindu: izvēlieties uzdevumu vai atskaites punktu, lai redzētu un rediģētu tā rindas.
+751|Posmam nav rindu: izvēlieties uzdevumu vai atskaites punktu, lai redzētu tā rindu plānu.
+752|Grāmatvedība
+753|Darbības
+754|Papildu
+755|Visi varianti
+756|Summas valūtā
+757|Summas katras rindas valūtā
+758|Jebkurš
+759|Arhivēt
+760|Piešķirt nākamo EAN-13
+761|Palīgs
+762|Atribūti
+763|BIM
+764|Atpakaļ uz {{tab}}
+765|Svītrkods
+766|Svītrkodi
+767|Pamatvienība
+768|Pamatvienības iepakojumā
+769|Partijas numurs
+770|Partijas
+771|Rezervējamie elementi
+772|Budžets
+773|Budžeta sadalījums
+774|Budžeta postenis
+775|Budžeti
+776|Uzņēmējdarbības vienība
+777|Pēc budžeta posteņa
+778|Pēc veida
+779|Pēc uzdevuma
+780|Aprēķināt
+781|Aprēķināt projektu
+782|Var būt
+783|Naudas plūsma
+784|Naudas plūsma: grāmatoto maksājumu pārskats būs vēlāk.
+785|Katalogs
+786|Tērzēšana
+787|Pārbaudes
+788|Izvēlieties veidu…
+789|Izvēlieties rindas budžeta sadalījumu
+790|Vispirms izvēlieties īpašību
+791|Notīrīt filtru
+792|Notīrīt vēsturi
+793|Notīrīt meklēšanu, filtrus un kārtošanu
+794|Noklikšķiniet uz uzdevuma kokā, lai redzētu un rediģētu tā rindas: laiks, materiāli, izdevumi un ieņēmumi.
+795|Noklikšķiniet uz uzdevuma kokā, lai redzētu tā rindu grāmatotās dienas: budžetu, līguma summu un darba dienās sadalīto daudzumu.
+796|Kods
+797|Kods (UN/ECE, OKEI)
+798|Ierobežojums…
+799|Līgums
+800|Līguma sagatave
+801|Līgumi un darbinieka dati
+802|Nokopēts
+803|Kopēt galvenes nosaukumu
+804|Kopēt rindas GUID
+805|Kopēt tekstu
+806|Izmaksas
+807|Izmaksas
+808|Izveidot, pamatojoties uz atzīmēto rindu
+809|Izveidot, pamatojoties uz šo
+810|Izveidot, pamatojoties uz šo uzdevumu
+811|Izveidot jaunu
+812|Izveido variantus
+813|Projekta valūtas
+814|Valūta
+815|Klients
+816|Klienta rēķins
+817|Klienta rēķins
+818|Klientu rēķini
+819|Noklusējuma PVN likme
+820|Noklusējuma iestatījumi
+821|Noklusējuma vienība
+822|Dzēst atlasītās rindas
+823|Rezultāts
+824|Atkarību cikli
+825|Apraksts
+826|Apraksta režīmi
+827|Deskriptors
+828|Deskriptora atslēga
+829|Deskriptoru kopas
+830|Deskriptoru vērtības
+831|Deskriptori
+832|Rādāmais nosaukums
+833|Gatavs
+834|Velciet uz mapi
+835|Dublēt atlasīto rindu
+836|Rediģēšanas opcijas
+837|Rediģēt uzdevuma nosaukumu
+838|E-pasts
+839|Ievadiet skaitli…
+840|Ievadiet vērtību…
+841|Aprīkojums
+842|Aprīkojuma dati
+843|Šī veida aprīkojums
+844|Aprīkojuma veids
+845|Aprīkojuma veids → aprīkojums → īpašības + varianti · {{items}} aprīkojuma vienības · {{types}} veidi · {{variants}} varianti · {{values}} īpašību vērtības
+846|Aprīkojuma veidi
+847|Kļūdas
+848|Visi uzdevumi jau ir grāmatoti
+849|Valūtas kurss
+850|Izdevums
+851|Izdevumi
+852|Beidzas
+853|Eksportēt, kopīgot
+854|Paplašināts
+855|Fakts
+856|Faktu ievade
+857|Faktu ievade
+858|Faili
+859|Aizpildīt
+860|Aizpildīt / atjaunināt no {{kind}} rindām
+861|Aizpildīt visas rindas
+862|Aizpildīt no sagataves
+863|Filtrs
+864|Filtrēt un kārtot
+865|Finanses
+866|Beigu datums
+867|Vārds
+868|Pielāgot platumam
+869|Mape
+870|Mapes
+871|Priekš
+872|Ganta diagramma
+873|Ģenerēt variantus
+874|Veids
+875|Pāriet uz
+876|Pāriet uz (atzīmētās rindas dokumenti)
+877|Pāriet uz (atlasītā uzdevuma dokumenti)
+878|Pāriet uz (šī uzdevuma dokumenti)
+879|Pāriet uz tērzēšanu
+880|Pāriet uz: vispirms izvēlieties uzdevumu
+881|Paslēpt detaļu paneli
+882|Paslēpt uzdevuma ceļu
+883|Kā katalogs ir veidots
+884|Importēt / eksportēt projektu
+885|Varianta nosaukumā
+886|Ienākošie
+887|Inventāra nr.
+888|Preces numurs
+889|Kanban
+890|Uzvārds
+891|Rinda
+892|Rindas
+893|Loģistika
+894|Padarīt par pirmo
+895|Padarīt par pēdējo
+896|Pārvaldības veids
+897|Ražotājs
+898|Atzīmēt darbu kā pabeigtu līdz statusa datumam
+899|Materiāli
+900|Dalībnieki
+901|Atskaites punkti
+902|Režīms
+903|Modelis
+904|Monitor01
+905|Vairāk
+906|Pārvietot atlasītās rindas uz leju
+907|Pārvietot atlasītās rindas uz augšu
+908|Nosaukums preces atrašanai
+909|Jauns
+910|Jaunās rindas saņem filtra vērtības.
+911|Nē (Aplams)
+912|Nav budžeta posteņa
+913|Datu vēl nav.
+914|Nevienai šī uzdevuma rindai nav budžeta posteņa. Izvēlieties budžeta posteni vismaz vienai rindai un nospiediet Grāmatot.
+915|Nav rindu
+916|Rindu vēl nav. Nospiediet "+ Pievienot".
+917|Atbilstību nav.
+918|Maksājumu vēl nav. Nospiediet "+ Pievienot" vai aizpildiet tos no uzdevuma rindām.
+919|Nav preces ar šo tekstu
+920|Meklējumu vēl nav
+921|Saitē nav uzdevuma.
+922|Nav varianta
+923|Neaprēķināts · {{n}}
+924|Nav izvēlēts
+925|Nav iestatīts
+926|Vēl nekas nav grāmatots. Izvēlieties budžeta posteni rindām un nospiediet Grāmatot (Rediģēt).
+927|Nav ko grāmatot
+928|Nav ko grāmatot: pievienojiet maksājumus
+929|Nav ko grāmatot: izvēlieties budžeta posteni rindām
+930|Nav ko grāmatot: nevienam uzdevumam nav rindas ar budžeta posteni
+931|Skaitlis
+932|Skaitlis…
+933|Izslēgts
+934|Uz kartītes
+935|Atvērt
+936|Atvērts (ar PVN)
+937|Cits
+938|Izejošie
+939|Pārskats
+940|Īpašnieks (lomas veids / loma)
+941|Īpašnieks (veids / prece)
+942|Piederība
+943|PDF — visi dati
+944|PDF — redzamie
+945|Iepakojums
+946|Iepakojumi
+947|Samaksāts (ar PVN)
+948|Augstākā līmeņa mape
+949|Partneris
+950|Partnera līgums
+951|Maksājums
+952|Maksājuma fakts
+953|Maksājumu fakti
+954|Maksājumi
+955|Maksājumi negrāmatoti
+956|Par 1 vienību
+957|Procenti
+958|Periods
+959|Personu dati
+960|Personas veids
+961|Personas veids → persona → īpašības + varianti · {{persons}} personas · {{types}} veidi · {{variants}} varianti · {{values}} īpašību vērtības
+962|Personu veidi
+963|Personas
+964|Šī veida personas
+965|Tālrunis
+966|Plāns
+967|Plāna rindas
+968|Plānotais datums
+969|Grāmatot
+970|Grāmatot visus uzdevumus
+971|Grāmatot visus uzdevumus?
+972|Grāmatot negrāmatotos uzdevumus
+973|Grāmatots ar brīdinājumu: šie resursi ir rezervēti vairāk, nekā atļauj to kalendārs.
+974|Grāmatoti maksājumi: {{count}}
+975|Grāmatotas rindas: {{lines}} · dienu rindas: {{rows}}
+976|Grāmatoti uzdevumi: {{tasks}} · dienu rindas: {{rows}}
+977|Cena
+978|Cenas veids
+979|Cenu veidi
+980|Cenas
+981|Cenu veidošana
+982|Prece
+983|Preces kartīte
+984|Preces dati
+985|Preču pieņemšana
+986|Preču pieņemšanas
+987|Preces nosaukums
+988|Preces veids
+989|Preces veids → prece → īpašības + varianti · {{products}} preces · {{variants}} varianti
+990|Preču veidi
+991|Preces
+992|Preces un mapes
+993|Šī veida preces
+994|Preces pa augšējām mapēm
+995|Preces pa veidiem
+996|Progress
+997|Projekta palīgs
+998|Īpašības
+999|Īpašība
+1000|Īpašību kopa
+1001|Īpašību vērtības
+1002|Pirkuma pasūtījums
+1003|Pirkuma pasūtījumi
+1004|Daudz.
+1005|ROI
+1006|Vēlreiz nolasīt visas aprīkojuma tabulas
+1007|Vēlreiz nolasīt visas personu tabulas
+1008|Vēlreiz nolasīt visas preču tabulas
+1009|Vēlreiz nolasīt visas lomu tabulas
+1010|Projekts tikai lasīšanai
+1011|Pārrēķināt valūtu summas
+1012|Pārrēķināt ar pašreizējiem kursiem šīs cilnes katras rindas summas grāmatvedības / budžeta valūtā
+1013|Pārrēķināt ar pašreizējiem kursiem šīs cilnes katra maksājuma summas grāmatvedības / budžeta valūtā
+1014|Projekta pārrēķins
+1015|Atjaunināt maksājumus?
+1016|Atjaunināt projektu
+1017|Pārskati
+1018|Obligāts
+1019|Pārplānot nepabeigto darbu
+1020|Resurss
+1021|Resursa veids
+1022|Resursu lomas
+1023|Resursi ir aizņemti
+1024|Ieņēmumi
+1025|Loma
+1026|Lomas atribūti
+1027|Lomu dati
+1028|Lomas nosaukums
+1029|Lomas veids
+1030|Lomas veids → loma → īpašības + varianti + izmaksas · {{roles}} lomas · {{variants}} varianti · {{costs}} izmaksu rindas
+1031|Lomu veidi
+1032|Lomas
+1033|Lomas un mapes
+1034|Šī veida lomas
+1035|Lomas pa augšējām mapēm
+1036|Lomas pa veidiem
+1037|SKU
+1038|Saglabāt iestatījumus organizācijā
+1039|Saglabāt kā sagatavi
+1040|Ritināt uz atlasītā uzdevuma joslu
+1041|Meklēt uzņēmējdarbības vienības…
+1042|Meklēšanas vēsture
+1043|Meklēšanas nosaukums
+1044|Meklēt…
+1045|Vispirms izvēlieties partneri
+1046|Izvēlieties uzdevumu
+1047|Vispirms izvēlieties darba centru
+1048|Izvēlieties budžeta posteni…
+1049|Izvēlieties kataloga elementu…
+1050|Izvēlieties līgumu…
+1051|Izvēlieties deskriptoru…
+1052|Izvēlieties aprīkojuma veidu…
+1053|Izvēlieties aprīkojumu…
+1054|Izvēlieties partneri…
+1055|Izvēlieties periodu (mēnešu diapazonu)
+1056|Izvēlieties personas veidu…
+1057|Izvēlieties personu…
+1058|Izvēlieties preci…
+1059|Izvēlieties īpašību…
+1060|Izvēlieties lomas veidu…
+1061|Izvēlieties lomu…
+1062|Izvēlieties sagatavi…
+1063|Izvēlieties projekta vadītāju...
+1064|Izvēlēties šo rindu
+1065|Izvēlēties šo uzdevumu
+1066|Izvēlieties veidu…
+1067|Izvēlieties vērtību…
+1068|Izvēlieties darba centru…
+1069|Izvēlieties…
+1070|Pārdodamās preces
+1071|Sērijas nr.
+1072|Sērijas numurs
+1073|Sērija
+1074|Kopa
+1075|Iestatīt bāzes plānu
+1076|Vairākas vērtības
+1077|Kopīgot
+1078|Kopīgo variantus ar
+1079|Nobīde (dienas)
+1080|Nobīde no
+1081|Rādīt visu
+1082|Rādīt šī uzdevuma ceļu
+1083|Atsevišķa vienība
+1084|Kārtot
+1085|Posmi
+1086|Sākuma datums
+1087|Apakšprojekts
+1088|Apakšprojekti
+1089|Summa
+1090|Summa grāmatvedībai
+1091|Summa budžetam
+1092|Summa līgumam
+1093|Summa ar PVN
+1094|Piegādātājs
+1095|Tabulas iestatījumi
+1096|Tabulas iestatījumi: pielāgot platumam, noklusējuma iestatījumi
+1097|Uzdevuma beigas
+1098|Uzdevuma inspektors
+1099|Uzdevuma rinda
+1100|Uzdevuma ceļš
+1101|Uzdevuma sākums
+1102|Uzdevumi
+1103|Šī uzdevuma sagataves: saglabāt, aizpildīt, saglabātās
+1104|Saglabātās sagataves
+1105|Teksts…
+1106|Rindas valūta nav zināma: izvēlieties līgumu vai iestatiet projekta līguma valūtu
+1107|Maksājuma valūta nav zināma: izvēlieties līgumu
+1108|Sadalījumi vēl tiek nolasīti: mēģiniet vēlreiz pēc brīža
+1109|Valūtu kursi vēl nav nolasīti
+1110|Rindai nav ne daudzuma, ne summas, ko grāmatot
+1111|Šo resursu rindas netika grāmatotas. Pārvietojiet uzdevumu, nomainiet resursu vai samaziniet stundas un vēlreiz nospiediet Grāmatot.
+1112|Maksājumi ir aktuāli
+1113|Maksājumus nevar grāmatot
+1114|Maksājumus neizdevās grāmatot
+1115|{{count}} uzdevuma grāmatotās dienas tiks aprēķinātas no jauna un aizstātas.
+1116|Kurss tiek ņemts plānotajam datumam: ievadiet to
+1117|Šī uzdevuma sākums un beigas nāk no apakšprojekta.
+1118|Summas ir aktuālas
+1119|Uzdevumu neizdevās grāmatot
+1120|Uzdevumam nav šāda veida rindu
+1121|Uzdevumam vēl nav sākuma un beigu datuma
+1122|Uzdevumam ir piezīmes.
+1123|Uzdevums gaida cita projekta uzdevumu.
+1124|Šī īpašnieka variantu kopai nav obligātu deskriptoru.
+1125|Šis uzdevums neeksistē (izdzēsts?).
+1126|Šo vienību šeit nevar izvēlēties
+1127|Šī vienība nav aktīva
+1128|Laiks
+1129|Aprīkojuma laiks
+1130|Personu laiks
+1131|Darba centru laiks
+1132|Darba laika lapa
+1133|Darba laika lapas
+1134|Laika līnija
+1135|Laika līnijas dati
+1136|Nosaukums
+1137|Kopā
+1138|Kopā ar PVN
+1139|Veida noklusējums
+1140|Rakstiet, lai atrastu preci
+1141|UX/UI
+1142|Unikāls
+1143|Vienība
+1144|Krājumu vienība
+1145|Vienība no
+1146|Vienības
+1147|Atjaunināt projektu
+1148|Atjaunināt projekta izmaksas
+1149|Izmantot procentus
+1150|Izmantot darba dienas
+1151|Izmanto uzdevumi: {{n}}
+1152|Izmanto priekš
+1153|PVN
+1154|PVN %
+1155|PVN iekļauts
+1156|PVN likme
+1157|PVN likmes
+1158|Spēkā no
+1159|Vērtība
+1160|Vērtības veids
+1161|Vērtības
+1162|Variants
+1163|Varianta īpašnieks
+1164|Variantu kopa
+1165|Varianta nosaukuma sagatave
+1166|Varianta vērtības
+1167|Varianti
+1168|Piegādātājs
+1169|Piegādātāja rēķins
+1170|Piegādātāja rēķins
+1171|Piegādātāju rēķini
+1172|Izpildē
+1173|Brīdinājums: {{first}}
+1174|Darba centrs
+1175|Jā (Patiess)
+1176|Jā, pārrēķināt
+1177|visi
+1178|mainīts pēc grāmatošanas — nospiediet Grāmatot (Rediģēt)
+1179|prece × variants
+1180|projekts {{project}} · uzdevums {{task}} · {{hours}} h
+1181|projekts {{project}}, uzdevums {{task}} ({{hours}} h)
+1182|lomu prasības
+1183|loma × variants
+1184|uz CSV
+1185|uz JSON
+1186|ar PVN
+1187|Negrāmatotas rindas: {{count}}, resurss ir aizņemts: {{first}}
+1188|Negrāmatotas rindas: {{count}}: {{first}}
+1189|Pārrēķinātas rindas: {{count}}
+1190|Negrāmatoti: {{count}}: {{first}}
+1191|Pārrēķināti maksājumi: {{count}}
+1192|Atbilst {{count}} preces — rakstiet vairāk
+1193|Atjauninātas kopsummas: {{count}}
+1194|Izveidoti maksājumi: {{create}}, mainīti: {{update}}, noņemti: {{remove}}
+1195|{{resource}} ir rezervēts divreiz {{day}}
+1196|{{resource}} ir aizņemts {{day}}: {{total}} h no {{capacity}} h (kalendārs atļauj {{capacity}} h)
+1197|{{resource}} ir aizņemts {{day}}: {{total}} h no {{capacity}} h ({{others}} h rezervējuši citi jūsu organizācijas uzdevumi)
+1198|{{resource}} vajadzīgs {{hours}} h {{day}}, bet jau rezervēts {{booked}} h no {{capacity}} h: {{held}}. Vai uzdevumu var pārvietot vai samazināt stundas?
+1199|{{resource}} vajadzīgs {{hours}} h {{day}}, bet resursa kalendārs šajā dienā atļauj {{capacity}} h. Vai uzdevumu var pārvietot vai mainīt kalendāru?
+1200|{{resource}}: kalendārā nav dienas {{day}} (šim gadam nav aizpildīts), tāpēc {{hours}} h nevar pārbaudīt
+1201|Mainīsies maksājumi: {{update}}, tiks noņemti: {{remove}}. Tas, ko ievadījāt maksājumā (datumi, budžeta postenis, saņēmējs ...), tiek saglabāts.

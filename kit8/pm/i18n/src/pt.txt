@@ -746,3 +746,456 @@
 746|Este não é o nome de um fuso horário, por exemplo Europe/Berlin.
 747|O modelo da hora do dia planeia a partir do início do projeto; um planeamento a partir da data de fim não é usado nele.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(a linha de onde veio)
+750|Uma etapa não tem linhas: selecione uma tarefa ou um marco para ver e editar as suas linhas.
+751|Uma etapa não tem linhas: selecione uma tarefa ou um marco para ver o plano das suas linhas.
+752|Contabilidade
+753|Ações
+754|Avançado
+755|Todas as variantes
+756|Valores em
+757|Valores na moeda de cada linha
+758|Qualquer
+759|Arquivar
+760|Atribuir o próximo EAN-13
+761|Assistente
+762|Atributos
+763|BIM
+764|Voltar a {{tab}}
+765|Código de barras
+766|Códigos de barras
+767|Unidade base
+768|Unidades base na embalagem
+769|Número do lote
+770|Lotes
+771|Itens reserváveis
+772|Orçamento
+773|Distribuição do orçamento
+774|Item orçamentário
+775|Orçamentos
+776|Unidade de negócio
+777|Por item orçamentário
+778|Por tipo
+779|Por tarefa
+780|Calcular
+781|Calcular o projeto
+782|Pode ser
+783|Fluxo de caixa
+784|Fluxo de caixa: o relatório dos pagamentos lançados virá mais tarde.
+785|Catálogo
+786|Chat
+787|Verificações
+788|Escolher gênero…
+789|Escolher a distribuição do orçamento da linha
+790|Escolha primeiro a propriedade
+791|Limpar filtro
+792|Limpar histórico
+793|Limpar pesquisa, filtros e ordenação
+794|Clique numa tarefa da árvore para ver e editar as suas linhas: tempo, material, despesas e receitas.
+795|Clique numa tarefa da árvore para ver os dias lançados das suas linhas: o orçamento, o valor do contrato e a quantidade distribuída pelos dias úteis.
+796|Código
+797|Código (UN/ECE, OKEI)
+798|Restrição…
+799|Contrato
+800|Modelo de contrato
+801|Contratos e dados do funcionário
+802|Copiado
+803|Copiar nome do cabeçalho
+804|Copiar GUID da linha
+805|Copiar texto
+806|Custo
+807|Custos
+808|Criar com base na linha marcada
+809|Criar com base nisto
+810|Criar com base nesta tarefa
+811|Criar novo
+812|Cria variantes
+813|Moedas do projeto
+814|Moeda
+815|Cliente
+816|Fatura de cliente
+817|Fatura de cliente
+818|Faturas de cliente
+819|Taxa de IVA padrão
+820|Configurações padrão
+821|Unidade padrão
+822|Excluir as linhas selecionadas
+823|Entregável
+824|Ciclos de dependência
+825|Descrição
+826|Modos de descrição
+827|Descritor
+828|Chave do descritor
+829|Conjuntos de descritores
+830|Valores de descritor
+831|Descritores
+832|Título exibido
+833|Concluído
+834|Arrastar para uma pasta
+835|Duplicar a linha selecionada
+836|Opções de edição
+837|Editar o nome da tarefa
+838|E-mail
+839|Digite um número…
+840|Digite um valor…
+841|Equipamento
+842|Dados do equipamento
+843|Equipamentos deste tipo
+844|Tipo de equipamento
+845|Tipo de equipamento → equipamento → propriedades + variantes · {{items}} equipamentos · {{types}} tipos · {{variants}} variantes · {{values}} valores de propriedade
+846|Tipos de equipamento
+847|Erros
+848|Todas as tarefas já estão lançadas
+849|Taxa de câmbio
+850|Despesa
+851|Despesas
+852|Expira
+853|Exportar, compartilhar
+854|Estendido
+855|Real
+856|Entrada do realizado
+857|Entrada do realizado
+858|Arquivos
+859|Preencher
+860|Preencher / atualizar a partir das linhas de {{kind}}
+861|Preencher todas as linhas
+862|Preencher a partir de modelo
+863|Filtro
+864|Filtrar e ordenar
+865|Finanças
+866|Data de término
+867|Nome
+868|Ajustar à largura
+869|Pasta
+870|Pastas
+871|Para
+872|Gantt
+873|Gerar variantes
+874|Gênero
+875|Ir para
+876|Ir para (documentos da linha marcada)
+877|Ir para (documentos da tarefa selecionada)
+878|Ir para (documentos desta tarefa)
+879|Ir para o chat
+880|Ir para: selecione primeiro uma tarefa
+881|Ocultar o painel de detalhes
+882|Ocultar o caminho da tarefa
+883|Como o catálogo é construído
+884|Importar / exportar o projeto
+885|No título da variante
+886|Entrada
+887|N.º de inventário
+888|Número do item
+889|Kanban
+890|Sobrenome
+891|Linha
+892|Linhas
+893|Logística
+894|Colocar em primeiro
+895|Colocar em último
+896|Gênero de gestão
+897|Fabricante
+898|Marcar o trabalho como concluído até a data de status
+899|Material
+900|Membros
+901|Marcos
+902|Modo
+903|Modelo
+904|Monitor01
+905|Mais
+906|Mover as linhas selecionadas para baixo
+907|Mover as linhas selecionadas para cima
+908|Nome usado para encontrar o produto
+909|Novo
+910|As novas linhas recebem os valores do filtro.
+911|Não (Falso)
+912|Sem item orçamentário
+913|Ainda sem dados.
+914|Nenhuma linha desta tarefa tem item orçamentário. Escolha um item orçamentário em pelo menos uma linha e depois pressione Lançar.
+915|Sem linhas
+916|Ainda sem linhas. Pressione "+ Adicionar".
+917|Nenhuma correspondência encontrada.
+918|Ainda sem pagamentos. Pressione "+ Adicionar" ou preencha-os a partir das linhas da tarefa.
+919|Nenhum produto com este texto
+920|Ainda sem pesquisas
+921|Nenhuma tarefa no link.
+922|Sem variante
+923|Não calculado · {{n}}
+924|Não escolhido
+925|Não definido
+926|Nada lançado ainda. Escolha um item orçamentário nas linhas e pressione Lançar (Editar).
+927|Nada para lançar
+928|Nada para lançar: adicione pagamentos
+929|Nada para lançar: escolha um item orçamentário nas linhas
+930|Nada para lançar: nenhuma tarefa tem uma linha com item orçamentário
+931|Número
+932|Número…
+933|Desligado
+934|No cartão
+935|Abrir
+936|Em aberto (com IVA)
+937|Outro
+938|Saída
+939|Visão geral
+940|Proprietário (tipo de função / função)
+941|Proprietário (tipo / produto)
+942|Propriedade
+943|PDF - todos os dados
+944|PDF - visível
+945|Embalagem
+946|Embalagens
+947|Pago (com IVA)
+948|Pasta superior
+949|Parceiro
+950|Contrato do parceiro
+951|Pagamento
+952|Fato de pagamento
+953|Fatos de pagamento
+954|Pagamentos
+955|Pagamentos não lançados
+956|Por 1 unidade
+957|Percentual
+958|Período
+959|Dados de pessoas
+960|Tipo de pessoa
+961|Tipo de pessoa → pessoa → propriedades + variantes · {{persons}} pessoas · {{types}} tipos · {{variants}} variantes · {{values}} valores de propriedade
+962|Tipos de pessoa
+963|Pessoas
+964|Pessoas deste tipo
+965|Telefone
+966|Plano
+967|Linhas do plano
+968|Data planejada
+969|Lançar
+970|Lançar todas as tarefas
+971|Lançar todas as tarefas?
+972|Lançar as tarefas não lançadas
+973|Lançado com aviso: estes recursos estão reservados além do que o seu calendário permite.
+974|{{count}} pagamento(s) lançado(s)
+975|{{lines}} linha(s) lançada(s) · {{rows}} linha(s) de dia
+976|{{tasks}} tarefa(s) lançada(s) · {{rows}} linha(s) de dia
+977|Preço
+978|Tipo de preço
+979|Tipos de preço
+980|Preços
+981|Preços
+982|Produto
+983|Ficha do produto
+984|Dados do produto
+985|Recebimento de produto
+986|Recebimentos de produto
+987|Título do produto
+988|Tipo de produto
+989|Tipo de produto → produto → propriedades + variantes · {{products}} produtos · {{variants}} variantes
+990|Tipos de produto
+991|Produtos
+992|Produtos e pastas
+993|Produtos deste tipo
+994|Produtos por pasta superior
+995|Produtos por tipo
+996|Progresso
+997|Assistente de projeto
+998|Propriedades
+999|Propriedade
+1000|Conjunto de propriedades
+1001|Valores de propriedade
+1002|Pedido de compra
+1003|Pedidos de compra
+1004|Qtd.
+1005|ROI
+1006|Ler novamente todas as tabelas de equipamentos
+1007|Ler novamente todas as tabelas de pessoas
+1008|Ler novamente todas as tabelas de produtos
+1009|Ler novamente todas as tabelas de funções
+1010|Projeto somente leitura
+1011|Recalcular as somas em moeda
+1012|Recalcular com as taxas atuais as somas na moeda contábil / orçamentária de cada linha desta aba
+1013|Recalcular com as taxas atuais as somas na moeda contábil / orçamentária de cada pagamento desta aba
+1014|Recálculo do projeto
+1015|Atualizar os pagamentos?
+1016|Atualizar o projeto
+1017|Relatórios
+1018|Obrigatório
+1019|Reprogramar o trabalho não concluído
+1020|Recurso
+1021|Tipo de recurso
+1022|Funções de recurso
+1023|Os recursos estão ocupados
+1024|Receitas
+1025|Função
+1026|Atributos da função
+1027|Dados de funções
+1028|Título da função
+1029|Tipo de função
+1030|Tipo de função → função → propriedades + variantes + custo · {{roles}} funções · {{variants}} variantes · {{costs}} linhas de custo
+1031|Tipos de função
+1032|Funções
+1033|Funções e pastas
+1034|Funções deste tipo
+1035|Funções por pasta superior
+1036|Funções por tipo
+1037|SKU
+1038|Salvar as configurações na organização
+1039|Salvar como modelo
+1040|Rolar até a barra da tarefa selecionada
+1041|Pesquisar unidades de negócio…
+1042|Histórico de pesquisa
+1043|Nome de pesquisa
+1044|Pesquisar…
+1045|Selecione primeiro um parceiro
+1046|Selecione uma tarefa
+1047|Selecione primeiro um centro de trabalho
+1048|Selecionar item orçamentário…
+1049|Selecionar elemento do catálogo…
+1050|Selecionar contrato…
+1051|Selecionar descritor…
+1052|Selecionar tipo de equipamento…
+1053|Selecionar equipamento…
+1054|Selecionar parceiro…
+1055|Selecionar período (um intervalo de meses)
+1056|Selecionar tipo de pessoa…
+1057|Selecionar pessoa…
+1058|Selecionar produto…
+1059|Selecionar propriedade…
+1060|Selecionar tipo de função…
+1061|Selecionar função…
+1062|Selecionar modelo…
+1063|Selecionar o gerente do projeto...
+1064|Selecionar esta linha
+1065|Selecionar esta tarefa
+1066|Selecionar tipo…
+1067|Selecionar valor…
+1068|Selecionar centro de trabalho…
+1069|Selecionar…
+1070|Itens vendáveis
+1071|N.º de série
+1072|Número de série
+1073|Série
+1074|Conjunto
+1075|Definir linha de base
+1076|Vários valores
+1077|Compartilhar
+1078|Compartilha variantes de
+1079|Deslocamento (dias)
+1080|Deslocamento a partir de
+1081|Mostrar tudo
+1082|Mostrar o caminho desta tarefa
+1083|Unidade única
+1084|Ordenar
+1085|Etapas
+1086|Data de início
+1087|Subprojeto
+1088|Subprojetos
+1089|Soma
+1090|Soma contábil
+1091|Soma orçamentária
+1092|Soma do contrato
+1093|Soma com IVA
+1094|Fornecedor
+1095|Configurações da tabela
+1096|Configurações da tabela: ajustar à largura, configurações padrão
+1097|Fim da tarefa
+1098|Inspetor de tarefas
+1099|Linha de tarefa
+1100|Caminho da tarefa
+1101|Início da tarefa
+1102|Tarefas
+1103|Modelos desta tarefa: salvar, preencher, salvos
+1104|Modelos salvos
+1105|Texto…
+1106|A moeda da linha é desconhecida: escolha um contrato ou defina a moeda de contrato do projeto
+1107|A moeda do pagamento é desconhecida: escolha o contrato
+1108|As distribuições ainda estão sendo lidas: tente novamente em instantes
+1109|As taxas de câmbio ainda não foram lidas
+1110|A linha não tem quantidade nem valor para lançar
+1111|As linhas destes recursos não foram lançadas. Mova a tarefa, mude o recurso ou reduza as horas e pressione Lançar novamente.
+1112|Os pagamentos estão atualizados
+1113|Os pagamentos não podem ser lançados
+1114|Não foi possível lançar os pagamentos
+1115|Os dias lançados de {{count}} tarefa(s) serão calculados novamente e substituídos.
+1116|A taxa é tomada para a data planejada: informe-a
+1117|O início e o término desta tarefa vêm do subprojeto.
+1118|As somas estão atualizadas
+1119|Não foi possível lançar a tarefa
+1120|A tarefa não tem linhas deste tipo
+1121|A tarefa ainda não tem data de início e término
+1122|A tarefa tem notas.
+1123|A tarefa espera uma tarefa de outro projeto.
+1124|O conjunto de variantes deste proprietário não tem descritores obrigatórios.
+1125|Esta tarefa não existe (excluída?).
+1126|Esta unidade não pode ser escolhida aqui
+1127|Esta unidade não está ativa
+1128|Tempo
+1129|Tempo de equipamentos
+1130|Tempo de pessoas
+1131|Tempo de centros de trabalho
+1132|Folha de horas
+1133|Folhas de horas
+1134|Linha do tempo
+1135|Dados da linha do tempo
+1136|Título
+1137|Total
+1138|Total com IVA
+1139|Padrão do tipo
+1140|Digite para encontrar um produto
+1141|UX/UI
+1142|Único
+1143|Unidade
+1144|Unidade de estoque
+1145|Unidade de
+1146|Unidades
+1147|Atualizar o projeto
+1148|Atualizar o custo do projeto
+1149|Usar percentual
+1150|Usar dias úteis
+1151|Usado por {{n}} tarefa(s)
+1152|Usado para
+1153|IVA
+1154|IVA %
+1155|IVA incluído
+1156|Taxa de IVA
+1157|Taxas de IVA
+1158|Válido a partir de
+1159|Valor
+1160|Tipo de valor
+1161|Valores
+1162|Variante
+1163|Proprietário da variante
+1164|Conjunto de variantes
+1165|Modelo do título da variante
+1166|Valores de variante
+1167|Variantes
+1168|Fornecedor
+1169|Fatura de fornecedor
+1170|Fatura de fornecedor
+1171|Faturas de fornecedor
+1172|Em andamento
+1173|Aviso: {{first}}
+1174|Centro de trabalho
+1175|Sim (Verdadeiro)
+1176|Sim, recalcular
+1177|tudo
+1178|alterado após o lançamento - pressione Lançar (Editar)
+1179|produto × variante
+1180|projeto {{project}} · tarefa {{task}} · {{hours}} h
+1181|projeto {{project}}, tarefa {{task}} ({{hours}} h)
+1182|requisitos das funções
+1183|função × variante
+1184|para CSV
+1185|para JSON
+1186|com IVA
+1187|{{count}} linha(s) não lançada(s), o recurso está ocupado: {{first}}
+1188|{{count}} linha(s) não lançada(s): {{first}}
+1189|{{count}} linha(s) recalculada(s)
+1190|{{count}} não lançada(s): {{first}}
+1191|{{count}} pagamento(s) recalculado(s)
+1192|{{count}} produtos correspondem - digite mais
+1193|{{count}} total(is) atualizado(s)
+1194|{{create}} pagamento(s) criado(s), {{update}} alterado(s), {{remove}} removido(s)
+1195|{{resource}} está reservado duas vezes em {{day}}
+1196|{{resource}} está ocupado em {{day}}: {{total}} h de {{capacity}} h (o calendário permite {{capacity}} h)
+1197|{{resource}} está ocupado em {{day}}: {{total}} h de {{capacity}} h ({{others}} h estão reservadas por outras tarefas da sua organização)
+1198|{{resource}} é necessário {{hours}} h em {{day}}, mas já está reservado {{booked}} h de {{capacity}} h em: {{held}}. A tarefa pode ser movida ou as horas reduzidas?
+1199|{{resource}} é necessário {{hours}} h em {{day}}, mas o calendário do recurso permite {{capacity}} h nesse dia. A tarefa pode ser movida ou o calendário alterado?
+1200|{{resource}}: o calendário não tem o dia {{day}} (não preenchido para esse ano), por isso as {{hours}} h não podem ser verificadas
+1201|{{update}} pagamento(s) vão mudar e {{remove}} serão removidos. O que você digitou num pagamento (datas, item orçamentário, beneficiário ...) é mantido.

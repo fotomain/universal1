@@ -4,6 +4,7 @@ import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, useWindowDimen
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import type { VisualColumn } from './reusableTableTypes';
 import { ColumnFilter, ColumnFilterOp, ColumnSort, FILTER_OP_LABEL, filterNeedsValue, filterOpsOf } from './tableFilter';
+import { pmT } from '../../../../pm/i18n/pmT';
 
 export interface ReusableTableColumnMenuProps {
   col: VisualColumn;
@@ -54,11 +55,11 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
     <Modal visible transparent animationType="none" onRequestClose={onClose}>
       <Pressable testID={id('backdrop')} style={StyleSheet.absoluteFill} onPress={onClose} />
       <View testID={id('card')} style={[styles.card, { left, top, backgroundColor: c.surface, borderColor: c.border }]}>
-        <Text numberOfLines={1} style={[styles.caption, { color: c.text }]}>{col.title}</Text>
+        <Text numberOfLines={1} style={[styles.caption, { color: c.text }]}>{pmT(col.title)}</Text>
         {sortItem('asc', numeric ? 'Sort 0 → 9' : 'Sort A → Z')}
         {sortItem('desc', numeric ? 'Sort 9 → 0' : 'Sort Z → A')}
         <View style={[styles.line, { backgroundColor: c.border }]} />
-        <Text style={[styles.caption, { color: c.text }]}>Filter</Text>
+        <Text style={[styles.caption, { color: c.text }]}>{pmT('Filter')}</Text>
         <View style={styles.ops}>
           {ops.map((o) => (
             <Pressable key={o} testID={id(`op-${o}`)} onPress={() => setOp(o)} style={[styles.op, { borderColor: op === o ? c.primary : c.border, backgroundColor: op === o ? c.primary + '22' : 'transparent' }]}>
@@ -67,16 +68,16 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
           ))}
         </View>
         {filterNeedsValue(op) && (
-          <TextInput ref={inputRef} testID={id('value')} value={value} onChangeText={setValue} onSubmitEditing={apply} autoFocus placeholder={numeric ? 'Number…' : 'Text…'}
+          <TextInput ref={inputRef} testID={id('value')} value={value} onChangeText={setValue} onSubmitEditing={apply} autoFocus placeholder={numeric ? pmT('Number…') : pmT('Text…')}
             placeholderTextColor={c.text + '70'} keyboardType={numeric ? 'decimal-pad' : 'default'}
             style={[styles.input, { color: c.text, borderColor: c.border, backgroundColor: c.background }]} />
         )}
         <View style={styles.buttons}>
           <Pressable testID={id('clear')} onPress={() => { onFilter(null); onClose(); }} style={[styles.btn, { borderColor: c.border }]}>
-            <Text style={{ color: c.text, fontWeight: '600' }}>Clear</Text>
+            <Text style={{ color: c.text, fontWeight: '600' }}>{pmT('Clear')}</Text>
           </Pressable>
           <Pressable testID={id('apply')} onPress={apply} style={[styles.btn, { borderColor: c.primary, backgroundColor: c.primary }]}>
-            <Text style={{ color: '#fff', fontWeight: '700' }}>Apply</Text>
+            <Text style={{ color: '#fff', fontWeight: '700' }}>{pmT('Apply')}</Text>
           </Pressable>
         </View>
       </View>

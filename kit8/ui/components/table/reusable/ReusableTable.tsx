@@ -50,6 +50,7 @@ import { ColumnFilters, ColumnSort, filterRows, isActiveFilter, isSortFilterColu
 import * as Clipboard from 'expo-clipboard';
 import { isDevEnvironment } from '../../../environment';
 import { colorToHex, moveSelectedRows, stretchColumns, arrangeColumns, clampColumnWidth, columnDropIndex, cellValue, moveColumn, rowSearchText, widthOf, fitColumnWidths, columnFooterTotal, rowDropIndex } from './tableRows';
+import { pmT } from '../../../../pm/i18n/pmT';
 
 // web only: DOM + @hello-pangea/dnd - never loaded on iOS / Android
 const BodyWeb: any = Platform.OS === 'web' ? require('./ReusableTableBodyWeb').default : null;
@@ -455,7 +456,7 @@ export default function ReusableTable(props: ReusableTableProps) {
 
   // ---- the parts of the bar above the table (placed by uxuiTable.tableBarLayoutVariant) ----
   const barLayout = uxuiTable?.tableBarLayoutVariant ?? 'leftCrudPanel_rightSearch';
-  const titleEl = <Text testID={`${testID}-title`} numberOfLines={1} style={[styles.title, { color: c.text }]}>{crudListTitle}</Text>;
+  const titleEl = <Text testID={`${testID}-title`} numberOfLines={1} style={[styles.title, { color: c.text }]}>{pmT(crudListTitle)}</Text>;
   const pressPoint = (e: any) => ({ x: e?.nativeEvent?.pageX ?? 0, y: (e?.nativeEvent?.pageY ?? 0) + 14 });
   const searchEl = (
     <>
@@ -468,7 +469,7 @@ export default function ReusableTable(props: ReusableTableProps) {
             // a typed substring goes to the history when the user leaves the field or presses Enter
             onBlur={() => searchHistory.remember(search)}
             onSubmitEditing={() => searchHistory.remember(search)}
-            placeholder="Search…"
+            placeholder={pmT('Search…')}
             heightVariant={uxuiTable?.searchInputHeight ?? 'smallestHeight'}
             // all inside the input - left: search (reads the table again) · ▾ search history; right: ✕ clear (TextInputApp's own)
             leftIcons={[
@@ -568,7 +569,7 @@ export default function ReusableTable(props: ReusableTableProps) {
               </ServiceHeaderCell>
             ))}
             {visualColumns.map((col) => (
-              <ReusableTableHeaderCell key={col.key} testID={testID} columnKey={col.key} title={columnTitleOf(entityName, col.key, col.title)} width={widthOf(col)}
+              <ReusableTableHeaderCell key={col.key} testID={testID} columnKey={col.key} title={columnTitleOf(entityName, col.key, pmT(col.title))} width={widthOf(col)}
                 justify={col.type === 'rowNumber' ? 'center' : justify(col)} colors={c}
                 draggable={dragAndDropColumns} resizable={resizeColumnWidth} delimiter={headerDelimiters}
                 onDragEnd={onColumnDragEnd} onResize={onColumnResize} onResizeEnd={onColumnResizeEnd}
@@ -588,7 +589,7 @@ export default function ReusableTable(props: ReusableTableProps) {
           ) : visible.length === 0 ? (
             <View style={styles.state}>
               <Text testID={`${testID}-empty`} style={{ color: c.text, opacity: 0.6 }}>
-                {crud.error ? `Could not read the table: ${String(crud.error?.message ?? crud.error)}` : viewFiltered ? 'No matches found.' : emptyText ?? `No ${itemLabel.toLowerCase()}s yet. Press "+ Add".`}
+                {crud.error ? `Could not read the table: ${String(crud.error?.message ?? crud.error)}` : viewFiltered ? pmT('No matches found.') : (emptyText ? pmT(emptyText) : undefined) ?? `No ${itemLabel.toLowerCase()}s yet. Press "+ Add".`}
               </Text>
             </View>
           ) : BodyWeb ? (
@@ -662,7 +663,7 @@ export default function ReusableTable(props: ReusableTableProps) {
           testID={`${testID}-header-context-menu`}
           x={headerContextMenu.x}
           y={headerContextMenu.y}
-          caption={headerContextMenu.col.title}
+          caption={pmT(headerContextMenu.col.title)}
           onClose={() => setHeaderContextMenu(null)}
           items={[
             // the same "Filter & sort" popup as the ▾ button of the header (only for the columns that have that button)

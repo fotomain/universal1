@@ -41,6 +41,7 @@ import {
 import ResourceRoleDashboardOverview from './ResourceRoleDashboardOverview';
 import ResourceRolesWithTree from './ResourceRolesWithTree';
 import { createPlannedRoleVariants, deleteRoleRows, rebuildRoleVariants } from './resourceRoleDashboardActions';
+import { pmT, usePMLanguage } from '../../../pm/i18n/pmT';
 
 type Tab = 'overview' | 'rolesTree' | ResourceRoleTableKey;
 /** where a table was opened from (a row menu: Rates, Property values ...): the back arrow of the table returns there */
@@ -48,6 +49,7 @@ interface Origin { tab: Tab; params: Record<string, string | undefined>; rowGUID
 const isTableKey = (t: unknown): t is ResourceRoleTableKey => typeof t === 'string' && RESOURCE_ROLE_TABLE_KEYS.includes(t as ResourceRoleTableKey);
 
 export default function ResourceRoleDashboardCRUD() {
+  usePMLanguage();
   const { themeColors: c } = useDesignSystem();
   const dispatch = useDispatch();
   const router = useRouter();
@@ -131,7 +133,7 @@ export default function ResourceRoleDashboardCRUD() {
           borderColor: active ? c.primary : c.border, borderLeftColor: active ? c.primary : 'transparent',
         }]}>
         <IconApp name={icon} size={16} color={active ? c.primary : c.text} />
-        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{pmT(label)}</Text>
         {n !== undefined && <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }}>{n}</Text>}
         {!!bad && <View testID={`role-nav-${key}-issues`} style={[styles.badge, { backgroundColor: c.error }]}><Text style={styles.badgeText}>{bad}</Text></View>}
       </Pressable>
@@ -143,7 +145,7 @@ export default function ResourceRoleDashboardCRUD() {
       {navItem('rolesTree', 'Roles & folders', 'account_tree', data.resourceRole.length)}
       {ROLE_DASHBOARD_GROUPS.map((g) => (
         <React.Fragment key={g}>
-          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{g}</Text>}
+          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{pmT(g)}</Text>}
           {ROLE_DASHBOARD_TABLE_ORDER.filter((k) => tables[k].group === g).map((k) => navItem(k, tables[k].title, tables[k].icon, data[k].length, (issuesPerTable[k] || []).filter((i) => i.severity === 'error').length || undefined))}
         </React.Fragment>
       ))}
@@ -163,19 +165,19 @@ export default function ResourceRoleDashboardCRUD() {
     <View style={{ gap: 10 }}>
       <View style={styles.tableHead}>
         {origin && origin.tab !== tableKey && (
-          <PMIconButton tipScope="app" testID="role-table-back" icon="arrow_back" title={`Back to ${tabTitle(origin.tab)}${origin.rowGUID ? ' (the row you came from)' : ''}`} color={c.primary} onPress={goBack} />
+          <PMIconButton tipScope="app" testID="role-table-back" icon="arrow_back" title={pmT('Back to {{tab}}', { tab: pmT(tabTitle(origin.tab)) }) + (origin.rowGUID ? ` ${pmT('(the row you came from)')}` : '')} color={c.primary} onPress={goBack} />
         )}
         <IconApp name={cfg.icon} size={22} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text testID="role-table-title" style={[styles.h2, { color: c.text }]}>{cfg.title}</Text>
-          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{RESOURCE_ROLE_TABLES[tableKey].purpose}</Text>
+          <Text testID="role-table-title" style={[styles.h2, { color: c.text }]}>{pmT(cfg.title)}</Text>
+          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{pmT(RESOURCE_ROLE_TABLES[tableKey].purpose)}</Text>
         </View>
       </View>
       {(issuesPerTable[tableKey] || []).length > 0 && (
         <Pressable testID="role-table-issues" onPress={() => go('overview')} style={[styles.issueBar, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
           <IconApp name="warning" size={16} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>{(issuesPerTable[tableKey] || []).length} check{(issuesPerTable[tableKey] || []).length === 1 ? '' : 's'} need attention in this table: {(issuesPerTable[tableKey] || [])[0].message}</Text>
-          <Text style={{ color: c.primary, fontWeight: '700' }}>Checks</Text>
+          <Text style={{ color: c.primary, fontWeight: '700' }}>{pmT('Checks')}</Text>
         </Pressable>
       )}
       {cfg.filters.length > 0 && (
@@ -187,13 +189,13 @@ export default function ResourceRoleDashboardCRUD() {
               <View key={f.key} style={[styles.filterChip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary + '14' : c.surface }]}>
                 <Pressable testID={`role-filter-${f.key}`} onPress={() => setPickFilter(f)} style={styles.filterPress}>
                   <IconApp name="filter_alt" size={14} color={on ? c.primary : c.text} />
-                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{f.label}: {on ? optionLabel(f.options, v) : 'all'}</Text>
+                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{pmT(f.label)}: {on ? optionLabel(f.options, v) : pmT('all')}</Text>
                 </Pressable>
                 {on && <Pressable testID={`role-filter-${f.key}-clear`} onPress={() => setFilter(f.key, null)} hitSlop={6}><IconApp name="close" size={14} color={c.primary} /></Pressable>}
               </View>
             );
           })}
-          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>New rows get the filter values.</Text>}
+          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('New rows get the filter values.')}</Text>}
         </View>
       )}
       <ReusableTable
@@ -233,8 +235,8 @@ export default function ResourceRoleDashboardCRUD() {
       <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
         <IconApp name="engineering" size={24} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.h1, { color: c.text }]}>Resource roles</Text>
-          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Role type → role → properties + variants + cost · {data.resourceRole.length} roles · {data.variant.length} variants · {data.rolePrice.length} cost rows</Text>
+          <Text style={[styles.h1, { color: c.text }]}>{pmT('Resource roles')}</Text>
+          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Role type → role → properties + variants + cost · {{roles}} roles · {{variants}} variants · {{costs}} cost rows', { roles: data.resourceRole.length, variants: data.variant.length, costs: data.rolePrice.length })}</Text>
         </View>
         <PMIconButton tipScope="app" testID="role-generate-variants-header" icon="library_add" title="Generate variants" color={c.primary} onPress={() => setGenerateFor(null)} />
         <PMIconButton tipScope="app" testID="role-reload" icon="refresh" title="Read all role tables again" color={c.text} onPress={reload} />

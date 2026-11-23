@@ -5,6 +5,7 @@ import { FlatList, Modal, Platform, Pressable, StyleSheet, Text, TextInput, View
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import type { SelectOption } from './reusableTableTypes';
 import { filterOptions } from './tableRows';
+import { pmT } from '../../../../pm/i18n/pmT';
 
 export interface ReusableTableOptionPickerProps {
   title: string;
@@ -52,9 +53,9 @@ export default function ReusableTableOptionPicker({ title, options, multi, selec
     <Modal transparent animationType="fade" visible onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} testID={`${testID}-backdrop`}>
         <Pressable testID={testID} style={[styles.window, { backgroundColor: c.surface, borderColor: c.border }]} onPress={() => {}}>
-          <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{title}</Text>
+          <Text style={[styles.title, { color: c.text }]} numberOfLines={1}>{pmT(title)}</Text>
           {options.length >= 8 && (
-            <TextInput testID={`${testID}-search`} value={query} onChangeText={setQuery} placeholder="Search…" placeholderTextColor={c.text + '60'} autoFocus={Platform.OS === 'web'}
+            <TextInput testID={`${testID}-search`} value={query} onChangeText={setQuery} placeholder={pmT('Search…')} placeholderTextColor={c.text + '60'} autoFocus={Platform.OS === 'web'}
               style={[styles.search, { color: c.text, borderColor: c.border }]} />
           )}
           {!multi && allowEmpty && (
@@ -66,10 +67,10 @@ export default function ReusableTableOptionPicker({ title, options, multi, selec
             ListEmptyComponent={<Text style={{ color: c.text, opacity: 0.6, padding: 12 }}>{options.length ? 'No matches found.' : 'No options yet.'}</Text>} />
           {multi && (
             <View style={styles.buttons}>
-              <Pressable testID={`${testID}-clear`} onPress={() => setChosen([])} style={[styles.btn, { borderColor: c.border }]}><Text style={{ color: c.text }}>Clear</Text></Pressable>
+              <Pressable testID={`${testID}-clear`} onPress={() => setChosen([])} style={[styles.btn, { borderColor: c.border }]}><Text style={{ color: c.text }}>{pmT('Clear')}</Text></Pressable>
               <Pressable testID={`${testID}-done`} onPress={() => onPick(options.map((o) => o.value).filter((v) => chosen.includes(v)).concat(chosen.filter((v) => !options.some((o) => o.value === v))))}
                 style={[styles.btn, { borderColor: c.primary, backgroundColor: c.primary }]}>
-                <Text style={{ color: '#fff', fontWeight: '700' }}>Done</Text>
+                <Text style={{ color: '#fff', fontWeight: '700' }}>{pmT('Done')}</Text>
               </Pressable>
             </View>
           )}

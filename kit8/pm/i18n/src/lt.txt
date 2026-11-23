@@ -746,3 +746,456 @@
 746|Tai nėra laiko juostos pavadinimas, pavyzdžiui, Europe/Berlin.
 747|Paros laiko modelis planuoja nuo projekto pradžios; planavimas nuo pabaigos datos jame nenaudojamas.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(eilutė, iš kurios atėjote)
+750|Etapas neturi eilučių: pasirinkite užduotį arba etapą (gairę), kad matytumėte ir redaguotumėte jos eilutes.
+751|Etapas neturi eilučių: pasirinkite užduotį arba gairę, kad matytumėte jos eilučių planą.
+752|Apskaita
+753|Veiksmai
+754|Papildoma
+755|Visi variantai
+756|Sumos valiuta
+757|Sumos kiekvienos eilutės valiuta
+758|Bet kuris
+759|Archyvuoti
+760|Priskirti kitą EAN-13
+761|Pagalbininkas
+762|Atributai
+763|BIM
+764|Atgal į {{tab}}
+765|Brūkšninis kodas
+766|Brūkšniniai kodai
+767|Bazinis vienetas
+768|Baziniai vienetai pakuotėje
+769|Partijos numeris
+770|Partijos
+771|Rezervuojami elementai
+772|Biudžetas
+773|Biudžeto paskirstymas
+774|Biudžeto straipsnis
+775|Biudžetai
+776|Verslo vienetas
+777|Pagal biudžeto straipsnį
+778|Pagal rūšį
+779|Pagal užduotį
+780|Skaičiuoti
+781|Apskaičiuoti projektą
+782|Gali būti
+783|Pinigų srautai
+784|Pinigų srautai: užregistruotų mokėjimų ataskaita bus vėliau.
+785|Katalogas
+786|Pokalbiai
+787|Patikros
+788|Pasirinkite rūšį…
+789|Pasirinkite eilutės biudžeto paskirstymą
+790|Pirmiausia pasirinkite savybę
+791|Išvalyti filtrą
+792|Išvalyti istoriją
+793|Išvalyti paiešką, filtrus ir rūšiavimą
+794|Spustelėkite užduotį medyje, kad matytumėte ir redaguotumėte jos eilutes: laiką, medžiagas, išlaidas ir pajamas.
+795|Spustelėkite užduotį medyje, kad matytumėte jos eilučių užregistruotas dienas: biudžetą, sutarties sumą ir kiekį, paskirstytą darbo dienoms.
+796|Kodas
+797|Kodas (UN/ECE, OKEI)
+798|Apribojimas…
+799|Sutartis
+800|Sutarties šablonas
+801|Sutartys ir darbuotojo duomenys
+802|Nukopijuota
+803|Kopijuoti antraštės pavadinimą
+804|Kopijuoti eilutės GUID
+805|Kopijuoti tekstą
+806|Savikaina
+807|Savikaina
+808|Sukurti pagal pažymėtą eilutę
+809|Sukurti pagal tai
+810|Sukurti pagal šią užduotį
+811|Sukurti naują
+812|Sukuria variantus
+813|Projekto valiutos
+814|Valiuta
+815|Klientas
+816|Kliento sąskaita faktūra
+817|Kliento sąskaita faktūra
+818|Klientų sąskaitos faktūros
+819|Numatytasis PVM tarifas
+820|Numatytieji nustatymai
+821|Numatytasis vienetas
+822|Ištrinti pasirinktas eilutes
+823|Rezultatas
+824|Priklausomybių ciklai
+825|Aprašymas
+826|Aprašymo režimai
+827|Deskriptorius
+828|Deskriptoriaus raktas
+829|Deskriptorių rinkiniai
+830|Deskriptorių reikšmės
+831|Deskriptoriai
+832|Rodomas pavadinimas
+833|Atlikta
+834|Nuvilkite ant aplanko
+835|Dubliuoti pasirinktą eilutę
+836|Redagavimo parinktys
+837|Redaguoti užduoties pavadinimą
+838|El. paštas
+839|Įveskite skaičių…
+840|Įveskite reikšmę…
+841|Įranga
+842|Įrangos duomenys
+843|Šio tipo įranga
+844|Įrangos tipas
+845|Įrangos tipas → įranga → savybės + variantai · {{items}} įrangos vnt. · {{types}} tipai · {{variants}} variantai · {{values}} savybių reikšmės
+846|Įrangos tipai
+847|Klaidos
+848|Visos užduotys jau užregistruotos
+849|Valiutos kursas
+850|Išlaida
+851|Išlaidos
+852|Baigiasi
+853|Eksportuoti, bendrinti
+854|Išplėstinė
+855|Faktas
+856|Fakto įvedimas
+857|Fakto įvedimas
+858|Failai
+859|Užpildyti
+860|Užpildyti / atnaujinti iš {{kind}} eilučių
+861|Užpildyti visas eilutes
+862|Užpildyti iš šablono
+863|Filtras
+864|Filtruoti ir rūšiuoti
+865|Finansai
+866|Pabaigos data
+867|Vardas
+868|Priderinti prie pločio
+869|Aplankas
+870|Aplankai
+871|Kam
+872|Ganto diagrama
+873|Generuoti variantus
+874|Rūšis
+875|Eiti į
+876|Eiti į (pažymėtos eilutės dokumentai)
+877|Eiti į (pasirinktos užduoties dokumentai)
+878|Eiti į (šios užduoties dokumentai)
+879|Eiti į pokalbį
+880|Eiti į: pirmiausia pasirinkite užduotį
+881|Slėpti išsamios informacijos skydelį
+882|Slėpti užduoties kelią
+883|Kaip sudarytas katalogas
+884|Importuoti / eksportuoti projektą
+885|Varianto pavadinime
+886|Gaunami
+887|Inventoriaus nr.
+888|Prekės numeris
+889|Kanban
+890|Pavardė
+891|Eilutė
+892|Eilutės
+893|Logistika
+894|Padaryti pirmą
+895|Padaryti paskutinį
+896|Valdymo rūšis
+897|Gamintojas
+898|Pažymėti darbą kaip atliktą iki būsenos datos
+899|Medžiagos
+900|Nariai
+901|Gairės
+902|Režimas
+903|Modelis
+904|Monitor01
+905|Daugiau
+906|Perkelti pasirinktas eilutes žemyn
+907|Perkelti pasirinktas eilutes aukštyn
+908|Pavadinimas prekei rasti
+909|Naujas
+910|Naujos eilutės gauna filtro reikšmes.
+911|Ne (Netiesa)
+912|Nėra biudžeto straipsnio
+913|Duomenų dar nėra.
+914|Nė viena šios užduoties eilutė neturi biudžeto straipsnio. Pasirinkite biudžeto straipsnį bent vienai eilutei ir paspauskite Užregistruoti.
+915|Nėra eilučių
+916|Eilučių dar nėra. Paspauskite „+ Pridėti“.
+917|Atitikmenų nerasta.
+918|Mokėjimų dar nėra. Paspauskite „+ Pridėti“ arba užpildykite juos iš užduoties eilučių.
+919|Nėra prekės su šiuo tekstu
+920|Paieškų dar nėra
+921|Nuorodoje nėra užduoties.
+922|Nėra varianto
+923|Neapskaičiuota · {{n}}
+924|Nepasirinkta
+925|Nenustatyta
+926|Dar nieko neužregistruota. Pasirinkite biudžeto straipsnį eilutėms ir paspauskite Užregistruoti (Redaguoti).
+927|Nėra ką registruoti
+928|Nėra ką registruoti: pridėkite mokėjimų
+929|Nėra ką registruoti: pasirinkite biudžeto straipsnį eilutėms
+930|Nėra ką registruoti: nė viena užduotis neturi eilutės su biudžeto straipsniu
+931|Skaičius
+932|Skaičius…
+933|Išjungta
+934|Kortelėje
+935|Atidaryti
+936|Neapmokėta (su PVM)
+937|Kita
+938|Siunčiami
+939|Apžvalga
+940|Savininkas (vaidmens tipas / vaidmuo)
+941|Savininkas (tipas / prekė)
+942|Priklausomybė
+943|PDF – visi duomenys
+944|PDF – matomi
+945|Pakuotė
+946|Pakuotės
+947|Apmokėta (su PVM)
+948|Aukštesnio lygio aplankas
+949|Partneris
+950|Partnerio sutartis
+951|Mokėjimas
+952|Mokėjimo faktas
+953|Mokėjimo faktai
+954|Mokėjimai
+955|Mokėjimai neužregistruoti
+956|Už 1 vienetą
+957|Procentai
+958|Laikotarpis
+959|Asmenų duomenys
+960|Asmens tipas
+961|Asmens tipas → asmuo → savybės + variantai · {{persons}} asmenys · {{types}} tipai · {{variants}} variantai · {{values}} savybių reikšmės
+962|Asmenų tipai
+963|Asmenys
+964|Šio tipo asmenys
+965|Telefonas
+966|Planas
+967|Plano eilutės
+968|Planuojama data
+969|Užregistruoti
+970|Užregistruoti visas užduotis
+971|Užregistruoti visas užduotis?
+972|Užregistruoti neužregistruotas užduotis
+973|Užregistruota su įspėjimu: šie ištekliai rezervuoti daugiau, nei leidžia jų kalendorius.
+974|Užregistruota mokėjimų: {{count}}
+975|Užregistruota eilučių: {{lines}} · dienų eilučių: {{rows}}
+976|Užregistruota užduočių: {{tasks}} · dienų eilučių: {{rows}}
+977|Kaina
+978|Kainos tipas
+979|Kainų tipai
+980|Kainos
+981|Kainodara
+982|Prekė
+983|Prekės kortelė
+984|Prekės duomenys
+985|Prekių priėmimas
+986|Prekių priėmimai
+987|Prekės pavadinimas
+988|Prekės tipas
+989|Prekės tipas → prekė → savybės + variantai · {{products}} prekės · {{variants}} variantai
+990|Prekių tipai
+991|Prekės
+992|Prekės ir aplankai
+993|Šio tipo prekės
+994|Prekės pagal aukščiausio lygio aplankus
+995|Prekės pagal tipą
+996|Eiga
+997|Projekto pagalbininkas
+998|Savybės
+999|Savybė
+1000|Savybių rinkinys
+1001|Savybių reikšmės
+1002|Pirkimo užsakymas
+1003|Pirkimo užsakymai
+1004|Kiekis
+1005|ROI
+1006|Iš naujo perskaityti visas įrangos lenteles
+1007|Iš naujo perskaityti visas asmenų lenteles
+1008|Iš naujo perskaityti visas prekių lenteles
+1009|Iš naujo perskaityti visas vaidmenų lenteles
+1010|Tik skaitomas projektas
+1011|Perskaičiuoti valiutų sumas
+1012|Dabartiniais kursais perskaičiuoti šio skirtuko kiekvienos eilutės sumas apskaitos / biudžeto valiuta
+1013|Dabartiniais kursais perskaičiuoti šio skirtuko kiekvieno mokėjimo sumas apskaitos / biudžeto valiuta
+1014|Projekto perskaičiavimas
+1015|Atnaujinti mokėjimus?
+1016|Atnaujinti projektą
+1017|Ataskaitos
+1018|Privaloma
+1019|Iš naujo suplanuoti nebaigtą darbą
+1020|Išteklius
+1021|Išteklių rūšis
+1022|Išteklių vaidmenys
+1023|Ištekliai užimti
+1024|Pajamos
+1025|Vaidmuo
+1026|Vaidmens atributai
+1027|Vaidmenų duomenys
+1028|Vaidmens pavadinimas
+1029|Vaidmens tipas
+1030|Vaidmens tipas → vaidmuo → savybės + variantai + kaina · {{roles}} vaidmenys · {{variants}} variantai · {{costs}} kainos eilutės
+1031|Vaidmenų tipai
+1032|Vaidmenys
+1033|Vaidmenys ir aplankai
+1034|Šio tipo vaidmenys
+1035|Vaidmenys pagal aukščiausio lygio aplankus
+1036|Vaidmenys pagal tipą
+1037|SKU
+1038|Išsaugoti nustatymus organizacijoje
+1039|Išsaugoti kaip šabloną
+1040|Slinkti iki pasirinktos užduoties juostos
+1041|Ieškoti verslo vienetų…
+1042|Paieškos istorija
+1043|Paieškos pavadinimas
+1044|Ieškoti…
+1045|Pirmiausia pasirinkite partnerį
+1046|Pasirinkite užduotį
+1047|Pirmiausia pasirinkite darbo centrą
+1048|Pasirinkite biudžeto straipsnį…
+1049|Pasirinkite katalogo elementą…
+1050|Pasirinkite sutartį…
+1051|Pasirinkite deskriptorių…
+1052|Pasirinkite įrangos tipą…
+1053|Pasirinkite įrangą…
+1054|Pasirinkite partnerį…
+1055|Pasirinkite laikotarpį (mėnesių intervalą)
+1056|Pasirinkite asmens tipą…
+1057|Pasirinkite asmenį…
+1058|Pasirinkite prekę…
+1059|Pasirinkite savybę…
+1060|Pasirinkite vaidmens tipą…
+1061|Pasirinkite vaidmenį…
+1062|Pasirinkite šabloną…
+1063|Pasirinkite projekto vadovą...
+1064|Pasirinkti šią eilutę
+1065|Pasirinkti šią užduotį
+1066|Pasirinkite tipą…
+1067|Pasirinkite reikšmę…
+1068|Pasirinkite darbo centrą…
+1069|Pasirinkite…
+1070|Parduodami vienetai
+1071|Serijos nr.
+1072|Serijos numeris
+1073|Serija
+1074|Rinkinys
+1075|Nustatyti bazinį planą
+1076|Kelios reikšmės
+1077|Bendrinti
+1078|Dalijasi variantais su
+1079|Poslinkis (dienos)
+1080|Poslinkis nuo
+1081|Rodyti viską
+1082|Rodyti šios užduoties kelią
+1083|Pavienis vienetas
+1084|Rūšiuoti
+1085|Etapai
+1086|Pradžios data
+1087|Subprojektas
+1088|Subprojektai
+1089|Suma
+1090|Suma apskaitai
+1091|Suma biudžetui
+1092|Suma sutarčiai
+1093|Suma su PVM
+1094|Tiekėjas
+1095|Lentelės nustatymai
+1096|Lentelės nustatymai: priderinti prie pločio, numatytieji nustatymai
+1097|Užduoties pabaiga
+1098|Užduoties inspektorius
+1099|Užduoties eilutė
+1100|Užduoties kelias
+1101|Užduoties pradžia
+1102|Užduotys
+1103|Šios užduoties šablonai: išsaugoti, užpildyti, išsaugoti
+1104|Išsaugoti šablonai
+1105|Tekstas…
+1106|Eilutės valiuta nežinoma: pasirinkite sutartį arba nustatykite projekto sutarties valiutą
+1107|Mokėjimo valiuta nežinoma: pasirinkite sutartį
+1108|Paskirstymai dar skaitomi: pabandykite dar kartą po akimirkos
+1109|Valiutų kursai dar neperskaityti
+1110|Eilutė neturi nei kiekio, nei sumos registravimui
+1111|Šių išteklių eilutės neužregistruotos. Perkelkite užduotį, pakeiskite išteklių arba sumažinkite valandas ir vėl paspauskite Užregistruoti.
+1112|Mokėjimai atnaujinti
+1113|Mokėjimų užregistruoti negalima
+1114|Mokėjimų nepavyko užregistruoti
+1115|Užduočių ({{count}}) užregistruotos dienos bus apskaičiuotos iš naujo ir pakeistos.
+1116|Kursas imamas planuojamai datai: įveskite jį
+1117|Šios užduoties pradžia ir pabaiga imamos iš subprojekto.
+1118|Sumos atnaujintos
+1119|Užduoties nepavyko užregistruoti
+1120|Užduotis neturi šios rūšies eilučių
+1121|Užduotis dar neturi pradžios ir pabaigos datos
+1122|Užduotis turi pastabų.
+1123|Užduotis laukia kito projekto užduoties.
+1124|Šio savininko variantų rinkinys neturi privalomų deskriptorių.
+1125|Ši užduotis neegzistuoja (ištrinta?).
+1126|Šio vieneto čia pasirinkti negalima
+1127|Šis vienetas neaktyvus
+1128|Laikas
+1129|Įrangos laikas
+1130|Asmenų laikas
+1131|Darbo centrų laikas
+1132|Darbo laiko apskaitos lapas
+1133|Darbo laiko apskaitos lapai
+1134|Laiko juosta
+1135|Laiko juostos duomenys
+1136|Pavadinimas
+1137|Iš viso
+1138|Iš viso su PVM
+1139|Tipo numatytoji reikšmė
+1140|Rašykite, kad rastumėte prekę
+1141|UX/UI
+1142|Unikalus
+1143|Vienetas
+1144|Atsargų vienetas
+1145|Vienetas iš
+1146|Vienetai
+1147|Atnaujinti projektą
+1148|Atnaujinti projekto savikainą
+1149|Naudoti procentus
+1150|Naudoti darbo dienas
+1151|Naudoja užduotys: {{n}}
+1152|Naudojama
+1153|PVM
+1154|PVM %
+1155|PVM įskaičiuotas
+1156|PVM tarifas
+1157|PVM tarifai
+1158|Galioja nuo
+1159|Reikšmė
+1160|Reikšmės tipas
+1161|Reikšmės
+1162|Variantas
+1163|Varianto savininkas
+1164|Variantų rinkinys
+1165|Varianto pavadinimo šablonas
+1166|Varianto reikšmės
+1167|Variantai
+1168|Tiekėjas
+1169|Tiekėjo sąskaita faktūra
+1170|Tiekėjo sąskaita faktūra
+1171|Tiekėjų sąskaitos faktūros
+1172|Vykdoma
+1173|Įspėjimas: {{first}}
+1174|Darbo centras
+1175|Taip (Tiesa)
+1176|Taip, perskaičiuoti
+1177|visi
+1178|pakeista po užregistravimo – paspauskite Užregistruoti (Redaguoti)
+1179|prekė × variantas
+1180|projektas {{project}} · užduotis {{task}} · {{hours}} val.
+1181|projektas {{project}}, užduotis {{task}} ({{hours}} val.)
+1182|vaidmenų reikalavimai
+1183|vaidmuo × variantas
+1184|į CSV
+1185|į JSON
+1186|su PVM
+1187|Neužregistruota eilučių: {{count}}, išteklius užimtas: {{first}}
+1188|Neužregistruota eilučių: {{count}}: {{first}}
+1189|Perskaičiuota eilučių: {{count}}
+1190|Neužregistruota: {{count}}: {{first}}
+1191|Perskaičiuota mokėjimų: {{count}}
+1192|Atitinka prekių: {{count}} – rašykite daugiau
+1193|Atnaujinta sumų: {{count}}
+1194|Sukurta mokėjimų: {{create}}, pakeista: {{update}}, pašalinta: {{remove}}
+1195|{{resource}} {{day}} rezervuotas du kartus
+1196|{{resource}} užimtas {{day}}: {{total}} val. iš {{capacity}} val. (kalendorius leidžia {{capacity}} val.)
+1197|{{resource}} užimtas {{day}}: {{total}} val. iš {{capacity}} val. ({{others}} val. rezervavo kitos jūsų organizacijos užduotys)
+1198|{{resource}} reikia {{hours}} val. {{day}}, bet jau rezervuota {{booked}} val. iš {{capacity}} val.: {{held}}. Ar galima perkelti užduotį arba sumažinti valandas?
+1199|{{resource}} reikia {{hours}} val. {{day}}, bet išteklio kalendorius tą dieną leidžia {{capacity}} val. Ar galima perkelti užduotį arba pakeisti kalendorių?
+1200|{{resource}}: kalendoriuje nėra dienos {{day}} (tiems metams neužpildyta), todėl {{hours}} val. patikrinti negalima
+1201|Pasikeis mokėjimų: {{update}}, bus pašalinta: {{remove}}. Tai, ką įvedėte mokėjime (datos, biudžeto straipsnis, gavėjas ...), išsaugoma.

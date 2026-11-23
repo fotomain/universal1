@@ -628,8 +628,9 @@ The PM module follows the app language (`kit8/i18n` `LANGUAGES`: en, zh, hi, es,
   `PMContextMenu` caption, `PMTooltip` (every tip), the error bar. Static `<Text>` contents and `label / title /
   placeholder` props of the PM screens are wrapped in `pmT(...)`.
 * Dictionaries: `i18n/src/<lang>.txt` (`N|translation`, N = position in `i18n/locales/keys.ts`) →
-  `python3 kit8/pm/i18n/src/build.py` → `i18n/locales/<lang>.ts` + `index.ts` (generated). 571 texts × 14 languages (Resource optimization added 122).
+  `python3 kit8/pm/i18n/src/build.py` → `i18n/locales/<lang>.ts` + `index.ts` (generated). 1201 texts × 14 languages (Resource optimization added 122; 2026-11-23 +453: the Task → Edit tables, the project dashboard bars, the side panels of the catalog dashboards).
   The translations were written by the assistant and were not reviewed by native speakers.
+* **`ReusableTable` translates by itself** (2026-11-23): column titles, the table title (`crudListTitle`), `col.placeholder`, the search / filter / fill / option-picker texts and `emptyText` go through `pmT` inside the component, so a table in a catalog dashboard or a document needs no `pmT` on its column titles - only the English text must be a key of `keys.ts`. The four catalog dashboards (`kit8/catalog/{product,person,resourcerole,equipment}/dashboard`) call `usePMLanguage()` and wrap the side panel (items, groups), the table title / purpose and the header in `pmT`. NOT translated yet: the long `purpose` / hint sentences of the catalog models (`productModel.ts`, `resourceRoleModel.ts`, `personDashboardModel.ts`, `equipmentDashboardModel.ts`), the Products / Roles tree hints, project settings tab texts.
 * Add a text: use `pmT('New text')` in the code, append `"New text",` to `keys.ts`, add the `N|…` line to every
   `src/<lang>.txt`, run `build.py`. `__tests__/pm/i18n/pmT.test.ts` fails when a language misses a key.
 * Still English (not wrapped yet): texts built from template strings with values inside (e.g. "Delete the 3 selected

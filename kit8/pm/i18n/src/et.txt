@@ -746,3 +746,456 @@
 746|See ei ole ajavööndi nimi, näiteks Europe/Berlin.
 747|Kellaaja mudel planeerib projekti algusest; lõppkuupäevast planeerimist selles ei kasutata.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(rida, kust tulite)
+750|Etapil pole ridu: valige ülesanne või vahe-eesmärk, et näha ja muuta selle ridu.
+751|Etapil pole ridu: valige ülesanne või vahe-eesmärk, et näha selle ridade plaani.
+752|Raamatupidamine
+753|Toimingud
+754|Täpsemalt
+755|Kõik variandid
+756|Summad valuutas
+757|Summad iga rea valuutas
+758|Mis tahes
+759|Arhiveeri
+760|Määra järgmine EAN-13
+761|Abiline
+762|Atribuudid
+763|BIM
+764|Tagasi: {{tab}}
+765|Vöötkood
+766|Vöötkoodid
+767|Põhiühik
+768|Põhiühikuid pakendis
+769|Partii number
+770|Partiid
+771|Broneeritavad üksused
+772|Eelarve
+773|Eelarve jaotus
+774|Eelarverida
+775|Eelarved
+776|Äriüksus
+777|Eelarverea järgi
+778|Liigi järgi
+779|Ülesande järgi
+780|Arvuta
+781|Arvuta projekt
+782|Võib olla
+783|Rahavoog
+784|Rahavoog: postitatud maksete aruanne tuleb hiljem.
+785|Kataloog
+786|Vestlus
+787|Kontrollid
+788|Valige liik…
+789|Valige rea eelarve jaotus
+790|Valige esmalt omadus
+791|Tühjenda filter
+792|Tühjenda ajalugu
+793|Tühjenda otsing, filtrid ja sortimine
+794|Klõpsake puus ülesandel, et näha ja muuta selle ridu: aeg, materjal, kulud ja tulud.
+795|Klõpsake puus ülesandel, et näha selle ridade postitatud päevi: eelarvet, lepingu summat ja tööpäevadele jaotatud kogust.
+796|Kood
+797|Kood (UN/ECE, OKEI)
+798|Piirang…
+799|Leping
+800|Lepingumall
+801|Lepingud ja töötaja andmed
+802|Kopeeritud
+803|Kopeeri päise nimi
+804|Kopeeri rea GUID
+805|Kopeeri tekst
+806|Kulu
+807|Kulud
+808|Loo märgitud rea põhjal
+809|Loo selle põhjal
+810|Loo selle ülesande põhjal
+811|Loo uus
+812|Loob variandid
+813|Projekti valuutad
+814|Valuuta
+815|Klient
+816|Müügiarve
+817|Müügiarve
+818|Müügiarved
+819|Vaikimisi käibemaksumäär
+820|Vaikeseaded
+821|Vaikeühik
+822|Kustuta valitud read
+823|Tulemus
+824|Sõltuvuste tsüklid
+825|Kirjeldus
+826|Kirjelduse režiimid
+827|Deskriptor
+828|Deskriptori võti
+829|Deskriptorite komplektid
+830|Deskriptorite väärtused
+831|Deskriptorid
+832|Kuvatav pealkiri
+833|Valmis
+834|Lohistage kausta peale
+835|Dubleeri valitud rida
+836|Muutmisvalikud
+837|Muuda ülesande nime
+838|E-post
+839|Sisestage arv…
+840|Sisestage väärtus…
+841|Seadmed
+842|Seadmete andmed
+843|Seda tüüpi seadmed
+844|Seadme tüüp
+845|Seadme tüüp → seade → omadused + variandid · {{items}} seadet · {{types}} tüüpi · {{variants}} varianti · {{values}} omaduse väärtust
+846|Seadmetüübid
+847|Vead
+848|Kõik ülesanded on juba postitatud
+849|Vahetuskurss
+850|Kulu
+851|Kulud
+852|Aegub
+853|Ekspordi, jaga
+854|Laiendatud
+855|Fakt
+856|Faktide sisestus
+857|Faktide sisestus
+858|Failid
+859|Täida
+860|Täida / värskenda {{kind}} ridade põhjal
+861|Täida kõik read
+862|Täida mallist
+863|Filter
+864|Filtreeri ja sorteeri
+865|Rahandus
+866|Lõppkuupäev
+867|Eesnimi
+868|Sobita laiusele
+869|Kaust
+870|Kaustad
+871|Kellele
+872|Gantt
+873|Loo variandid
+874|Liik
+875|Ava
+876|Ava (märgitud rea dokumendid)
+877|Ava (valitud ülesande dokumendid)
+878|Ava (selle ülesande dokumendid)
+879|Ava vestlus
+880|Ava: valige esmalt ülesanne
+881|Peida detailide paneel
+882|Peida ülesande tee
+883|Kuidas kataloog on üles ehitatud
+884|Impordi / ekspordi projekt
+885|Variandi pealkirjas
+886|Sissetulevad
+887|Inventari nr
+888|Kaubanumber
+889|Kanban
+890|Perekonnanimi
+891|Rida
+892|Read
+893|Logistika
+894|Tee esimeseks
+895|Tee viimaseks
+896|Juhtimisliik
+897|Tootja
+898|Märgi töö lõpetatuks olekukuupäevani
+899|Materjal
+900|Liikmed
+901|Vahe-eesmärgid
+902|Režiim
+903|Mudel
+904|Monitor01
+905|Rohkem
+906|Liiguta valitud read alla
+907|Liiguta valitud read üles
+908|Nimi, mille järgi toodet leida
+909|Uus
+910|Uued read saavad filtri väärtused.
+911|Ei (Väär)
+912|Eelarverida puudub
+913|Andmeid pole veel.
+914|Ühelgi selle ülesande real pole eelarverida. Valige eelarverida vähemalt ühele reale ja vajutage Postita.
+915|Ridu pole
+916|Ridu pole veel. Vajutage „+ Lisa“.
+917|Vasteid ei leitud.
+918|Makseid pole veel. Vajutage „+ Lisa“ või täitke need ülesande ridade põhjal.
+919|Selle tekstiga toodet pole
+920|Otsinguid pole veel
+921|Lingis pole ülesannet.
+922|Varianti pole
+923|Arvutamata · {{n}}
+924|Valimata
+925|Määramata
+926|Midagi pole veel postitatud. Valige ridadele eelarverida ja vajutage Postita (Muuda).
+927|Pole midagi postitada
+928|Pole midagi postitada: lisage maksed
+929|Pole midagi postitada: valige ridadele eelarverida
+930|Pole midagi postitada: ühelgi ülesandel pole eelarvereaga rida
+931|Arv
+932|Arv…
+933|Väljas
+934|Kaardil
+935|Ava
+936|Avatud (koos käibemaksuga)
+937|Muu
+938|Väljaminevad
+939|Ülevaade
+940|Omanik (rolli tüüp / roll)
+941|Omanik (tüüp / toode)
+942|Kuuluvus
+943|PDF – kõik andmed
+944|PDF – nähtav
+945|Pakend
+946|Pakendid
+947|Makstud (koos käibemaksuga)
+948|Ülemkaust
+949|Partner
+950|Partneri leping
+951|Makse
+952|Maksefakt
+953|Maksefaktid
+954|Maksed
+955|Maksed postitamata
+956|1 ühiku kohta
+957|Protsent
+958|Periood
+959|Isikute andmed
+960|Isiku tüüp
+961|Isiku tüüp → isik → omadused + variandid · {{persons}} isikut · {{types}} tüüpi · {{variants}} varianti · {{values}} omaduse väärtust
+962|Isikutüübid
+963|Isikud
+964|Seda tüüpi isikud
+965|Telefon
+966|Plaan
+967|Plaaniread
+968|Planeeritud kuupäev
+969|Postita
+970|Postita kõik ülesanded
+971|Postita kõik ülesanded?
+972|Postita postitamata ülesanded
+973|Postitatud hoiatusega: neid ressursse on broneeritud rohkem, kui nende kalender lubab.
+974|Postitatud makseid: {{count}}
+975|Postitatud ridu: {{lines}} · päevaridu: {{rows}}
+976|Postitatud ülesandeid: {{tasks}} · päevaridu: {{rows}}
+977|Hind
+978|Hinnatüüp
+979|Hinnatüübid
+980|Hinnad
+981|Hinnakujundus
+982|Toode
+983|Tootekaart
+984|Tooteandmed
+985|Kauba vastuvõtt
+986|Kauba vastuvõtud
+987|Toote pealkiri
+988|Tootetüüp
+989|Tootetüüp → toode → omadused + variandid · {{products}} toodet · {{variants}} varianti
+990|Tootetüübid
+991|Tooted
+992|Tooted ja kaustad
+993|Selle tüübi tooted
+994|Tooted ülemkaustade kaupa
+995|Tooted tüübi kaupa
+996|Edenemine
+997|Projektiabiline
+998|Omadused
+999|Omadus
+1000|Omaduste komplekt
+1001|Omaduste väärtused
+1002|Ostutellimus
+1003|Ostutellimused
+1004|Kogus
+1005|ROI
+1006|Loe kõik seadmete tabelid uuesti
+1007|Loe kõik isikute tabelid uuesti
+1008|Loe kõik toodete tabelid uuesti
+1009|Loe kõik rollide tabelid uuesti
+1010|Kirjutuskaitstud projekt
+1011|Arvuta valuutasummad uuesti
+1012|Arvuta praeguste kurssidega uuesti selle vahelehe iga rea summad raamatupidamise / eelarve valuutas
+1013|Arvuta praeguste kurssidega uuesti selle vahelehe iga makse summad raamatupidamise / eelarve valuutas
+1014|Projekti ümberarvutus
+1015|Kas värskendada makseid?
+1016|Värskenda projekti
+1017|Aruanded
+1018|Kohustuslik
+1019|Planeeri lõpetamata töö ümber
+1020|Ressurss
+1021|Ressursi liik
+1022|Ressursirollid
+1023|Ressursid on hõivatud
+1024|Tulud
+1025|Roll
+1026|Rolli atribuudid
+1027|Rollide andmed
+1028|Rolli pealkiri
+1029|Rolli tüüp
+1030|Rolli tüüp → roll → omadused + variandid + kulu · {{roles}} rolli · {{variants}} varianti · {{costs}} kulurida
+1031|Rollitüübid
+1032|Rollid
+1033|Rollid ja kaustad
+1034|Seda tüüpi rollid
+1035|Rollid ülemkaustade kaupa
+1036|Rollid tüübi kaupa
+1037|SKU
+1038|Salvesta seaded organisatsiooni
+1039|Salvesta mallina
+1040|Keri valitud ülesande ribani
+1041|Otsi äriüksusi…
+1042|Otsinguajalugu
+1043|Otsingunimi
+1044|Otsi…
+1045|Valige esmalt partner
+1046|Valige ülesanne
+1047|Valige esmalt töökeskus
+1048|Valige eelarverida…
+1049|Valige kataloogi element…
+1050|Valige leping…
+1051|Valige deskriptor…
+1052|Valige seadme tüüp…
+1053|Valige seade…
+1054|Valige partner…
+1055|Valige periood (kuude vahemik)
+1056|Valige isiku tüüp…
+1057|Valige isik…
+1058|Valige toode…
+1059|Valige omadus…
+1060|Valige rolli tüüp…
+1061|Valige roll…
+1062|Valige mall…
+1063|Valige projektijuht...
+1064|Vali see rida
+1065|Vali see ülesanne
+1066|Valige tüüp…
+1067|Valige väärtus…
+1068|Valige töökeskus…
+1069|Valige…
+1070|Müüdavad kaubad
+1071|Seerianr
+1072|Seerianumber
+1073|Seeria
+1074|Komplekt
+1075|Määra baasplaan
+1076|Mitu väärtust
+1077|Jaga
+1078|Jagab variante koos
+1079|Nihe (päevi)
+1080|Nihe alates
+1081|Näita kõiki
+1082|Näita selle ülesande teed
+1083|Üksik ühik
+1084|Sorteeri
+1085|Etapid
+1086|Alguskuupäev
+1087|Alamprojekt
+1088|Alamprojektid
+1089|Summa
+1090|Summa raamatupidamiseks
+1091|Summa eelarveks
+1092|Summa lepinguks
+1093|Summa koos käibemaksuga
+1094|Tarnija
+1095|Tabeli seaded
+1096|Tabeli seaded: sobita laiusele, vaikeseaded
+1097|Ülesande lõpp
+1098|Ülesande inspektor
+1099|Ülesande rida
+1100|Ülesande tee
+1101|Ülesande algus
+1102|Ülesanded
+1103|Selle ülesande mallid: salvesta, täida, salvestatud
+1104|Salvestatud mallid
+1105|Tekst…
+1106|Rea valuuta on teadmata: valige leping või määrake projekti lepingu valuuta
+1107|Makse valuuta on teadmata: valige leping
+1108|Jaotusi loetakse veel: proovige hetke pärast uuesti
+1109|Vahetuskursse pole veel loetud
+1110|Real pole postitamiseks kogust ega summat
+1111|Nende ressursside ridu ei postitatud. Liigutage ülesannet, muutke ressurssi või vähendage tunde ning vajutage uuesti Postita.
+1112|Maksed on ajakohased
+1113|Makseid ei saa postitada
+1114|Makseid ei õnnestunud postitada
+1115|{{count}} ülesande postitatud päevad arvutatakse uuesti ja asendatakse.
+1116|Kurss võetakse planeeritud kuupäevaks: sisestage see
+1117|Selle ülesande algus ja lõpp tulevad alamprojektist.
+1118|Summad on ajakohased
+1119|Ülesannet ei õnnestunud postitada
+1120|Ülesandel pole seda liiki ridu
+1121|Ülesandel pole veel algus- ja lõppkuupäeva
+1122|Ülesandel on märkmed.
+1123|Ülesanne ootab teise projekti ülesannet.
+1124|Selle omaniku variantide komplektil pole kohustuslikke deskriptoreid.
+1125|Seda ülesannet pole olemas (kustutatud?).
+1126|Seda ühikut ei saa siin valida
+1127|See ühik ei ole aktiivne
+1128|Aeg
+1129|Seadmete aeg
+1130|Isikute aeg
+1131|Töökeskuste aeg
+1132|Töölehed
+1133|Töölehed
+1134|Ajajoon
+1135|Ajajoone andmed
+1136|Pealkiri
+1137|Kokku
+1138|Kokku koos käibemaksuga
+1139|Tüübi vaikeväärtus
+1140|Tippige toote leidmiseks
+1141|UX/UI
+1142|Unikaalne
+1143|Ühik
+1144|Laoühik
+1145|Ühik allikast
+1146|Ühikud
+1147|Värskenda projekti
+1148|Värskenda projekti kulu
+1149|Kasuta protsenti
+1150|Kasuta tööpäevi
+1151|Kasutab ülesandeid: {{n}}
+1152|Kasutatakse
+1153|Käibemaks
+1154|Käibemaks %
+1155|Käibemaks sisaldub
+1156|Käibemaksumäär
+1157|Käibemaksumäärad
+1158|Kehtib alates
+1159|Väärtus
+1160|Väärtuse tüüp
+1161|Väärtused
+1162|Variant
+1163|Variandi omanik
+1164|Variantide komplekt
+1165|Variandi pealkirja mall
+1166|Variandi väärtused
+1167|Variandid
+1168|Tarnija
+1169|Ostuarve
+1170|Ostuarve
+1171|Ostuarved
+1172|Töös
+1173|Hoiatus: {{first}}
+1174|Töökeskus
+1175|Jah (Tõene)
+1176|Jah, arvuta uuesti
+1177|kõik
+1178|muudetud pärast postitamist – vajutage Postita (Muuda)
+1179|toode × variant
+1180|projekt {{project}} · ülesanne {{task}} · {{hours}} h
+1181|projekt {{project}}, ülesanne {{task}} ({{hours}} h)
+1182|rollide nõuded
+1183|roll × variant
+1184|CSV-sse
+1185|JSON-i
+1186|koos käibemaksuga
+1187|Postitamata ridu: {{count}}, ressurss on hõivatud: {{first}}
+1188|Postitamata ridu: {{count}}: {{first}}
+1189|Ümber arvutatud ridu: {{count}}
+1190|Postitamata: {{count}}: {{first}}
+1191|Ümber arvutatud makseid: {{count}}
+1192|Sobivaid tooteid: {{count}} – tippige rohkem
+1193|Värskendatud kogusummasid: {{count}}
+1194|Loodud makseid: {{create}}, muudetud: {{update}}, eemaldatud: {{remove}}
+1195|{{resource}} on päeval {{day}} kahekordselt broneeritud
+1196|{{resource}} on päeval {{day}} hõivatud: {{total}} h {{capacity}} h-st (kalender lubab {{capacity}} h)
+1197|{{resource}} on päeval {{day}} hõivatud: {{total}} h {{capacity}} h-st ({{others}} h on broneerinud teie organisatsiooni teised ülesanded)
+1198|{{resource}} on vaja {{hours}} h päeval {{day}}, kuid juba on broneeritud {{booked}} h {{capacity}} h-st: {{held}}. Kas ülesannet saab liigutada või tunde vähendada?
+1199|{{resource}} on vaja {{hours}} h päeval {{day}}, kuid ressursi kalender lubab sel päeval {{capacity}} h. Kas ülesannet saab liigutada või kalendrit muuta?
+1200|{{resource}}: kalendris pole päeva {{day}} (selle aasta jaoks täitmata), seega ei saa {{hours}} h kontrollida
+1201|Muutub makseid: {{update}}, eemaldatakse: {{remove}}. Mis te makse juures sisestasite (kuupäevad, eelarverida, saaja ...), jääb alles.

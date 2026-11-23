@@ -41,6 +41,7 @@ import GenerateVariantsWindow from './GenerateVariantsWindow';
 import ProductsWithTree from './ProductsWithTree';
 import { TREE_ALL_ID } from '../../../ui/components/tree/folderTreeModel';
 import { assignNextBarcode, createPlannedVariants, deleteRows, rebuildVariants } from './productDashboardActions';
+import { pmT, usePMLanguage } from '../../../pm/i18n/pmT';
 
 type Tab = 'overview' | 'card' | 'productsTree' | ProductTableKey;
 /** where a table was opened from (a row menu: Prices, Barcodes ...): the back arrow of the table returns there */
@@ -48,6 +49,7 @@ interface Origin { tab: Tab; params: Record<string, string | undefined>; rowGUID
 const isTableKey = (t: unknown): t is ProductTableKey => typeof t === 'string' && t in PRODUCT_TABLES;
 
 export default function ProductDashboardCRUD() {
+  usePMLanguage();
   const { themeColors: c } = useDesignSystem();
   const dispatch = useDispatch();
   const router = useRouter();
@@ -139,7 +141,7 @@ export default function ProductDashboardCRUD() {
           borderColor: active ? c.primary : c.border, borderLeftColor: active ? c.primary : 'transparent',
         }]}>
         <IconApp name={icon} size={16} color={active ? c.primary : c.text} />
-        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{label}</Text>
+        <Text numberOfLines={1} style={{ flex: wide ? 1 : undefined, color: active ? c.primary : c.text, fontWeight: active ? '700' : '500', fontSize: 13 }}>{pmT(label)}</Text>
         {n !== undefined && <Text style={{ color: c.text, opacity: 0.55, fontSize: 12 }}>{n}</Text>}
         {!!bad && <View testID={`product-nav-${key}-issues`} style={[styles.badge, { backgroundColor: c.error }]}><Text style={styles.badgeText}>{bad}</Text></View>}
       </Pressable>
@@ -152,7 +154,7 @@ export default function ProductDashboardCRUD() {
       {navItem('productsTree', 'Products & folders', 'account_tree', data.product.length)}
       {DASHBOARD_GROUPS.map((g) => (
         <React.Fragment key={g}>
-          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{g}</Text>}
+          {wide && <Text style={[styles.navGroup, { color: c.text }]}>{pmT(g)}</Text>}
           {DASHBOARD_TABLE_ORDER.filter((k) => tables[k].group === g).map((k) => navItem(k, tables[k].title, tables[k].icon, data[k].length, (issuesPerTable[k] || []).filter((i) => i.severity === 'error').length || undefined))}
         </React.Fragment>
       ))}
@@ -172,19 +174,19 @@ export default function ProductDashboardCRUD() {
     <View style={{ gap: 10 }}>
       <View style={styles.tableHead}>
         {origin && origin.tab !== tableKey && (
-          <PMIconButton tipScope="app" testID="product-table-back" icon="arrow_back" title={`Back to ${tabTitle(origin.tab)}${origin.rowGUID ? ' (the row you came from)' : ''}`} color={c.primary} onPress={goBack} />
+          <PMIconButton tipScope="app" testID="product-table-back" icon="arrow_back" title={pmT('Back to {{tab}}', { tab: pmT(tabTitle(origin.tab)) }) + (origin.rowGUID ? ` ${pmT('(the row you came from)')}` : '')} color={c.primary} onPress={goBack} />
         )}
         <IconApp name={cfg.icon} size={22} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text testID="product-table-title" style={[styles.h2, { color: c.text }]}>{cfg.title}</Text>
-          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{PRODUCT_TABLES[tableKey].purpose}</Text>
+          <Text testID="product-table-title" style={[styles.h2, { color: c.text }]}>{pmT(cfg.title)}</Text>
+          <Text style={{ color: c.text, opacity: 0.65, fontSize: 13 }}>{pmT(PRODUCT_TABLES[tableKey].purpose)}</Text>
         </View>
       </View>
       {(issuesPerTable[tableKey] || []).length > 0 && (
         <Pressable testID="product-table-issues" onPress={() => go('overview')} style={[styles.issueBar, { borderColor: c.error + '66', backgroundColor: c.error + '0f' }]}>
           <IconApp name="warning" size={16} color={c.error} />
           <Text style={{ color: c.text, flex: 1 }}>{(issuesPerTable[tableKey] || []).length} check{(issuesPerTable[tableKey] || []).length === 1 ? '' : 's'} need attention in this table: {(issuesPerTable[tableKey] || [])[0].message}</Text>
-          <Text style={{ color: c.primary, fontWeight: '700' }}>Checks</Text>
+          <Text style={{ color: c.primary, fontWeight: '700' }}>{pmT('Checks')}</Text>
         </Pressable>
       )}
       {cfg.filters.length > 0 && (
@@ -196,13 +198,13 @@ export default function ProductDashboardCRUD() {
               <View key={f.key} style={[styles.filterChip, { borderColor: on ? c.primary : c.border, backgroundColor: on ? c.primary + '14' : c.surface }]}>
                 <Pressable testID={`product-filter-${f.key}`} onPress={() => setPickFilter(f)} style={styles.filterPress}>
                   <IconApp name="filter_alt" size={14} color={on ? c.primary : c.text} />
-                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{f.label}: {on ? optionLabel(f.options, v) : 'all'}</Text>
+                  <Text numberOfLines={1} style={{ color: on ? c.primary : c.text, fontSize: 13, maxWidth: 260 }}>{pmT(f.label)}: {on ? optionLabel(f.options, v) : pmT('all')}</Text>
                 </Pressable>
                 {on && <Pressable testID={`product-filter-${f.key}-clear`} onPress={() => setFilter(f.key, null)} hitSlop={6}><IconApp name="close" size={14} color={c.primary} /></Pressable>}
               </View>
             );
           })}
-          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>New rows get the filter values.</Text>}
+          {cfg.filters.some((f) => isSet(filterValues[f.key])) && <Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('New rows get the filter values.')}</Text>}
         </View>
       )}
       <ReusableTable
@@ -242,8 +244,8 @@ export default function ProductDashboardCRUD() {
       <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
         <IconApp name="inventory_2" size={24} color={c.primary} />
         <View style={{ flex: 1, minWidth: 0 }}>
-          <Text style={[styles.h1, { color: c.text }]}>Products</Text>
-          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Product type → product → properties + variants · {data.product.length} products · {data.variant.length} variants</Text>
+          <Text style={[styles.h1, { color: c.text }]}>{pmT('Products')}</Text>
+          <Text numberOfLines={1} style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>{pmT('Product type → product → properties + variants · {{products}} products · {{variants}} variants', { products: data.product.length, variants: data.variant.length })}</Text>
         </View>
         <PMIconButton tipScope="app" testID="product-generate-variants-header" icon="library_add" title="Generate variants" color={c.primary} onPress={() => setGenerateFor(null)} />
         <PMIconButton tipScope="app" testID="product-reload" icon="refresh" title="Read all product tables again" color={c.text} onPress={reload} />

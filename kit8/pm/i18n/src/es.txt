@@ -746,3 +746,456 @@
 746|No es el nombre de una zona horaria, por ejemplo Europe/Berlin.
 747|El modelo de hora del día planifica desde el inicio del proyecto; una planificación desde la fecha de fin no se usa en él.
 748|{{from}} → {{to}} ({{delay}} {{when}})
+749|(la fila de la que viene)
+750|Una etapa no tiene líneas: seleccione una tarea o un hito para ver y editar sus líneas.
+751|Una etapa no tiene líneas: seleccione una tarea o un hito para ver el plan de sus líneas.
+752|Contabilidad
+753|Acciones
+754|Avanzado
+755|Todas las variantes
+756|Importes en
+757|Importes en la moneda de cada línea
+758|Cualquiera
+759|Archivar
+760|Asignar el siguiente EAN-13
+761|Asistente
+762|Atributos
+763|BIM
+764|Volver a {{tab}}
+765|Código de barras
+766|Códigos de barras
+767|Unidad base
+768|Unidades base en el paquete
+769|Número de lote
+770|Lotes
+771|Elementos reservables
+772|Presupuesto
+773|Distribución del presupuesto
+774|Partida presupuestaria
+775|Presupuestos
+776|Unidad de negocio
+777|Por partida presupuestaria
+778|Por tipo
+779|Por tarea
+780|Calcular
+781|Calcular el proyecto
+782|Puede ser
+783|Flujo de caja
+784|Flujo de caja: el informe de los pagos contabilizados llegará más adelante.
+785|Catálogo
+786|Chat
+787|Comprobaciones
+788|Elegir género…
+789|Elegir la distribución del presupuesto de la línea
+790|Elija primero la propiedad
+791|Borrar filtro
+792|Borrar historial
+793|Borrar búsqueda, filtros y orden
+794|Haga clic en una tarea del árbol para ver y editar sus líneas: tiempo, material, gastos e ingresos.
+795|Haga clic en una tarea del árbol para ver los días contabilizados de sus líneas: el presupuesto, el importe del contrato y la cantidad repartida en los días laborables.
+796|Código
+797|Código (UN/ECE, OKEI)
+798|Restricción…
+799|Contrato
+800|Plantilla de contrato
+801|Contratos y datos del empleado
+802|Copiado
+803|Copiar nombre del encabezado
+804|Copiar GUID de la línea
+805|Copiar texto
+806|Coste
+807|Costes
+808|Crear a partir de la línea marcada
+809|Crear a partir de esto
+810|Crear a partir de esta tarea
+811|Crear nuevo
+812|Crea variantes
+813|Monedas del proyecto
+814|Moneda
+815|Cliente
+816|Factura de cliente
+817|Factura de cliente
+818|Facturas de cliente
+819|Tipo de IVA predeterminado
+820|Ajustes predeterminados
+821|Unidad predeterminada
+822|Eliminar las filas seleccionadas
+823|Entregable
+824|Ciclos de dependencia
+825|Descripción
+826|Modos de descripción
+827|Descriptor
+828|Clave del descriptor
+829|Conjuntos de descriptores
+830|Valores de descriptor
+831|Descriptores
+832|Título mostrado
+833|Hecho
+834|Arrastrar a una carpeta
+835|Duplicar la fila seleccionada
+836|Opciones de edición
+837|Editar el nombre de la tarea
+838|Correo electrónico
+839|Introduzca un número…
+840|Introduzca un valor…
+841|Equipo
+842|Datos del equipo
+843|Equipos de este tipo
+844|Tipo de equipo
+845|Tipo de equipo → equipo → propiedades + variantes · {{items}} equipos · {{types}} tipos · {{variants}} variantes · {{values}} valores de propiedad
+846|Tipos de equipo
+847|Errores
+848|Todas las tareas ya están contabilizadas
+849|Tipo de cambio
+850|Gasto
+851|Gastos
+852|Caduca
+853|Exportar, compartir
+854|Ampliado
+855|Real
+856|Entrada de datos reales
+857|Entrada de datos reales
+858|Archivos
+859|Rellenar
+860|Rellenar / actualizar desde las líneas de {{kind}}
+861|Rellenar todas las líneas
+862|Rellenar desde plantilla
+863|Filtro
+864|Filtrar y ordenar
+865|Finanzas
+866|Fecha de fin
+867|Nombre
+868|Ajustar al ancho
+869|Carpeta
+870|Carpetas
+871|Para
+872|Gantt
+873|Generar variantes
+874|Género
+875|Ir a
+876|Ir a (documentos de la línea marcada)
+877|Ir a (documentos de la tarea seleccionada)
+878|Ir a (documentos de esta tarea)
+879|Ir al chat
+880|Ir a: seleccione primero una tarea
+881|Ocultar el panel de detalles
+882|Ocultar la ruta de la tarea
+883|Cómo se construye el catálogo
+884|Importar / exportar el proyecto
+885|En el título de la variante
+886|Entrante
+887|N.º de inventario
+888|Número de artículo
+889|Kanban
+890|Apellido
+891|Línea
+892|Líneas
+893|Logística
+894|Poner primero
+895|Poner último
+896|Género de gestión
+897|Fabricante
+898|Marcar el trabajo como completado hasta la fecha de estado
+899|Material
+900|Miembros
+901|Hitos
+902|Modo
+903|Modelo
+904|Monitor01
+905|Más
+906|Mover las filas seleccionadas hacia abajo
+907|Mover las filas seleccionadas hacia arriba
+908|Nombre usado para encontrar el producto
+909|Nuevo
+910|Las filas nuevas reciben los valores del filtro.
+911|No (Falso)
+912|Sin partida presupuestaria
+913|Aún no hay datos.
+914|Ninguna línea de esta tarea tiene partida presupuestaria. Elija una partida en al menos una línea y pulse Contabilizar.
+915|Sin líneas
+916|Aún no hay líneas. Pulse «+ Añadir».
+917|No se encontraron coincidencias.
+918|Aún no hay pagos. Pulse «+ Añadir» o rellénelos desde las líneas de la tarea.
+919|Ningún producto con este texto
+920|Aún no hay búsquedas
+921|No hay tarea en el enlace.
+922|Sin variante
+923|Sin calcular · {{n}}
+924|No elegido
+925|Sin definir
+926|Aún no hay nada contabilizado. Elija una partida presupuestaria en las líneas y pulse Contabilizar (Editar).
+927|Nada que contabilizar
+928|Nada que contabilizar: añada pagos
+929|Nada que contabilizar: elija una partida presupuestaria en las líneas
+930|Nada que contabilizar: ninguna tarea tiene una línea con partida presupuestaria
+931|Número
+932|Número…
+933|Desactivado
+934|En la ficha
+935|Abrir
+936|Pendiente (con IVA)
+937|Otro
+938|Saliente
+939|Resumen
+940|Propietario (tipo de rol / rol)
+941|Propietario (tipo / producto)
+942|Propiedad
+943|PDF - todos los datos
+944|PDF - visible
+945|Paquete
+946|Paquetes
+947|Pagado (con IVA)
+948|Carpeta superior
+949|Socio
+950|Contrato del socio
+951|Pago
+952|Hecho de pago
+953|Hechos de pago
+954|Pagos
+955|Pagos no contabilizados
+956|Por 1 unidad
+957|Porcentaje
+958|Período
+959|Datos de personas
+960|Tipo de persona
+961|Tipo de persona → persona → propiedades + variantes · {{persons}} personas · {{types}} tipos · {{variants}} variantes · {{values}} valores de propiedad
+962|Tipos de persona
+963|Personas
+964|Personas de este tipo
+965|Teléfono
+966|Plan
+967|Líneas del plan
+968|Fecha planificada
+969|Contabilizar
+970|Contabilizar todas las tareas
+971|¿Contabilizar todas las tareas?
+972|Contabilizar las tareas pendientes
+973|Contabilizado con una advertencia: estos recursos están reservados por encima de lo que permite su calendario.
+974|{{count}} pago(s) contabilizado(s)
+975|{{lines}} línea(s) contabilizada(s) · {{rows}} fila(s) de día
+976|{{tasks}} tarea(s) contabilizada(s) · {{rows}} fila(s) de día
+977|Precio
+978|Tipo de precio
+979|Tipos de precio
+980|Precios
+981|Precios
+982|Producto
+983|Ficha de producto
+984|Datos de producto
+985|Recepción de producto
+986|Recepciones de producto
+987|Título del producto
+988|Tipo de producto
+989|Tipo de producto → producto → propiedades + variantes · {{products}} productos · {{variants}} variantes
+990|Tipos de producto
+991|Productos
+992|Productos y carpetas
+993|Productos de este tipo
+994|Productos por carpeta superior
+995|Productos por tipo
+996|Progreso
+997|Asistente de proyecto
+998|Propiedades
+999|Propiedad
+1000|Conjunto de propiedades
+1001|Valores de propiedad
+1002|Orden de compra
+1003|Órdenes de compra
+1004|Cant.
+1005|ROI
+1006|Volver a leer todas las tablas de equipos
+1007|Volver a leer todas las tablas de personas
+1008|Volver a leer todas las tablas de productos
+1009|Volver a leer todas las tablas de roles
+1010|Proyecto de solo lectura
+1011|Recalcular las sumas en moneda
+1012|Recalcular con los tipos de cambio actuales las sumas en moneda contable / de presupuesto de cada línea de esta pestaña
+1013|Recalcular con los tipos de cambio actuales las sumas en moneda contable / de presupuesto de cada pago de esta pestaña
+1014|Recálculo del proyecto
+1015|¿Actualizar los pagos?
+1016|Actualizar el proyecto
+1017|Informes
+1018|Obligatorio
+1019|Reprogramar el trabajo no completado
+1020|Recurso
+1021|Tipo de recurso
+1022|Roles de recurso
+1023|Los recursos están ocupados
+1024|Ingresos
+1025|Rol
+1026|Atributos del rol
+1027|Datos de roles
+1028|Título del rol
+1029|Tipo de rol
+1030|Tipo de rol → rol → propiedades + variantes + coste · {{roles}} roles · {{variants}} variantes · {{costs}} filas de coste
+1031|Tipos de rol
+1032|Roles
+1033|Roles y carpetas
+1034|Roles de este tipo
+1035|Roles por carpeta superior
+1036|Roles por tipo
+1037|SKU
+1038|Guardar los ajustes en la organización
+1039|Guardar como plantilla
+1040|Desplazar a la barra de la tarea seleccionada
+1041|Buscar unidades de negocio…
+1042|Historial de búsqueda
+1043|Nombre de búsqueda
+1044|Buscar…
+1045|Seleccione primero un socio
+1046|Seleccione una tarea
+1047|Seleccione primero un centro de trabajo
+1048|Seleccionar partida presupuestaria…
+1049|Seleccionar elemento del catálogo…
+1050|Seleccionar contrato…
+1051|Seleccionar descriptor…
+1052|Seleccionar tipo de equipo…
+1053|Seleccionar equipo…
+1054|Seleccionar socio…
+1055|Seleccionar período (un rango de meses)
+1056|Seleccionar tipo de persona…
+1057|Seleccionar persona…
+1058|Seleccionar producto…
+1059|Seleccionar propiedad…
+1060|Seleccionar tipo de rol…
+1061|Seleccionar rol…
+1062|Seleccionar plantilla…
+1063|Seleccionar el director del proyecto...
+1064|Seleccionar esta línea
+1065|Seleccionar esta tarea
+1066|Seleccionar tipo…
+1067|Seleccionar valor…
+1068|Seleccionar centro de trabajo…
+1069|Seleccionar…
+1070|Artículos vendibles
+1071|N.º de serie
+1072|Número de serie
+1073|Serie
+1074|Conjunto
+1075|Fijar línea base
+1076|Varios valores
+1077|Compartir
+1078|Comparte variantes de
+1079|Desfase (días)
+1080|Desfase desde
+1081|Mostrar todo
+1082|Mostrar la ruta de esta tarea
+1083|Unidad individual
+1084|Ordenar
+1085|Etapas
+1086|Fecha de inicio
+1087|Subproyecto
+1088|Subproyectos
+1089|Suma
+1090|Suma contable
+1091|Suma de presupuesto
+1092|Suma del contrato
+1093|Suma con IVA
+1094|Proveedor
+1095|Ajustes de la tabla
+1096|Ajustes de la tabla: ajustar al ancho, ajustes predeterminados
+1097|Fin de la tarea
+1098|Inspector de tareas
+1099|Línea de tarea
+1100|Ruta de la tarea
+1101|Inicio de la tarea
+1102|Tareas
+1103|Plantillas de esta tarea: guardar, rellenar, guardadas
+1104|Plantillas guardadas
+1105|Texto…
+1106|Se desconoce la moneda de la línea: elija un contrato o defina la moneda de contrato del proyecto
+1107|Se desconoce la moneda del pago: elija el contrato
+1108|Las distribuciones aún se están leyendo: inténtelo de nuevo en un momento
+1109|Los tipos de cambio aún no se han leído
+1110|La línea no tiene cantidad ni importe que contabilizar
+1111|Las líneas de estos recursos no se contabilizaron. Mueva la tarea, cambie el recurso o reduzca las horas y vuelva a pulsar Contabilizar.
+1112|Los pagos están actualizados
+1113|Los pagos no se pueden contabilizar
+1114|No se pudieron contabilizar los pagos
+1115|Los días contabilizados de {{count}} tarea(s) se calcularán de nuevo y se sustituirán.
+1116|El tipo se toma para la fecha planificada: introdúzcalo
+1117|El inicio y el fin de esta tarea proceden del subproyecto.
+1118|Las sumas están actualizadas
+1119|No se pudo contabilizar la tarea
+1120|La tarea no tiene líneas de este tipo
+1121|La tarea aún no tiene fecha de inicio y fin
+1122|La tarea tiene notas.
+1123|La tarea espera a una tarea de otro proyecto.
+1124|El conjunto de variantes de este propietario no tiene descriptores obligatorios.
+1125|Esta tarea no existe (¿eliminada?).
+1126|Esta unidad no se puede elegir aquí
+1127|Esta unidad no está activa
+1128|Tiempo
+1129|Tiempo de equipos
+1130|Tiempo de personas
+1131|Tiempo de centros de trabajo
+1132|Parte de horas
+1133|Partes de horas
+1134|Cronología
+1135|Datos de la cronología
+1136|Título
+1137|Total
+1138|Total con IVA
+1139|Predeterminado del tipo
+1140|Escriba para buscar un producto
+1141|UX/UI
+1142|Único
+1143|Unidad
+1144|Unidad de inventario
+1145|Unidad de
+1146|Unidades
+1147|Actualizar el proyecto
+1148|Actualizar el coste del proyecto
+1149|Usar porcentaje
+1150|Usar días laborables
+1151|Usado por {{n}} tarea(s)
+1152|Usado para
+1153|IVA
+1154|IVA %
+1155|IVA incluido
+1156|Tipo de IVA
+1157|Tipos de IVA
+1158|Válido desde
+1159|Valor
+1160|Tipo de valor
+1161|Valores
+1162|Variante
+1163|Propietario de la variante
+1164|Conjunto de variantes
+1165|Plantilla del título de variante
+1166|Valores de variante
+1167|Variantes
+1168|Proveedor
+1169|Factura de proveedor
+1170|Factura de proveedor
+1171|Facturas de proveedor
+1172|En curso
+1173|Advertencia: {{first}}
+1174|Centro de trabajo
+1175|Sí (Verdadero)
+1176|Sí, recalcular
+1177|todo
+1178|cambiado tras contabilizar: pulse Contabilizar (Editar)
+1179|producto × variante
+1180|proyecto {{project}} · tarea {{task}} · {{hours}} h
+1181|proyecto {{project}}, tarea {{task}} ({{hours}} h)
+1182|requisitos de los roles
+1183|rol × variante
+1184|a CSV
+1185|a JSON
+1186|con IVA
+1187|{{count}} línea(s) sin contabilizar, el recurso está ocupado: {{first}}
+1188|{{count}} línea(s) sin contabilizar: {{first}}
+1189|{{count}} línea(s) recalculada(s)
+1190|{{count}} sin contabilizar: {{first}}
+1191|{{count}} pago(s) recalculado(s)
+1192|{{count}} productos coinciden: escriba más
+1193|{{count}} total(es) actualizado(s)
+1194|{{create}} pago(s) creado(s), {{update}} cambiado(s), {{remove}} eliminado(s)
+1195|{{resource}} está reservado dos veces el {{day}}
+1196|{{resource}} está ocupado el {{day}}: {{total}} h de {{capacity}} h (el calendario permite {{capacity}} h)
+1197|{{resource}} está ocupado el {{day}}: {{total}} h de {{capacity}} h ({{others}} h están reservadas por otras tareas de su organización)
+1198|Se necesitan {{hours}} h de {{resource}} el {{day}}, pero ya está reservado {{booked}} h de {{capacity}} h en: {{held}}. ¿Se puede mover la tarea o reducir las horas?
+1199|Se necesitan {{hours}} h de {{resource}} el {{day}}, pero el calendario del recurso permite {{capacity}} h ese día. ¿Se puede mover la tarea o cambiar el calendario?
+1200|{{resource}}: el calendario no tiene el día {{day}} (no rellenado para ese año), por lo que no se pueden comprobar las {{hours}} h
+1201|{{update}} pago(s) cambiarán y {{remove}} se eliminarán. Lo que escribió en un pago (fechas, partida presupuestaria, beneficiario ...) se conserva.
