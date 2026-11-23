@@ -10,6 +10,7 @@ import RecordingResult from '../common/RecordingResult';
 import { useSaveRecording } from '../common/useSaveRecording';
 import { useRecordVideoSettings } from './useRecordVideoSettings';
 import RecordVideoSettingsPanel from './RecordVideoSettingsPanel';
+import RecordRoundButton from './RecordRoundButton';
 import { LiveDateTimeOverStamp } from './DateTimeOverStamp';
 import type { RecordingPost } from '../common/mediaPost';
 import { formatDuration } from '../common/mediaSource';
@@ -313,9 +314,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
 
           <View style={styles.row}>
             {!active && (
-              <ButtonPrimaryApp icon="fiber_manual_record" color={theme.colors.error} onPress={start} disabled={!!cameraError || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start">
-                Record
-              </ButtonPrimaryApp>
+              <RecordRoundButton color={theme.colors.error} onPress={start} disabled={!!cameraError || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start" />
             )}
             <SwitchApp
               label={audioOn && hasMicrophone ? 'Sound on' : 'Sound off'}

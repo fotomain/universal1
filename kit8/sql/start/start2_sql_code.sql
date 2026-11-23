@@ -17790,7 +17790,9 @@ END $$;
 
 CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
   USING (
-    ("rowJSON" ? 'fileSourceKind' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' <> 'identification' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    -- the owner photo of an ID card / passport (scope identification): its uploader only, never the other members of the organization
+    OR ("rowJSON"->>'fileSourceKind' = 'identification' AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
   );
@@ -17819,7 +17821,7 @@ LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 -- ---- files_authorize: the ONE question every file action asks (the Edge Function asks it with the caller's JWT before any Drive call) ---------------------------------------------
---   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document
+--   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document | chat | identification
 --   p_guid: the project / task / stage / document GUID (the organization scope needs none)          p_project: the project GUID for a stage / task
 -- Answer { allowed, reason, organizationGUID, userGUID, projectGUID, scope, guid }. reason: signIn | unknownAction | scope | project | task | switchOff | noPermission.
 -- OD4: the STORAGE of a scope. ONE storage for the whole organization: the key organizationFilesStorageProvider of the organization row (Organization edit -> Files) decides every scope
@@ -17841,10 +17843,11 @@ DECLARE
   v_deny    text;
   v_chat_kind text;
   v_chat_ref  text;
+  v_id_kind   text;
 BEGIN
   IF v_user IS NULL OR v_org IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'signIn'); END IF;
   IF p_action NOT IN ('read', 'add', 'update', 'delete', 'reorder', 'move', 'connect') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'unknownAction'); END IF;
-  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document', 'chat') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document', 'chat', 'identification') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
   IF p_action <> 'connect' THEN
     IF v_scope = 'project' THEN v_project := public.files_uuid_or_null(p_guid);
     ELSIF v_scope IN ('stage', 'task') THEN v_project := public.files_uuid_or_null(p_project);
@@ -17863,6 +17866,11 @@ BEGIN
         INTO v_chat_kind, v_chat_ref, v_project
         FROM public."chatThemeTable" t JOIN public."chatObjectTable" o ON o."rowGUID" = t."rowParentGUID" WHERE t."rowGUID" = p_guid;
       IF v_project IS NOT NULL AND NOT public.vendor_project_setting(v_project, 'filesFunctionalityEnabled') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'switchOff'); END IF;
+    ELSIF v_scope = 'identification' THEN
+      -- the owner photo of an ID card / passport that was read (2026-11-23): p_guid = the media post made from the reading (rowJSON.idCardFolder = idcard | passport); only its AUTHOR
+      SELECT m."rowJSON"->>'idCardFolder' INTO v_id_kind FROM public."mediaPostTable" m
+       WHERE m."rowGUID" = COALESCE(p_guid, '') AND NOT (m."rowJSON" ? 'fileSourceKind') AND m."rowOwnerGUID" = v_user::text AND m."rowJSON"->>'idCardFolder' IN ('idcard', 'passport');
+      IF v_id_kind IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
     ELSIF v_scope = 'document' AND COALESCE(p_guid, '') = '' THEN
       RETURN jsonb_build_object('allowed', false, 'reason', 'scope');
     END IF;
@@ -17873,6 +17881,7 @@ BEGIN
   END IF;
   IF p_action = 'read' THEN v_ok := true;
   ELSIF p_action = 'connect' THEN v_ok := public.perm_can('projectFileManager', 'U');
+  ELSIF v_scope = 'identification' THEN v_ok := p_action <> 'move';   -- the author of the post adds / reads / deletes his own photo; it never moves
   ELSIF v_scope = 'chat' THEN v_ok := p_action <> 'move';   -- a member adds / changes the files of his theme (the row rule is chat_file_manage_check); a chat file never moves
   ELSIF v_scope IN ('project', 'stage', 'task') THEN v_ok := public.perm_can_in('projectMediaPostManager', 'U', v_project);
   ELSE v_ok := public.perm_can('projectFileManager', 'U');
@@ -17880,7 +17889,7 @@ BEGIN
   IF NOT v_ok THEN v_deny := 'noPermission'; END IF;
   RETURN jsonb_build_object('allowed', v_ok, 'reason', v_deny, 'organizationGUID', v_org, 'userGUID', v_user, 'projectGUID', v_project, 'scope', v_scope, 'guid', p_guid,
                             'provider', public.files_provider_of_scope(v_scope, v_project, v_org),
-                            'chatKind', v_chat_kind, 'chatRefGUID', v_chat_ref, 'maxBytes', CASE WHEN v_scope = 'chat' THEN public.chat_max_attachment_bytes(v_org) END);
+                            'chatKind', v_chat_kind, 'chatRefGUID', v_chat_ref, 'idKind', v_id_kind, 'maxBytes', CASE WHEN v_scope = 'chat' THEN public.chat_max_attachment_bytes(v_org) END);
 END;
 $$;
 
@@ -17914,7 +17923,8 @@ BEGIN
       FROM public."mediaPostTable" m
      WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind'
        AND CASE v_scope
-             WHEN 'organization' THEN true
+             WHEN 'organization' THEN m."rowJSON"->>'fileSourceKind' <> 'identification'   -- the ID photos are private to their author
+             WHEN 'identification' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'identification'
              WHEN 'project' THEN m."rowJSON"->>'fileSourceProjectGUID' = p_guid
              WHEN 'document' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'document'
              WHEN 'chat' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'chat'
@@ -18101,6 +18111,9 @@ BEGIN
   END IF;
   IF v_pend."rowJSON"->>'scope' <> v_scope OR COALESCE(v_pend."rowJSON"->>'scopeGUID', '') <> COALESCE(p_guid, '') THEN
     RAISE EXCEPTION 'files_add: the upload was made for another place' USING ERRCODE = '42501';
+  END IF;
+  IF v_scope = 'identification' AND EXISTS (SELECT 1 FROM public."mediaPostTable" m WHERE m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'identification') THEN
+    RAISE EXCEPTION 'files_add: this ID card post already has its owner photo' USING ERRCODE = '23505';
   END IF;
   IF v_scope = 'chat' AND (v_pend."rowJSON"->>'fileSize')::numeric > (v->>'maxBytes')::numeric THEN
     RAISE EXCEPTION 'files_add: a chat attachment is at most % MB (the setting of the organization)', ((v->>'maxBytes')::numeric / 1048576)::integer USING ERRCODE = '54000';
@@ -18332,6 +18345,20 @@ BEGIN
 END;
 $$;
 
+-- the owner photo of an ID card post goes with the post: the file row is deleted and the Drive file queued (the folders identification/idcard|passport stay)
+CREATE OR REPLACE FUNCTION public.files_on_identification_post_delete() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceKind' = 'identification' AND m."rowParentGUID" = OLD."rowGUID"
+           RETURNING m."rowOwnerGUID" AS org, COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') AS fid, COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') AS prov LOOP
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'identification post deleted', false, r.prov);
+  END LOOP;
+  RETURN NULL;
+END;
+$$;
+
 CREATE OR REPLACE FUNCTION public.files_on_project_delete() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
@@ -18366,13 +18393,16 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.files_queue(text, text, text, text, boolean, text), public.files_on_task_delete(), public.files_on_project_delete(), public.files_on_organization_delete() FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.files_queue(text, text, text, text, boolean, text), public.files_on_task_delete(), public.files_on_project_delete(), public.files_on_organization_delete(), public.files_on_identification_post_delete() FROM PUBLIC, anon, authenticated;
 
 DROP TRIGGER IF EXISTS trg_files_task_delete ON public.project_task_table;
 CREATE TRIGGER trg_files_task_delete AFTER DELETE ON public.project_task_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_task_delete();
 
 DROP TRIGGER IF EXISTS trg_files_project_delete ON public.project_table;
 CREATE TRIGGER trg_files_project_delete AFTER DELETE ON public.project_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_project_delete();
+
+DROP TRIGGER IF EXISTS trg_files_identification_post_delete ON public."mediaPostTable";
+CREATE TRIGGER trg_files_identification_post_delete AFTER DELETE ON public."mediaPostTable" FOR EACH ROW WHEN (OLD."rowJSON" ? 'idCardFolder') EXECUTE FUNCTION public.files_on_identification_post_delete();
 
 DROP TRIGGER IF EXISTS trg_files_organization_delete ON public."organizationTable";
 CREATE TRIGGER trg_files_organization_delete AFTER DELETE ON public."organizationTable" REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_organization_delete();
@@ -18679,8 +18709,9 @@ CREATE POLICY "chatMessages_select" ON public."chatMessagesTable" FOR SELECT TO 
 DROP POLICY IF EXISTS "mediaPost_select" ON public."mediaPostTable";
 CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
   USING (
-    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' <> 'chat' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' NOT IN ('chat', 'identification') AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
     OR ("rowJSON"->>'fileSourceKind' = 'chat' AND "rowParentGUID" IN (SELECT public.chat_my_themes()))
+    OR ("rowJSON"->>'fileSourceKind' = 'identification' AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
   );

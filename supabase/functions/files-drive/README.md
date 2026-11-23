@@ -62,3 +62,7 @@ Tests: `oneDriveProvider.test.ts` (adapter + `filesGraphTestKit.ts`, an in-memor
 
 ## The scope chat (SQL PART 50, 2026-11-11)
 `files_authorize` answers for the scope `chat` (guid = the theme) with `chatKind` (`user` | `task`), `chatRefGUID` (the user guid of Main / the task guid) and `maxBytes` (the organization limit of a chat attachment). `chainFor` makes `chat/user/<userGUID>/theme/<themeGUID>/files` or `chat/task/<taskGUID>/theme/<themeGUID>/files`; the folder key is `chat:<themeGUID>`; `upload_session` refuses a size above `maxBytes` (413, code `chatFileTooBig`) before a session opens. REDEPLOY the function after this change.
+
+
+## Scope `identification` (2026-11-23): the owner photo of an ID card / passport
+`files_authorize` answers for the scope `identification` (guid = the media post made from the reading, `rowJSON.idCardFolder` = `idcard` | `passport`; only the AUTHOR of the post) with `idKind`. `chainFor` makes `identification/<idKind>` - NO `files` folder - and `upload_session` names the file `<post guid>.<ext>` itself (an image only, 400 `notAnImage` otherwise); the folder key is `identification:<idKind>` (`oneDrive:` prefix for OneDrive). The file row (`fileSourceKind = identification`, parent = the post) is invisible to every other member and to the organization file list; it is deleted with the post (trigger `trg_files_identification_post_delete` queues the storage file). REDEPLOY the function after this change.

@@ -1,11 +1,10 @@
 // Identification: 1 ID card or passport? -> 2 photo of the machine readable zone -> 3 text recognised on the phone, values confirmed -> 4 NFC scan.
 // Step 4 is the ID reader (../iddocread) unchanged, started with the confirmed values. Plan + decisions: documentation/PASSPORT_1ST_PHOTO_2ND_SCAN.html.
 // Everything (values, text, photo) is wiped when the screen is left.
-import React, { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useFocusEffect } from 'expo-router';
-import { ButtonSecondaryApp } from '../../../common';
 import IdCardReader from '../iddocread/IdCardReader';
 import { normalizeStateCode } from '../iddocread/countries';
 import DocumentTypeStep from './DocumentTypeStep';
@@ -18,6 +17,7 @@ import { hasValues } from './confirmedValues';
 import { useIsSignedIn } from '../../common/useWriteMediaPost';
 import { loadLastDocumentType, saveLastDocumentType } from './lastDocumentType';
 import type { ExpectedDocument } from './mrzFromText';
+import { suppressBackgroundNfc } from '../nfcSuppress';
 
 export type FlowStep = 'type' | 'photo' | 'confirm' | 'scan';
 
@@ -31,10 +31,14 @@ export default function IdentificationFlow() {
   /** a new recognition replaces the editable values of the confirm step */
   const [version, setVersion] = useState(0);
   const signedIn = useIsSignedIn();
+  const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
     void loadLastDocumentType().then(setLast);
   }, []);
+
+  // the ID card touching the phone anywhere in this flow must not open the NFC screen (background tag)
+  useFocusEffect(useCallback(() => suppressBackgroundNfc(), []));
 
   // leaving the screen wipes everything
   useFocusEffect(
@@ -64,7 +68,7 @@ export default function IdentificationFlow() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container} testID="identification">
+    <ScrollView ref={scrollRef} contentContainerStyle={styles.container} testID="identification">
       <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }} testID="ident-progress">
         Step {{ type: 1, photo: 2, confirm: 3, scan: 4 }[step]} of 4 · {{ type: 'Document', photo: 'Photo', confirm: 'Check the values', scan: 'Scan the document' }[step]}
       </Text>
@@ -88,9 +92,12 @@ export default function IdentificationFlow() {
       )}
       {step === 'scan' && values && (
         <View style={styles.scan}>
-          <ButtonSecondaryApp icon="arrow_back" onPress={() => setStep('confirm')} testID="ident-scan-back">Back to the values</ButtonSecondaryApp>
+          <Pressable onPress={() => setStep('confirm')} accessibilityRole="link" hitSlop={8} style={styles.back} testID="ident-scan-back">
+            <Text variant="labelLarge" style={{ color: theme.colors.primary, textDecorationLine: 'underline' }}>{'\u2190 Back to the values'}</Text>
+          </Pressable>
           <IdCardReader
             embedded
+            scrollRef={scrollRef}
             initialForm={{ documentNumber: values.documentNumber, birthDate: values.birthDate, expiryDate: values.expiryDate, can: values.can, country: values.country ? normalizeStateCode(values.country) : '' }}
           />
         </View>
@@ -103,4 +110,5 @@ const styles = StyleSheet.create({
   // flexGrow + center: a short step (the first question) stands in the middle of the screen; a long one simply scrolls from the top
   container: { flexGrow: 1, padding: 16, alignItems: 'center', justifyContent: 'center', gap: 12 },
   scan: { width: '100%', alignItems: 'center', gap: 8 },
+  back: { alignSelf: 'center', paddingVertical: 2 },
 });

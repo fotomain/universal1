@@ -253,4 +253,15 @@ const expoConfig = {
   },
 };
 
-module.exports = { expo: withFastGradle(expoConfig.expo) };
+// Gradle 10 removes the Groovy form `url 'x'` (deprecation warning "Properties should be assigned using 'propName = value'"):
+// the Expo template writes `maven { url 'https://www.jitpack.io' }` into android/build.gradle, a prebuild rewrites it to `url = '...'`.
+const { withProjectBuildGradle } = require('expo/config-plugins');
+const withGradleUrlAssignment = (config) =>
+  withProjectBuildGradle(config, (cfg) => {
+    if (cfg.modResults.language === 'groovy') {
+      cfg.modResults.contents = cfg.modResults.contents.replace(/(\burl)\s+(['"])/g, '$1 = $2');
+    }
+    return cfg;
+  });
+
+module.exports = { expo: withGradleUrlAssignment(withFastGradle(expoConfig.expo)) };

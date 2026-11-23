@@ -34,6 +34,7 @@ function setup(over: Partial<FilesDriveDeps> = {}, clock = { t: 1_800_000_000_00
     switchOff: false,
     chatMaxBytes: 10 * 1048576,
     chatKind: 'user' as 'user' | 'task',
+    idKind: 'idcard' as 'idcard' | 'passport',
     storage: { totalBytes: 0 } as Record<string, any>,
     versions: [] as any[],
   };
@@ -46,8 +47,10 @@ function setup(over: Partial<FilesDriveDeps> = {}, clock = { t: 1_800_000_000_00
     authorize: jest.fn(async (a: string, action: string, scope: string, guid?: string | null, project?: string | null): Promise<AuthResult> => {
       const u = who(a);
       if (!u) return { allowed: false, reason: 'signIn' };
-      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document', 'chat'].includes(scope)) return { allowed: false, reason: 'scope' };
+      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document', 'chat', 'identification'].includes(scope)) return { allowed: false, reason: 'scope' };
       if (db.switchOff && ['project', 'task', 'stage'].includes(scope) && action !== 'connect') return { allowed: false, reason: 'switchOff' };
+      // the scope identification (PART 49, 2026-11-23): the author of the media post adds his owner photo - no manager right is needed; the answer names the folder
+      if (scope === 'identification') return { allowed: true, organizationGUID: u.org, userGUID: u.user, projectGUID: null, scope, guid: guid || null, idKind: db.idKind };
       const write = action !== 'read';
       if (write && !u.manager) return { allowed: false, reason: 'noPermission' };
       // the scope chat (PART 50): a member adds; the answer names the kind of the chat, the user / task guid of the folder and the organization limit
@@ -365,6 +368,46 @@ describe('upload: session, bytes, finish', () => {
     t2.db.chatKind = 'task';
     const s2 = await (await t2.call({ action: 'upload_session', scope: 'chat', guid: THEME, name: 'a.txt', size: 3 })).json();
     expect(s2.path).toBe(`chat/task/${TASK}/theme/${THEME}/files`);
+  });
+  it('IDENTIFICATION: the owner photo goes to identification/<idcard | passport>/<post guid>.<ext> - no `files` folder, any member for his own post, the folder is cached per kind', async () => {
+    const POST = '12345678-1234-4234-8234-1234567890ab';
+    const POST2 = '12345678-1234-4234-8234-1234567890ac';
+    const t = setup();
+    await t.connect();
+    // the client names it anything; the function names the file by the post (and keeps the extension)
+    const s = await (await t.call({ action: 'upload_session', scope: 'identification', guid: POST, name: 'whatever.JPG', mime: 'image/jpeg', size: 900 }, 'Bearer boris')).json();
+    expect(s.path).toBe('identification/idcard');
+    const pend = [...t.db.pending.values()][0];
+    expect(pend).toMatchObject({ scope: 'identification', scopeGUID: POST, name: `${POST}.jpg`, relativePath: 'identification/idcard' });
+    const named = (n: string) => [...t.g.items.values()].filter((i) => i.name === n);
+    expect(named('identification')[0].properties).toMatchObject({ kit8Kind: 'identification', kit8OrganizationGUID: ORG });
+    expect(named('idcard')[0].properties).toMatchObject({ kit8Kind: 'identification-idcard' });
+    expect(named('files')).toHaveLength(0);
+    expect(t.db.folders.has(`${ORG}|identification:idcard`)).toBe(true);
+    // the next card reuses the folders; a passport gets its own
+    await t.call({ action: 'upload_session', scope: 'identification', guid: POST2, name: 'b.jp2', mime: 'image/jp2', size: 500 });
+    expect(named('idcard')).toHaveLength(1);
+    expect([...t.db.pending.values()].map((p: any) => p.name)).toContain(`${POST2}.jp2`);
+    t.db.idKind = 'passport';
+    const p = await (await t.call({ action: 'upload_session', scope: 'identification', guid: POST, name: 'a.jpg', mime: 'image/jpeg', size: 10 })).json();
+    expect(p.path).toBe('identification/passport');
+    expect(named('passport')).toHaveLength(1);
+  });
+  it('IDENTIFICATION: only an image, only a valid post guid and a known kind', async () => {
+    const POST = '12345678-1234-4234-8234-1234567890ab';
+    const t = setup();
+    await t.connect();
+    const notImage = await t.call({ action: 'upload_session', scope: 'identification', guid: POST, name: 'a.pdf', mime: 'application/pdf', size: 10 });
+    expect(notImage.status).toBe(400);
+    expect(await notImage.json()).toMatchObject({ code: 'notAnImage' });
+    expect((await t.call({ action: 'upload_session', scope: 'identification', guid: '../x', name: 'a.jpg', mime: 'image/jpeg', size: 10 })).status).toBe(400);
+    expect(chainFor(ORG, 'identification', POST, '', null, 'idcard')!.map((x) => x.name)).toEqual(['identification', 'idcard']);
+    expect(chainFor(ORG, 'identification', POST, '', null, 'passport')!.map((x) => x.name)).toEqual(['identification', 'passport']);
+    expect(chainFor(ORG, 'identification', POST, '', null, 'visa')).toBeNull();
+    expect(chainFor(ORG, 'identification', POST, '')).toBeNull();
+    expect(chainFor(ORG, 'identification', 'not-a-guid', '', null, 'idcard')).toBeNull();
+    expect(scopeKeyFor('identification', POST, 'googleDrive', 'idcard')).toBe('identification:idcard');
+    expect(scopeKeyFor('identification', POST, 'oneDrive', 'passport')).toBe('oneDrive:identification:passport');
   });
   it('CHAT: an attachment above the limit of the organization is refused BEFORE a session is opened; a non member is refused', async () => {
     const t = setup();

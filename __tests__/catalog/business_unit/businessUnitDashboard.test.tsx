@@ -3,7 +3,7 @@
 // is a select of the enumeration, new rows under the picked unit, a unit with sub-units is not deleted, editing on by default.
 import React, { act } from 'react';
 import { cfrRows, unitRows } from './businessUnitTestKit';
-import { mockRects, rowTop } from '../../ui/tree/folderTreeTestKit';
+import { dragWithMouse, mockRects, rowTop } from '../../ui/tree/folderTreeTestKit';
 
 jest.mock('../../../kit8/providers/WithDesignSystem', () => ({
   useDesignSystem: () => ({ activeSystem: 'native', isDark: false, themeColors: { primary: '#6366f1', background: '#fff', surface: '#fff', text: '#000', border: '#ccc', error: '#d00' } }),
@@ -188,6 +188,47 @@ describe('editing is on by default; the lock makes it read-only', () => {
     expect(q('business-unit-dashboard')!.textContent).toContain('read-only');
     press('business-unit-edit-toggle');
     expect(q(`${TABLE}-add`)).not.toBeNull();
+  });
+});
+
+describe('drag and drop of a unit in the tree', () => {
+  const RH = 28;
+  const LIST_TOP = 80 + 2 * RH;
+  let restore: () => void;
+  const mgmt = { rowGUID: 'bu_mgmt', rowOwnerGUID: 'businessUnitCatalog', rowParentGUID: 'empty', orderInList: 5000, rowJSON: { title: 'Management', isActive: true } };
+  beforeEach(() => {
+    restore = mockRects({
+      [TREE]: { left: 0, top: 0, width: 300, height: 700 },
+      [`${TREE}-pinned`]: { left: 0, top: 80, width: 300, height: 2 * RH },
+      [`${TREE}-list`]: { left: 0, top: LIST_TOP, width: 300, height: 600 },
+    });
+  });
+  afterEach(() => restore());
+  // a few units only: the tree draws the rows in view (about 20), HRM is the 29th unit of the seed
+  const few = () => unitRows().filter((r) => ['bu_enterprise1', 'bu_qm', 'bu_hrm', 'bu_sales', 'bu_internetsales', 'bu_pm', 'bu_pmteam1'].includes(r.rowGUID));
+  const yOf = (id: string, frac = 0.5) => LIST_TOP + rowTop(q(`${TREE}-row-${id}`)!) + RH * frac;
+
+  it('HRM dragged onto Management becomes a sub-unit of it (rowParentGUID saved)', () => {
+    mount({}, [...few(), mgmt]);
+    const from = yOf('bu_hrm');
+    dragWithMouse(q(`${TREE}-row-bu_hrm`)!, [[60, from], [60, from + 10], [60, yOf('bu_mgmt')]]);
+    const upd = calls('update', BUSINESS_UNIT_TABLE.entity);
+    expect(upd).toHaveLength(1);
+    expect(upd[0]).toEqual(expect.objectContaining({ rowGUID: 'bu_hrm', columns: expect.objectContaining({ rowParentGUID: 'bu_mgmt' }) }));
+  });
+
+  it('a unit cannot be dropped into its own sub-unit (snackbar, nothing saved)', () => {
+    mount({}, few());
+    const from = yOf('bu_pm');
+    dragWithMouse(q(`${TREE}-row-bu_pm`)!, [[60, from], [60, from + 10], [60, yOf('bu_pmteam1')]]);
+    expect(calls('update', BUSINESS_UNIT_TABLE.entity)).toEqual([]);
+  });
+
+  it('noCrud: the tree does not move a unit', () => {
+    mount({ noCrud: true }, [...few(), mgmt]);
+    const from = yOf('bu_hrm');
+    dragWithMouse(q(`${TREE}-row-bu_hrm`)!, [[60, from], [60, from + 10], [60, yOf('bu_mgmt')]]);
+    expect(calls('update', BUSINESS_UNIT_TABLE.entity)).toEqual([]);
   });
 });
 

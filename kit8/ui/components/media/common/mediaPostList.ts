@@ -23,6 +23,8 @@ export interface MediaPostRow {
   projectGUID: string;
   /** a photo post: the picture the list draws ('' = not a photo) */
   imageUri: string;
+  /** a post of the ID reader: its photo is a portrait, drawn bigger, and the description is the whole document */
+  isIdCard: boolean;
 }
 
 const pad = (n: number) => String(n).padStart(2, '0');
@@ -64,6 +66,7 @@ export function mediaPostRows(rows: unknown): MediaPostRow[] {
       isFileRow: !!json.fileSourceKind,
       projectGUID: mediaPostProjectGUID(item),
       imageUri: typeof json.mediaImageUri === 'string' ? json.mediaImageUri : '',
+      isIdCard: json.dataOriginName === 'idreader',
     });
   }
   return out.sort((a, b) => b.orderInList - a.orderInList);

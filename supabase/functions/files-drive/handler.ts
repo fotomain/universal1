@@ -51,6 +51,8 @@ export interface AuthResult {
   chatKind?: string | null;
   chatRefGUID?: string | null;
   maxBytes?: number | null;
+  /** scope identification only: 'idcard' | 'passport' (the folder under identification/), read by files_authorize from the media post of the reading */
+  idKind?: string | null;
 }
 
 /** what the folders of a chat file need besides the theme guid: the kind of the chat object and its user / task guid */
@@ -104,7 +106,7 @@ export interface FolderStep {
 }
 
 /** the folders under kit8root for a scope (section 5 of the plan); every folder carries the marks of S2 */
-export function chainFor(organization: string, scope: string, guid: string, projectGUID: string, chat?: ChatRef | null): FolderStep[] | null {
+export function chainFor(organization: string, scope: string, guid: string, projectGUID: string, chat?: ChatRef | null, idKind?: string | null): FolderStep[] | null {
   const mark = (kind: string, extra: Record<string, string> = {}) => ({ kit8Kind: kind, kit8OrganizationGUID: organization, ...extra });
   const files = (): FolderStep => ({ name: 'files', description: 'kit8 files', properties: mark('files') });
   if (scope === 'organization') {
@@ -128,6 +130,11 @@ export function chainFor(organization: string, scope: string, guid: string, proj
       { name: 'theme', description: 'kit8 · themes', properties: mark('themes', { kit8ChatRefGUID: chat.ref }) },
       { name: guid, description: `kit8 · theme ${guid}`, properties: mark('theme', { kit8ThemeGUID: guid }) }, files()];
   }
+  // IDENTIFICATION (2026-11-23): the owner photo of an ID card / passport that was read: identification/idcard|passport/<the media post guid>.<ext> - the file itself is named by the post, there is NO `files` folder
+  if (scope === 'identification' && GUID_RE.test(guid) && (idKind === 'idcard' || idKind === 'passport')) {
+    return [{ name: 'identification', description: 'kit8 · identification', properties: mark('identification') },
+      { name: idKind, description: `kit8 · identification · ${idKind}`, properties: mark(`identification-${idKind}`) }];
+  }
   if (scope === 'document' && guid) {
     const safe = guid.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 80);
     return [{ name: 'document', description: 'kit8 · documents', properties: mark('documents') },
@@ -137,8 +144,8 @@ export function chainFor(organization: string, scope: string, guid: string, proj
 }
 
 /** the key of files_folder_table for a scope; the OneDrive folders of a scope are kept apart by a prefix (a Google key stays as it was) */
-export function scopeKeyFor(scope: string, guid: string, provider: ProviderId = 'googleDrive'): string {
-  const base = scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : scope === 'chat' ? `chat:${guid}` : `task:${guid}`;
+export function scopeKeyFor(scope: string, guid: string, provider: ProviderId = 'googleDrive', idKind?: string | null): string {
+  const base = scope === 'identification' ? `identification:${idKind || ''}` : scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : scope === 'chat' ? `chat:${guid}` : `task:${guid}`;
   return provider === 'oneDrive' ? `oneDrive:${base}` : base;
 }
 
@@ -217,13 +224,13 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
   };
 
   /** the `files` folder of a scope: cached in files_folder_table, else made (the whole chain, with marks) and recorded - the first writer wins */
-  const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string, chat?: ChatRef | null): Promise<{ folderId: string; path: string } | { error: Response }> => {
-    const chain = chainFor(org, scope, guid, project, chat);
+  const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string, chat?: ChatRef | null, idKind?: string | null): Promise<{ folderId: string; path: string } | { error: Response }> => {
+    const chain = chainFor(org, scope, guid, project, chat, idKind);
     if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage, document or chat with valid GUIDs.' }) };
     const facts = await orgFacts(org, x.id);
     const rootId = String(facts?.rootFolderId || '');
     if (!rootId) return { error: json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' }) };
-    const key = scopeKeyFor(scope, guid, x.id);
+    const key = scopeKeyFor(scope, guid, x.id, idKind);
     const path = chain.map((s) => s.name).join('/');
     const known = await deps.serviceRpc('files_folder_get', { p_org: org, p_scope_key: key });
     if (known?.driveFilesFolderId) return { folderId: String(known.driveFilesFolderId), path };
@@ -314,7 +321,14 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const org = a.organizationGUID!;
         const x = px(parseProvider(a.provider)); // the storage of this scope: the project setting (files_authorize), Google Drive when none
         const chat: ChatRef | null = scope === 'chat' ? { kind: String(a.chatKind || ''), ref: String(a.chatRefGUID || '') } : null;
-        if (!chainFor(org, scope, guid || '', projectGUID || '', chat)) return json(400, { error: 'scope must be organization, project, task, stage, document or chat with valid GUIDs.' });
+        if (!chainFor(org, scope, guid || '', projectGUID || '', chat, a.idKind)) return json(400, { error: 'scope must be organization, project, task, stage, document, chat or identification with valid GUIDs.' });
+        // IDENTIFICATION: an image only, named by the media post (identification/<idcard|passport>/<post guid>.<ext>)
+        let fileName = safeFileName(body.name);
+        if (scope === 'identification') {
+          if (!/^image\//i.test(String(body.mime || ''))) return json(400, { error: 'The owner photo must be an image.', code: 'notAnImage' });
+          const ext = /\.([A-Za-z0-9]{1,5})$/.exec(fileName)?.[1]?.toLowerCase() || 'jpg';
+          fileName = `${guid}.${ext}`;
+        }
         // CHAT: the limit of an attachment is the setting of the organization (the database asks again in files_add)
         if (scope === 'chat' && Number.isFinite(Number(a.maxBytes)) && Number(a.maxBytes) > 0 && size > Number(a.maxBytes)) {
           return json(413, { error: `A chat attachment is at most ${Math.floor(Number(a.maxBytes) / 1048576)} MB (the setting of the organization).`, code: 'chatFileTooBig', maxBytes: Number(a.maxBytes) });
@@ -329,15 +343,15 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         }
         const uploadId = crypto.randomUUID();
         const out = await withDrive(x, org, async (token) => {
-          const f = await filesFolderFor(x, org, scope, guid || '', a.projectGUID || projectGUID || '', token, chat);
+          const f = await filesFolderFor(x, org, scope, guid || '', a.projectGUID || projectGUID || '', token, chat, a.idKind);
           if ('error' in f) return f;
-          const sessionUrl = await x.provider.openUploadSession(token, { name: safeFileName(body.name), folderId: f.folderId, mime: String(body.mime || 'application/octet-stream'), size, uploadId, organization: org, origin: req.headers.get('Origin') });
+          const sessionUrl = await x.provider.openUploadSession(token, { name: fileName, folderId: f.folderId, mime: String(body.mime || 'application/octet-stream'), size, uploadId, organization: org, origin: req.headers.get('Origin') });
           return { sessionUrl, folderId: f.folderId, path: f.path };
         });
         if ('error' in out) return out.error;
         await deps.serviceRpc('files_upload_pending_add', {
           p_org: org, p_user: a.userGUID, p_upload: uploadId,
-          p_json: { provider: x.id, scope, scopeGUID: guid || '', projectGUID: a.projectGUID || projectGUID || '', name: safeFileName(body.name), mime: String(body.mime || 'application/octet-stream'), size, folderId: out.folderId, relativePath: out.path, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
+          p_json: { provider: x.id, scope, scopeGUID: guid || '', projectGUID: a.projectGUID || projectGUID || '', name: fileName, mime: String(body.mime || 'application/octet-stream'), size, folderId: out.folderId, relativePath: out.path, expiresAt: new Date(now() + UPLOAD_TTL_MS).toISOString() },
         });
         return json(200, { sessionUrl: out.sessionUrl, parentFolderId: out.folderId, uploadId, path: out.path });
       }

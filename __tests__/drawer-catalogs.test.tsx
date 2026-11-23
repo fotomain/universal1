@@ -39,12 +39,14 @@ const { createRoot } = require('react-dom/client');
 let root: any;
 const q = (id: string) => document.querySelector(`[data-testid="${id}"]`) as HTMLElement | null;
 const press = (id: string) => act(() => { (q(id) as any).click(); });
+let closeDrawerMock = jest.fn();
 function mount(path: string) {
   mockPath = path;
+  closeDrawerMock = jest.fn();
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<CustomDrawerContent {...({ navigation: { closeDrawer: jest.fn() } } as any)} />));
+  act(() => root.render(<CustomDrawerContent {...({ navigation: { closeDrawer: closeDrawerMock } } as any)} />));
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); });
 
@@ -363,5 +365,42 @@ describe('the menu in every language', () => {
     await i18n.changeAppLanguage('en');
     mount('/home');
     expect(q('drawer-item-catalogs')!.textContent).toContain('Catalogs');
+  });
+});
+
+describe('closing the menu by a tap on its free space', () => {
+  it('a tap on an empty place of the menu closes it', () => {
+    mount('/home');
+    press('drawer-empty-space');
+    expect(closeDrawerMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('a tap on a row opens the group and does not close the menu by itself', () => {
+    mount('/home');
+    press('drawer-item-catalogs');
+    expect(q('drawer-subitem-currencies')).not.toBeNull();
+    expect(closeDrawerMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('close icon at the right top of the menu', () => {
+  const setWidth = (w: number) => {
+    const RN = require('react-native');
+    jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ width: w, height: 800, scale: 1, fontScale: 1 });
+  };
+  afterEach(() => jest.restoreAllMocks());
+
+  it('a phone width shows the icon and a press closes the menu', () => {
+    setWidth(390);
+    mount('/home');
+    expect(q('drawer-close-button')).not.toBeNull();
+    press('drawer-close-button');
+    expect(closeDrawerMock).toHaveBeenCalled();
+  });
+
+  it('a wide window (permanent menu) has no close icon', () => {
+    setWidth(1200);
+    mount('/home');
+    expect(q('drawer-close-button')).toBeNull();
   });
 });

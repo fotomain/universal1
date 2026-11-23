@@ -19,7 +19,6 @@
     "save_to_github": "./save_to_github.command"
   },
   "dependencies": {
-    "fflate": "^0.8.3",
     "@ant-design/icons-react-native": "^2.3.2",
     "@ant-design/react-native": "^5.4.3",
     "@babel/plugin-proposal-export-namespace-from": "^7.18.9",
@@ -103,11 +102,14 @@
     "expo-updates": "~57.0.24",
     "expo-video": "~57.0.5",
     "expo-web-browser": "~57.0.3",
+    "fflate": "^0.8.3",
     "file-loader": "^6.2.0",
     "gapi-script": "^1.2.0",
     "i18next": "^23.14.0",
     "intl-pluralrules": "^2.0.1",
     "jose": "^6.0.10",
+    "jpeg-js": "0.4.4",
+    "jpeg2000": "1.1.1",
     "jwt-decode": "^4.0.0",
     "leaflet": "^1.9.4",
     "lottie-react-native": "^7.3.5",

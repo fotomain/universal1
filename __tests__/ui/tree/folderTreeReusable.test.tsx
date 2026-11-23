@@ -177,6 +177,13 @@ describe('CRUD callbacks (a missing callback hides its command)', () => {
 
 describe('keyboard (web)', () => {
   const key = (k: string, extra: any = {}) => act(() => { q(T)!.dispatchEvent(new KeyboardEvent('keydown', { key: k, bubbles: true, ...extra })); });
+  it('a press on a row gives the keyboard focus to the tree (else the arrow keys never reach it)', () => {
+    mount({});
+    pressRow('A2');
+    expect(document.activeElement).toBe(q(T));
+    press(`${T}-row-A-toggle`);
+    expect(document.activeElement).toBe(q(T));
+  });
   it('arrows move the selection, → opens, ← closes / goes to the parent, F2 renames, Delete deletes', () => {
     const onSelect = jest.fn();
     const onRename = jest.fn();
@@ -230,6 +237,28 @@ describe('drag & drop (pointer events)', () => {
     dragWithMouse(grab('A'), [[40, yOfRow('A')], [40, yOfRow('A') + 8], [40, yOfRow('A1a')]]);
     expect(onMove).not.toHaveBeenCalled();
     expect(onMessage).toHaveBeenCalledWith('A folder cannot be moved into itself.');
+  });
+  it('the ⠿ grip of a row drags at once with a finger (no hold), and the row itself does not start a second drag', () => {
+    jest.useFakeTimers();
+    try {
+      const onMove = jest.fn();
+      mount({ onMove, defaultExpandedIds: ['A'] });
+      const grip = q(`${T}-row-A2-grip`)!;
+      expect(grip).not.toBeNull();
+      const y0 = yOfRow('A2');
+      act(() => { grip.dispatchEvent(pointer('pointerdown', 40, y0, { pointerType: 'touch' })); });
+      act(() => { window.dispatchEvent(pointer('pointermove', 40, y0 - 4, { pointerType: 'touch' })); });
+      act(() => { window.dispatchEvent(pointer('pointermove', 40, yOfRow('B'), { pointerType: 'touch' })); });
+      act(() => { jest.advanceTimersByTime(600); }); // the row's own hold timer must not restart the drag
+      act(() => { window.dispatchEvent(pointer('pointerup', 40, yOfRow('B'), { pointerType: 'touch' })); });
+      releaseResponder();
+      expect(onMove).toHaveBeenCalledTimes(1);
+      expect(onMove).toHaveBeenCalledWith(expect.objectContaining({ id: 'A2', parentId: 'B' }));
+    } finally { jest.useRealTimers(); }
+  });
+  it('no grip without onMove / in a read-only tree', () => {
+    mount();
+    expect(q(`${T}-row-A-grip`)).toBeNull();
   });
   it('a folder dropped on "All items" goes to the top level, last', () => {
     const onMove = jest.fn();

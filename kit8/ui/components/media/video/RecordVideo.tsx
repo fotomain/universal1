@@ -12,9 +12,11 @@ import { useFocusEffect } from 'expo-router';
 import { Camera, useCameraDevice, useCameraPermission, useMicrophonePermission } from 'react-native-vision-camera';
 import { ButtonPrimaryApp, ButtonSecondaryApp, SwitchApp, showErrorModal } from '../../common';
 import RecordingResult from '../common/RecordingResult';
+import { useDrawerSettled } from '../common/useDrawerSettled';
 import { useSaveRecording } from '../common/useSaveRecording';
 import { useRecordVideoSettings } from './useRecordVideoSettings';
 import RecordVideoSettingsPanel from './RecordVideoSettingsPanel';
+import RecordRoundButton from './RecordRoundButton';
 import { LiveDateTimeOverStamp } from './DateTimeOverStamp';
 import type { RecordingPost, RecordingSegment } from '../common/mediaPost';
 import type { RecordVideoProps } from './recordVideoTypes';
@@ -80,10 +82,12 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
     }, []),
   );
 
+  // not while the hamburger menu is open / closing (see useDrawerSettled)
+  const menuSettled = useDrawerSettled();
   useEffect(() => {
-    if (!cameraPermission.hasPermission) void cameraPermission.requestPermission();
+    if (menuSettled && !cameraPermission.hasPermission) void cameraPermission.requestPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [menuSettled]);
 
   // the clock
   useEffect(() => {
@@ -242,7 +246,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
               </View>
             ) : (
               <PinchZoomView style={StyleSheet.absoluteFill} zoom={zoom} range={zoomRange} onZoom={(z) => setZoom(clampZoom(z, zoomRange))} disabled={!canZoom(zoomRange)} testID="record-video-pinch">
-                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} video audio={sound} zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
+                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused && menuSettled} video audio={sound} zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
               </PinchZoomView>
             )}
             {active && (
@@ -257,9 +261,7 @@ export default function RecordVideo({ maxDurationSec = 3600, withAudio = true, o
 
           <View style={styles.row}>
             {!active && (
-              <ButtonPrimaryApp icon="fiber_manual_record" color={theme.colors.error} onPress={start} disabled={!device || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start">
-                Record
-              </ButtonPrimaryApp>
+              <RecordRoundButton color={theme.colors.error} onPress={start} disabled={!device || phase === 'saving'} loading={phase === 'saving'} testID="record-video-start" />
             )}
             <SwitchApp
               label={sound ? 'Sound on' : 'Sound off'}

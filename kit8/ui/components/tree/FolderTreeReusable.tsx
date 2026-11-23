@@ -9,7 +9,7 @@
 //   drag&drop  drag a folder to reorder it (line before / after) or to nest it (inside); drop ROWS of a table (any
 //              'items' payload, see folderTreeDnd) on a folder = onDropItems(folderId); drop on "No folder" = null;
 //              hover over a closed folder opens it, near the edge the list scrolls
-//   keyboard   (web) ↑ ↓ ← → Home End · F2 rename · Delete · Insert / Ctrl+N new subfolder · * expand all below
+//   keyboard   (web) ↑ ↓ → opens a group · ← closes it / goes to the parent · Home End · F2 rename · Delete · Insert / Ctrl+N new subfolder · * expand all below
 //   counts     itemCounts = items per folder; the tree adds up the subfolders
 //   works alone, and together with ReusableTable (uxuiTable.showFoldersTree, see ../table/reusable)
 //
@@ -348,6 +348,9 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
   }, [onRename, refocus]);
   const startEdit = useCallback((id: string) => { if (canRename) setEditingId(id); }, [canRename]);
   const cancelEdit = useCallback(() => { setEditingId(null); refocus(); }, [refocus]);
+  // a press on a row / chevron gives the keyboard to the tree (the browser leaves the focus on the page body: the arrow keys would never arrive)
+  const selectFocus = useCallback((id: string) => { select(id); if (Platform.OS === 'web') rootRef.current?.focus?.(); }, [select]);
+  const toggleFocus = useCallback((id: string) => { toggle(id); if (Platform.OS === 'web') rootRef.current?.focus?.(); }, [toggle]);
 
   const askDelete = useCallback((id: string) => {
     if (!onDelete) return;
@@ -622,6 +625,7 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
       case 'ArrowUp': done(); go(row < 0 ? 0 : row - 1); break;
       case 'Home': done(); go(0); break;
       case 'End': done(); go(fl.length - 1); break;
+      // → opens a group (on an open one: its first child), ← closes it (on a closed one / a leaf: the parent)
       case 'ArrowRight':
         if (sel === undefined) break;
         done();
@@ -688,7 +692,7 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
   const specialRow = (id: string, label: string, top: number, count: number | null | undefined, icon: string) => (
     <FolderTreeRow key={id} id={id} testID={`${testID}-row-${id}`} title={label} top={top} height={rowHeight} depth={0} indent={indent} hasKids={false} open={false}
       selected={selectedId === id} special doubleClick={doubleClick} icon={icon} count={count ?? null} editing={false} dropState={dropStateOf(id)} dragEnabled={false} menuEnabled={false} level={1}
-      onToggle={toggle} onPress={select} onMenu={openMenu} onCommitEdit={commitEdit} onCancelEdit={cancelEdit} onStartEdit={startEdit} dragPayload={dragPayload} />
+      onToggle={toggleFocus} onPress={selectFocus} onMenu={openMenu} onCommitEdit={commitEdit} onCancelEdit={cancelEdit} onStartEdit={startEdit} dragPayload={dragPayload} />
   );
 
   return (
@@ -775,8 +779,8 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
                   dragEnabled={canDrag}
                   menuEnabled={menuEnabled}
                   level={flat.depth[r] + 1}
-                  onToggle={toggle}
-                  onPress={select}
+                  onToggle={toggleFocus}
+                  onPress={selectFocus}
                   onMenu={openMenu}
                   onCommitEdit={commitEdit}
                   onCancelEdit={cancelEdit}

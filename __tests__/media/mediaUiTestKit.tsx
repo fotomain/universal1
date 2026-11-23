@@ -74,6 +74,9 @@ jest.mock('expo-router', () => ({
   useFocusEffect: (cb: () => void | (() => void)) => require('react').useEffect(() => cb(), []),
 }));
 
+// the camera screens wait for the hamburger menu to settle (useDrawerSettled, tested on its own): in these tests the menu is always settled
+jest.mock('../../kit8/ui/components/media/common/useDrawerSettled', () => ({ DRAWER_SETTLE_MS: 400, useDrawerSettled: () => true }));
+
 jest.mock('expo-document-picker', () => ({ getDocumentAsync: (...a: any[]) => (globalThis as any).__pick(...a) }));
 
 (globalThis as any).__push = jest.fn();

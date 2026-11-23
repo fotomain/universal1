@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 import React from 'react';
 import { act } from 'react';
-import { cleanup, flush, press, pressAsync, q, render, text } from './mediaUiTestKit';
+import { cleanup, flush, press, pressAsync, q, render, text as kitText } from './mediaUiTestKit';
 import { buildFiles, SimCard, TEST_ACCESS, TEST_MRZ_LINES } from './idCardTestKit';
 
 // ---- fake camera, fake photo tools, fake text recognition, fake NFC channel
@@ -34,8 +34,6 @@ jest.mock('../../kit8/ui/components/media/common/useWriteMediaPost', () => ({ us
 jest.mock('../../kit8/ui/components/media/nfc/identification/aiConsent', () => ({
   loadAiConsent: async () => (globalThis as any).__ai.consent,
   saveAiConsent: async (on: boolean) => { (globalThis as any).__ai.saved.push(on); },
-  loadAiTextConsent: async () => (globalThis as any).__ai.textConsent,
-  saveAiTextConsent: async (on: boolean) => { (globalThis as any).__ai.textSaved.push(on); },
 }));
 jest.mock('../../kit8/ui/components/media/nfc/identification/aiRecognize', () => ({
   aiConfig: () => null,
@@ -67,14 +65,17 @@ jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({
 }));
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/crypto/random', () => ({ systemRandom: (n: number) => new Uint8Array(require('crypto').randomBytes(n)) }));
 
+import { aiTextRetryConfig } from '../../kit8/ui/components/media/nfc/identification/aiTextRetry';
 import IdentificationFlow from '../../kit8/ui/components/media/nfc/identification/IdentificationFlow';
 
+// the info texts of the confirm step are ONE line + "more..." : the source and the notes exist only after it was pressed
+const text = (testID: string) => { if (!q(testID) && q('ident-info-more')) press('ident-info-more'); return kitText(testID); };
 const type = (testID: string, value: string) => act(() => {
   const el: any = q(testID)!;
   Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
 });
-const until = async (testID: string) => { for (let i = 0; i < 40 && !q(testID); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); }); };
+const until = async (testID: string) => { for (let i = 0; i < 40 && !q(testID) && !(testID === 'ident-source' && q('ident-info-more')); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); }); };
 
 const NOISY_TD1 = [TEST_MRZ_LINES[0].toLowerCase(), TEST_MRZ_LINES[1].replace('850214', '85O214'), TEST_MRZ_LINES[2]]; // lower case + an O for a 0
 
@@ -164,6 +165,7 @@ it('the user can correct a value; the scan cannot start with an empty or wrong v
 
 it('no zone in the photo: says so, Retake goes back to the camera', async () => {
   mockLines = ['Hello', 'nothing useful here'];
+  (globalThis as any).__ai.textAnswer = { documentType: 'unknown', issuingCountry: null, mrzLines: [], surname: null, givenNames: null, documentNumber: null, dateOfBirth: null, dateOfExpiry: null, sex: null, nationality: null, personalNumber: null, can: null, canCandidate: null, quality: 'poor', notes: 'nothing readable' };
   render(<IdentificationFlow />);
   await flush();
   press('ident-choose-passport');
@@ -225,6 +227,8 @@ const AI_DOC = {
   documentType: 'id_card', issuingCountry: 'LVA', mrzLines: TEST_MRZ_LINES, surname: 'ZVEJNIEKS', givenNames: 'JANA ANNA', documentNumber: 'LV1234567',
   dateOfBirth: '1985-02-14', dateOfExpiry: '2032-04-30', sex: 'F', nationality: 'LVA', personalNumber: null, can: '246810', quality: 'good', notes: null,
 };
+
+aiTextRetryConfig.delaysMs = [0, 0];   // no waiting between the automatic tries of Google AI
 
 describe('Google AI (opt-in)', () => {
   it('is OFF by default: the photo stays on the phone, this phone reads it, no base64 is made', async () => {
@@ -343,10 +347,9 @@ const FRONT_TEXT = [
 const FRONT_AI = { documentType: 'id_card', issuingCountry: 'LVA', mrzLines: [], surname: 'TERENTJEVS', givenNames: 'JURIJS', documentNumber: 'PA3626350', dateOfBirth: '1971-10-02', dateOfExpiry: '2034-06-02', sex: null, nationality: 'LVA', personalNumber: '021071-10509', can: null, canCandidate: '712656', quality: 'good', notes: null };
 
 describe('front of the card (no zone)', () => {
-  it('with the text switch OFF: this phone finds NO zone (no junk values), nothing is sent, the confirm step offers the button, the recognised text can be shown', async () => {
-    (globalThis as any).__ai.textConsent = false;
+  it('this phone finds NO zone (no junk values); when Google AI cannot answer the confirm step offers the button and the recognised text can be shown', async () => {
     mockLines = FRONT_TEXT;
-    (globalThis as any).__ai.textAnswer = FRONT_AI;
+    (globalThis as any).__ai.textAnswer = new Error('offline');
     render(<IdentificationFlow />);
     await flush();
     press('ident-choose-id');
@@ -355,28 +358,33 @@ describe('front of the card (no zone)', () => {
     await until('ident-step-confirm');
     expect((q('ident-number') as HTMLInputElement).value).toBe(''); // not "NIBANATIO"
     expect((q('ident-birth') as HTMLInputElement).value).toBe('');
-    expect(text('ident-no-zone')).toContain('FRONT of the card');
+    // Google AI was asked by itself 3 times and failed: the main line says so and points to the button
+    expect(text('ident-no-zone')).toContain('Google AI (text): offline (tried 3 times).');
+    expect(text('ident-no-zone')).toContain('Ask Google AI to read the recognised text');
     expect(q('ident-printed')).toBeNull();
     expect(text('ident-ask-ai-note')).toContain('SENT to Google');
     press('ident-lines-toggle');
     expect(text('ident-line-0')).toBe('PA3626350');
-    expect((globalThis as any).__ai.textCalls).toHaveLength(0); // nothing is sent before the user asks
+    expect((globalThis as any).__ai.textCalls).toHaveLength(3); // it was tried by itself right after the photo, 3 times
+    press('ident-info-more');
+    expect(text('ident-note-0')).toContain('Google AI (text): offline');
   });
 
-  it('pressing the button sends the TEXT (not the picture); the values, the printed name and the CAN candidate appear', async () => {
-    (globalThis as any).__ai.textConsent = false;
+  it('pressing the button asks again with the TEXT (not the picture); the values, the printed name and the CAN candidate appear', async () => {
     mockLines = FRONT_TEXT;
-    (globalThis as any).__ai.textAnswer = FRONT_AI;
+    (globalThis as any).__ai.textAnswer = new Error('offline');
     render(<IdentificationFlow />);
     await flush();
     press('ident-choose-id');
     await flush();
     await pressAsync('ident-take');
     await until('ident-step-confirm');
+    (globalThis as any).__ai.textAnswer = FRONT_AI;   // the automatic try failed; the second one works
     await pressAsync('ident-ask-ai');
     await until('ident-source');
-    expect((globalThis as any).__ai.textCalls[0]).toMatchObject({ type: 'ID' });
-    expect((globalThis as any).__ai.textCalls[0].lines).toEqual(FRONT_TEXT);
+    expect((globalThis as any).__ai.textCalls).toHaveLength(4);   // 3 automatic tries + the press
+    expect((globalThis as any).__ai.textCalls[3]).toMatchObject({ type: 'ID' });
+    expect((globalThis as any).__ai.textCalls[3].lines).toEqual(FRONT_TEXT);
     expect((globalThis as any).__ai.calls).toHaveLength(0); // no photo was sent
     expect(text('ident-source')).toContain('extracted by Google AI from the recognised text');
     expect((q('ident-number') as HTMLInputElement).value).toBe('PA3626350');
@@ -395,15 +403,15 @@ describe('front of the card (no zone)', () => {
     expect((q('id-can') as HTMLInputElement).value).toBe('712656');
   });
 
-  it('AUTOMATIC by default: right after the photo, when this phone finds no zone, the TEXT goes to Google AI by itself (no picture), the button stays visible', async () => {
+  it('ALWAYS AUTOMATIC: right after the photo the TEXT goes to Google AI by itself (no picture, no switch), the button stays visible', async () => {
     mockLines = FRONT_TEXT;
     (globalThis as any).__ai.textAnswer = FRONT_AI;
     render(<IdentificationFlow />);
     await flush();
     press('ident-choose-id');
     await flush();
-    expect(text('ident-ai-text-switch')).toContain('true');
-    expect(text('ident-ai-text-note')).toContain('automatically');
+    expect(q('ident-ai-text-switch')).toBeNull();   // no switch: it is not optional
+    expect(text('ident-ai-text-note')).toContain('always sent to Google AI');
     await pressAsync('ident-take');
     await until('ident-step-confirm');
     expect((globalThis as any).__ai.textCalls).toHaveLength(1);
@@ -412,21 +420,6 @@ describe('front of the card (no zone)', () => {
     expect((q('ident-number') as HTMLInputElement).value).toBe('PA3626350');
     expect((q('ident-can') as HTMLInputElement).value).toBe('712656');
     expect(text('ident-ask-ai')).toContain('again'); // the button is visible
-  });
-
-  it('the automatic text extraction can be switched off on the photo screen, and the choice is remembered', async () => {
-    mockLines = FRONT_TEXT;
-    render(<IdentificationFlow />);
-    await flush();
-    press('ident-choose-id');
-    await flush();
-    press('ident-ai-text-switch');
-    expect((globalThis as any).__ai.textSaved).toEqual([false]);
-    expect(text('ident-ai-text-note')).toContain('stays on this phone');
-    await pressAsync('ident-take');
-    await until('ident-step-confirm');
-    expect((globalThis as any).__ai.textCalls).toHaveLength(0);
-    expect(q('ident-ask-ai')).not.toBeNull(); // the button can still ask
   });
 
   it('with the Google AI PHOTO switch ON the photo job runs first; when it finds nothing this phone reads, then the text goes to Google AI', async () => {
@@ -447,6 +440,46 @@ describe('front of the card (no zone)', () => {
     expect(text('ident-note-1')).toContain('no picture was sent');
   });
 
+  it('a first answer WITHOUT values (or a lost connection) is asked again by itself: the user does not press the button', async () => {
+    mockLines = FRONT_TEXT;
+    const ai = (globalThis as any).__ai;
+    const before = ai.textCalls.length;
+    const EMPTY = { ...FRONT_AI, documentNumber: null, dateOfBirth: null, dateOfExpiry: null, canCandidate: null, quality: 'poor', notes: 'could not read' };
+    const answers: any[] = [Object.assign(new Error('Google AI took too long.'), { code: 'upstream' }), EMPTY, FRONT_AI];
+    ai.textAnswer = null;
+    const real = ai.textCalls.push.bind(ai.textCalls);
+    ai.textCalls.push = (c: any) => { ai.textAnswer = answers.shift() ?? FRONT_AI; return real(c); };
+    try {
+      render(<IdentificationFlow />);
+      await flush();
+      press('ident-choose-id');
+      await flush();
+      await pressAsync('ident-take');
+      await until('ident-step-confirm');
+    } finally {
+      ai.textCalls.push = real;
+    }
+    expect(ai.textCalls.length - before).toBe(3);                 // failed, empty, then values
+    expect((q('ident-number') as HTMLInputElement).value).toBe('PA3626350');
+    expect(q('ident-no-zone')).toBeNull();
+  });
+
+  it('a refusal that another call cannot change (the key) is NOT repeated', async () => {
+    mockLines = FRONT_TEXT;
+    const ai = (globalThis as any).__ai;
+    const before = ai.textCalls.length;
+    ai.textAnswer = Object.assign(new Error('The Google AI key was refused.'), { code: 'key' });
+    render(<IdentificationFlow />);
+    await flush();
+    press('ident-choose-id');
+    await flush();
+    await pressAsync('ident-take');
+    await until('ident-step-confirm');
+    expect(ai.textCalls.length - before).toBe(1);
+    expect(text('ident-no-zone')).toContain('Google AI (text): The Google AI key was refused.');
+    expect(text('ident-no-zone')).not.toContain('tried');
+  });
+
   it('Google AI fails on the text: the note says so, the values stay empty, the button stays for another try', async () => {
     mockLines = FRONT_TEXT;
     (globalThis as any).__ai.textAnswer = Object.assign(new Error('Google AI is busy or the quota is used up. Try again later.'), { code: 'rate' });
@@ -463,16 +496,20 @@ describe('front of the card (no zone)', () => {
     expect(q('ident-ask-ai')).not.toBeNull();
   });
 
-  it('the button is visible also when the zone was checked (and nothing was sent automatically); no button and no automatic call for a guest without a key', async () => {
+  it('a checked zone is read by Google AI too, but its three values stay (the check digits); no button and no automatic call for a guest without a key', async () => {
+    (globalThis as any).__ai.textAnswer = FRONT_AI;
     render(<IdentificationFlow />);
     await flush();
     press('ident-choose-id');
     await flush();
     await pressAsync('ident-take');
     await until('ident-step-confirm');
-    expect((globalThis as any).__ai.textCalls).toHaveLength(0); // a checked zone needs no Google AI
+    expect((globalThis as any).__ai.textCalls).toHaveLength(1); // always, also for a checked zone
+    expect((q('ident-number') as HTMLInputElement).value).not.toBe('PA3626350'); // the zone's number stays
+    expect((q('ident-can') as HTMLInputElement).value).toBe('712656');            // Google AI adds the CAN candidate
     expect(q('ident-ask-ai')).not.toBeNull();
     cleanup();
+    const before = (globalThis as any).__ai.textCalls.length;
     mockLines = FRONT_TEXT;
     (globalThis as any).__signedIn = false;
     render(<IdentificationFlow />);
@@ -483,6 +520,25 @@ describe('front of the card (no zone)', () => {
     await pressAsync('ident-take');
     await until('ident-step-confirm');
     expect(q('ident-ask-ai')).toBeNull();
-    expect((globalThis as any).__ai.textCalls).toHaveLength(0);
+    expect((globalThis as any).__ai.textCalls).toHaveLength(before);
   });
+});
+
+it('the info texts of the confirm step are one line with "more..." that opens the source and the notes, "less" closes them', async () => {
+  render(<IdentificationFlow />);
+  await flush();
+  press('ident-choose-id');
+  mockLines = ['REPUBLIKA', 'IDENTITY CARD', ...NOISY_TD1];
+  await pressAsync('ident-take');
+  await until('ident-step-confirm');
+  expect(q('ident-confidence')).not.toBeNull(); // the one line stays
+  {
+    expect(q('ident-source')).toBeNull();
+    press('ident-info-more');
+    expect(q('ident-source')).not.toBeNull();
+    expect(q('ident-info-more')).toBeNull();
+    press('ident-info-less');
+    expect(q('ident-source')).toBeNull();
+    expect(q('ident-info-more')).not.toBeNull();
+  }
 });

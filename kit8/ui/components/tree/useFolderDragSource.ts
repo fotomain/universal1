@@ -5,7 +5,7 @@
 // A drag swallows the click / press that the release would cause: `wasDragged()` is true for ~350 ms afterwards.
 import { useEffect, useMemo, useRef } from 'react';
 import { PanResponder, Platform } from 'react-native';
-import { beginFolderDrag, cancelFolderDrag, endFolderDrag, FolderDragPayload, moveFolderDrag } from './folderTreeDnd';
+import { beginFolderDrag, cancelFolderDrag, endFolderDrag, FolderDragPayload, isFolderDragging, moveFolderDrag } from './folderTreeDnd';
 
 export interface FolderDragSourceOptions {
   enabled?: boolean;
@@ -43,6 +43,9 @@ export function useFolderDragSource({ enabled = true, getPayload, mode = 'longPr
       if (!live.current.enabled || (e.pointerType === 'mouse' && e.button !== 0)) return;
       const t = e.target as HTMLElement | null;
       if (t && t.closest && t.closest('input, textarea, [data-nodrag]')) return;
+      // a ⠿ grip inside this element has its own source: the press on it is not a drag of the whole row
+      const grip = t && t.closest ? t.closest('[data-folder-grip]') : null;
+      if (grip && grip !== el) return;
       const touch = e.pointerType === 'touch' || e.pointerType === 'pen';
       const sx = e.clientX; const sy = e.clientY;
       let lx = sx; let ly = sy;
@@ -50,7 +53,7 @@ export function useFolderDragSource({ enabled = true, getPayload, mode = 'longPr
       let timer: any = null;
       const start = () => {
         const payload = live.current.getPayload();
-        if (!payload) { cleanup(); return; }
+        if (!payload || isFolderDragging()) { cleanup(); return; }
         active = true;
         beginFolderDrag(payload, lx, ly);
       };
@@ -115,7 +118,7 @@ export function useFolderDragSource({ enabled = true, getPayload, mode = 'longPr
         touch.current.timer = setTimeout(() => {
           touch.current.timer = null;
           const payload = live.current.getPayload();
-          if (!payload) return;
+          if (!payload || isFolderDragging()) return; // a ⠿ grip inside the row may have started the drag already
           touch.current.active = true;
           beginFolderDrag(payload, touch.current.sx, touch.current.sy);
         }, longPressMs);

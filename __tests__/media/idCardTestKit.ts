@@ -54,6 +54,8 @@ export interface SimCardOptions {
   noApplication?: boolean;
   /** other applications the card knows (hex ids): SELECT answers 9000 for them */
   apps?: string[];
+  /** the card builds the MAC of the AES secure messaging from the UNPADDED data (the reader must find that out and open the card again); default: padded, like ICAO 9303-11 */
+  plainAesMac?: boolean;
   /** files that answer without a password (EF.CardAccess and EF.DIR always do) */
   publicFiles?: number[];
   /** a card that needs no password at all */
@@ -66,6 +68,8 @@ const CIPHERS = { tdes: { n: '1', kind: 'tdes' as const, key: 16, hash: 'sha1' }
 
 export class SimCard {
   log: string[] = [];
+  /** how many times PACE ran to its end (the reader may have to open the card twice) */
+  paceOpened = 0;
   tag: { id: string; techTypes: string[] } | null = null;
   /** the method that opened the card */
   opened: 'none' | 'bac' | 'pace' = 'none';
@@ -245,6 +249,7 @@ export class SimCard {
     const tIcc = paceToken(info, st.ksMac, st.X2);
     this.sm = { kind: c.kind, enc: st.ksEnc, mac: st.ksMac, ssc: new Uint8Array(c.kind === 'tdes' ? 8 : 16) };
     this.opened = 'pace';
+    this.paceOpened += 1;
     this.pace = null;
     return { data: wrap(0x86, tIcc), sw: 0x9000 };
   }
@@ -252,7 +257,7 @@ export class SimCard {
   // ---- secure messaging (card side)
   private macOf(d: Uint8Array) {
     const s = this.sm!;
-    return s.kind === 'tdes' ? retailMac(s.mac, pad(d, 8)) : aesCmac(s.mac, d).slice(0, 8);
+    return s.kind === 'tdes' ? retailMac(s.mac, pad(d, 8)) : aesCmac(s.mac, this.opt.plainAesMac ? d : pad(d, 16)).slice(0, 8);
   }
   private inc() {
     const s = this.sm!.ssc;

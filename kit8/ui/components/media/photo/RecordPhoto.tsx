@@ -8,6 +8,7 @@ import { useFocusEffect } from 'expo-router';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
 import { ButtonPrimaryApp, ButtonSecondaryApp, showErrorModal } from '../../common';
 import ZoomControl from '../common/ZoomControl';
+import { useDrawerSettled } from '../common/useDrawerSettled';
 import PinchZoomView from '../common/PinchZoomView';
 import { canZoom, clampZoom, factorOf, normalizeZoomRange } from '../common/cameraZoom';
 import { toFileUri } from '../common/mediaSource';
@@ -53,10 +54,12 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
       return () => setFocused(false);
     }, []),
   );
+  // not while the hamburger menu is open / closing (see useDrawerSettled)
+  const menuSettled = useDrawerSettled();
   useEffect(() => {
-    if (!permission.hasPermission) void permission.requestPermission();
+    if (menuSettled && !permission.hasPermission) void permission.requestPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [menuSettled]);
 
   const take = async () => {
     if (!camera.current || taking) return;
@@ -95,7 +98,7 @@ export default function RecordPhoto({ onSaved }: RecordPhotoProps) {
               </View>
             ) : (
               <PinchZoomView style={StyleSheet.absoluteFill} zoom={zoom} range={zoomRange} onZoom={(z) => setZoom(clampZoom(z, zoomRange))} disabled={!canZoom(zoomRange)} testID="record-photo-pinch">
-                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused} photo photoQualityBalance="quality" zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
+                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused && menuSettled} photo photoQualityBalance="quality" zoom={clampZoom(zoom, zoomRange)} torch={nativeTorchProp(torchOn, device.hasTorch)} />
               </PinchZoomView>
             )}
           </Surface>

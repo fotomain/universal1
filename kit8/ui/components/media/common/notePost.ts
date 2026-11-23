@@ -3,7 +3,7 @@
 import type { RecordingPost } from './mediaPost';
 import { extensionOf } from './mediaSource';
 
-export type ResultPostSource = 'scan' | 'nfc' | 'photo';
+export type ResultPostSource = 'scan' | 'nfc' | 'photo' | 'idcard';
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const stamp = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
@@ -121,5 +121,74 @@ export function buildPhotoPost(input: PhotoPostInput): RecordingPost {
     rowJSON.photoHeight = input.height;
   }
   if (input.zoomFactor && Math.abs(input.zoomFactor - 1) > 0.05) rowJSON.photoZoomFactor = Math.round(input.zoomFactor * 10) / 10;
+  return { rowGUID: input.rowGUID, rowOwnerGUID: input.ownerGUID || 'anon', rowParentGUID: 'empty', orderInList: now.getTime(), rowJSON };
+}
+
+export interface IdCardPostInput {
+  ownerGUID: string;
+  rowGUID: string;
+  platform: string;
+  /** the owner of the document as printed in the zone: 'JURIJS TERENTJEVS' (given names first) */
+  ownerName: string;
+  /** the document number */
+  documentNumber: string;
+  /** the document code of the zone: 'P', 'PA' = passport, 'I', 'ID' = ID card */
+  documentCode?: string;
+  nationality?: string;
+  /** DD.MM.YYYY */
+  expiryDate?: string;
+  /** EVERY datum of the document (label + value, empty ones left out; idCardFields): they become the description of the post and `idCardFields` */
+  fields?: Array<{ label: string; value: string }>;
+  /** the owner photo of the chip as a data address (`data:image/jpeg;base64,...`), only for a format the phone can draw (JPEG); it is what the list shows */
+  photoDataUri?: string;
+  title?: string;
+  now?: Date;
+}
+
+/** a photo bigger than this stays out of the post (the file storage has it anyway): a chip photo is 5-30 KB */
+export const ID_POST_PHOTO_MAX_CHARS = 400_000;
+
+/** 'Passport' for a code that starts with P, else 'ID card' */
+export const idDocumentKind = (documentCode?: string): string => (/^P/i.test((documentCode ?? '').trim()) ? 'Passport' : 'ID card');
+
+/** the folder under identification/ in the file storage: 'passport' for a code that starts with P, else 'idcard' */
+export const idDocumentFolder = (documentCode?: string): 'idcard' | 'passport' => (idDocumentKind(documentCode) === 'Passport' ? 'passport' : 'idcard');
+
+/**
+ * The post of an ID card / passport that was read (made only when the user presses "Create media post"). The list shows the TITLE (the name of the
+ * owner), the sub title ('ID card · No. PA3626350 · when'), ALL the data of the document (`fields`: the description, one line each) and the owner photo
+ * (`photoDataUri` -> `mediaImageUri`, the same key a photo post uses). The photo of ANY format also goes to the file storage (IdCardPostOffer).
+ */
+export function buildIdCardPost(input: IdCardPostInput): RecordingPost {
+  const now = input.now ?? new Date();
+  const kind = idDocumentKind(input.documentCode);
+  const name = input.ownerName.trim();
+  const number = input.documentNumber.trim();
+  const fields = (input.fields ?? []).filter((f) => f && f.label && f.value);
+  const description = fields.length
+    ? fields.map((f) => `${f.label}: ${f.value}`).join('\n')
+    : [`Owner: ${name || '-'}`, `Number: ${number || '-'}`, input.nationality ? `Nationality: ${input.nationality}` : '', input.expiryDate ? `Valid until: ${input.expiryDate}` : '']
+        .filter(Boolean)
+        .join('\n');
+  const rowJSON: Record<string, any> = {
+    mediaPostTitle: input.title?.trim() || name || `${kind} ${stamp(now)}`,
+    mediaPostSubTitle: `${kind}${number ? ` · No. ${number}` : ''}`,
+    mediaPostDescription: description,
+    mediaPostOrigin: '',
+    mediaPostOriginType: 'text',
+    dataOriginName: 'idreader',
+    mediaPlatform: input.platform,
+    mediaCreatedAt: now.toISOString(),
+    idCardOwnerName: name,
+    idCardNumber: number,
+    idCardKind: kind,
+    // the folder of the owner photo in the file storage: identification/<idCardFolder>/<this post's guid>.<ext> (files_authorize reads it)
+    idCardFolder: idDocumentFolder(input.documentCode),
+  };
+  if (fields.length) rowJSON.idCardFields = fields;
+  if (input.photoDataUri && /^data:image\/(jpeg|png);base64,/i.test(input.photoDataUri) && input.photoDataUri.length <= ID_POST_PHOTO_MAX_CHARS) {
+    rowJSON.mediaImageUri = input.photoDataUri;
+    rowJSON.mediaPostMIME = input.photoDataUri.slice(5, input.photoDataUri.indexOf(';'));
+  }
   return { rowGUID: input.rowGUID, rowOwnerGUID: input.ownerGUID || 'anon', rowParentGUID: 'empty', orderInList: now.getTime(), rowJSON };
 }

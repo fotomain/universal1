@@ -153,8 +153,19 @@ export async function readEmrtd(transport: IsoDepTransport, options: ReadOptions
         sm = await performBac(transport, options.mrz as MrzAccess, random);
         protocol = 'BAC (3DES)';
       } else {
-        sm = await performPace(transport, pace as PaceInfo, attempt.password as PacePassword, random);
+        sm = await performPace(transport, pace as PaceInfo, attempt.password as PacePassword, random, true);
         protocol = `PACE ${(pace as PaceInfo).mapping} ${(pace as PaceInfo).cipherLabel} (curve ${(pace as PaceInfo).parameterId})`;
+        // an AES card that refuses the FIRST protected command did not like our MAC: open it again with the other way of building the MAC (see secureMessaging.ts)
+        if (sm.kind === 'aes') {
+          const diag: { sw?: number } = {};
+          const first = await readFile(transport, sm, FILE_IDS.com, diag).catch(() => null);
+          if (!first) {
+            log('sm-check', 'Secure messaging with the padded MAC', 'fail', diag.sw != null ? `card answer ${swHex(diag.sw)}` : 'no answer');
+            await sendApdu(transport, buildApdu(0x00, 0xa4, 0x04, 0x0c, EMRTD_AID)).catch(() => undefined);
+            sm = await performPace(transport, pace as PaceInfo, attempt.password as PacePassword, random, false);
+            log('sm-check', 'Secure messaging with the plain MAC (second try)', 'ok');
+          }
+        }
       }
       method = attempt.method;
       log(attempt.method, name, 'ok');
@@ -182,9 +193,10 @@ export async function readEmrtd(transport: IsoDepTransport, options: ReadOptions
   const get = async (name: string, id: number, dg: number | null): Promise<Uint8Array | null> => {
     log(`file-${name}`, `Read ${name}`, 'run');
     try {
-      const f = await readFile(transport, sm, id);
+      const diag: { sw?: number } = {};
+      const f = await readFile(transport, sm, id, diag);
       if (!f) {
-        log(`file-${name}`, `Read ${name}`, 'skip', 'not available');
+        log(`file-${name}`, `Read ${name}`, 'skip', diag.sw != null ? `not available (card answer ${swHex(diag.sw)})` : 'not available');
         return null;
       }
       files.push({ name, dg, size: f.data.length, complete: f.complete });

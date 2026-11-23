@@ -62,8 +62,11 @@ One shared drag session (payload + pointer position), so **any** list can drag i
   hover over a closed folder opens it; near the edge the list scrolls; drop on "All items" = top level.
 * Drop **rows** on a folder / "No folder". Web: pointer events; touch = hold ~350 ms (so swipes still scroll). iOS / Android:
   hold a row ~350 ms; a ⠿ grip drags at once (`mode: 'handle'`).
+* Every folder row has a **⠿ grip** (before the ⋮): a finger / mouse on it drags at once, no hold (2026-11-23; `FolderTreeRow`,
+  testID `<row>-grip`, web `touch-action: none`). The row itself still drags by a hold of ~350 ms, but a phone browser may start to
+  scroll the page during the hold and cancel the drag - use the grip there. A press on the grip never starts a second drag of the row.
 * The dragged picture is `FolderTreeDragGhost` (the tree and `ReusableTable` mount it).
-* Web keyboard: ↑ ↓ ← → Home End · F2 rename · Delete · Insert / Ctrl+N new subfolder · `*` expand below · Enter.
+* Web keyboard (a press on a row gives the tree the focus): ↑ ↓ move · **→ opens a group (on an open one: its first child), ← closes it (on a closed one / a leaf: the parent)** · Home End · F2 rename · Delete · Insert / Ctrl+N new subfolder · `*` expand below · Enter.
 
 ## With ReusableTable
 

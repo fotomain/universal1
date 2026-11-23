@@ -54,7 +54,7 @@ JPEG 2000 faces on Android (the phone cannot show them), the signature check of 
 
 1. Drawer **Scan -> ID card / passport** (or the button on the NFC screen). Android: NFC on, the app in front.
 2. Country `LVA` shows the note. Enter the three values of the **MRZ on the back of the card**: document number, date of birth, date of expiry (DD.MM.YYYY) - or paste the three MRZ lines. If the card has a **CAN** (6 digits printed on it), enter it too.
-3. **Read**, then hold the card against the back of the phone (the NFC antenna is usually near the camera) and keep it still for a few seconds - the elliptic curve exchange takes the chip 1-2 s.
+3. **Hold** the card against the back of the phone (the NFC antenna is usually near the camera) and keep it still, press **Read from document** (the elliptic curve exchange takes the chip 1-2 s); if the "Steps" window does not appear, take the card away and hold it again.
 4. The step list says what happened. Typical outcomes:
    - `Select the travel document application` fails (6A82): the card has no ICAO application -> national functions only.
    - `PACE ...` fails with `PACE step 4`: wrong CAN / MRZ value (the card cannot say which).
@@ -81,3 +81,13 @@ Tests: `__tests__/media/idCrypto`, `idModel`, `idReader`, `idScreen` (+ `idCardT
 
 The data of an ID card is personal data. The reader keeps it in the memory of the screen only and never writes or sends it. The holder must give the
 CAN / MRZ values himself: read only documents you are entitled to read. Some states restrict who may read their cards' chips.
+
+
+## Media post of the result (2026-11-23)
+After a read the button **Create media post** (`IdCardPostOffer.tsx`, a signed-in user; a guest sees Sign in) makes a post whose TITLE is the owner's name (`GIVEN NAMES SURNAME`) and whose SUB TITLE is `ID card · No. <document number>` (`Passport` for a code that starts with P), so both show in the Media Posts list (`buildIdCardPost` in `common/notePost.ts`; the description also has nationality and date of expiry). Nothing is saved before the press; the face image and the other chip data are never kept. Tests: `__tests__/media/idCardPost.test.ts`, `idScreen.test.tsx`.
+
+The **owner photo** of the chip (face image, DG2) is saved too, when the post is created: `kit8/files/common/identificationPhoto.ts` -> Edge Function `files-drive`, scope `identification` -> the file storage of the organization (Google Drive / OneDrive): `<kit8 root>/identification/idcard|passport/<media post guid>.jpg|jp2`. Only the author of the post sees / downloads it (SQL PART 49, policy `mediaPost_select`); it goes with the post. If the storage is not connected or the upload fails, the post stays and the screen says the photo was NOT saved. Tests: `__tests__/files/identificationPhoto.test.ts`, `filesDriveFunction.test.ts`, Docker `tests/107`.
+
+## ID card post: all the data + the photo (2026-11-23)
+
+**Create media post** (`IdCardPostOffer`) now keeps the whole reading in the post, not only the name and the number: `idCardFields(doc)` (`iddocread/idCardFields.ts`, pure) lists every readable datum of the zone, DG11 (personal details) and DG12 (document details) as label + value - the description of the post is one line per datum and `rowJSON.idCardFields` keeps the list. The owner photo of the chip is in the post as `mediaImageUri` (a data address) when it is a JPEG up to `ID_POST_PHOTO_MAX_CHARS`; a JPEG 2000 photo (Android cannot draw it) is only in the file storage and the post says so in a `Photo` line. The phone list (`MediaPostsNativeList`, `MediaPostRow.isIdCard`) and the web list (`MediaPostCRUDComponent`) draw it as a portrait above the text. Tests `__tests__/media/idCardFields.test.ts`, `idCardPost.test.ts`.

@@ -47,6 +47,8 @@ function FolderTreeRow(p: FolderTreeRowProps) {
   const { themeColors: c } = useDesignSystem();
   const { id, special } = p;
   const drag = useFolderDragSource({ enabled: p.dragEnabled && !p.editing && !special, getPayload: () => p.dragPayload(id) });
+  // the ⠿ grip drags at once (a finger needs no hold: the row's own drag waits ~350 ms and a browser may start to scroll meanwhile)
+  const grip = useFolderDragSource({ mode: 'handle', enabled: p.dragEnabled && !p.editing && !special, getPayload: () => p.dragPayload(id) });
   const [draft, setDraft] = useState(p.title);
   useEffect(() => { if (p.editing) setDraft(p.title); }, [p.editing, p.title]);
   const done = useRef(false);
@@ -120,6 +122,12 @@ function FolderTreeRow(p: FolderTreeRowProps) {
           <Text numberOfLines={1} style={[styles.title, { color: c.text, fontWeight: p.selected ? '700' : '500' }]}>{p.title}</Text>
         )}
         {p.count != null && !p.editing && <Text testID={`${p.testID}-count`} style={[styles.count, { color: c.text }]}>{p.count}</Text>}
+        {p.dragEnabled && !special && !p.editing && (
+          <View ref={grip.ref} {...grip.props} testID={`${p.testID}-grip`} accessibilityLabel="Drag to move" {...(Platform.OS === 'web' ? ({ 'data-folder-grip': '' } as any) : {})}
+            style={[styles.grip, Platform.OS === 'web' ? ({ cursor: 'grab', touchAction: 'none', userSelect: 'none' } as any) : null]}>
+            <Text style={{ color: c.text, opacity: 0.45, fontSize: 15, lineHeight: 18 }}>⠿</Text>
+          </View>
+        )}
         {p.menuEnabled && !special && !p.editing && (p.selected || Platform.OS === 'web') && (
           <Pressable testID={`${p.testID}-menu`} hitSlop={6} accessibilityLabel="Folder menu" style={[styles.more, Platform.OS === 'web' && !p.selected ? ({ opacity: 0.45 } as any) : null]}
             onPress={(e: any) => p.onMenu(id, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0)}>
@@ -139,6 +147,7 @@ const styles = StyleSheet.create({
   fill: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 4, paddingRight: 4 },
   chevron: { width: 18, height: 22, alignItems: 'center', justifyContent: 'center' },
   title: { flex: 1, minWidth: 0, fontSize: 13 },
+  grip: { width: 22, height: 24, alignItems: 'center', justifyContent: 'center' },
   count: { fontSize: 11, opacity: 0.55, paddingHorizontal: 4 },
   more: { width: 22, height: 22, alignItems: 'center', justifyContent: 'center' },
   input: { flex: 1, minWidth: 0, height: 22, paddingVertical: 0, paddingHorizontal: 4, borderWidth: 1, borderRadius: 4, fontSize: 13 },

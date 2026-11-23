@@ -118,7 +118,7 @@ function answerField(data: Uint8Array, tag: number, what: string): Uint8Array {
  * The whole PACE. Run it BEFORE the application is selected (the master file): MSE:SET AT, then four GENERAL AUTHENTICATE steps.
  * Returns the secure messaging of the session (counter 0).
  */
-export async function performPace(transport: IsoDepTransport, info: PaceInfo, password: PacePassword, random: RandomSource): Promise<SecureMessaging> {
+export async function performPace(transport: IsoDepTransport, info: PaceInfo, password: PacePassword, random: RandomSource, padMac: boolean = true): Promise<SecureMessaging> {
   if (info.parameterId == null) throw new CardError('The card sends its own curve parameters; this reader needs a standard curve.');
   const curve = curveOf(info.parameterId);
   const passwordKind = password.kind === 'can' ? 0x02 : 0x01;
@@ -162,7 +162,7 @@ export async function performPace(transport: IsoDepTransport, info: PaceInfo, pa
   const tIcc = answerField(s4.data, 0x86, 'authentication token');
   if (!equalBytes(tIcc, paceToken(info, ksMac, encodePoint(curve, X2)))) throw new CardError('The card did not prove the PACE keys (wrong authentication token).');
 
-  return new SecureMessaging(info.cipher, ksEnc, ksMac);
+  return new SecureMessaging(info.cipher, ksEnc, ksMac, undefined, padMac);
 }
 
 export { bytesToOid };

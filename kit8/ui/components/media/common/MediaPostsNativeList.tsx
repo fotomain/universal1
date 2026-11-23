@@ -72,7 +72,7 @@ export default function MediaPostsNativeList() {
         renderItem={({ item }) => (
           <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2} testID={`media-post-${item.id}`}>
             <Card.Content style={styles.row}>
-              {!!item.imageUri && <Image source={{ uri: item.imageUri }} style={styles.thumb} resizeMode="cover" testID={`media-post-image-${item.id}`} />}
+              {!!item.imageUri && <Image source={{ uri: item.imageUri }} style={item.isIdCard ? styles.thumbId : styles.thumb} resizeMode={item.isIdCard ? 'contain' : 'cover'} testID={`media-post-image-${item.id}`} />}
               <View style={styles.texts}>
                 <Text variant="titleMedium" testID={`media-post-title-${item.id}`}>{item.title}</Text>
                 {!!projects[item.projectGUID]?.name && (
@@ -111,5 +111,7 @@ const styles = StyleSheet.create({
   card: { borderRadius: 16 },
   row: { flexDirection: 'row', alignItems: 'center' },
   texts: { flex: 1 },
+  /** the owner photo of an ID card / passport: a portrait */
+  thumbId: { width: 84, height: 108, borderRadius: 6, marginRight: 12, backgroundColor: '#00000010', alignSelf: 'flex-start' },
   thumb: { width: 56, height: 56, borderRadius: 8, marginRight: 12, backgroundColor: '#00000020' },
 });

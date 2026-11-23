@@ -9,6 +9,7 @@ import * as Haptics from 'expo-haptics';
 import { Camera, useCameraDevice, useCameraPermission, useCodeScanner } from 'react-native-vision-camera';
 import { ButtonSecondaryApp } from '../../common';
 import ZoomControl from '../common/ZoomControl';
+import { useDrawerSettled } from '../common/useDrawerSettled';
 import PinchZoomView from '../common/PinchZoomView';
 import { canZoom, clampZoom, normalizeZoomRange } from '../common/cameraZoom';
 import ScanResultCard from './ScanResultCard';
@@ -40,10 +41,12 @@ export default function ScanCodes() {
       return () => setFocused(false);
     }, []),
   );
+  // not while the hamburger menu is open / closing (see useDrawerSettled)
+  const menuSettled = useDrawerSettled();
   useEffect(() => {
-    if (!permission.hasPermission) void permission.requestPermission();
+    if (menuSettled && !permission.hasPermission) void permission.requestPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [menuSettled]);
 
   const scanner = useCodeScanner({
     codeTypes: [...SCAN_CODE_TYPES],
@@ -85,7 +88,7 @@ export default function ScanCodes() {
                   ref={camera}
                   style={StyleSheet.absoluteFill}
                   device={device}
-                  isActive={focused && !result}
+                  isActive={focused && menuSettled && !result}
                   codeScanner={scanner}
                   zoom={clampZoom(zoom, zoomRange)}
                   torch={torch && device.hasTorch ? 'on' : 'off'}

@@ -20,15 +20,30 @@ export default function ReadFromDocumentButton({ onPress, busy, disabled, withPa
       <ButtonPrimaryApp icon="nfc" onPress={onPress} disabled={disabled || busy} loading={busy} testID="id-read-from-document">
         Read from document
       </ButtonPrimaryApp>
+      <View style={styles.steps} testID="id-read-steps">
+        {READ_STEPS.map((line, i) => (
+          <Text key={line} variant="bodySmall" style={{ color: i === READ_STEPS.length - 1 ? ROSE : theme.colors.onSurfaceVariant }} testID={`id-read-step-${i + 1}`}>
+            {i + 1}. {line}
+          </Text>
+        ))}
+      </View>
       <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} testID="id-read-hint">
-        {busy
-          ? 'Hold the document against the back of the phone and keep it still.'
-          : withPassword
-            ? 'Reads the whole document with the password below.'
-            : 'No input needed: hold the document against the back of the phone. Without a password you see what the document is and what it needs.'}
+        {withPassword
+          ? 'Reads the whole document with the password below.'
+          : 'No input needed: without a password you see what the document is and what it needs.'}
       </Text>
     </View>
   );
 }
 
-const styles = StyleSheet.create({ box: { gap: 6 } });
+/** the colour of the third step: the thing to do when the first hold was not read */
+const ROSE = '#e11d70';
+
+/** the three things the user does, in order (the first two go together: the document stays on the phone while the button is pressed) */
+const READ_STEPS = [
+  'Hold the document against the back of the phone (the NFC antenna is usually near the camera) and keep it still.',
+  'Press "Read from document".',
+  'If the "Steps" window does not appear: take the document away and hold it again.',
+];
+
+const styles = StyleSheet.create({ box: { gap: 6 }, steps: { gap: 2 } });

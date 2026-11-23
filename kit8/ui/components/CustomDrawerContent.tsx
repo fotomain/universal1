@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, Pressable, useWindowDimensions } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { DrawerContentScrollView, DrawerContentComponentProps } from 'expo-router/drawer';
 import { Drawer as PaperDrawer } from 'react-native-paper';
@@ -34,6 +34,8 @@ interface MenuItem {
 
 /** height of an accordion sub-row (Catalogs -> Currencies ...) */
 export const DRAWER_SUBITEM_HEIGHT = 32;
+/** window width from which the drawer of react-navigation is permanent (no close icon then) */
+export const DRAWER_PERMANENT_MIN_WIDTH = 768;
 
 export default function CustomDrawerContent(props: DrawerContentComponentProps) {
   const { navigation } = props;
@@ -45,7 +47,13 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   const pathname = usePathname();
   const { t } = useTranslation();
   const { activeSystem, themeColors, isDark } = useDesignSystem();
+  // react-navigation: the drawer is permanent from 768 px wide (web), a slide-out menu below it (phones, narrow windows)
+  const { width: windowWidth } = useWindowDimensions();
+  const slidesOut = windowWidth < DRAWER_PERMANENT_MIN_WIDTH;
   const permissions = usePermissions();   // PART 46 / 47: a screen the profiles of the user do not give (the members of the organization ...) is not listed
+
+  const stateRef = useRef((props as any).state);
+  stateRef.current = (props as any).state;
 
   const navigateAndClose = (route: string) => {
     const fullRoute = route.startsWith('/') ? route : `/${route}`;
@@ -68,6 +76,10 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     }
     go();
     navigation.closeDrawer();
+    // the new screen may start something that pauses the app (the Android camera permission dialog): if the menu is still open a moment later, close it again
+    setTimeout(() => {
+      if (isDrawerOpenInHistory(stateRef.current)) navigation.closeDrawer();
+    }, 450);
   };
 
   const isCurrentRoute = (route: string) => {
@@ -454,7 +466,14 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
   };
 
   return (
-    <View style={{ flex: 1, backgroundColor: themeColors.surface }}>
+    // a tap on a FREE (empty) place of the menu closes it; the rows are touchables of their own and take their taps first
+    <Pressable
+      testID="drawer-empty-space"
+      accessible={false}
+      focusable={false}
+      onPress={() => navigation.closeDrawer()}
+      style={{ flex: 1, backgroundColor: themeColors.surface, cursor: 'default' } as any}
+    >
       <DrawerContentScrollView {...props} contentContainerStyle={{ flexGrow: 1, paddingStart: 0, paddingEnd: 0 }}>
         {/* Header Badge adapted to design system */}
         <View
@@ -477,17 +496,33 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
             >
               {t('appName')}
             </Text>
-            <View
-              style={{
-                backgroundColor: themeColors.primary + '20',
-                paddingHorizontal: 8,
-                paddingVertical: 2,
-                borderRadius: 10,
-              }}
-            >
-              <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.primary }}>
-                {activeSystem.toUpperCase()}
-              </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <View
+                style={{
+                  backgroundColor: themeColors.primary + '20',
+                  paddingHorizontal: 8,
+                  paddingVertical: 2,
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ fontSize: 11, fontWeight: '800', color: themeColors.primary }}>
+                  {activeSystem.toUpperCase()}
+                </Text>
+              </View>
+              {/* close icon at the right top: only while the menu slides out (a permanent menu of a wide window cannot be closed) */}
+              {slidesOut && (
+                <TouchableOpacity
+                  testID="drawer-close-button"
+                  accessibilityRole="button"
+                  accessibilityLabel={t('drawer.close')}
+                  onPress={() => navigation.closeDrawer()}
+                  hitSlop={10}
+                  activeOpacity={0.7}
+                  style={{ marginLeft: 12, width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center' }}
+                >
+                  <IconApp name="close" size={22} color={themeColors.text} />
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </View>
@@ -497,7 +532,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
 
       {/* Pinned bottom section of the left menu: Top 5 visited routes, user profile, settings, language, theme */}
       <HamburgerMenuUnmovable renderItem={renderDrawerItem} onSelectLanguage={() => navigation.closeDrawer()} onSelectRoute={navigateAndClose} routeLabels={routeLabels} routeIcons={routeIcons} />
-    </View>
+    </Pressable>
   );
 }
 

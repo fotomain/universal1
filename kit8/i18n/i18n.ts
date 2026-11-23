@@ -60,6 +60,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Developer 1',
+        close: 'Close',
         mediaPosts: 'Media Posts',
         record: 'Record',
         play: 'Play',
@@ -287,6 +288,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: '开发者 1',
+        close: '关闭',
         mediaPosts: '媒体帖子',
         record: '录制',
         play: '播放',
@@ -498,6 +500,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'डेवलपर 1',
+        close: 'बंद करें',
         mediaPosts: 'मीडिया पोस्ट',
         record: 'रिकॉर्ड करें',
         play: 'चलाएँ',
@@ -709,6 +712,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Desarrollador 1',
+        close: 'Cerrar',
         mediaPosts: 'Publicaciones multimedia',
         record: 'Grabar',
         play: 'Reproducir',
@@ -920,6 +924,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'المطوّر 1',
+        close: 'إغلاق',
         mediaPosts: 'منشورات الوسائط',
         record: 'تسجيل',
         play: 'تشغيل',
@@ -1131,6 +1136,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Développeur 1',
+        close: 'Fermer',
         mediaPosts: 'Publications multimédias',
         record: 'Enregistrer',
         play: 'Lire',
@@ -1342,6 +1348,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'ডেভেলপার ১',
+        close: 'বন্ধ করুন',
         mediaPosts: 'মিডিয়া পোস্ট',
         record: 'রেকর্ড',
         play: 'চালান',
@@ -1553,6 +1560,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Desenvolvedor 1',
+        close: 'Fechar',
         mediaPosts: 'Publicações de mídia',
         record: 'Gravar',
         play: 'Reproduzir',
@@ -1764,6 +1772,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Разработчик 1',
+        close: 'Закрыть',
         mediaPosts: 'Медиа-публикации',
         record: 'Запись',
         play: 'Воспроизведение',
@@ -1975,6 +1984,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Entwickler 1',
+        close: 'Schließen',
         mediaPosts: 'Medienbeiträge',
         record: 'Aufnehmen',
         play: 'Abspielen',
@@ -2186,6 +2196,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Ontwikkelaar 1',
+        close: 'Sluiten',
         mediaPosts: 'Mediaberichten',
         record: 'Opnemen',
         play: 'Afspelen',
@@ -2397,6 +2408,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Izstrādātājs 1',
+        close: 'Aizvērt',
         mediaPosts: 'Multivides ieraksti',
         record: 'Ierakstīt',
         play: 'Ierakstīt',
@@ -2608,6 +2620,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'توسعه‌دهنده ۱',
+        close: 'بستن',
         mediaPosts: 'پست‌های رسانه',
         record: 'ضبط',
         play: 'پخش',
@@ -2819,6 +2832,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Kūrėjas 1',
+        close: 'Uždaryti',
         mediaPosts: 'Medijos įrašai',
         record: 'Įrašyti',
         play: 'Groti',
@@ -3030,6 +3044,7 @@ const resources = {
       // labels of the hamburger menu (kit8/ui/components/CustomDrawerContent.tsx, HamburgerMenuUnmovable.tsx)
       drawer: {
         developer1: 'Arendaja 1',
+        close: 'Sulge',
         mediaPosts: 'Meediapostitused',
         record: 'Salvesta',
         play: 'Esita',

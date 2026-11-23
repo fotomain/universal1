@@ -1,5 +1,5 @@
 diff --git a/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java b/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
-index 4792ec9..f6d5d0c 100644
+index 4792ec9..aa1891b 100644
 --- a/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
 +++ b/node_modules/react-native-nfc-manager/android/src/main/java/community/revteltech/nfc/NfcManager.java
 @@ -578,7 +578,10 @@ class NfcManager extends NfcManagerIOSStubBase implements ActivityEventListener,
@@ -14,3 +14,13 @@ index 4792ec9..f6d5d0c 100644
      }
  
      @ReactMethod
+@@ -691,7 +694,8 @@ class NfcManager extends NfcManagerIOSStubBase implements ActivityEventListener,
+                 sendEvent("NfcManagerDiscoverTag", nfcTag);
+             } else {
+                 sendEvent("NfcManagerDiscoverBackgroundTag", nfcTag);
+-                bgTag = nfcTag;
++                // sendEvent uses the map up (a WritableMap goes to JavaScript ONCE): keep a FRESH copy for getBackgroundTag, never the sent one
++                bgTag = parseNfcIntent(intent);
+             }
+         }
+     }

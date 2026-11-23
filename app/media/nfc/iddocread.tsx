@@ -1,7 +1,12 @@
 import React from 'react';
+import RecordingSignInGate from '../../../kit8/ui/components/media/common/RecordingSignInGate';
 import IdCardReader from '../../../kit8/ui/components/media/nfc/iddocread/IdCardReader';
 
-// reading an ID card / passport is open to everybody; nothing is saved
+// scanning and reading are for signed-in users only (a guest is offered Sign in)
 export default function IdCardScreen() {
-  return <IdCardReader />;
+  return (
+    <RecordingSignInGate kind="idcard" returnTo="/media/nfc/iddocread">
+      <IdCardReader />
+    </RecordingSignInGate>
+  );
 }

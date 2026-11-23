@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, Text, ScrollView } from 'react-native';
+import { View, StyleSheet, Text, ScrollView, Image } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
 import * as Crypto from 'expo-crypto';
 import { SystemMetaData } from '../../redux/SystemMetaData';
@@ -272,6 +272,9 @@ export default function MediaPostCRUDComponent({ entityName = 'mediaPostReusable
                                     </View>
                                 ) : (
                                     <View>
+                                        {typeof json.mediaImageUri === 'string' && json.mediaImageUri ? (
+                                            <Image source={{ uri: json.mediaImageUri }} style={json.dataOriginName === 'idreader' ? styles.postImageId : styles.postImage} resizeMode="contain" />
+                                        ) : null}
                                         <Text style={styles.postTitle}>{json.mediaPostTitle || item.title || 'Untitled'}</Text>
                                         {json.mediaPostSubTitle ? (
                                             <Text style={styles.postSubtitle}>{json.mediaPostSubTitle}</Text>
@@ -374,6 +377,9 @@ const styles = StyleSheet.create({
         color: '#555',
         marginTop: 2,
     },
+    postImage: { width: 96, height: 96, borderRadius: 8, marginBottom: 8 },
+    /** the owner photo of an ID card / passport: a portrait */
+    postImageId: { width: 120, height: 150, borderRadius: 6, marginBottom: 8, backgroundColor: '#00000010' },
     postDescription: {
         fontSize: 14,
         color: '#444',

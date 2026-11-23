@@ -290,6 +290,7 @@ DROP FUNCTION IF EXISTS public.files_connection_status(text) CASCADE;
 DROP TRIGGER IF EXISTS trg_files_task_delete ON public.project_task_table;
 DROP TRIGGER IF EXISTS trg_files_project_delete ON public.project_table;
 DROP TRIGGER IF EXISTS trg_files_organization_delete ON public."organizationTable";
+DROP TRIGGER IF EXISTS trg_files_identification_post_delete ON public."mediaPostTable";
 DO $$
 DECLARE
   r record;

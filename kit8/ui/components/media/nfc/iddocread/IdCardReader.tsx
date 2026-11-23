@@ -1,20 +1,23 @@
 // The ID card / passport reader screen (route /media/nfc/iddocread). The user gives the password of the document (CAN, or the MRZ values), holds the
-// document to the back of the phone, and sees what the chip says. NOTHING is stored or sent: the data lives in the state of this screen and is
+// document to the back of the phone, and sees what the chip says. NOTHING is stored or sent unless the user presses "Create media post" (IdCardPostOffer: the owner's name + the document number); the data lives in the state of this screen and is
 // wiped by Clear and when the screen is left.
-import React, { useCallback, useMemo, useState } from 'react';
-import { Image, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Image, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
 import { useFocusEffect } from 'expo-router';
 import { ButtonPrimaryApp, ButtonSecondaryApp, TextInputApp } from '../../../common';
-import { bytesToBase64 } from './crypto/bytes';
 import { countryName, normalizeStateCode } from './countries';
 import { countryNote, GENERAL_LIMITS, PASSPORT_NOTE } from './countryNotes';
 import type { IdDocument, ReadOptions } from './emrtd';
 import { isoDepSupported } from './idTransport';
 import { fullDate, isValidYyMmDd, MrzAccess, parseMrz, toYyMmDd, accessFromMrz } from './mrz';
+import IdCardPostOffer from './IdCardPostOffer';
 import ReadFromDocumentButton from './ReadFromDocumentButton';
 import type { ProbeResult } from './probe';
 import { useIdReader } from './useIdReader';
+import { suppressBackgroundNfc } from '../nfcSuppress';
+import { scrollNodeIntoView } from './scrollToNode';
+import { useFaceImage } from './useFaceImage';
 
 export interface IdForm {
   country: string;
@@ -74,10 +77,13 @@ function Row({ label, value, testID }: { label: string; value?: string; testID?:
   );
 }
 
+export { useFaceImage };
+
 export function DocumentView({ doc }: { doc: IdDocument }) {
   const theme = useTheme();
   const m = doc.mrz;
-  const photoOk = !!doc.photo && !(Platform.OS === 'android' && doc.photo.mime === 'image/jp2');
+  const face = useFaceImage(doc.photo);
+  const photoOk = !!face.uri;
   const bad = doc.integrity?.results.filter((r) => r.ok === false) ?? [];
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={3} testID="id-document">
@@ -85,10 +91,9 @@ export function DocumentView({ doc }: { doc: IdDocument }) {
         <Text variant="labelLarge" style={{ color: bad.length ? theme.colors.error : theme.colors.primary }} testID="id-document-head">
           {countryName(m?.issuingState)} · {m?.documentCode || 'document'} · opened with {doc.protocol}
         </Text>
-        {photoOk && doc.photo && (
-          <Image source={{ uri: `data:${doc.photo.mime};base64,${bytesToBase64(doc.photo.bytes)}` }} style={styles.photo} resizeMode="contain" testID="id-photo" />
-        )}
-        {!!doc.photo && !photoOk && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} testID="id-photo-jp2">The face image is JPEG 2000, which Android cannot show.</Text>}
+        {photoOk && <Image source={{ uri: face.uri }} style={styles.photo} resizeMode="contain" testID="id-photo" />}
+        {!!doc.photo && face.converting && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} testID="id-photo-converting">Preparing the photo (JPEG 2000)…</Text>}
+        {!!doc.photo && !photoOk && !face.converting && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} testID="id-photo-jp2">The face image is JPEG 2000 and could not be converted for this phone; it is kept in the file storage.</Text>}
         <Row label="Surname" value={m?.surname} testID="id-surname" />
         <Row label="Given names" value={m?.givenNames} />
         <Row label="Document number" value={m?.documentNumber.value} />
@@ -144,9 +149,11 @@ export interface IdCardReaderProps {
   initialForm?: Partial<IdForm>;
   /** inside another scrolling screen (the identification flow): no ScrollView of its own, it takes the width of the parent */
   embedded?: boolean;
+  /** the ScrollView that holds this reader when it is embedded: the screen scrolls it to the Create media post button when the reading is done */
+  scrollRef?: React.RefObject<any>;
 }
 
-export default function IdCardReader({ initialForm, embedded }: IdCardReaderProps = {}) {
+export default function IdCardReader({ initialForm, embedded, scrollRef }: IdCardReaderProps = {}) {
   const theme = useTheme();
   const reader = useIdReader();
   const [form, setForm] = useState<IdForm>({ ...EMPTY_FORM, ...initialForm });
@@ -156,7 +163,20 @@ export default function IdCardReader({ initialForm, embedded }: IdCardReaderProp
   const supported = isoDepSupported();
   const busy = reader.state === 'reading';
   const Wrapper: any = embedded ? View : ScrollView;
-  const wrapperProps = embedded ? { style: styles.container } : { contentContainerStyle: styles.container };
+  const ownScroll = useRef<any>(null);
+  const wrapperProps = embedded ? { style: styles.container } : { contentContainerStyle: styles.container, ref: ownScroll };
+  const offerRef = useRef<any>(null);
+
+  // the reading is finished: scroll down to the button "Create media post" (a moment later, when the data and the photo are laid out)
+  const finished = reader.state === 'done' && !!reader.document;
+  useEffect(() => {
+    if (!finished) return undefined;
+    const timer = setTimeout(() => scrollNodeIntoView(offerRef.current, (embedded ? scrollRef?.current : ownScroll.current) ?? null), 300);
+    return () => clearTimeout(timer);
+  }, [finished, embedded, scrollRef]);
+
+  // the card touching the phone here must not open the NFC screen (background tag)
+  useFocusEffect(useCallback(() => suppressBackgroundNfc(), []));
 
   // leaving the screen wipes everything the card said
   useFocusEffect(
@@ -201,7 +221,14 @@ export default function IdCardReader({ initialForm, embedded }: IdCardReaderProp
         </Card>
       )}
       {reader.state === 'error' && <Text variant="bodyMedium" style={[styles.error, { color: theme.colors.error }]} testID="id-error">{reader.error}</Text>}
+      {reader.document && !reader.document.mrz && !reader.document.photo && !reader.document.details && !reader.document.document && (
+        <Text variant="bodyMedium" style={[styles.error, { color: theme.colors.error }]} testID="id-empty-reading">
+          The chip opened, but none of its files could be read (see the answers of the card in the steps above), so there is nothing to keep as a media post. Hold the document still and read it again.
+        </Text>
+      )}
       {reader.document && <DocumentView doc={reader.document} />}
+      {/* only when the user asks: the owner's name + the document number become a media post */}
+      {reader.document && <View ref={offerRef} collapsable={false} testID="id-post-anchor"><IdCardPostOffer doc={reader.document} /></View>}
 
       <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2} testID="id-password">
         <Card.Content style={styles.content}>

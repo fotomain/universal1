@@ -44,6 +44,35 @@ describe('reading a travel document (software card)', () => {
     expect(doc.integrity?.results.every((r) => r.ok)).toBe(true);
   });
 
+  it('AES secure messaging: a card that builds its MAC from PADDED data opens at the first try (ICAO 9303-11); the step list says nothing of a retry', async () => {
+    const card = new SimCard({ mrzAccess: TEST_ACCESS, pace: { cipher: 'aes128', parameterId: 13 }, files: buildFiles({ paceCipher: 'aes128', paceParam: 13, photoSize: 600 }) });
+    const { doc, steps } = await run(card, { mrz: TEST_ACCESS });
+    expect(card.paceOpened).toBe(1);
+    expect(doc.mrz?.surname).toBe('ZVEJNIEKS');
+    expect(last(steps, 'sm-check')).toBeUndefined();
+  });
+
+  it('AES secure messaging: a card that refuses the first protected command (the other MAC) is opened AGAIN with the plain MAC and read completely', async () => {
+    // the first real PACE passport (2026-11-23): PACE ok, then every file "not available"
+    const card = new SimCard({ mrzAccess: TEST_ACCESS, pace: { cipher: 'aes128', parameterId: 13 }, plainAesMac: true, files: buildFiles({ paceCipher: 'aes128', paceParam: 13, photoSize: 600 }) });
+    const { doc, steps } = await run(card, { mrz: TEST_ACCESS });
+    expect(card.paceOpened).toBe(2);
+    expect(doc.access).toBe('pace-mrz');
+    expect(doc.mrz?.surname).toBe('ZVEJNIEKS');
+    expect(doc.photo?.bytes.length).toBe(600);
+    expect(doc.integrity?.results.every((r) => r.ok === true)).toBe(true);
+    const sm = steps.filter((x) => x.id === 'sm-check');
+    expect(sm.map((x) => x.status)).toEqual(['fail', 'ok']);
+    expect(sm[0].detail).toContain('6988'); // the answer of the card is in the step list
+  });
+
+  it('a file that is really missing says the answer of the card in the step list', async () => {
+    const files = buildFiles({ paceCipher: 'aes128', paceParam: 13, photoSize: 600 });
+    const card = new SimCard({ mrzAccess: TEST_ACCESS, pace: { cipher: 'aes128', parameterId: 13 }, files });
+    const { steps } = await run(card, { mrz: TEST_ACCESS });
+    expect(steps.find((x) => x.id.startsWith('file-') && x.status === 'skip')?.detail ?? 'none').toMatch(/^(none|not available \(card answer [0-9a-f]{4}\))/i);
+  });
+
   it('BAC only (an older passport: no EF.CardAccess)', async () => {
     const card = new SimCard({ mrzAccess: TEST_ACCESS, pace: null, files: buildFiles({ photoSize: 5000 }) });
     const { doc } = await run(card, { mrz: TEST_ACCESS });

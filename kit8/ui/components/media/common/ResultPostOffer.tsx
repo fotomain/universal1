@@ -1,5 +1,5 @@
 // "Create a media post with this result?" - the offer the scan screens (QR / barcode, NFC) make after a result. A guest is told to sign in.
-import React, { useState } from 'react';
+import React, { ReactNode, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
@@ -11,19 +11,25 @@ export interface ResultPostOfferProps {
   onCreate: () => Promise<unknown>;
   /** the words after "Create media post" for the test ids */
   testID?: string;
+  /** a line shown after "Media post created." (what else was done, e.g. where the owner photo went, or why it was not saved) */
+  savedNote?: string;
+  /** a SCREEN of its own shown right after the post was made (it gets `close` and `openPosts`); the line below stays when it is closed */
+  renderSavedScreen?: (api: { close: () => void; openPosts: () => void }) => ReactNode;
 }
 
-export default function ResultPostOffer({ onCreate, testID = 'result-post' }: ResultPostOfferProps) {
+export default function ResultPostOffer({ onCreate, testID = 'result-post', savedNote, renderSavedScreen }: ResultPostOfferProps) {
   const theme = useTheme();
   const router = useRouter();
   const signedIn = useIsSignedIn();
   const [state, setState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  const [screenOpen, setScreenOpen] = useState(false);
 
   const create = async () => {
     setState('saving');
     try {
       await onCreate();
       setState('saved');
+      setScreenOpen(true);
     } catch (e) {
       showErrorModal(e, 'Create media post');
       setState('idle');
@@ -33,7 +39,9 @@ export default function ResultPostOffer({ onCreate, testID = 'result-post' }: Re
   if (state === 'saved') {
     return (
       <View style={styles.row} testID={`${testID}-saved`}>
+        {screenOpen && renderSavedScreen?.({ close: () => setScreenOpen(false), openPosts: () => { setScreenOpen(false); router.push('/posts/mediapostcrud' as any); } })}
         <Text variant="bodyMedium" style={{ color: theme.colors.primary }}>Media post created.</Text>
+        {!!savedNote && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, flexBasis: '100%' }} testID={`${testID}-note`}>{savedNote}</Text>}
         <ButtonSecondaryApp icon="list_alt" onPress={() => router.push('/posts/mediapostcrud' as any)} testID={`${testID}-open`}>
           Media posts
         </ButtonSecondaryApp>

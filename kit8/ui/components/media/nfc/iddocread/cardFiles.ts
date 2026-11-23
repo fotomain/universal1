@@ -23,11 +23,17 @@ export async function readBinary(transport: IsoDepTransport, sm: SecureMessaging
 }
 
 /** reads a whole file: the first bytes tell the TLV length, then the rest in pieces. null = the file is not there / not allowed */
-export async function readFile(transport: IsoDepTransport, sm: SecureMessaging | null, id: number): Promise<{ data: Uint8Array; complete: boolean } | null> {
+export async function readFile(transport: IsoDepTransport, sm: SecureMessaging | null, id: number, diag?: { sw?: number }): Promise<{ data: Uint8Array; complete: boolean } | null> {
   const sel = await selectEf(transport, sm, id);
-  if (sel !== SW_OK) return null;
+  if (sel !== SW_OK) {
+    if (diag) diag.sw = sel; // the answer of the card, for the step list
+    return null;
+  }
   const head = await readBinary(transport, sm, 0, 4);
-  if (head.sw !== SW_OK && head.sw !== 0x6282) return null;
+  if (head.sw !== SW_OK && head.sw !== 0x6282) {
+    if (diag) diag.sw = head.sw;
+    return null;
+  }
   if (head.data.length < 2) return null;
   // total = tag bytes + length bytes + value length
   let p = 1;

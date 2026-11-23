@@ -16,10 +16,24 @@ jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({
 (globalThis as any).__sim = mockSim;
 // the random source of the reader: the test runs in jsdom, which has no crypto.getRandomValues of its own on every version
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/crypto/random', () => ({ systemRandom: (n: number) => new Uint8Array(require('crypto').randomBytes(n)) }));
+// the post of the result: signed in, the written row is kept for the test (the database / redux are not needed here)
+(globalThis as any).__idPosts = [] as any[];
+jest.mock('../../kit8/ui/components/media/common/useWriteMediaPost', () => ({
+  useIsSignedIn: () => (globalThis as any).__idSignedIn !== false,
+  useWriteMediaPost: () => async (build: any) => { const post = build({ ownerGUID: 'u1', rowGUID: 'r1', platform: 'android' }); (globalThis as any).__idPosts.push(post); return post; },
+}));
+// the owner photo goes to the file storage through this call (mocked: what it was given is kept)
+(globalThis as any).__idUploads = [] as any[];
+(globalThis as any).__idUploadAnswer = { ok: true };
+jest.mock('../../kit8/files/common/identificationPhoto', () => ({
+  ...jest.requireActual('../../kit8/files/common/identificationPhoto'),
+  uploadIdentificationPhoto: async (postGUID: string, photo: any) => { (globalThis as any).__idUploads.push({ postGUID, mime: photo.mime, size: photo.bytes.length }); return (globalThis as any).__idUploadAnswer; },
+}));
 const { bytesToHex } = require('../../kit8/ui/components/media/nfc/iddocread/crypto/bytes');
 const mockClosedCount = () => (globalThis as any).__sim.closed;
 
 import IdCardReader, { applyMrzLines, EMPTY_FORM, formToOptions } from '../../kit8/ui/components/media/nfc/iddocread/IdCardReader';
+import { FILE_IDS } from '../../kit8/ui/components/media/nfc/iddocread/dataGroups';
 import { friendlyIdError } from '../../kit8/ui/components/media/nfc/iddocread/useIdReader';
 
 const type = (testID: string, value: string) => act(() => {
@@ -35,7 +49,7 @@ beforeEach(() => {
   mockSim.closed = 0;
   (globalThis as any).__noIso = false;
 });
-afterEach(() => { cleanup(); jest.clearAllMocks(); });
+afterEach(() => { cleanup(); jest.clearAllMocks(); (globalThis as any).__idUploads.length = 0; (globalThis as any).__idPosts.length = 0; });
 
 describe('the form', () => {
   it('needs the CAN or the three MRZ values; says what is wrong', () => {
@@ -133,6 +147,81 @@ describe('the screen', () => {
     expect(text('id-steps')).not.toContain(TEST_CAN);
     expect(text('id-warning-0')).toContain('signature');
     expect(mockSim.closed).toBe(1); // the NFC channel is always closed
+  });
+
+  it('after a read the user can create a media post: its title is the owner, its sub title the document number (nothing is made before the press)', async () => {
+    render(<IdCardReader />);
+    await flush();
+    type('id-can', TEST_CAN);
+    await pressAsync('id-read-from-document');
+    for (let i = 0; i < 30 && !q('id-document'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect((globalThis as any).__idPosts).toHaveLength(0);
+    await pressAsync('id-post-create');
+    const [post] = (globalThis as any).__idPosts;
+    expect(post.rowJSON.mediaPostTitle).toMatch(/ZVEJNIEKS/);
+    expect(post.rowJSON.mediaPostSubTitle).toMatch(/^(ID card|Passport) · No\. \S+/);
+    expect(post.rowJSON.idCardNumber).toBe(post.rowJSON.mediaPostSubTitle.split('No. ')[1]);
+    expect(q('id-post-saved')).not.toBeNull();
+    // the owner photo of the chip went to identification/<idcard | passport>/<post guid>
+    const [up] = (globalThis as any).__idUploads;
+    expect(up).toMatchObject({ postGUID: post.rowGUID, mime: expect.stringMatching(/^image\//) });
+    expect(up.size).toBeGreaterThan(0);
+    expect(post.rowJSON.idCardFolder).toMatch(/^(idcard|passport)$/);
+    expect(text('id-post-note')).toContain(`identification/${post.rowJSON.idCardFolder}/${post.rowGUID}`);
+  });
+
+  it('when the reading is finished the screen scrolls down to the Create media post button (once, not before)', async () => {
+    const scrolled: any[] = [];
+    (Element.prototype as any).scrollIntoView = function (o: any) { scrolled.push({ id: (this as any).getAttribute('data-testid'), o }); };
+    render(<IdCardReader />);
+    await flush();
+    type('id-can', TEST_CAN);
+    expect(scrolled).toHaveLength(0);
+    await pressAsync('id-read-from-document');
+    for (let i = 0; i < 30 && !q('id-document'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    await act(async () => { await new Promise((r) => setTimeout(r, 400)); });
+    expect(scrolled).toHaveLength(1);
+    expect(scrolled[0].id).toBe('id-post-anchor');
+    expect(q('id-post-anchor')!.contains(q('id-post-create'))).toBe(true);
+    delete (Element.prototype as any).scrollIntoView;
+  });
+
+  it('a chip that opens but gives no file: the screen says so (no empty result card without a reason)', async () => {
+    const all = buildFiles({ paceCipher: 'aes128', paceParam: 13, photoSize: 300 });
+    const onlyAccess: Record<number, Uint8Array> = { [FILE_IDS.cardAccess]: all[FILE_IDS.cardAccess] }; // PACE opens, every other file is missing
+    mockSim.card = new SimCard({ mrzAccess: TEST_ACCESS, can: TEST_CAN, pace: { cipher: 'aes128', parameterId: 13 }, files: onlyAccess });
+    render(<IdCardReader />);
+    await flush();
+    type('id-can', TEST_CAN);
+    await pressAsync('id-read-from-document');
+    for (let i = 0; i < 30 && !q('id-empty-reading'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(text('id-empty-reading')).toContain('none of its files could be read');
+    expect(q('id-post-create')).toBeNull();
+  });
+
+  it('the post stays when the photo cannot be saved, and the screen says why (no second post is offered)', async () => {
+    (globalThis as any).__idUploadAnswer = { ok: false, error: 'Google Drive is not connected.' };
+    render(<IdCardReader />);
+    await flush();
+    type('id-can', TEST_CAN);
+    await pressAsync('id-read-from-document');
+    for (let i = 0; i < 30 && !q('id-document'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    await pressAsync('id-post-create');
+    expect(q('id-post-saved')).not.toBeNull();
+    expect(text('id-post-note')).toContain('NOT saved: Google Drive is not connected.');
+    (globalThis as any).__idUploadAnswer = { ok: true };
+  });
+
+  it('a guest is offered to sign in instead (no post button)', async () => {
+    (globalThis as any).__idSignedIn = false;
+    render(<IdCardReader />);
+    await flush();
+    type('id-can', TEST_CAN);
+    await pressAsync('id-read-from-document');
+    for (let i = 0; i < 30 && !q('id-document'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
+    expect(q('id-post-create')).toBeNull();
+    expect(q('id-post-signin')).not.toBeNull();
+    (globalThis as any).__idSignedIn = true;
   });
 
   it('Clear wipes the data from the screen', async () => {

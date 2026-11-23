@@ -1,5 +1,6 @@
 // The ISO-DEP (ISO 14443-4) channel of iOS / Android: react-native-nfc-manager `requestTechnology(IsoDep)`. The web twin says it is not possible.
-import NfcManager, { NfcTech } from 'react-native-nfc-manager';
+import { Platform } from 'react-native';
+import NfcManager, { NfcAdapter, NfcTech } from 'react-native-nfc-manager';
 import type { IsoDepTransport } from './apdu';
 import { tagIdHex } from '../nfcModel';
 
@@ -16,7 +17,20 @@ export async function openIsoDep(alertMessage = 'Hold the document against the b
   } catch {
     // it was not running
   }
-  await NfcManager.requestTechnology(NfcTech.IsoDep, { alertMessage });
+  // Android: READER MODE, not the foreground dispatch of the default. A document that already lies on the phone when the button is pressed (or that the
+  // system took as a background tag a moment before) is NOT offered again by the foreground dispatch: the first hold read nothing and the user had to take
+  // the document away and hold it again (2026-11-23). Enabling the reader mode restarts the polling of the antenna, so the document in the field is found.
+  // A passport / ID card is ISO-DEP of type A or B; no NDEF check (faster, and the chip is not an NDEF tag).
+  await NfcManager.requestTechnology(
+    NfcTech.IsoDep,
+    Platform.OS === 'android'
+      ? {
+          alertMessage,
+          isReaderModeEnabled: true,
+          readerModeFlags: NfcAdapter.FLAG_READER_NFC_A | NfcAdapter.FLAG_READER_NFC_B | NfcAdapter.FLAG_READER_SKIP_NDEF_CHECK,
+        }
+      : { alertMessage },
+  );
   // the card computes an elliptic curve exchange: give it time (the Android default is under a second)
   try {
     await (NfcManager as any).setTimeout?.(6000);

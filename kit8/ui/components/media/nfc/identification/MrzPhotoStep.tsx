@@ -1,6 +1,7 @@
 // Step 2 + 3: take a photo of the document (no strict frame: the whole document, anywhere in the picture) and read it.
 //   * Google AI (Gemini), only when the user switched "Read with Google AI" on: the photo is sent to Google, the answer is checked with the check digits of the zone;
-//   * this phone's text recognition (Google ML Kit / Apple Vision through expo-mlkit-ocr) otherwise, and as the fallback when Google AI fails.
+//   * this phone's text recognition (Google ML Kit / Apple Vision through expo-mlkit-ocr) otherwise, and as the fallback when Google AI fails;
+//   * ALWAYS after that: the recognised TEXT (no picture) goes to Google AI by itself (`mergeTextRecognition`).
 // The photo is made upright and smaller (expo-image-manipulator), read, and DELETED at once: it is never shown in a list or saved.
 import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
@@ -8,6 +9,7 @@ import { Card, IconButton, Surface, Text, useTheme } from 'react-native-paper';
 import { useFocusEffect } from 'expo-router';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { Camera, useCameraDevice, useCameraPermission } from 'react-native-vision-camera';
+import { useDrawerSettled } from '../../common/useDrawerSettled';
 import { ButtonPrimaryApp, ButtonSecondaryApp, SwitchApp, showErrorModal } from '../../../common';
 import PinchZoomView from '../../common/PinchZoomView';
 import ZoomControl from '../../common/ZoomControl';
@@ -15,8 +17,10 @@ import { canZoom, clampZoom, normalizeZoomRange } from '../../common/cameraZoom'
 import { toFileUri } from '../../common/mediaSource';
 import { useIsSignedIn } from '../../common/useWriteMediaPost';
 import { aiConfig, aiPossible, recognizeTextWithAi, recognizeWithAi } from './aiRecognize';
-import { loadAiConsent, loadAiTextConsent, saveAiConsent, saveAiTextConsent } from './aiConsent';
+import { loadAiConsent, saveAiConsent } from './aiConsent';
 import { recognitionFromAi } from './aiResult';
+import { readTextWithAiRetry } from './aiTextRetry';
+import CollapsibleHint from './CollapsibleHint';
 import { hasValues, valuesOf } from './confirmedValues';
 import type { MrzPhotoStepProps, Recognition } from './identificationTypes';
 import { mrzFromText } from './mrzFromText';
@@ -48,6 +52,20 @@ export function deviceRecognition(lines: string[], documentType: 'ID' | 'PASSPOR
   };
 }
 
+/**
+ * What the confirm step starts with after Google AI read the TEXT this phone recognised.
+ * A zone of this phone that passed its check digits stays the source of the three values (the check digits are the proof); Google AI adds the CAN, the printed
+ * name and its notes. Otherwise Google AI's values replace the phone's when it found a complete set; if not, only its notes are added.
+ */
+export function mergeTextRecognition(device: Recognition, fromText: Recognition, lines: string[]): Recognition {
+  const said = 'Google AI read the text that this phone recognised (no picture was sent).';
+  if (device.confidence === 'checked') {
+    return { ...device, values: { ...device.values, can: device.values.can || fromText.values.can }, printed: device.printed ?? fromText.printed, notes: [said, ...fromText.notes, ...device.notes] };
+  }
+  if (hasValues(fromText.values)) return { ...fromText, lines, notes: [said, ...fromText.notes] };
+  return { ...device, notes: [...device.notes, ...fromText.notes] };
+}
+
 export default function MrzPhotoStep({ documentType, onRecognized, onBack, recognize = recognizeLines, aiRecognize = recognizeWithAi, aiTextRecognize = (lines, type) => recognizeTextWithAi(lines, type) }: MrzPhotoStepProps) {
   const theme = useTheme();
   const camera = React.useRef<Camera>(null);
@@ -58,8 +76,6 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
   const [torch, setTorch] = useState(false);
   const [busy, setBusy] = useState<'' | 'photo' | 'ocr' | 'ai'>('');
   const [aiOn, setAiOn] = useState(false);
-  /** the recognised TEXT goes to Google AI by itself when this phone finds no valid zone (no picture is sent) */
-  const [aiTextOn, setAiTextOn] = useState(true);
   const canAi = aiPossible(signedIn);
   const zoomRange = normalizeZoomRange({ min: device?.minZoom, max: device?.maxZoom, neutral: device?.neutralZoom });
   const [zoom, setZoom] = useState(zoomRange.neutral);
@@ -69,7 +85,6 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
   }, [device?.id]);
   useEffect(() => {
     void loadAiConsent().then(setAiOn);
-    void loadAiTextConsent().then(setAiTextOn);
   }, []);
   useFocusEffect(
     useCallback(() => {
@@ -77,15 +92,12 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
       return () => setFocused(false);
     }, []),
   );
+  // not while the hamburger menu is open / closing: the Android dialog would freeze the closing and the camera would run under the menu
+  const menuSettled = useDrawerSettled();
   useEffect(() => {
-    if (!permission.hasPermission) void permission.requestPermission();
+    if (menuSettled && !permission.hasPermission) void permission.requestPermission();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  const switchAiText = (on: boolean) => {
-    setAiTextOn(on);
-    void saveAiTextConsent(on);
-  };
+  }, [menuSettled]);
 
   const switchAi = (on: boolean) => {
     setAiOn(on);
@@ -106,14 +118,12 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
 
       let recognition: Recognition | null = null;
       const notes: string[] = [];
-      let aiFailed = false;
       if (aiOn && canAi && small.base64) {
         setBusy('ai');
         try {
           recognition = recognitionFromAi(await aiRecognize({ image: small.base64, mime: 'image/jpeg', documentType }), documentType);
         } catch (e: any) {
           notes.push(`Google AI: ${e?.message ?? 'failed'}. Read on this phone instead.`);
-          aiFailed = true;
         }
         if (recognition && !hasValues(recognition.values) && !recognition.result) {
           // Google AI found nothing usable: give this phone's recognition a chance too
@@ -125,16 +135,18 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
         setBusy('ocr');
         const lines = await recognize(small.uri);
         recognition = deviceRecognition(lines, documentType);
-        // this phone found no checked zone (the FRONT of an ID card has none): Google AI extracts the values from the recognised TEXT, automatically (no picture is sent)
-        if (canAi && (aiOn || aiTextOn) && !aiFailed && lines.length && recognition.confidence !== 'checked') {
+        // ALWAYS (owner, 2026-11-23): the recognised TEXT goes to Google AI right after the photo, whatever this phone found (no picture is sent).
+        // It is asked again by itself when a call fails for a moment or comes back without values (aiTextRetry.ts), so the user need not press the button.
+        if (canAi && lines.length) {
           setBusy('ai');
-          try {
-            const fromText = recognitionFromAi(await aiTextRecognize(lines, documentType), documentType, 'text');
-            if (hasValues(fromText.values)) recognition = { ...fromText, lines, notes: ['Google AI read the text that this phone recognised (no picture was sent).', ...fromText.notes] };
-            else notes.push(...fromText.notes);
-          } catch (e: any) {
-            notes.push(`Google AI (text): ${e?.message ?? 'failed'}.`);
-          }
+          const device = recognition;
+          const out = await readTextWithAiRetry(
+            () => aiTextRecognize(lines, documentType),
+            (doc) => recognitionFromAi(doc, documentType, 'text'),
+            device.confidence !== 'checked',
+          );
+          if (out.recognition) recognition = mergeTextRecognition(device, out.recognition, lines);
+          if (out.error) notes.push(`Google AI (text): ${out.error}${out.calls > 1 ? ` (tried ${out.calls} times)` : ''}.`);
         }
       }
       recognition.notes = [...notes, ...recognition.notes];
@@ -155,9 +167,9 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
       <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={3} testID="ident-step-photo">
         <Card.Content style={styles.content}>
           <Text variant="titleMedium">Photo of the document</Text>
-          <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }} testID="ident-photo-hint">
-            {where}: hold the phone above the document, keep it flat and in good light, without glare. The whole document may be anywhere in the picture. The back of an ID card has the zone; the front also works with Google AI.
-          </Text>
+          <CollapsibleHint testID="ident-photo-hint">
+            {`${where}: hold the phone above the document, keep it flat and in good light, without glare. The whole document may be anywhere in the picture. The back of an ID card has the zone; the front also works with Google AI.`}
+          </CollapsibleHint>
           {!aiOn && !ocrAvailable() && <Text variant="bodySmall" style={{ color: theme.colors.error }} testID="ident-ocr-missing">Text recognition is not available on this device: take the photo anyway or type the values.</Text>}
           <Surface style={styles.preview} elevation={2}>
             {!permission.hasPermission ? (
@@ -169,7 +181,7 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
               <View style={styles.center}><Text style={styles.light} testID="ident-nodevice">No camera was found on this device.</Text></View>
             ) : (
               <PinchZoomView style={StyleSheet.absoluteFill} zoom={zoom} range={zoomRange} onZoom={(z) => setZoom(clampZoom(z, zoomRange))} disabled={!canZoom(zoomRange)}>
-                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused && busy !== 'ocr' && busy !== 'ai'} photo zoom={clampZoom(zoom, zoomRange)} torch={torch && device.hasTorch ? 'on' : 'off'} />
+                <Camera ref={camera} style={StyleSheet.absoluteFill} device={device} isActive={focused && menuSettled && busy !== 'ocr' && busy !== 'ai'} photo zoom={clampZoom(zoom, zoomRange)} torch={torch && device.hasTorch ? 'on' : 'off'} />
               </PinchZoomView>
             )}
           </Surface>
@@ -181,13 +193,10 @@ export default function MrzPhotoStep({ documentType, onRecognized, onBack, recog
             {!!device?.hasTorch && <IconButton icon={torch ? 'flashlight' : 'flashlight-off'} onPress={() => setTorch((t) => !t)} accessibilityLabel="Torch" testID="ident-torch" />}
           </View>
           <SwitchApp label="Read with Google AI" value={aiOn && canAi} onValueChange={switchAi} disabled={!canAi || !!busy} testID="ident-ai-switch" />
-          <SwitchApp label="Let Google AI read the recognised text by itself" value={aiTextOn && canAi} onValueChange={switchAiText} disabled={!canAi || !!busy} testID="ident-ai-text-switch" />
           <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }} testID="ident-ai-text-note">
             {!canAi
               ? 'Needs the Google AI key in the app or a signed-in user.'
-              : aiTextOn
-                ? 'On: when this phone finds no valid zone (the FRONT of an ID card has none), the recognised TEXT (names, numbers, dates) is sent to Google AI automatically - no picture.'
-                : 'Off: the text stays on this phone; the button on the next screen can still ask Google AI.'}
+              : 'After the photo the recognised TEXT (names, numbers, dates) is always sent to Google AI to read the values - no picture is sent.'}
           </Text>
           <Text variant="labelSmall" style={{ color: theme.colors.onSurfaceVariant }} testID="ident-ai-note">
             {!canAi

@@ -39,3 +39,30 @@ it('a signed-in user gets the recorder', async () => {
   expect(q('recorder')).not.toBeNull();
   expect(q('recording-signin-gate')).toBeNull();
 });
+
+describe('scanning is for signed-in users too', () => {
+  const scanGate = (kind: any, returnTo: string) => render(<RecordingSignInGate kind={kind} returnTo={returnTo}><div data-testid="scanner">scanner</div></RecordingSignInGate>);
+
+  it.each([
+    ['scan', '/media/scan', 'Sign in to scan codes'],
+    ['nfc', '/media/nfc', 'Sign in to read NFC tags'],
+    ['identification', '/media/nfc/identification', 'Sign in to identify with an ID card or passport'],
+    ['idcard', '/media/nfc/iddocread', 'Sign in to read an ID card or passport'],
+  ])('a guest does not get the %s screen: he is offered to sign in and comes back to it', async (kind, route, title) => {
+    mockState = { activeUserState: { activeUserEmail: 'user@example.com' } };
+    scanGate(kind, route);
+    await flush();
+    expect(q('scanner')).toBeNull();
+    expect(text('recording-signin-title')).toBe(title);
+    expect(q('recording-signin-storage-button')).toBeNull();   // the file storage is for recordings only
+    press('recording-signin-button');
+    expect(push).toHaveBeenLastCalledWith({ pathname: '/user/signin', params: { returnTo: route } });
+  });
+
+  it('a signed-in user gets the scanner', async () => {
+    mockState = { activeUserState: { activeUserEmail: 'foto888999@gmail.com' } };
+    scanGate('scan', '/media/scan');
+    await flush();
+    expect(q('scanner')).not.toBeNull();
+  });
+});

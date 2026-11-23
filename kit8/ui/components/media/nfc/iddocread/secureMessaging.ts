@@ -1,6 +1,8 @@
 // Secure messaging of the eMRTD (ICAO 9303 part 11): every command and answer after BAC / PACE is encrypted and has a MAC.
 //   3DES: KSenc / KSmac 16 bytes, SSC 8 bytes, IV 0, retail MAC (8 bytes)
-//   AES:  KSenc / KSmac 16-32 bytes, SSC 16 bytes, IV = AES(KSenc, SSC), AES-CMAC cut to 8 bytes
+//   AES:  KSenc / KSmac 16-32 bytes, SSC 16 bytes, IV = AES(KSenc, SSC), AES-CMAC cut to 8 bytes. The data of the MAC is padded (ISO 9797-1 method 2, 80 00 ..)
+//         first (`padMac`, ICAO 9303-11 as read 2026-11-23; the first real PACE passport refused every file with the UNPADDED variant - emrtd.ts tries the other
+//         variant when the first file cannot be read)
 import { buildApdu, CardError, IsoDepTransport, sendApdu, ApduResponse } from './apdu';
 import { concat, equalBytes } from './crypto/bytes';
 import { aesCbc, aesCmac, aesEcb, pad, retailMac, tdesCbc, unpad } from './crypto/symmetric';
@@ -11,7 +13,7 @@ export type SmKind = 'tdes' | 'aes';
 export class SecureMessaging {
   private ssc: Uint8Array;
 
-  constructor(public readonly kind: SmKind, private readonly ksEnc: Uint8Array, private readonly ksMac: Uint8Array, ssc?: Uint8Array) {
+  constructor(public readonly kind: SmKind, private readonly ksEnc: Uint8Array, private readonly ksMac: Uint8Array, ssc?: Uint8Array, public readonly padMac: boolean = true) {
     this.ssc = ssc ? Uint8Array.from(ssc) : new Uint8Array(kind === 'tdes' ? 8 : 16);
   }
 
@@ -27,7 +29,7 @@ export class SecureMessaging {
   }
 
   private mac(data: Uint8Array): Uint8Array {
-    return this.kind === 'tdes' ? retailMac(this.ksMac, pad(data, 8)) : aesCmac(this.ksMac, data).slice(0, 8);
+    return this.kind === 'tdes' ? retailMac(this.ksMac, pad(data, 8)) : aesCmac(this.ksMac, this.padMac ? pad(data, 16) : data).slice(0, 8);
   }
 
   private encrypt(data: Uint8Array): Uint8Array {
