@@ -1,5 +1,5 @@
 // Web twin of VideoPlayerView.tsx: the browser <video> element (mp4, webm, ogg; a browser plays no HLS / DASH by itself)
-// with OUR buttons over it (VideoControlsOverlay).
+// with OUR buttons over it (VideoControlsOverlay). Full screen = the browser's Fullscreen API on the box that holds the video AND our buttons (the <video> element alone would show the browser's own controls).
 import React, { useEffect, useRef, useState } from 'react';
 import { StyleSheet, View } from 'react-native';
 import VideoControlsOverlay from './VideoControlsOverlay';
@@ -9,10 +9,26 @@ import { clockTimeAt, formatDateTimeOver } from '../video/dateTimeOver';
 
 export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError, dateTimeOver }: MediaPlayerViewProps) {
   const ref = useRef<HTMLVideoElement | null>(null);
+  const boxRef = useRef<any>(null);
+  const [fullscreen, setFullscreen] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [ended, setEnded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+
+  // the user can also leave full screen with the Escape key: follow the browser
+  useEffect(() => {
+    if (typeof document === 'undefined') return undefined;
+    const sync = () => setFullscreen(!!boxRef.current && document.fullscreenElement === boxRef.current);
+    document.addEventListener('fullscreenchange', sync);
+    return () => document.removeEventListener('fullscreenchange', sync);
+  }, []);
+  const toggleFullscreen = () => {
+    const box: any = boxRef.current;
+    if (typeof document === 'undefined' || !box) return;
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => undefined);
+    else box.requestFullscreen?.().catch(() => undefined);
+  };
 
   // a browser may refuse to start with sound before a click: the big Play button stays, the user presses it
   useEffect(() => {
@@ -45,7 +61,7 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError,
   const stampAt = dateTimeOver ? clockTimeAt(dateTimeOver.part, currentTime) : null;
 
   return (
-    <View style={styles.box} testID="video-player-view">
+    <View ref={boxRef} style={[styles.box, fullscreen && styles.boxFull]} testID="video-player-view">
       <video
         key={uri}
         ref={ref}
@@ -69,11 +85,12 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError,
         style={{ width: '100%', height: '100%', objectFit: 'contain', backgroundColor: '#000' }}
       />
       {dateTimeOver && stampAt && <DateTimeOverStamp position={dateTimeOver.position} text={formatDateTimeOver(stampAt)} testID="video-player-datetime" />}
-      <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} />
+      <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} onToggleFullscreen={toggleFullscreen} fullscreen={fullscreen} />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   box: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden' },
+  boxFull: { width: '100%', height: '100%', aspectRatio: undefined, borderRadius: 0 },
 });

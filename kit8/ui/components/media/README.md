@@ -89,13 +89,12 @@ Both are locked while a recording runs. Model `kit8/redux/recordVideoSettings.ts
   runs, Pause / Stop & save stand in a line under it. The floating "+" button of the application is hidden on `/media/record/video`
   (`kit8/ui/components/fab/fabRoutes.ts`, test `__tests__/ui/fabRoutes.test.ts`). Reset of the panel is a plain text button.
 
-## Media Posts list on a phone
+## Media Posts list (web, iOS, Android)
 
-The web list (`app/posts/mediapostcrud/index.tsx` -> `ListWebCardsComponent`) is built from browser tags (div, span) and crashed on iOS / Android
-("View config getter for component `div`") when the user pressed **Media posts** after a recording. Expo Router takes
-`app/posts/mediapostcrud/index.native.tsx` on a phone: `MediaPostsNativeList` (the user's posts, newest first, Play in `MediaPlayerModal`
-with the date and time stamp, Delete after a question). Rows: `mediaPostList.ts` (pure). The web list is unchanged; editing titles, archive and
-drag and drop exist on the web only.
+ONE screen for every platform (2026-11-24): `app/posts/mediapostcrud/index.tsx` -> `MediaPostsNativeList` = a `ReusableList` (`kit8/ui/components/list/reusable`)
+with the card `ReusableCardMediaPost` (cardSmall / cardMedium / cardBig, local FAB; README in `list/cards`), the Add form `CreateListElementForm`, search, Sort and Filter,
+drag reorder. Play in `MediaPlayerModal` with the date and time stamp; Delete asks first. `?scrollToGUID=<post>` scrolls to a post. Rows: `mediaPostList.ts` (pure).
+The old web-only list (`ListWebCardsComponent`, browser tags: crashes on a phone with "View config getter for component `div`") is no longer used by this route; the file `index.native000.tsx` is an old copy.
 
 ## Tests (`__tests__/media`)
 
@@ -173,3 +172,7 @@ Vision Camera `useCodeScanner` (no frame processor, no extra package: AVFoundati
 ## ID card post: all the data + the photo (2026-11-23)
 
 **Create media post** (`IdCardPostOffer`) now keeps the whole reading in the post, not only the name and the number: `idCardFields(doc)` (`iddocread/idCardFields.ts`, pure) lists every readable datum of the zone, DG11 (personal details) and DG12 (document details) as label + value - the description of the post is one line per datum and `rowJSON.idCardFields` keeps the list. The owner photo of the chip is in the post as `mediaImageUri` (a data address) when it is a JPEG up to `ID_POST_PHOTO_MAX_CHARS`; a JPEG 2000 photo (Android cannot draw it) is only in the file storage and the post says so in a `Photo` line. The phone list (`MediaPostsNativeList`, `MediaPostRow.isIdCard`) and the web list (`MediaPostCRUDComponent`) draw it as a portrait above the text. Tests `__tests__/media/idCardFields.test.ts`, `idCardPost.test.ts`.
+
+
+## Video: full screen button (2026-11-24)
+The toolbar over the video has a **full screen** button (left of the settings cog; `VideoControls` `onToggleFullscreen`). Web: the browser Fullscreen API on the box that holds the video AND our buttons (Escape leaves it, the button follows). iOS / Android: the box moves into a full screen `Modal` (the device may be turned; Back leaves it) - expo-video's own full screen would hide our buttons. Tests: `__tests__/media/videoPlayerView.test.tsx`, `videoPlayerViewWeb.test.tsx`.

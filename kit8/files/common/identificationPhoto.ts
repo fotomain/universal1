@@ -72,3 +72,23 @@ export async function uploadIdentificationPhoto(
     return { ok: false, error: e?.message || String(e) };
   }
 }
+
+/**
+ * A post made with the Add form is written to the database a moment AFTER the form closes (optimistic list, the saga writes it): the upload of its photo is refused until the
+ * post exists ("files_authorize": the post is read by its guid). So the upload is tried again a few times; the first answer that is ok (or the last one) is returned.
+ */
+export async function uploadIdentificationPhotoWithRetry(
+  postGUID: string,
+  photo: IdentificationPhoto,
+  toBase64: (b: Uint8Array) => string,
+  opts: { attempts?: number; delayMs?: number; upload?: typeof uploadIdentificationPhoto; sleep?: (ms: number) => Promise<void> } = {},
+): Promise<ApiResult<{ file: FileRow }>> {
+  const { attempts = 4, delayMs = 1500, upload = uploadIdentificationPhoto, sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms)) } = opts;
+  let last: ApiResult<{ file: FileRow }> = { ok: false, error: 'The photo was not uploaded.' };
+  for (let i = 0; i < attempts; i++) {
+    if (i > 0) await sleep(delayMs);
+    last = await upload(postGUID, photo, toBase64);
+    if (last.ok) return last;
+  }
+  return last;
+}

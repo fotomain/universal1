@@ -269,6 +269,67 @@ export async function shareScreenshot(opts: ShareScreenshotOptions = {}): Promis
   }
 }
 
+export interface ShareImageWithTextOptions {
+  /** PNG as base64 (no "data:" prefix); null = share the text only */
+  b64: string | null;
+  /** the details text that goes with the picture */
+  text: string;
+  title: string;
+  /** file name base, without extension */
+  fileBase?: string;
+}
+
+/**
+ * Shares ONE picture + its details text (BIM component: "Share"). Same ways as shareScreenshot:
+ * web = Web Share API with the PNG (+ the text), else the PNG is downloaded and the text is copied to the clipboard;
+ * iOS = share sheet with the text and the picture; Android = the picture goes to the clipboard, the text to the share sheet.
+ */
+export async function shareImageWithText(opts: ShareImageWithTextOptions): Promise<ShareScreenshotResult> {
+  const { b64, text, title } = opts;
+  const pngName = `${safeName(opts.fileBase || 'image')}_${stamp()}.png`;
+  try {
+    if (Platform.OS === 'web') {
+      const nav: any = typeof navigator !== 'undefined' ? navigator : null;
+      const files: File[] = b64 ? [new File([base64ToBlob(b64, 'image/png')], pngName, { type: 'image/png' })] : [];
+      if (nav?.share && (!files.length || (nav.canShare && nav.canShare({ files })))) {
+        try {
+          await nav.share(files.length ? { files, title, text } : { title, text });
+          return 'shared';
+        } catch (e: any) {
+          if (e?.name === 'AbortError') return 'dismissed';
+          // not allowed here (no user activation / insecure context) -> download + clipboard below
+        }
+      }
+      if (b64) downloadBlob(base64ToBlob(b64, 'image/png'), pngName);
+      try {
+        await Clipboard.setStringAsync(text);
+      } catch {
+        // the clipboard is not available: the picture was downloaded
+      }
+      return 'downloaded';
+    }
+    if (Platform.OS === 'ios') {
+      const res = await Share.share(b64 ? { title, message: text, url: `data:image/png;base64,${b64}` } : { title, message: text });
+      return res.action === Share.dismissedAction ? 'dismissed' : 'shared';
+    }
+    let copied = false;
+    if (b64) {
+      try {
+        await (Clipboard as any).setImageAsync(b64);
+        copied = true;
+      } catch {
+        copied = false;
+      }
+    }
+    const res = await Share.share({ title, message: copied ? `${text}\n\n(The picture is on the clipboard - paste it into the chat / mail.)` : text }, { dialogTitle: title });
+    if (res.action === Share.dismissedAction) return copied ? 'copied' : 'dismissed';
+    return 'shared';
+  } catch (e) {
+    console.warn('shareImageWithText failed', e);
+    return 'failed';
+  }
+}
+
 export function shareScreenshotResultText(r: ShareScreenshotResult, withJSON: boolean): string {
   switch (r) {
     case 'shared':

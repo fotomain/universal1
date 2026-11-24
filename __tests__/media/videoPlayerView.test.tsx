@@ -109,3 +109,21 @@ it('tells the errors of the player', async () => {
   emit('statusChange', { status: 'error' });
   expect(onError).toHaveBeenLastCalledWith('The video could not be played.');
 });
+
+it('the full screen button moves the video AND our buttons into a full screen window; the same button (or Back) brings it back', async () => {
+  mount();
+  await flush();
+  expect(q('video-fullscreen-modal')).toBeNull();
+  expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Full screen');
+  press('video-fullscreen-button');
+  await flush();
+  expect(q('video-fullscreen-modal')).not.toBeNull();
+  // one player view with its buttons, in the window (the place in the page is black)
+  expect(document.querySelectorAll('[data-testid="expo-video-view"]').length).toBe(1);
+  expect(q('video-controls')).not.toBeNull();
+  expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Exit full screen');
+  press('video-fullscreen-button');
+  await flush();
+  expect(q('video-fullscreen-modal')).toBeNull();
+  expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Full screen');
+});

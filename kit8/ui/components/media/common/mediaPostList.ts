@@ -25,7 +25,14 @@ export interface MediaPostRow {
   imageUri: string;
   /** a post of the ID reader: its photo is a portrait, drawn bigger, and the description is the whole document */
   isIdCard: boolean;
+  /** rowJSON.dataOriginName: youtube, webpage, pdf, ..., recorder, idreader, personIDCard, personPassport ('' = not set) */
+  originName: string;
+  /** the address of a link / web post (mediaPostOrigin when it is an http(s) address), else '' */
+  originUrl: string;
 }
+
+/** origins whose post is a person's document: the photo is a portrait and the description lists the data */
+const PERSON_ORIGINS = ['idreader', 'personIDCard', 'personPassport'];
 
 const pad = (n: number) => String(n).padStart(2, '0');
 
@@ -66,7 +73,9 @@ export function mediaPostRows(rows: unknown): MediaPostRow[] {
       isFileRow: !!json.fileSourceKind,
       projectGUID: mediaPostProjectGUID(item),
       imageUri: typeof json.mediaImageUri === 'string' ? json.mediaImageUri : '',
-      isIdCard: json.dataOriginName === 'idreader',
+      isIdCard: PERSON_ORIGINS.includes(json.dataOriginName),
+      originName: typeof json.dataOriginName === 'string' ? json.dataOriginName : '',
+      originUrl: /^https?:\/\//i.test(String(json.mediaPostOrigin || '')) ? String(json.mediaPostOrigin) : '',
     });
   }
   return out.sort((a, b) => b.orderInList - a.orderInList);

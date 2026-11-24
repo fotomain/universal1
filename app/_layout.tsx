@@ -445,6 +445,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="pm/project/assistant/import/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Import project' }} />
               <Drawer.Screen name="pm/bim/import/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Import BIM (IFC)' }} />
               <Drawer.Screen name="pm/bim/example/index" options={{ drawerItemStyle: { display: 'none' }, title: 'BIM examples' }} />
+              <Drawer.Screen name="pm/bim/component/index" options={{ drawerItemStyle: { display: 'none' }, title: 'BIM component' }} />
               <Drawer.Screen name="pm/project/task/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Task' }} />
               <Drawer.Screen name="pm/project/task/new/index" options={{ drawerItemStyle: { display: 'none' }, title: 'New task' }} />

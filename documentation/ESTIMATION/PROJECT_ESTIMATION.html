@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Project estimation - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 34px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 860px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-top: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.warn, .pill.ask { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  tr.total td { font-weight: 700; background: var(--bg-subtle); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .good { border-left: 4px solid var(--emerald); background: var(--emerald-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  .bad { border-left: 4px solid var(--rose); background: var(--rose-soft); padding: 10px 14px; border-radius: 8px; margin-top: 12px; }
+  /* wireframe of the tab */
+  .wire { border: 2px solid var(--border-strong); border-radius: 12px; background: #fff; padding: 12px; font-size: 13px; }
+  .wire .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  .wire .tabs span { padding: 3px 10px; border-radius: 999px; background: var(--bg-subtle); color: var(--muted); }
+  .wire .tabs span.on { background: var(--purple); color: #fff; font-weight: 600; }
+  .wire .field { border: 1px solid var(--border-strong); border-radius: 8px; padding: 6px 10px; display: flex; justify-content: space-between; gap: 10px; background: #fff; }
+  .wire .btn { display: inline-block; padding: 6px 14px; border-radius: 8px; background: var(--purple); color: #fff; font-weight: 600; }
+  .wire .btn.off { background: var(--border-strong); color: #fff; }
+  .wire .lbl { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; margin: 10px 0 3px; }
+  .flow { display: flex; flex-wrap: wrap; gap: 8px; align-items: stretch; margin-top: 10px; }
+  .flow div { flex: 1 1 150px; border: 1px solid var(--border-strong); border-radius: 10px; padding: 8px 10px; background: #fff; font-size: 13px; }
+  .flow div b { display: block; color: var(--purple); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Project estimation</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#req">Request &rarr; answer</a></li><li><a href="#link">1 The link</a></li><li><a href="#tab">2 The tab</a></li>
+    <li><a href="#table">3 The table</a></li><li><a href="#fill">4 Fill</a></li><li><a href="#sql">5 SQL</a></li><li><a href="#code">6 Code</a></li>
+    <li><a href="#wbs">7 Work items</a></li><li><a href="#q">8 Questions</a></li><li><a href="#later">9 Not built</a></li>
+  </ul></nav>
+</div></header>
+
+<main>
+
+<section id="goal">
+  <span class="pill key">PLAN ONLY &middot; 2026-11-24 &middot; no code written</span>
+  <h1>Project estimation</h1>
+  <p class="lead">A project can have an <b>estimation</b>: another, ordinary project (project2) in which the user prepares the plan of the work before the real project (project1) starts.
+  Project1 points to it, shows what it adds up to <b>per budget item</b>, and a button copies the whole estimation into project1.</p>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">What is new</h3>
+      <ul class="steps">
+        <li>one key <code>project_table.rowJSON.projectEstimationGUID</code> (the link);</li>
+        <li>one tab <b>Estimation</b> in Project settings, right after <b>ROI</b>;</li>
+        <li>three pieces in it: <code>ProjectEstimationGUIDInput</code>, <code>ProjectEstimationTable</code>, <code>FillProjectFromEstimationButton</code>;</li>
+        <li>a read function and a delete function in SQL (PART 57); no new table.</li>
+      </ul></div>
+    <div class="card"><h3 style="margin-top:0">What is reused (nothing is rebuilt)</h3>
+      <ul class="steps">
+        <li>the project search of <code>SelectProjectFromList</code> (<code>useProjectSearchQuery</code>);</li>
+        <li><code>ReusableTable</code> in <b>local rows mode</b> (like the Fields tab of Monitor01);</li>
+        <li>the planner and the writers of <b>Copy with Tasks</b> (<code>planProjectImport</code>, <code>project_import_tasks</code>, chunks 500 / 250 / 250);</li>
+        <li>the budget item catalog and the plan sums of the task lines (<code>sumForBudget</code>).</li>
+      </ul></div>
+  </div>
+</section>
+
+<section id="req">
+  <h2>Request &rarr; answer</h2>
+  <p class="sub">Every sentence of the request and where this document answers it.</p>
+  <div class="card scroll"><table>
+    <tr><th>You asked</th><th>Answer</th><th>Section</th></tr>
+    <tr><td>1. <code>ProjectEstimationGUIDInput</code> - always enabled in Project settings</td><td>A project select field with no switch behind it: it is never hidden or disabled by another setting. The only lock is the read-only project (Q1).</td><td><a href="#tab">2</a></td></tr>
+    <tr><td>2. <code>rowJSON.projectEstimationGUID</code> connects the project to its estimation</td><td>The key holds the <code>rowGUID</code> of project2. Nothing else is stored for the link.</td><td><a href="#link">1</a></td></tr>
+    <tr><td>Scenario: the user makes the estimation as a separate project2</td><td>Project2 is an ordinary project (tasks, task lines, budget items). It is not marked and not special; any project of the organization can be picked.</td><td><a href="#link">1</a></td></tr>
+    <tr><td>Estimation tab after the ROI tab</td><td>New tab id <code>TabEstimation</code> inserted right after <code>TabROI</code> in the tab bar of the Project settings window.</td><td><a href="#tab">2</a></td></tr>
+    <tr><td>Tab has: Project2 select-from-list input</td><td><code>ProjectEstimationGUIDInput</code> (search by name, Clear, Open).</td><td><a href="#tab">2</a></td></tr>
+    <tr><td><code>ProjectEstimationTable.tsx</code>, ReusableTable, all summary plan values of project2 grouped by budget item</td><td>A read-only <code>ReusableTable</code> in local rows mode, one row per budget item, with a total row. Source = the plan sums of the task lines of project2.</td><td><a href="#table">3</a></td></tr>
+    <tr><td><code>FillProjectFromEstimationButton</code> copies all data from project2 to project1</td><td>Copies stages / tasks / milestones, the links between them and the task lines (unposted) into project1. Mode Replace or Append; safe order of writes; all or nothing.</td><td><a href="#fill">4</a></td></tr>
+  </table></div>
+</section>
+
+<section id="link">
+  <h2>1 &middot; The link <code>projectEstimationGUID</code></h2>
+  <div class="card scroll"><table>
+    <tr><th>Item</th><th>Rule</th></tr>
+    <tr><td>Where</td><td><code>project_table.rowJSON.projectEstimationGUID</code> of project1: text, the <code>rowGUID</code> of project2, or absent / empty = no estimation.</td></tr>
+    <tr><td>Default</td><td>Absent. Never a default of the organization (<code>defaultProjectSettings</code>): a link is specific to ONE project, so the Estimation tab is <b>not</b> shown in Organization edit &rarr; Projects &rarr; Settings, and the key is never written there.</td></tr>
+    <tr><td>Who may be project2</td><td>Any project the user can read in the active organization (the list is the one of <code>SelectProjectFromList</code>). <b>Not project1 itself</b> (refused in the input and in SQL). Project2 may have an estimation of its own (a chain is only a link, nothing follows it).</td></tr>
+    <tr><td>One estimation for many projects</td><td>Allowed (Q2). Fill copies, so projects never share rows.</td></tr>
+    <tr><td>Saved with</td><td>The Save / OK buttons of the Project settings window, like every other tab (the draft of the window). A new, unsaved project can already choose project2; only <b>Fill</b> needs the saved project.</td></tr>
+    <tr><td>Project2 deleted / not visible</td><td>The key stays (no trigger rewrites other people's projects). The tab shows "The estimation project is not found or you cannot read it" with the Clear button; the table is empty and Fill is disabled.</td></tr>
+    <tr><td>Copy project (card menu)</td><td>The key is copied with the other settings (a copy of project1 has the same estimation). Copy of a read-only project is unchanged.</td></tr>
+    <tr><td>File export / import, templates</td><td>Written in the export file like any setting, but an <b>import never takes it</b> (the GUID of another database means nothing; same rule as <code>projectIsBIMBased</code>). <code>CreateTemplateFromProject</code> does not take it.</td></tr>
+    <tr><td>Read-only project (PART 51)</td><td>The key cannot change while <code>projectIsReadonly</code> is on (only the switch can). Q1 asks if the owner wants the key exempt.</td></tr>
+  </table></div>
+  <p class="sub" style="margin-top:12px">Pitfall to respect: <code>normalizeProject</code> / the draft of the window rebuild the project <code>rowJSON</code> - the new key must be added there or a save drops it. <code>updateProject</code> REPLACES <code>rowJSON</code>: always read the fresh row first (KNOW_HOW section 7).</p>
+</section>
+
+<section id="tab">
+  <h2>2 &middot; The tab <b>Estimation</b></h2>
+  <p class="sub">File <code>kit8/pm/view/project/settings/PMProjectEstimationTab.tsx</code>; wired in <code>PMRecentProjectsToolbar.tsx</code>: <code>ProjectSettingsTab</code> gets <code>'TabEstimation'</code>, the tab bar entry goes right after <code>TabROI</code> (icon <code>request_quote</code> is taken by Customer, use <code>calculate</code>), the content block next to <code>TabROI</code>. Always in the bar (also for a new project).</p>
+  <div class="wire">
+    <div class="tabs"><span>Main</span><span>Gantt</span><span>Budgets</span><span>Resources</span><span>ROI</span><span class="on">Estimation</span><span>Payments</span><span>Files</span><span>Chat</span><span>&hellip;</span></div>
+    <div class="lbl">ProjectEstimationGUIDInput</div>
+    <div class="field"><span>Hall 12 - Estimate &nbsp;<small style="color:#64748b">(EUR &middot; 2026-12-01 .. 2027-03-31)</small></span><span>&#9662; &nbsp; &#10005; &nbsp; &#8599;</span></div>
+    <div class="lbl">ProjectEstimationTable (read only) &middot; amounts in EUR, net</div>
+    <table style="font-size:12.5px">
+      <tr><th>Budget item</th><th>Kind</th><th class="num">Lines</th><th class="num">Estimate</th><th class="num">VAT</th><th class="num">Project now</th><th class="num">Estimate &minus; now</th></tr>
+      <tr><td>Wages</td><td>Cost</td><td class="num">3</td><td class="num">14 200.00</td><td class="num">0.00</td><td class="num">2 000.00</td><td class="num">12 200.00</td></tr>
+      <tr><td>Materials</td><td>Cost</td><td class="num">4</td><td class="num">8 650.00</td><td class="num">1 816.50</td><td class="num">0.00</td><td class="num">8 650.00</td></tr>
+      <tr><td>&hellip;</td><td></td><td></td><td></td><td></td><td></td><td></td></tr>
+      <tr class="total"><td colspan="3">Total cost</td><td class="num">27 200.00</td><td class="num">2 730.00</td><td class="num">2 000.00</td><td class="num">25 200.00</td></tr>
+    </table>
+    <div style="margin-top:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="btn">Fill project from estimation</span><small style="color:#64748b">11 lines &middot; 24 tasks &middot; 31 links will be copied. Unposted.</small></div>
+  </div>
+  <h3>The three pieces</h3>
+  <div class="card scroll"><table>
+    <tr><th>Piece</th><th>What it does</th><th>States</th></tr>
+    <tr><td><code>ProjectEstimationGUIDInput</code></td><td>Search by name as you type (database ILIKE, like <code>SelectProjectFromList</code>), &#9662; shows all projects of the organization except project1, &#10005; Clear (sets the key empty), &#8599; Open opens project2 in a NEW window (<code>openProjectBoard</code>). After the name: its budget currency and dates.</td>
+      <td>Always editable (Q1). Shows "not found" for a dangling key. Never offers project1.</td></tr>
+    <tr><td><code>ProjectEstimationTable</code></td><td>The summary of project2 per budget item (section 3). Refreshes when project2 changes, when the tab opens and by a Refresh icon.</td><td>No project2: a hint text, no table. Loading: spinner. Empty estimation: "The estimation has no task lines".</td></tr>
+    <tr><td><code>FillProjectFromEstimationButton</code></td><td>Opens the confirm window (section 4), then copies.</td><td>Disabled (with the reason shown under it) when: no project2 / project2 empty / project1 not saved / the draft has unsaved changes / project1 read-only / the user has no right to create tasks in project1.</td></tr>
+  </table></div>
+  <div class="note">The table and the button read <b>project1 as saved</b> and the currencies of the <b>draft</b>: a changed budget currency that is not saved yet would make the converted column lie, so the window shows "Save the settings first" and disables Fill while the draft differs from the saved project.</div>
+</section>
+
+<section id="table">
+  <h2>3 &middot; <code>ProjectEstimationTable.tsx</code> - the summary per budget item</h2>
+  <h3>Source of the numbers</h3>
+  <div class="card">
+    <p>The rows are the <b>task lines of project2</b> (<code>task_line_table</code>: <code>rowJSON.budgetItemTaskLine</code>, <code>sumForBudget</code>, <code>sumVATForBudget</code>, genus = <code>rowParentGUID</code>), summed by budget item. Reason (Q3): an estimation is normally <b>not posted</b>, so the posted plan (<code>task_line_plan_movements</code>) would be empty - and the table must show exactly what <b>Fill</b> will copy, and Fill copies lines.</p>
+    <ul class="steps">
+      <li>One database call: <code>project_estimation_summary(p_target uuid, p_source uuid)</code> (section 5). Not a read of all lines by the client (a request returns 1000 rows at most; a big estimation has many more).</li>
+      <li>The same call gives the sums of project1 (the column <b>Project now</b>), so the user sees what Fill will change before pressing it.</li>
+    </ul>
+  </div>
+  <h3>Columns (<code>ReusableTable</code> local rows, no add / delete, <code>readOnly</code>)</h3>
+  <div class="card scroll"><table>
+    <tr><th>Column</th><th>Content</th></tr>
+    <tr><td>Budget item</td><td>Title from the catalog (translated title through <code>rowTitle</code>); a line with no budget item goes to one row <b>(no budget item)</b> with a warning icon.</td></tr>
+    <tr><td>Kind</td><td>Cost or Revenue (<code>budgetKind</code> of the genus: Time / Material / Expense = cost, Deliverable = revenue). Header groups (folders): <b>Cost</b> and <b>Revenue</b>.</td></tr>
+    <tr><td>Lines</td><td>Number of task lines of project2 on this item.</td></tr>
+    <tr><td>Estimate</td><td>Sum of <code>sumForBudget</code> (net) in the <b>budget currency of project2</b>; the header shows the currency code.</td></tr>
+    <tr><td>VAT</td><td>Sum of <code>sumVATForBudget</code>. The VAT basis switch of the reports is not used here (a line has only net and VAT, not the "VAT that is cost" split); the column says so in its tip.</td></tr>
+    <tr><td>In &lt;currency of project1&gt;</td><td>Only when the two budget currencies differ: Estimate converted with <code>fx_convert</code> at the latest rate of today (rate type Default). Informational: Fill recalculates the lines at their own rate days.</td></tr>
+    <tr><td>Project now</td><td>The same sum of project1 (its own unposted + posted lines, <code>sumForBudget</code>), in project1's currency.</td></tr>
+    <tr><td>Estimate &minus; now</td><td>The difference, in project1's currency.</td></tr>
+  </table></div>
+  <h3>Total rows and warnings</h3>
+  <ul class="steps">
+    <li>Footer: <b>Total cost</b>, <b>Total revenue</b>, <b>Estimated profit</b> = revenue &minus; cost and <b>Estimated ROI1</b> = profit / cost (no cost = empty), the same formula as <code>ROI_DOC.html</code>.</li>
+    <li>Above the table, only when true: "N lines have no budget sum" (the project has no budget currency or a rate is missing - the sum counts as 0, never guessed; same wording as the Budgets view) and "N lines have no budget item".</li>
+    <li>Different budget currency of the two projects: a line "Estimate in EUR, this project in USD: Fill recalculates the lines".</li>
+  </ul>
+  <h3>Worked example (what the screen above is built from)</h3>
+  <div class="card scroll"><table>
+    <tr><th>Budget item</th><th>Kind</th><th class="num">Lines</th><th class="num">Net</th><th class="num">VAT 21 %</th><th class="num">With VAT</th></tr>
+    <tr><td>Wages</td><td>Cost</td><td class="num">3</td><td class="num">14 200.00</td><td class="num">0.00</td><td class="num">14 200.00</td></tr>
+    <tr><td>Materials</td><td>Cost</td><td class="num">4</td><td class="num">8 650.00</td><td class="num">1 816.50</td><td class="num">10 466.50</td></tr>
+    <tr><td>Equipment hire</td><td>Cost</td><td class="num">2</td><td class="num">3 100.00</td><td class="num">651.00</td><td class="num">3 751.00</td></tr>
+    <tr><td>Transport</td><td>Cost</td><td class="num">1</td><td class="num">1 250.00</td><td class="num">262.50</td><td class="num">1 512.50</td></tr>
+    <tr class="total"><td colspan="2">Total cost</td><td class="num">10</td><td class="num">27 200.00</td><td class="num">2 730.00</td><td class="num">29 930.00</td></tr>
+    <tr><td>Sale of services</td><td>Revenue</td><td class="num">1</td><td class="num">36 000.00</td><td class="num">7 560.00</td><td class="num">43 560.00</td></tr>
+    <tr class="total"><td colspan="2">Estimated profit (net)</td><td class="num"></td><td class="num">8 800.00</td><td class="num"></td><td class="num"></td></tr>
+    <tr class="total"><td colspan="2">Estimated ROI1</td><td class="num"></td><td class="num">32.35 %</td><td class="num"></td><td class="num"></td></tr>
+  </table></div>
+  <p class="sub">Check: 14 200 + 8 650 + 3 100 + 1 250 = 27 200; 36 000 &minus; 27 200 = 8 800; 8 800 / 27 200 = 0.3235. Project1 "now" has one Wages line of 2 000, so "Estimate &minus; now" for Wages is 12 200 and the total cost difference is 25 200. In Append mode project1 would then hold 29 200 of cost; in Replace mode 27 200.</p>
+</section>
+
+<section id="fill">
+  <h2>4 &middot; <code>FillProjectFromEstimationButton</code> - copy project2 into project1</h2>
+  <h3>What is copied</h3>
+  <div class="card scroll"><table>
+    <tr><th>Data of project2</th><th>Copied?</th><th>How</th></tr>
+    <tr><td>Stages, tasks, milestones</td><td><span class="pill yes">yes</span></td><td>New ids, tree paths rebuilt under project1 (<code>planProjectImport</code>), order kept.</td></tr>
+    <tr><td>Links between the tasks</td><td><span class="pill yes">yes</span></td><td>On the new ids; a link to a row outside the copy is dropped.</td></tr>
+    <tr><td>Task lines (Time / Material / Expense / Revenue)</td><td><span class="pill yes">yes</span></td><td>New ids, <b>UNPOSTED</b> (the posting fields are cleared). The user presses "Post unposted tasks" in project1.</td></tr>
+    <tr><td>Lines of another budget currency</td><td><span class="pill warn">cleaned</span></td><td>When the budget or accounting currency of project1 differs from project2: the budget / accounting sums and the fx snapshot of the copied lines are cleared; <code>sumForContract</code> stays. The user presses Recalculate (Q7).</td></tr>
+    <tr><td>Project settings of project2 (currencies, calendar, scenarios, custom column definitions)</td><td><span class="pill no">no</span></td><td>Project1 keeps its own; the import planner would overwrite them, so Fill passes the settings of project1 as they are (Q5). Custom column <i>values</i> travel with the tasks and show only if project1 has a column with the same id.</td></tr>
+    <tr><td>Posting, plan / fact registers, documents, time sheets, payments</td><td><span class="pill no">no</span></td><td>As in Copy with Tasks.</td></tr>
+    <tr><td>Subproject marks, chat, files, BIM</td><td><span class="pill no">no</span></td><td>As in Copy with Tasks (the link rows and files belong to project2).</td></tr>
+    <tr><td>Name, owner, read-only switch, <code>projectEstimationGUID</code> of project2</td><td><span class="pill no">no</span></td><td>Project1 keeps its identity.</td></tr>
+  </table></div>
+  <h3>Two modes (asked in the confirm window; only when project1 already has tasks)</h3>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Append (default)</h3>
+      <p>The copied rows become new top-level rows <b>after</b> the existing ones. Nothing of project1 is touched. Allowed always.</p></div>
+    <div class="card"><h3 style="margin-top:0">Replace</h3>
+      <p>After the copy succeeded, the old top-level rows of project1 (with everything below them) are deleted. <b>Offered only when project1 has no posted task and no document</b> (<code>postedTasks = 0</code> and <code>documents = 0</code> of the summary call). Otherwise the radio shows it disabled with the reason.</p></div>
+  </div>
+  <p class="sub">An empty project1 has no choice: the rows are simply written.</p>
+  <h3>Confirm window (<code>ModalAskComponent</code>)</h3>
+  <div class="card">
+    <p><b>Fill "Hall 12" from "Hall 12 - Estimate"?</b></p>
+    <ul class="steps">
+      <li>24 tasks and stages, 31 links, 11 task lines (27 200.00 EUR cost, 36 000.00 EUR revenue) will be copied. The lines are not posted.</li>
+      <li>( ) Add after the existing rows of this project &nbsp; ( ) Replace the existing rows (not possible: 3 tasks are posted)</li>
+      <li>Different budget currency: the sums of the lines are recalculated in USD (press Recalculate).</li>
+      <li>Buttons: <b>Cancel</b> &middot; <b>Fill</b>. While it runs: a progress bar with the steps (read, tasks, links, lines, done) and Cancel; the bar is locked like the export window.</li>
+    </ul>
+  </div>
+  <h3>Order of the writes - all or nothing (no data of project1 is lost on a failure)</h3>
+  <div class="flow">
+    <div><b>1 Check</b>project_estimation_summary: rights, counts, posted tasks, documents. Read-only project1 stops here.</div>
+    <div><b>2 Read &amp; plan</b>readProjectData + readProjectTaskLines of project2, plan with new ids. Nothing is written yet.</div>
+    <div><b>3 Write new rows</b>project_import_tasks (500 a chunk), links (250), lines (250). The new top-level ids are known from the plan.</div>
+    <div><b>4a Replace only</b>delete the OLD top-level rows of project1 (project_delete_task_roots).</div>
+    <div><b>5 Done</b>refresh project1 (tasks, tree, Gantt), snackbar "N tasks, M lines copied", hint "Post unposted tasks".</div>
+  </div>
+  <ul class="steps" style="margin-top:12px">
+    <li><b>A failure in 3</b>: the NEW top-level rows are deleted again (<code>project_delete_task_roots</code> with the ids of the plan), project1 is as before, <code>ErrorModalWindow</code> shows the reason.</li>
+    <li><b>A failure in 4a</b> (Replace): both the old and the new rows exist; the window says so in words ("the copy is complete, the old rows could not be deleted: ...") - nothing is lost, the user deletes the old ones or retries.</li>
+    <li>Why not "delete first": a failure after the delete would lose the tasks of project1. Why not one SQL function: a link insert costs about 1.4 s per 500 links (cycle check + closure), so a 4000-link estimation would pass the 8 s limit of <code>authenticated</code>; the chunked client path is proven (CAKE1: 1958 tasks).</li>
+    <li>Fill is recorded on project1: <code>rowJSON.projectEstimationLastFill = { at, sourceGUID, mode, tasks, lines }</code> (written after step 5, fresh row first). The tab shows "Last fill: 2026-12-02 10:14, Append, 24 tasks". It is information only; a second Fill is allowed (Append adds the rows again - the confirm window says "Already filled on ...").</li>
+  </ul>
+  <h3>Rights</h3>
+  <ul class="steps">
+    <li>Read of project2 = any member who sees it (the summary and the read functions are SECURITY INVOKER, so the existing RLS decides).</li>
+    <li>Write into project1 = the right to create tasks there (project manager / owner: <code>perm_can_in('project_task_table', 'C', project1)</code>, the same answer the task writers already use). A user without it sees Fill disabled with the reason.</li>
+    <li>No new profile and no new matrix row (no new table).</li>
+  </ul>
+  <h3>Dates</h3>
+  <p>The copied tasks keep the dates of project2, as in Copy with Tasks (Q6). Project1's scheduler runs as usual on the new rows. Shifting the dates to the start of project1 is listed under <a href="#later">Not built</a>.</p>
+</section>
+
+<section id="sql">
+  <h2>5 &middot; SQL - PART 57 (<code>start2_sql_code.sql</code> only)</h2>
+  <p class="sub">No table, no column, no seed: <code>start1</code>, <code>start3</code>, <code>start4</code>, <code>start5</code> do not change. The delete file drops the functions (numbered part, reverse order). Docker test <code>kit8/docker/tests/107_project_estimation.sql</code> (one transaction, rolled back).</p>
+  <div class="card scroll"><table>
+    <tr><th>Object</th><th>Kind</th><th>What it does</th></tr>
+    <tr><td><code>project_estimation_summary(p_target uuid, p_source uuid)</code></td><td><span class="pill rpc">function</span> STABLE, SECURITY INVOKER</td><td>Returns jsonb: <code>source</code> and <code>target</code> = <code>{ currency, items: [{ budgetItemGUID, kind, lines, sumForBudget, vatForBudget, linesWithoutSum }], tasks, links, lines, linesWithoutItem, linesWithoutSum }</code>; plus for the target: <code>postedTasks</code>, <code>documents</code>, <code>readonly</code>, <code>canCreate</code>. Raises <code>No permission:</code> style text when the user cannot read the source. One <code>GROUP BY</code> on <code>task_line_table</code> per project (index on <code>rowProjectGUID</code>); 10 000 lines must stay under 0.5 s (bench like <code>bench_task_template.sh</code>).</td></tr>
+    <tr><td><code>project_delete_task_roots(p_project uuid, p_roots uuid[])</code></td><td><span class="pill rpc">function</span> SECURITY INVOKER</td><td>Deletes the given top-level rows of the project with everything below them in one statement set: the transaction-local switch <code>app.task_bulk = on</code> (so the per-row triggers return, see <code>project_delete_tasks</code>), calendar rows in one statement, progress recalculated once. Refuses a row that is not a top-level row of that project, a read-only project, and (SECURITY INVOKER) any row the user may not delete.</td></tr>
+    <tr><td><code>trg_project_estimation_guard</code></td><td><span class="pill key">trigger</span> BEFORE INSERT OR UPDATE on <code>project_table</code></td><td>Only when <code>projectEstimationGUID</code> changed: refuses the project itself; refuses a value that is not a UUID of an existing project of the SAME organization (checked through a small SECURITY DEFINER helper <code>project_same_organization</code>, because the invoker may not read other users' projects). Clearing is always allowed. Sits next to the read-only guard (PART 51: that one stays first and refuses the change of a read-only project).</td></tr>
+    <tr><td><code>task_template_clean_task</code></td><td>unchanged</td><td>Task rows get no new key in this feature, so nothing to strip.</td></tr>
+  </table></div>
+  <div class="note"><b>Rules to remember while writing it</b> (KNOW_HOW section 2.2 / 7): the numbered PART 57 header must be the same text in the delete file (its test scans <code>^-- PART (\d+):</code>); a <code>RAISE</code> placeholder is <code>%</code>; no comment line starting with <code>-- PART &lt;n&gt;:</code> inside a function; a LANGUAGE sql function cannot call a function of a later PART; a SECURITY INVOKER function that calls a helper needs the helper GRANTed to <code>authenticated</code>.</div>
+  <h3>Docker test 107 (checks planned)</h3>
+  <ul class="steps">
+    <li>summary per budget item: sums, VAT, lines, the row (no budget item), lines without a budget sum, both projects in one call; a member who cannot read the source is refused;</li>
+    <li>guard: self link refused, other organization refused, clearing allowed, a read-only project cannot change the key;</li>
+    <li><code>project_delete_task_roots</code>: a subtree with links and lines goes, the other roots stay, a non-root id is refused, a read-only project is refused, 4000 rows under 2 s;</li>
+    <li>the full Fill sequence from SQL calls (<code>project_import_tasks</code> then the delete) on the Railway-style data: Append, Replace, rollback of the new roots.</li>
+  </ul>
+  <p class="sub">Run it with <code>./test_time_genus.sh 107</code> (that script runs the <code>tests/NNN_*.sql</code> files, or only the number given), and <code>./test_sql.sh</code> for the install twice / delete.</p>
+</section>
+
+<section id="code">
+  <h2>6 &middot; Code map (to be created)</h2>
+  <div class="card scroll"><table>
+    <tr><th>File</th><th>Content</th></tr>
+    <tr><td><code>kit8/pm/estimation/estimationModel.ts</code></td><td>Pure: the key, <code>estimationLinkOf(rowJSON)</code>, the self-link rule, the fill modes, which reasons disable Fill (one function that returns the reason text), the totals / profit / ROI1 of the table, the sentence of the confirm window. No React, no Supabase.</td></tr>
+    <tr><td><code>kit8/pm/estimation/estimationApi.ts</code></td><td><code>readEstimationSummary(client, target, source)</code>, <code>deleteTaskRoots(client, project, roots)</code>.</td></tr>
+    <tr><td><code>kit8/pm/estimation/useProjectEstimation.ts</code></td><td>React Query hook of the summary (key by both guids, refetch on tab open and on a Refresh press); <code>useFillProjectFromEstimation</code> (one fill at a time, steps for the progress bar, snackbar, <code>ErrorModalWindow</code>, refresh of project1).</td></tr>
+    <tr><td><code>kit8/pm/estimation/fillProjectFromEstimation.ts</code></td><td>The sequence of section 4 on top of <code>planProjectImport</code> / <code>buildProjectExchangeFile</code> and the writers used by <code>copyProject</code>; the fx clean-up of the lines; rollback.</td></tr>
+    <tr><td><code>kit8/pm/estimation/ProjectEstimationGUIDInput.tsx</code></td><td>The select field.</td></tr>
+    <tr><td><code>kit8/pm/estimation/ProjectEstimationTable.tsx</code></td><td>The <code>ReusableTable</code> (local rows, <code>readOnly</code>, folders Cost / Revenue, footer).</td></tr>
+    <tr><td><code>kit8/pm/estimation/FillProjectFromEstimationButton.tsx</code> + <code>FillProjectFromEstimationWindow.tsx</code></td><td>The button, the confirm window with the radio, the progress.</td></tr>
+    <tr><td><code>kit8/pm/estimation/README.md</code></td><td>What it does, rules, tests, not built (same round).</td></tr>
+    <tr><td><code>kit8/pm/view/project/settings/PMProjectEstimationTab.tsx</code></td><td>The tab: composes the three pieces + the "Last fill" line + the hints.</td></tr>
+    <tr><td><code>PMRecentProjectsToolbar.tsx</code>, <code>model/types.ts</code> (<code>PMRowJSON</code>), the project normalizer</td><td><code>TabEstimation</code>, the key <code>projectEstimationGUID</code>, <code>projectEstimationLastFill</code>.</td></tr>
+    <tr><td>Import / export of a project, <code>CreateTemplateFromProject</code>, <code>OrganizationProjectSettings</code></td><td>Do not take / do not show the key (section 1).</td></tr>
+    <tr><td><code>kit8/pm/i18n/locales/keys.ts</code> + 14 <code>src/&lt;lang&gt;.txt</code></td><td>Every text of the tab through <code>pmT</code> with its key and a line in all languages (<code>python3 kit8/pm/i18n/src/build.py</code>; <code>__tests__/pm/i18n</code> fails on a gap). Placeholder is <code>{{n}}</code>.</td></tr>
+  </table></div>
+  <h3>Tests (Jest, <code>__tests__/pm/estimation</code>)</h3>
+  <ul class="steps">
+    <li><code>estimationModel.test.ts</code>: self link, dangling link, every disable reason, totals / profit / ROI1 of the worked example (27 200 / 36 000 / 8 800 / 32.35 %), no cost = no ROI.</li>
+    <li><code>fillProjectFromEstimation.test.ts</code> (fake API): Append, Replace, empty project1, rollback after a failed chunk, old rows kept when the delete fails, fx clean-up only when currencies differ, lines come out unposted, links on new ids.</li>
+    <li><code>projectEstimationTab.test.tsx</code> (<code>pmUiTestKit</code>; the table / input mocks via <code>jest.doMock</code> + <code>require</code>): tab order (right after ROI), input always enabled, Clear, Fill disabled reasons, confirm window, the radio disabled when posted tasks exist.</li>
+    <li><code>__tests__/sql/projectEstimationSql.test.ts</code>: PART 57 text, the same part in the delete file, the grants.</li>
+    <li>Not covered by any test here: the real Supabase (the summary call and the chunked write against the owner's database), a phone.</li>
+  </ul>
+</section>
+
+<section id="wbs">
+  <h2>7 &middot; Work items</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Item</th><th>Depends on</th><th>Size</th></tr>
+    <tr><td>E1</td><td>Pure model + tests (<code>estimationModel.ts</code>)</td><td>-</td><td>S</td></tr>
+    <tr><td>E2</td><td>SQL PART 57 (summary, delete roots, guard) + delete file + Docker test 107 + Jest SQL test</td><td>-</td><td>M</td></tr>
+    <tr><td>E3</td><td>API + hooks (summary query)</td><td>E2</td><td>S</td></tr>
+    <tr><td>E4</td><td><code>ProjectEstimationGUIDInput</code></td><td>E1</td><td>S</td></tr>
+    <tr><td>E5</td><td><code>ProjectEstimationTable</code> (local rows, folders, footer, warnings)</td><td>E1, E3</td><td>M</td></tr>
+    <tr><td>E6</td><td><code>fillProjectFromEstimation</code> + window + button + rollback</td><td>E2, E3</td><td>L</td></tr>
+    <tr><td>E7</td><td>Tab wiring after ROI, draft key, normalizers, import / export / template / org-defaults exclusions</td><td>E4-E6</td><td>S</td></tr>
+    <tr><td>E8</td><td>Translations (14 languages), README, KNOW_HOW row, owner check list</td><td>E7</td><td>S</td></tr>
+  </table></div>
+  <p class="sub">Order: E1 + E2 in parallel, then E3, E4, E5, E6, E7, E8. A first useful slice is E1-E5 + E7 (link + table, no Fill); Fill (E6) is the risky part and goes last.</p>
+</section>
+
+<section id="q">
+  <h2>8 &middot; Open questions (each with the default that will be built if you say nothing)</h2>
+  <div class="card scroll"><table>
+    <tr><th>#</th><th>Question</th><th>Default</th></tr>
+    <tr><td>Q1 <span class="pill ask">ask</span></td><td>"Always enabled": does it mean (a) no switch, the tab and the input are always there, or also (b) the link can be changed in a <b>read-only</b> project?</td><td>(a). A read-only project keeps the link locked (PART 51 allows only its own switch). If you want (b), the key joins the allowed keys of the two read-only guards.</td></tr>
+    <tr><td>Q2</td><td>May one project2 be the estimation of several projects?</td><td>Yes (Fill copies, nothing is shared).</td></tr>
+    <tr><td>Q3</td><td>The numbers of the table come from the task lines (what Fill copies) or from the posted plan?</td><td>Task lines. A column "Posted plan" can come later.</td></tr>
+    <tr><td>Q4</td><td>Fill into a project that already has tasks: Append or Replace?</td><td>Both, Append preselected; Replace only when nothing in project1 is posted and it has no documents.</td></tr>
+    <tr><td>Q5</td><td>Should Fill also copy the settings of project2 (currencies, calendar, scenarios)?</td><td>No. "All data" = tasks, links, task lines.</td></tr>
+    <tr><td>Q6</td><td>Dates of the copied tasks: keep or shift to the start of project1?</td><td>Keep (as Copy with Tasks). Shift = later work item.</td></tr>
+    <tr><td>Q7</td><td>Different budget / accounting currency of the two projects: what happens to the copied sums?</td><td>The sums and the fx snapshot are cleared; the user presses Recalculate. (Automatic recalculation after Fill = later.)</td></tr>
+    <tr><td>Q8</td><td>VAT in the table: net + VAT columns, or the VAT basis switch of the reports?</td><td>Net and VAT columns; no basis switch (a line has no "VAT that is cost" split).</td></tr>
+    <tr><td>Q9</td><td>Project2 deleted: clear the link of the other projects by a trigger or leave it dangling?</td><td>Leave it, show "not found" + Clear.</td></tr>
+    <tr><td>Q10</td><td>Who may press Fill?</td><td>Who may create tasks in project1 (project manager / owner). Everybody who can read project2 sees the table.</td></tr>
+  </table></div>
+</section>
+
+<section id="later">
+  <h2>9 &middot; Not built (on purpose, for later)</h2>
+  <ul class="steps">
+    <li>A button <b>New estimation project</b> that creates project2 (a copy of the settings of project1) and links it.</li>
+    <li>A mark on project2 ("this project is an estimation") and a filter in the project list.</li>
+    <li>Comparison <b>estimate vs plan vs fact</b> per budget item over time (a report like Monitor01; needs the source task of each copied task: a key <code>estimationSourceTaskGUID</code> on the new tasks, which then must be added to <code>task_template_clean_task</code>).</li>
+    <li>Shift of the dates to the start of project1; automatic Recalculate after Fill; Fill of selected stages only.</li>
+    <li>Estimation versions (project versions already exist as read-only copies: <code>kit8/pm/version</code>).</li>
+    <li>Fill of the project settings, of the documents or of the chat / files.</li>
+  </ul>
+  <div class="good"><b>What I could not check:</b> nothing here ran - it is a plan. Facts taken from the code on 2026-11-24: the tab list of <code>PMRecentProjectsToolbar</code> (<code>TabROI</code>), <code>copyProject</code> / <code>planProjectImport</code>, <code>useProjectSearchQuery</code> (lists the projects of the active organization), <code>ReusableTable</code> local rows mode, SQL PART 56 is the last one, Docker tests go up to 106. How project1's budget currency is read inside the unsaved draft, and the exact permission call for "may create tasks in this project", are to be confirmed when E6 is written.</div>
+</section>
+
+</main>
+</body>
+</html>

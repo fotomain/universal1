@@ -1,96 +1,122 @@
-// The Media Posts list for iOS / Android (route /posts/mediapostcrud, app/posts/mediapostcrud/index.native.tsx).
-// The web list is built from browser tags (div, span) and shows the red "View config getter for component div" screen on a phone.
-// This one is small: the posts of the user, newest first, Play (with the date and time stamp) and Delete (asks first).
-import React, { useCallback, useMemo } from 'react';
-import { Alert, FlatList, Image, StyleSheet, View } from 'react-native';
-import { Card, IconButton, Text, useTheme } from 'react-native-paper';
-import { useFocusEffect } from 'expo-router';
+// The Media Posts list for iOS, Android AND the web (route /posts/mediapostcrud, app/posts/mediapostcrud/index.tsx) = a ReusableList of mediaPostReusable posts.
+// One list for every platform. (The older web-only list ListWebCardsComponent is built from browser tags and shows the red "View config getter for component div" screen on a phone.)
+//   reusableCard  the card of a post (default MediaPostCardDefault = the compact card the list always had). ReusableCardMediaPost has three sizes (the toolbar button
+//                 picks cardSmall / cardMedium / cardBig), adapts to the origin of the post and has a local FAB with the actions of the card.
+//   toolbar       search, Add (the form CreateListElementForm: origin type, URL, title ... or a person's ID card / passport), card size, Sort and Filter, More
+//   double click  on the card of a person's ID card / passport = PersonDocumentDetailsCard (read only: photo, name, every datum)
+//   Play          the player of the Play menu (MediaPlayerModal); a file row of the Files tab is deleted by the files function (a plain DELETE removes 0 rows)
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, StyleSheet, View } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useDispatch, useSelector } from 'react-redux';
 import { SystemMetaData } from '../../../../redux/SystemMetaData';
 import { mediaPostOwnerGUID } from '../../../../redux/mediaPostOwner';
+import ReusableList from '../../list/reusable/ReusableList';
+import CreateListElementForm from '../../list/forms/CreateListElementForm';
+import MediaPostCardDefault from '../../list/cards/mediapost/MediaPostCardDefault';
+import type { MediaPostCardProps } from '../../list/cards/mediapost/mediaPostCardTypes';
+import { CardSize, cardItemHeight, DEFAULT_CARD_SIZE, normalizeCardSize } from '../../list/cards/cardSize';
+import type { ReusableListItemState } from '../../list/reusable/reusableListTypes';
+import type { ReusableTableRow } from '../../table/reusable/reusableTableTypes';
 import MediaPlayerModal from '../play/MediaPlayerModal';
-import { mediaPostRows, MediaPostRow } from './mediaPostList';
+import PersonDocumentDetailsCard from '../../list/cards/mediapost/PersonDocumentDetailsCard';
+import type { MediaPostRow } from './mediaPostList';
+import { MEDIA_POST_COLUMNS } from './mediaPostColumns';
 import { deleteFileRow } from '../../../../files/common/filesDriveApi';
-import { readonlyDeleteMessageOf } from './mediaPostProject';
+import { identificationPath, uploadIdentificationPhotoWithRetry } from '../../../../files/common/identificationPhoto';
+import { base64ToBytes } from '../../list/cards/mediapost/personDocumentPdf';
+import { bytesToBase64 } from '../nfc/iddocread/crypto/bytes';
+import { showSnackbar } from '../../../../redux/uxuiSlice';
+import { mediaPostProjectGUID, readonlyDeleteMessageOf } from './mediaPostProject';
 import { useMediaPostProjects } from './useMediaPostProjects';
 
 export const MEDIA_POSTS_ENTITY = 'mediaPostReusable';
+const CARD_SIZE_KEY = 'mediaPostsCardSize';
 
-export default function MediaPostsNativeList() {
-  const theme = useTheme();
+export interface MediaPostsNativeListProps {
+  /** the card of a post; not set = MediaPostCardDefault (one compact card, no size button) */
+  reusableCard?: React.ComponentType<MediaPostCardProps>;
+  /** the size shown first when the user has not picked one (default cardSmall) */
+  initialCardSize?: CardSize;
+  /** scroll to this post (route param scrollToGUID: a post added from a share intent) */
+  focusRowGUID?: string;
+}
+
+export default function MediaPostsNativeList({ reusableCard, initialCardSize = DEFAULT_CARD_SIZE, focusRowGUID }: MediaPostsNativeListProps) {
   const dispatch = useDispatch();
   const ownerGUID = useSelector(mediaPostOwnerGUID);
   const serverRows = useSelector((state: any) => state?.[MEDIA_POSTS_ENTITY]?.entityDataFromServer);
-  const rows = useMemo(() => mediaPostRows(serverRows), [serverRows]);
   const projects = useMediaPostProjects(serverRows);
-  const [playing, setPlaying] = React.useState<MediaPostRow | null>(null);
+  const [playing, setPlaying] = useState<MediaPostRow | null>(null);
+  /** the ID card / passport whose read only details are open */
+  const [details, setDetails] = useState<ReusableTableRow | null>(null);
+  const Card = reusableCard ?? MediaPostCardDefault;
+  const sized = !!reusableCard;
 
-  // read when the screen is shown (a recording was just saved, or the user comes back)
-  useFocusEffect(
-    useCallback(() => {
-      const actions = (SystemMetaData as any)[MEDIA_POSTS_ENTITY]?.actions;
-      if (actions?.readData && ownerGUID) {
-        dispatch(actions.readData({ paginationSize: 50, originationCurrentPage: 0, readAllFilter: '', rowOwnerGUID: ownerGUID, rowParentGUID: 'empty' }));
-      }
-    }, [dispatch, ownerGUID]),
-  );
+  // the size the user picked is kept on this device
+  const [cardSize, setCardSize] = useState<CardSize>(normalizeCardSize(initialCardSize));
+  useEffect(() => {
+    if (!sized) return;
+    AsyncStorage.getItem(CARD_SIZE_KEY).then((v) => { if (v) setCardSize(normalizeCardSize(v)); }).catch(() => undefined);
+  }, [sized]);
+  const changeCardSize = useCallback((size: CardSize) => {
+    setCardSize(size);
+    AsyncStorage.setItem(CARD_SIZE_KEY, size).catch(() => undefined);
+  }, []);
+  const itemHeight = cardItemHeight(sized ? cardSize : 'cardSmall');
 
-  const remove = (row: MediaPostRow) => {
-    Alert.alert('Delete this post?', row.title, [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          const actions = (SystemMetaData as any)[MEDIA_POSTS_ENTITY]?.actions;
-          if (row.isFileRow) {
-            // a file of the Files tab: the table refuses a plain DELETE (no error, 0 rows - the card would only disappear from the screen);
-            // the files-drive function deletes the row AND the file in the storage, then the card is taken off the list
-            deleteFileRow(row.id).then((r) => {
-              if (r.ok) actions?.deleteOneSuccess && dispatch(actions.deleteOneSuccess({ rowGUID: row.id }));
-              else Alert.alert('The file was not deleted', readonlyDeleteMessageOf(`${(r as any).code ?? ''} ${r.error}`, projects[row.projectGUID]?.name) ?? r.error);
-            });
-            return;
-          }
-          if (actions?.deleteOne) dispatch(actions.deleteOne({ rowGUID: row.id, rowOwnerGUID: ownerGUID }));
-        },
-      },
-    ]);
-  };
+  const renderItem = useCallback((row: ReusableTableRow, state: ReusableListItemState) => (
+    <Card row={row} cardSize={sized ? cardSize : 'cardSmall'} state={state} project={projects[mediaPostProjectGUID(row)]} onPlay={setPlaying} onOpenDetails={setDetails} />
+  ), [Card, sized, cardSize, projects]);
+
+  // a file row of the Files tab: the table refuses a plain DELETE (no error, 0 rows - the card would only disappear from the screen);
+  // the files-drive function deletes the row AND the file in the storage, then the card is taken off the list. The other rows are deleted by the list.
+  const onDeleteRows = useCallback((ids: string[], rows: ReusableTableRow[]) => {
+    const fileRows = rows.filter((r) => !!r.rowJSON?.fileSourceKind);
+    const actions = (SystemMetaData as any)[MEDIA_POSTS_ENTITY]?.actions;
+    fileRows.forEach((row) => {
+      deleteFileRow(row.rowGUID).then((r) => {
+        if (r.ok) actions?.deleteOneSuccess && dispatch(actions.deleteOneSuccess({ rowGUID: row.rowGUID }));
+        else Alert.alert('The file was not deleted', readonlyDeleteMessageOf(`${(r as any).code ?? ''} ${r.error}`, projects[mediaPostProjectGUID(row)]?.name) ?? r.error);
+      });
+    });
+    const fileIds = new Set(fileRows.map((r) => r.rowGUID));
+    return ids.filter((id) => !fileIds.has(id));
+  }, [dispatch, projects]);
+
+  // a person document made with the Add form: its owner photo also goes to the file storage (identification/idcard | passport/<post guid>), as the reader's post does
+  const onElementCreated = useCallback((guid: string, _rowJSON: Record<string, any>, extras?: Record<string, any>) => {
+    const p = extras?.idPhoto;
+    if (!p?.base64) return;
+    uploadIdentificationPhotoWithRetry(guid, { mime: p.mime, bytes: base64ToBytes(p.base64) }, bytesToBase64).then((r) => {
+      dispatch(showSnackbar({ message: r.ok ? `Owner photo saved to the file storage: ${identificationPath(p.folder)}/${guid}` : `The owner photo was NOT saved to the file storage: ${r.error}` }));
+    });
+  }, [dispatch]);
 
   return (
     <View style={styles.screen} testID="media-posts-native">
-      <FlatList
-        data={rows}
-        keyExtractor={(r) => r.id}
-        contentContainerStyle={styles.content}
-        ListEmptyComponent={
-          <Text style={{ color: theme.colors.onSurfaceVariant }} testID="media-posts-empty">
-            No media posts yet. Record a video or audio, take a photo or scan a code and it appears here.
-          </Text>
-        }
-        renderItem={({ item }) => (
-          <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2} testID={`media-post-${item.id}`}>
-            <Card.Content style={styles.row}>
-              {!!item.imageUri && <Image source={{ uri: item.imageUri }} style={item.isIdCard ? styles.thumbId : styles.thumb} resizeMode={item.isIdCard ? 'contain' : 'cover'} testID={`media-post-image-${item.id}`} />}
-              <View style={styles.texts}>
-                <Text variant="titleMedium" testID={`media-post-title-${item.id}`}>{item.title}</Text>
-                {!!projects[item.projectGUID]?.name && (
-                  <Text variant="labelMedium" style={{ color: theme.colors.primary }} testID={`media-post-project-${item.id}`}>
-                    {`Project: ${projects[item.projectGUID].name}${projects[item.projectGUID].readonly ? ' (read-only)' : ''}`}
-                  </Text>
-                )}
-                {!!item.subtitle && <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{item.subtitle}</Text>}
-                {!!item.description && <Text variant="bodySmall">{item.description}</Text>}
-              </View>
-              {!!item.uris.length && (
-                <IconButton icon="play-circle" size={30} onPress={() => setPlaying(item)} accessibilityLabel="Play" testID={`media-post-play-${item.id}`} />
-              )}
-              <IconButton icon="delete" onPress={() => remove(item)} accessibilityLabel="Delete" testID={`media-post-delete-${item.id}`} />
-            </Card.Content>
-          </Card>
-        )}
+      <ReusableList
+        testID="media-posts"
+        entityName={MEDIA_POSTS_ENTITY}
+        itemLabel="Post"
+        listOwnerGUID={ownerGUID}
+        listParentGUID="empty"
+        visualColumns={MEDIA_POST_COLUMNS}
+        orderDirection="desc"
+        itemHeight={itemHeight}
+        renderItem={renderItem}
+        renderItemDeps={projects}
+        selectionEnabled={false}
+        CreateElementForm={CreateListElementForm}
+        onElementCreated={onElementCreated}
+        cardSize={sized ? cardSize : undefined}
+        onCardSizeChange={sized ? changeCardSize : undefined}
+        onDeleteRows={onDeleteRows}
+        refreshOnFocus
+        focusRowGUID={focusRowGUID}
+        emptyText="No media posts yet. Record a video or audio, take a photo or scan a code and it appears here."
       />
+      {details ? <PersonDocumentDetailsCard row={details} onClose={() => setDetails(null)} testID="person-document" /> : null}
       {playing && (
         <MediaPlayerModal
           visible
@@ -107,11 +133,4 @@ export default function MediaPostsNativeList() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { padding: 16, gap: 12 },
-  card: { borderRadius: 16 },
-  row: { flexDirection: 'row', alignItems: 'center' },
-  texts: { flex: 1 },
-  /** the owner photo of an ID card / passport: a portrait */
-  thumbId: { width: 84, height: 108, borderRadius: 6, marginRight: 12, backgroundColor: '#00000010', alignSelf: 'flex-start' },
-  thumb: { width: 56, height: 56, borderRadius: 8, marginRight: 12, backgroundColor: '#00000020' },
 });

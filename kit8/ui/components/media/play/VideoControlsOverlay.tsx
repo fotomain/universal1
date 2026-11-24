@@ -21,12 +21,15 @@ export interface VideoControlsOverlayProps {
   duration: number;
   onTogglePlay: () => void;
   onSeekTo: (seconds: number) => void;
+  /** the full screen button of the toolbar (not drawn without it) */
+  onToggleFullscreen?: () => void;
+  fullscreen?: boolean;
 }
 
 /** how long "+5 s" stays on the video after a double touch */
 export const SEEK_FLASH_MS = 700;
 
-export default function VideoControlsOverlay({ playing, ended = false, currentTime, duration, onTogglePlay, onSeekTo }: VideoControlsOverlayProps) {
+export default function VideoControlsOverlay({ playing, ended = false, currentTime, duration, onTogglePlay, onSeekTo, onToggleFullscreen, fullscreen = false }: VideoControlsOverlayProps) {
   const { settings, change, reset } = usePlayVideoSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const { visible, show } = useAutoHideControls(settings.hideButtonsAfter, settingsOpen);
@@ -112,6 +115,8 @@ export default function VideoControlsOverlay({ playing, ended = false, currentTi
           showFlash(delta < 0 ? 'left' : 'right');
         }}
         onSeekTo={onSeekTo}
+        onToggleFullscreen={onToggleFullscreen}
+        fullscreen={fullscreen}
         onToggleSettings={() => setSettingsOpen((o) => !o)}
         onChangeSettings={change}
         onResetSettings={reset}

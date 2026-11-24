@@ -1,7 +1,8 @@
 // ReusableList - types. The list takes the props of ReusableTable that make sense for rows shown as ITEMS (same names, same meaning) and adds the data mode.
 // Plan + decisions: documentation/ReusableList_WBS.html
-import type { ReactNode } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 import type { ReusableTableProps, ReusableTableRow, VisualColumn } from '../../table/reusable/reusableTableTypes';
+import type { CardSize } from '../cards/cardSize';
 
 /**
  * where the rows live while the list is open:
@@ -17,6 +18,25 @@ export type ListRole = 'title' | 'subtitle' | 'meta' | 'badge' | 'hidden';
 /** the columns of an item: which column fills which place (pure, see resolveListRoles) */
 export interface ListRoles { title: VisualColumn | null; subtitle: VisualColumn | null; meta: VisualColumn[]; badge: VisualColumn[] }
 
+/** the commands of one row that a custom item (a card) can call: the same ones as the row menu. Stable functions: they ask the list at the moment of the call */
+export interface ReusableListRowActions {
+  /** the edit card / onRowOpen of the list (does nothing when the list has neither) */
+  edit: (guid: string) => void;
+  /** asks first when the user setting says so, then deletes */
+  remove: (guid: string) => void;
+  duplicate: (guid: string) => void;
+  createBefore: (guid: string) => void;
+  createAfter: (guid: string) => void;
+  moveUp: (guid: string) => void;
+  moveDown: (guid: string) => void;
+  makeFirst: (guid: string) => void;
+  makeLast: (guid: string) => void;
+  /** the row menu of the list at a window point */
+  openMenu: (guid: string, x: number, y: number) => void;
+  /** the card was used (pressed ...): the toolbar button "scroll to the last used card" goes to it. Every other command marks it too */
+  markUsed: (guid: string) => void;
+}
+
 /** what an item gets from the list */
 export interface ReusableListItemState {
   index: number;
@@ -26,6 +46,24 @@ export interface ReusableListItemState {
   dragging: boolean;
   /** the ⠿ grip to put in your own item (null when the row cannot be dragged now) */
   grip: ReactNode;
+  /** the commands of the row (the card's local FAB uses them) */
+  actions: ReusableListRowActions;
+  /** what the user may do now (read only / permissions): a card hides the actions it may not run */
+  canEdit: boolean;
+  canAdd: boolean;
+  canDelete: boolean;
+  /** the list has an edit card or onRowOpen */
+  canOpen: boolean;
+}
+
+/** the props of a form that makes a NEW element (the Add button of the toolbar opens it). The rowJSON is the content of the new row. */
+export interface CreateListElementFormProps {
+  /** put the new element at the top of the shown list. `extras` = what goes with it but is not stored in it (the owner photo of a person document: the host uploads it) */
+  onCreateFirst: (rowJSON: Record<string, any>, extras?: Record<string, any>) => void;
+  /** put the new element at the end of the shown list */
+  onCreateLast: (rowJSON: Record<string, any>, extras?: Record<string, any>) => void;
+  onClose: () => void;
+  testID?: string;
 }
 
 export interface ReusableListUx {
@@ -64,6 +102,21 @@ export interface ReusableListProps extends FromTable {
   uxuiList?: ReusableListUx;
   /** width of the list in px (it never gets wider than its parent). Not set = as wide as the parent but at most 960 px; the list is centred when narrower */
   reusableListWidth?: number;
+  /** a new element was made with the form: its guid, its rowJSON and the extras of the form (the host uploads the photo of a person document ...) */
+  onElementCreated?: (guid: string, rowJSON: Record<string, any>, extras?: Record<string, any>) => void;
+  /** the Add button opens this form (a modal over the list) instead of adding an empty row; it makes the rowJSON of the new element (CreateListElementForm) */
+  CreateElementForm?: ComponentType<CreateListElementFormProps>;
+  /** the size of the cards: with `cardSize` the toolbar shows the button that picks it (cardSmall / cardMedium / cardBig). The HOST owns the value and sets `itemHeight` from it (cards/cardSize.ts) */
+  cardSize?: CardSize;
+  onCardSizeChange?: (size: CardSize) => void;
+  /** the sizes the button offers (default all three) */
+  cardSizes?: readonly CardSize[];
+  /** before a delete: gets the ids and returns the ids that are left for the ordinary delete (the host deletes the others itself, e.g. file rows go through the files function) */
+  onDeleteRows?: (ids: string[], rows: ReusableTableRow[]) => string[];
+  /** read the rows again every time the screen comes into focus (a Drawer screen stays mounted: a recording saved elsewhere appears) */
+  refreshOnFocus?: boolean;
+  /** anything the custom `renderItem` reads from outside (a map of names, a handler): when it changes the visible items are drawn again */
+  renderItemDeps?: unknown;
   /** px under which the list asks for the next page / the end of the list (FlashList onEndReachedThreshold, default 1.5 screens) */
   endReachedThreshold?: number;
 }

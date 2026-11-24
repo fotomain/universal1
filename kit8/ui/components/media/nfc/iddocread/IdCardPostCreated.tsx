@@ -5,6 +5,7 @@ import { Text, useTheme } from 'react-native-paper';
 import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../../common';
 import type { IdDocument } from './emrtd';
 import { useFaceImage } from './useFaceImage';
+import CreateUserFromIDDocumentButton from './CreateUserFromIDDocumentButton';
 
 /** both buttons of the screen have the same size */
 export const BUTTON_WIDTH = 200;
@@ -12,6 +13,9 @@ export const BUTTON_WIDTH = 200;
 export interface IdCardPostCreatedProps {
   photo: IdDocument['photo'];
   ownerName: string;
+  /** given names + surname of the zone: the Create user button makes the e-mail from them (no names = no button) */
+  givenNames?: string;
+  surname?: string;
   documentNumber: string;
   /** what else was done: where the owner photo went, or why it was not saved */
   note?: string;
@@ -20,7 +24,7 @@ export interface IdCardPostCreatedProps {
   testID?: string;
 }
 
-export default function IdCardPostCreated({ photo, ownerName, documentNumber, note, onOpenPosts, onClose, testID = 'id-post' }: IdCardPostCreatedProps) {
+export default function IdCardPostCreated({ photo, ownerName, givenNames, surname, documentNumber, note, onOpenPosts, onClose, testID = 'id-post' }: IdCardPostCreatedProps) {
   const theme = useTheme();
   const face = useFaceImage(photo);
   return (
@@ -33,6 +37,7 @@ export default function IdCardPostCreated({ photo, ownerName, documentNumber, no
         {!!note && <Text variant="bodyMedium" style={[styles.center, { color: theme.colors.onSurfaceVariant }]} testID={`${testID}-screen-note`}>{note}</Text>}
         <View style={styles.buttons}>
           <ButtonPrimaryApp width={BUTTON_WIDTH} icon="list_alt" onPress={onOpenPosts} testID={`${testID}-screen-open`}>Media posts</ButtonPrimaryApp>
+          {givenNames && surname ? <CreateUserFromIDDocumentButton givenNames={givenNames} surname={surname} width={BUTTON_WIDTH} testID={`${testID}-create-user`} /> : null}
           <ButtonSecondaryApp width={BUTTON_WIDTH} onPress={onClose} testID={`${testID}-screen-close`}>Close</ButtonSecondaryApp>
         </View>
       </ScrollView>

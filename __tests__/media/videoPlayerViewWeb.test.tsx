@@ -122,3 +122,36 @@ describe('date and time of a recording whose file has no stamp (documentation/CA
     expect(text('video-player-datetime')).toBe('2026-11-12 14:04:05');
   });
 });
+
+describe('full screen', () => {
+  const request = jest.fn(() => Promise.resolve());
+  const exit = jest.fn(() => Promise.resolve());
+  const setFullscreenElement = (el: any) => Object.defineProperty(document, 'fullscreenElement', { value: el, configurable: true });
+  beforeEach(() => {
+    (HTMLElement.prototype as any).requestFullscreen = request;
+    (document as any).exitFullscreen = exit;
+    setFullscreenElement(null);
+    request.mockClear(); exit.mockClear();
+  });
+  afterEach(() => { delete (HTMLElement.prototype as any).requestFullscreen; setFullscreenElement(null); });
+
+  it('puts the box that holds the video AND our buttons in full screen (not the <video> alone); the button follows the browser', async () => {
+    mount();
+    await flush();
+    const box = q('video-player-view')!;
+    expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Full screen');
+    press('video-fullscreen-button');
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(request.mock.instances[0]).toBe(box);
+    // the browser went to full screen
+    setFullscreenElement(box);
+    act(() => { document.dispatchEvent(new Event('fullscreenchange')); });
+    expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Exit full screen');
+    press('video-fullscreen-button');
+    expect(exit).toHaveBeenCalledTimes(1);
+    // Escape: the browser left full screen by itself
+    setFullscreenElement(null);
+    act(() => { document.dispatchEvent(new Event('fullscreenchange')); });
+    expect(q('video-fullscreen-button')!.getAttribute('aria-label')).toBe('Full screen');
+  });
+});

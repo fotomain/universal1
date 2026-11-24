@@ -6,6 +6,7 @@ import { cleanup, flush, press, q, render, text } from './mediaUiTestKit';
 let mockState: any;
 jest.mock('react-redux', () => ({ useDispatch: () => jest.fn(), useSelector: (fn: any) => fn(mockState) }));
 
+import { clearPendingReturnTo, peekPendingReturnTo } from '../../kit8/auth/session/pendingReturnTo';
 import RecordingSignInGate from '../../kit8/ui/components/media/common/RecordingSignInGate';
 
 const push = jest.fn();
@@ -64,5 +65,23 @@ describe('scanning is for signed-in users too', () => {
     scanGate('scan', '/media/scan');
     await flush();
     expect(q('scanner')).not.toBeNull();
+  });
+});
+
+describe('the wanted screen is remembered, so ANY sign in comes back to it', () => {
+  beforeEach(() => clearPendingReturnTo());
+
+  it('a guest who sees the card: the route is remembered (the menu Sign In row, Google / Microsoft on the web, the e-mail link have no returnTo)', async () => {
+    mockState = { activeUserState: { activeUserEmail: 'user@example.com' } };
+    render(<RecordingSignInGate kind="identification" returnTo="/media/nfc/identification"><div data-testid="scanner">s</div></RecordingSignInGate>);
+    await flush();
+    expect(await peekPendingReturnTo()).toBe('/media/nfc/identification');
+  });
+
+  it('a signed-in user does not leave a wish behind', async () => {
+    mockState = { activeUserState: { activeUserEmail: 'foto888999@gmail.com' } };
+    render(<RecordingSignInGate kind="video" returnTo="/media/record/video"><div data-testid="recorder">r</div></RecordingSignInGate>);
+    await flush();
+    expect(await peekPendingReturnTo()).toBeNull();
   });
 });

@@ -88,7 +88,9 @@ export async function loadChunks(
   deps: Pick<BimLoaderDeps, 'cloud' | 'chunkCache'>,
   infos: BimChunkInfo[],
   onChunk: (hash: string, chunk: BimcChunk, done: number, total: number) => void,
-  concurrency = 3
+  concurrency = 3,
+  /** false = do not drop the cached files that are not in `infos` (the component screen loads ONE chunk of a bigger model) */
+  prune = true
 ): Promise<void> {
   let next = 0;
   let done = 0;
@@ -101,5 +103,5 @@ export async function loadChunks(
     }
   };
   await Promise.all(Array.from({ length: Math.min(concurrency, infos.length) }, worker));
-  await deps.chunkCache.prune(infos.map((i) => i.contentHash));
+  if (prune) await deps.chunkCache.prune(infos.map((i) => i.contentHash));
 }

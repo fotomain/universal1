@@ -16,6 +16,8 @@ import { taskTemplatesSubmenu } from '../../tasktemplate/crud/useTaskTemplates';
 import { scheduleOptionsOf } from '../../model/scheduleOptions';
 import { taskModeOf, taskModeReadOnlyReason } from '../../model/taskScheduleMode';
 import { extendedOptionsPatch } from '../../extended/extendedOptions';
+import { useBimSingleComponentOfTask } from '../../bim/component/bimComponentRegistry';
+import { useBimComponentActions } from '../../bim/component/useBimComponentActions';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
@@ -28,6 +30,9 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const { start: startVendorInvoice } = useStartVendorInvoice();
   const { start: startPurchaseOrder } = useStartPurchaseOrder();
   const related = useTaskRelatedMenu();
+  // BIM: a task of a BIM project whose model is open and that is ONE component (single detail = task) also gets Share + Go to component
+  const bimComponent = useBimSingleComponentOfTask(task?.projectGUID, menu?.guid);
+  const bimActions = useBimComponentActions();
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -74,6 +79,13 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     ...(isSummary ? [] : [{ testID: id('purchase-order'), label: 'Purchase Order', icon: 'shopping_cart', onPress: run(() => { void startPurchaseOrder({ taskGUID: guid }); }) }]),
     // right before "Delete": the submenus "Create based on this" (Payment fact · Time sheet · Customer Invoice · Subproject; Facts input / Vendor Invoice / Purchase Order are items of the menu itself) and "Go to" (the document lists of the task · the subproject) - useTaskRelatedMenu
     ...related({ taskGUID: guid, projectGUID: task.projectGUID, idPrefix: 'pm-row-menu', close, directDocumentItems: true }),
+    // BIM component (kit8/pm/bim/component): only a task that is exactly ONE component of the open model - Share = the picture of the component + the details text; Go to component = its screen (only it in 3D, properties, the edit tables of the task under the image)
+    ...(bimComponent
+      ? [
+          { testID: id('bim-share'), label: 'Share component (image + details)', icon: 'share', onPress: run(() => { void bimActions.share(bimComponent.view, bimComponent.element); }) },
+          { testID: id('bim-goto'), label: 'Go to component', icon: 'view_in_ar', onPress: run(() => bimActions.goTo(task.projectGUID, bimComponent.element)) },
+        ]
+      : []),
     // right before "Delete": PMTaskEditOptions (the UX/UI of the task)
     { testID: id('options'), label: 'Options', icon: 'tune', onPress: run(() => crud.editOptions(guid)) },
     { testID: id('delete'), label: 'Delete', icon: 'delete', danger: true, onPress: run(() => crud.deleteTask(guid)) },

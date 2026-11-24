@@ -45,8 +45,8 @@ export function layoutTablePdf(headers: string[], rows: string[][], measure: Mea
 }
 
 // ───────────── tiny PDF writer ─────────────
-const latin1 = (s: string) => { const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xff; return b; };
-class PdfWriter {
+export const latin1 = (s: string) => { const b = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) b[i] = s.charCodeAt(i) & 0xff; return b; };
+export class PdfWriter {
   private chunks: Uint8Array[] = [];
   private length = 0;
   private offsets: number[] = [];
@@ -71,7 +71,7 @@ class PdfWriter {
     return out;
   }
 }
-const n2 = (v: number) => (Math.round(v * 100) / 100).toString();
+export const n2 = (v: number) => (Math.round(v * 100) / 100).toString();
 
 // ───────────── text PDF (Helvetica, Windows-1252) ─────────────
 const CP1252: Record<string, number> = { '€': 0x80, '‚': 0x82, 'ƒ': 0x83, '„': 0x84, '…': 0x85, '†': 0x86, '‡': 0x87, 'ˆ': 0x88, '‰': 0x89, 'Š': 0x8a, '‹': 0x8b, 'Œ': 0x8c, 'Ž': 0x8e, '‘': 0x91, '’': 0x92, '“': 0x93, '”': 0x94, '•': 0x95, '–': 0x96, '—': 0x97, '˜': 0x98, '™': 0x99, 'š': 0x9a, '›': 0x9b, 'œ': 0x9c, 'ž': 0x9e, 'Ÿ': 0x9f };

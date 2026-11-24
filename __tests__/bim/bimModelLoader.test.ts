@@ -108,4 +108,13 @@ describe('chunks', () => {
     expect(await cache.get('old-revision')).toBeNull();
     expect(await cache.get(b.chunks[0].hash)).not.toBeNull();
   });
+
+  it('loadChunks without prune (the component screen loads ONE chunk of a bigger model) keeps the other cached files', async () => {
+    const { cloud } = cloudOf();
+    const cache = new BimMemoryChunkCache();
+    await cache.put('another-chunk-of-this-model', new ArrayBuffer(4));
+    await loadChunks({ cloud: cloud as any, chunkCache: cache }, manifest().chunks.slice(0, 1), () => undefined, 3, false);
+    expect(await cache.get('another-chunk-of-this-model')).not.toBeNull();
+    expect(await cache.get(b.chunks[0].hash)).not.toBeNull();
+  });
 });

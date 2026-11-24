@@ -11,6 +11,9 @@ jest.mock('../../kit8/ui/components/media/common/useWriteMediaPost', () => ({
   useWriteMediaPost: () => async (build: any) => { const post = build({ ownerGUID: 'u1', rowGUID: 'r1', platform: 'android' }); (globalThis as any).__offerPosts.push(post); return post; },
 }));
 
+// the screen "Media post created." has the button Create user (redux + Supabase): plain stand-ins
+jest.mock('react-redux', () => ({ useSelector: (fn: any) => fn({ activeUserState: { activeUserEmail: 'boss@company.com', userOrganization: { rowGUID: 'org-1' } } }), useDispatch: () => jest.fn() }));
+jest.mock('../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: null }) }));
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({ cancelIsoDepWait: async () => undefined, isoDepSupported: () => true, openIsoDep: async () => { throw new Error('no card here'); } }));
 
 import IdCardPostOffer from '../../kit8/ui/components/media/nfc/iddocread/IdCardPostOffer';
@@ -90,6 +93,18 @@ describe('the reader screen on Android', () => {
     expect(q('id-photo')).toBeNull();
     expect(text('id-photo-jp2')).toContain('kept in the file storage');
   });
+});
+
+it('the created screen has the button Create user between Media posts and Close, with the e-mail it will make', async () => {
+  const upload = (async () => ({ ok: true })) as any;
+  render(<IdCardPostOffer doc={doc({ mime: 'image/jpeg', bytes: new Uint8Array([1, 2, 3]) })} upload={upload} />);
+  await flush();
+  await pressAsync('id-post-create');
+  expect(text('id-post-create-user')).toBe('Create user');
+  expect(text('id-post-create-user-email')).toBe('jurijs.terentjevs@company.com');
+  const html = q('id-post-screen')!.innerHTML;
+  expect(html.indexOf('id-post-screen-open')).toBeLessThan(html.indexOf('id-post-create-user"'));
+  expect(html.indexOf('id-post-create-user"')).toBeLessThan(html.indexOf('id-post-screen-close'));
 });
 
 it('the two buttons of the created screen have the same width (the test kit draws plain buttons, so the source is checked)', () => {

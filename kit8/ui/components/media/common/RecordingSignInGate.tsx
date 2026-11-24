@@ -1,12 +1,13 @@
 // Recordings (audio / video / photo) AND scans (QR / barcode, NFC, ID card / passport) are for SIGNED-IN users only: a recording becomes a post of the user's account and its files belong to the storage of the user's
 // organization (organizationTable.rowJSON.organizationFilesStorageProvider: Google Drive | Microsoft OneDrive, set in Organization edit -> Files).
 // A guest sees this card instead of the recorder / the scanner: Sign in, or (recordings) Sign in and then set up the file storage. Mounted by app/media/record/{audio,video,photo}, app/media/scan, app/media/nfc/{index,identification,iddocread}.
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { selectIsLoggedIn } from '../../../../redux/activeUserSlice';
+import { setPendingReturnTo } from '../../../../auth/session/pendingReturnTo';
 import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../common';
 
 /** where the user lands after the sign in to connect the storage: the organization list (edit -> tab Files) */
@@ -43,6 +44,9 @@ export default function RecordingSignInGate({ returnTo, kind, children }: Record
   const signedIn = useSelector(selectIsLoggedIn);
   const router = useRouter();
   const theme = useTheme();
+  // a guest who opened this screen wants to come back to it after ANY sign in (the card's button, the menu's Sign In row, Google / Microsoft / the e-mail link on the web):
+  // the sign in screen reads the remembered route when it has no `returnTo` of its own
+  useEffect(() => { if (!signedIn) setPendingReturnTo(returnTo); }, [signedIn, returnTo]);
   if (signedIn) return <>{children}</>;
   const isRecord = RECORD_KINDS.includes(kind);
   const signIn = (back: string) => router.push({ pathname: '/user/signin', params: { returnTo: back } } as any);

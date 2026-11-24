@@ -91,3 +91,14 @@ The **owner photo** of the chip (face image, DG2) is saved too, when the post is
 ## ID card post: all the data + the photo (2026-11-23)
 
 **Create media post** (`IdCardPostOffer`) now keeps the whole reading in the post, not only the name and the number: `idCardFields(doc)` (`iddocread/idCardFields.ts`, pure) lists every readable datum of the zone, DG11 (personal details) and DG12 (document details) as label + value - the description of the post is one line per datum and `rowJSON.idCardFields` keeps the list. The owner photo of the chip is in the post as `mediaImageUri` (a data address) when it is a JPEG up to `ID_POST_PHOTO_MAX_CHARS`; a JPEG 2000 photo (Android cannot draw it) is only in the file storage and the post says so in a `Photo` line. The phone list (`MediaPostsNativeList`, `MediaPostRow.isIdCard`) and the web list (`MediaPostCRUDComponent`) draw it as a portrait above the text. Tests `__tests__/media/idCardFields.test.ts`, `idCardPost.test.ts`.
+
+
+## Create user from the document (2026-11-24)
+The screen "Media post created." has the button **Create user** (`CreateUserFromIDDocumentButton`) between "Media posts" and "Close". It makes the USER of the document:
+- e-mail = `<first given name>.<surname>@<domain of the signed-in user's e-mail>` (`idUserEmail.ts`: lower case, marks of letters dropped, a surname of several words joined with `-`; `jurijs.terentjevs@company.com`). The e-mail is shown under the button; a guest (no e-mail with a domain) cannot press it.
+- a member of the ACTIVE organization is made (`organizationMemberTable`, the same row as the Invite of Organization members) and, for an e-mail nobody has used yet, the invitation is sent by the Edge Function `organization-invite` (Supabase makes the user of that e-mail; `createUserFromIdDocument.ts`). **An invitation e-mail really goes to that address.**
+- when it is done the button reads **User created.** and stays off (an e-mail that is a member already: "User already exists."). A refusal (only an administrator of the organization may add members) is written under the button; a member made but an invitation that could not be sent is written there too.
+Tests: `__tests__/media/createUserFromIdDocument.test.tsx`, `idCardPostOffer.test.tsx`.
+
+## Cards under the Read button (2026-11-24)
+"Password of the document (only if it asks for one)" and "What this reader does" show their TITLE and a **more...** link (`ExpandableCard.tsx`); the link opens the text and the inputs, **less** closes them. The password card opens by itself when the document asks for its password (`needs-password`). Tests: `__tests__/media/idScreen.test.tsx`.

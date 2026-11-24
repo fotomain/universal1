@@ -31,7 +31,7 @@ export default function IdCardPostOffer({ doc, upload = uploadIdentificationPhot
       testID="id-post"
       savedNote={note}
       renderSavedScreen={({ close, openPosts }) => (
-        <IdCardPostCreated photo={doc.photo} ownerName={ownerNameOf(doc)} documentNumber={m.documentNumber.value.replace(/</g, '')} note={note} onOpenPosts={openPosts} onClose={close} />
+        <IdCardPostCreated photo={doc.photo} ownerName={ownerNameOf(doc)} givenNames={m.givenNames} surname={m.surname} documentNumber={m.documentNumber.value.replace(/</g, '')} note={note} onOpenPosts={openPosts} onClose={close} />
       )}
       onCreate={async () => {
         // the picture of the post: a JPEG as it is; a JPEG 2000 (Latvian passports) is converted to a JPEG, Android cannot draw it. The ORIGINAL goes to the storage below.

@@ -1,7 +1,7 @@
 // The three.js side of the viewer, without React: one mesh per chunk (a Uint16 NORMALIZED position attribute, the chunk box in the object matrix = no decode work), the state of every
 // element written into a per-vertex colour (normal | highlighted | dimmed: a colour write, never a rebuild of the geometry), picking by BVH raycast -> triangle -> element.
 import * as THREE from 'three';
-import { bimcElementOfTriangle, type BimcChunk } from '../bimc/bimcReader';
+import { bimcElementIndexRanges, bimcElementOfTriangle, type BimcChunk } from '../bimc/bimcReader';
 import { BIM_STATE_DIM, BIM_STATE_HIGHLIGHT, BIM_STATE_NORMAL } from '../model/bimModel';
 
 export interface BimChunkMesh {
@@ -14,6 +14,8 @@ export interface BimChunkMesh {
   baseColors: Uint8Array;
   /** the state last applied per element number (to write only what changed) */
   applied: Uint8Array;
+  /** an ISOLATED mesh: the element number it draws alone (its index buffer holds only its triangles; a pick answers this element) */
+  onlyElement?: number;
 }
 
 export interface BimStateColors {
@@ -51,18 +53,22 @@ export function elementBaseColors(c: BimcChunk): Uint8Array {
   return out;
 }
 
-export function buildChunkMesh(hash: string, chunk: BimcChunk, material?: THREE.Material): BimChunkMesh {
+/** `onlyElement` = an element number of the chunk: the mesh draws that element ALONE (the component screen); the vertex buffers are shared, only the index buffer is a view on its triangles */
+export function buildChunkMesh(hash: string, chunk: BimcChunk, material?: THREE.Material, onlyElement?: number): BimChunkMesh {
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute('position', new THREE.BufferAttribute(chunk.positions, 3, true));
   const colors = new Uint8Array(chunk.vertexCount * 4);
   geometry.setAttribute('color', new THREE.BufferAttribute(colors, 4, true));
-  geometry.setIndex(new THREE.BufferAttribute(chunk.indices, 1));
+  if (onlyElement !== undefined) {
+    const [first, count] = bimcElementIndexRanges(chunk)[onlyElement] ?? [0, 0];
+    geometry.setIndex(new THREE.BufferAttribute(chunk.indices.subarray(first, first + count), 1));
+  } else geometry.setIndex(new THREE.BufferAttribute(chunk.indices, 1));
   const mat = material ?? new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true, side: THREE.DoubleSide });
   const mesh = new THREE.Mesh(geometry, mat);
   mesh.position.set(chunk.min[0], chunk.min[1], chunk.min[2]);
   mesh.scale.set(chunk.size[0], chunk.size[1], chunk.size[2]);
   mesh.userData.bimHash = hash;
-  const cm: BimChunkMesh = { hash, chunk, mesh, vertexRanges: elementVertexRanges(chunk), baseColors: elementBaseColors(chunk), applied: new Uint8Array(chunk.elementCount).fill(255) };
+  const cm: BimChunkMesh = { hash, chunk, mesh, vertexRanges: elementVertexRanges(chunk), baseColors: elementBaseColors(chunk), applied: new Uint8Array(chunk.elementCount).fill(255), ...(onlyElement !== undefined ? { onlyElement } : {}) };
   applyElementStates(cm, () => BIM_STATE_NORMAL);
   return cm;
 }
@@ -117,7 +123,8 @@ export function pickElement(chunks: BimChunkMesh[], raycaster: THREE.Raycaster):
     const hits = raycaster.intersectObject(cm.mesh, false);
     const h = hits[0];
     if (!h || h.faceIndex == null) continue;
-    const el = bimcElementOfTriangle(cm.chunk, h.faceIndex);
+    // an isolated mesh has only the triangles of one element: its face numbers are not the chunk's
+    const el = cm.onlyElement !== undefined ? cm.onlyElement : bimcElementOfTriangle(cm.chunk, h.faceIndex);
     if (el < 0) continue;
     if (!best || h.distance < best.distance) best = { ifcGuid: cm.chunk.guids[el], hash: cm.hash, distance: h.distance };
   }

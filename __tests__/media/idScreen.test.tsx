@@ -4,6 +4,8 @@ import { act } from 'react';
 import { cleanup, flush, press, pressAsync, q, render, text } from './mediaUiTestKit';
 import { buildFiles, SimCard, TEST_ACCESS, TEST_CAN, TEST_MRZ_LINES } from './idCardTestKit';
 
+// the screen "Media post created." has the button Create user (redux): a plain stand-in
+jest.mock('react-redux', () => ({ useSelector: (fn: any) => fn({ activeUserState: { activeUserEmail: 'boss@company.com', userOrganization: { rowGUID: 'org-1' } } }), useDispatch: () => jest.fn() }));
 const mockSim: { card: SimCard | null; fail: string; closed: number } = { card: null, fail: '', closed: 0 };
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({
   cancelIsoDepWait: async () => undefined,
@@ -37,12 +39,14 @@ import IdCardReader, { applyMrzLines, EMPTY_FORM, formToOptions } from '../../ki
 import { FILE_IDS } from '../../kit8/ui/components/media/nfc/iddocread/dataGroups';
 import { friendlyIdError } from '../../kit8/ui/components/media/nfc/iddocread/useIdReader';
 
-const type = (testID: string, value: string) => act(() => {
+// the password card shows its title and "more..." only: opening it comes first
+const openPassword = () => { if (!q('id-password-body')) press('id-password-toggle'); };
+const type = (testID: string, value: string) => { openPassword(); act(() => {
   const el: any = q(testID)!;
   const setter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
   setter.call(el, value);
   el.dispatchEvent(new Event('input', { bubbles: true }));
-});
+}); };
 
 beforeEach(() => {
   mockSim.card = new SimCard({ mrzAccess: TEST_ACCESS, can: TEST_CAN, pace: { cipher: 'aes128', parameterId: 13 }, files: buildFiles({ paceCipher: 'aes128', paceParam: 13, photoSize: 800 }) });
@@ -84,6 +88,7 @@ describe('the screen', () => {
     render(<IdCardReader />);
     await flush();
     const button = q('id-read-from-document')!;
+    openPassword();
     for (const other of ['id-country', 'id-can', 'id-number', 'id-birth', 'id-expiry', 'id-mrz-lines', 'id-clear']) {
       expect(button.compareDocumentPosition(q(other)!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy(); // the other control comes AFTER it
     }
@@ -119,6 +124,21 @@ describe('the screen', () => {
     for (let i = 0; i < 30 && !q('id-probe'); i += 1) await act(async () => { await new Promise((r) => setTimeout(r, 20)); });
     expect(text('id-probe-kind')).toBe('Payment card');
     expect(text('id-password-title')).toContain('only if it asks');
+  });
+
+  it('the password card shows its title and "more..." only; "more..." opens the text and the inputs, "less" closes them', async () => {
+    render(<IdCardReader />);
+    await flush();
+    expect(text('id-password-title')).toContain('Password of the document');
+    expect(text('id-password-toggle')).toBe('more...');
+    expect(q('id-country')).toBeNull();
+    expect(q('id-can')).toBeNull();
+    press('id-password-toggle');
+    expect(q('id-country')).not.toBeNull();
+    expect(text('id-password')).toContain('ICAO 9303');
+    expect(text('id-password-toggle')).toBe('less');
+    press('id-password-toggle');
+    expect(q('id-can')).toBeNull();
   });
 
   it('the country shows its name and note (Latvia)', async () => {
@@ -279,7 +299,15 @@ describe('the screen', () => {
   it('the limits are always shown', async () => {
     render(<IdCardReader />);
     await flush();
+    // the title and "more..." only, until the user opens it
+    expect(text('id-limits-title')).toBe('What this reader does');
+    expect(q('id-limits-body')).toBeNull();
+    expect(text('id-limits-toggle')).toBe('more...');
+    press('id-limits-toggle');
     expect(text('id-limits')).toContain('Never read: fingerprints');
+    expect(text('id-limits-toggle')).toBe('less');
+    press('id-limits-toggle');
+    expect(q('id-limits-body')).toBeNull();
     expect(bytesToHex([1])).toBe('01');
   });
 });

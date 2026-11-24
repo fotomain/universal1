@@ -20,10 +20,12 @@ export interface BimSceneContentProps {
   size: { width: number; height: number };
   /** a bigger number = the model grew: the far plane follows */
   modelRadius: number;
+  /** the IFC id of ONE element: only it is drawn (the chunks without it are skipped) - the component screen */
+  isolateGuid?: string | null;
 }
 
-export default function BimSceneContent({ chunks, highlighted, dimRest, colors, background, orbitRef, controllerRef, size, modelRadius }: BimSceneContentProps) {
-  const { camera, scene, invalidate } = useThree();
+export default function BimSceneContent({ chunks, highlighted, dimRest, colors, background, orbitRef, controllerRef, size, modelRadius, isolateGuid }: BimSceneContentProps) {
+  const { camera, scene, invalidate, gl } = useThree();
   const meshes = useRef(new Map<string, BimChunkMesh>());
   const raycaster = useRef(new THREE.Raycaster());
 
@@ -57,7 +59,12 @@ export default function BimSceneContent({ chunks, highlighted, dimRest, colors, 
     }
     for (const c of chunks) {
       if (meshes.current.has(c.hash)) continue;
-      const cm = buildChunkMesh(c.hash, c.chunk);
+      let only: number | undefined;
+      if (isolateGuid) {
+        only = c.chunk.guids.indexOf(isolateGuid);
+        if (only < 0) continue; // this chunk does not hold the element: nothing of it is drawn
+      }
+      const cm = buildChunkMesh(c.hash, c.chunk, undefined, only);
       buildBvh(cm.mesh);
       applyElementStates(cm, stateOf, colors);
       scene.add(cm.mesh);
@@ -65,7 +72,7 @@ export default function BimSceneContent({ chunks, highlighted, dimRest, colors, 
     }
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [chunks, scene]);
+  }, [chunks, scene, isolateGuid]);
 
   // the colours follow the state
   useEffect(() => {
@@ -87,11 +94,23 @@ export default function BimSceneContent({ chunks, highlighted, dimRest, colors, 
         (raycaster.current as any).firstHitOnly = true;
         return pickElement([...meshes.current.values()], raycaster.current)?.ifcGuid ?? null;
       },
+      snapshot: () => {
+        // web: draw once more RIGHT NOW (a WebGL canvas is empty after the frame without preserveDrawingBuffer) and read it; a phone (expo-gl) has no dom element
+        const el: any = (gl as any)?.domElement;
+        if (!el || typeof el.toDataURL !== 'function') return null;
+        try {
+          place();
+          gl.render(scene, camera);
+          return String(el.toDataURL('image/png')).replace(/^data:image\/png;base64,/, '') || null;
+        } catch {
+          return null;
+        }
+      },
     };
     return () => {
       controllerRef.current = null;
     };
-  }, [camera, controllerRef, place, size.height, size.width]);
+  }, [camera, controllerRef, gl, place, scene, size.height, size.width]);
 
   useEffect(
     () => () => {

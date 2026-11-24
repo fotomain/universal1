@@ -14,4 +14,6 @@ export interface BimSceneController {
   render: () => void;
   /** the IFC id of the element under the point (x, y in pixels of the view), or null */
   pick: (x: number, y: number) => string | null;
+  /** the picture of the canvas as base64 PNG (no "data:" prefix) right now; null where the canvas cannot be read back (a phone: the caller takes a screenshot instead) */
+  snapshot: () => string | null;
 }

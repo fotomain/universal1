@@ -1,5 +1,5 @@
 // The buttons over the video (presentational: no player, no redux). VideoControlsOverlay.tsx gives it the state and the actions.
-//   toolbar: seek bar + times, [- N s] [play / pause] [+ N s] ... [settings]   (appears with `visible`)
+//   toolbar: seek bar + times, [- N s] [play / pause] [+ N s] ... [full screen] [settings]   (appears with `visible`)
 //   big transparent Play button in the middle while the video is not playing (like YouTube)
 //   settings panel: hide the buttons after N seconds, rewind N seconds
 import React from 'react';
@@ -24,6 +24,9 @@ export interface VideoControlsProps {
   onTogglePlay: () => void;
   onSeekBy: (delta: number) => void;
   onSeekTo: (seconds: number) => void;
+  /** the full screen button (right of the settings button) is drawn only when the player gives this */
+  onToggleFullscreen?: () => void;
+  fullscreen?: boolean;
   onToggleSettings: () => void;
   onChangeSettings: (patch: Partial<PlayVideoSettings>) => void;
   onResetSettings: () => void;
@@ -112,6 +115,10 @@ export default function VideoControls(props: VideoControlsProps) {
             <Icon source="fast-forward" size={22} color={WHITE} />
           </Pressable>
           <View style={styles.spacer} />
+          {props.onToggleFullscreen ? (
+            <IconButton icon={props.fullscreen ? 'fullscreen-exit' : 'fullscreen'} size={24} iconColor={WHITE} onPress={press(props.onToggleFullscreen)}
+              accessibilityLabel={props.fullscreen ? 'Exit full screen' : 'Full screen'} testID="video-fullscreen-button" />
+          ) : null}
           <IconButton icon="cog" size={22} iconColor={WHITE} onPress={press(props.onToggleSettings)} accessibilityLabel="Video settings" testID="video-settings-button" />
         </View>
       </View>

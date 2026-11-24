@@ -137,6 +137,7 @@ it('Continue starts the scan step with the values; "Read from document" opens th
   await until('ident-step-confirm');
   press('ident-continue');
   expect(text('ident-progress')).toContain('Step 4 of 4');
+  press('id-password-toggle');
   expect((q('id-number') as HTMLInputElement).value).toBe('LV1234567');
   expect((q('id-birth') as HTMLInputElement).value).toBe('14.02.1985');
   expect((q('id-country') as HTMLInputElement).value).toBe('LVA');
@@ -161,6 +162,7 @@ it('the user can correct a value; the scan cannot start with an empty or wrong v
   type('ident-birth', '14.02.1985');
   press('ident-continue');
   expect(text('ident-progress')).toContain('Step 4 of 4');
+  press('id-password-toggle');
   expect((q('id-number') as HTMLInputElement).value).toBe('LV7654321');
 });
 
@@ -277,6 +279,7 @@ describe('Google AI (opt-in)', () => {
     // the photo files are deleted here as well
     expect(mockDeleted).toEqual(expect.arrayContaining(['file:///cache/zone.jpg', 'file:///cache/zone.jpg.small.jpg']));
     press('ident-continue');
+    press('id-password-toggle');
     expect((q('id-can') as HTMLInputElement).value).toBe('246810');
     expect((q('id-number') as HTMLInputElement).value).toBe('LV1234567');
   });
@@ -400,6 +403,7 @@ describe('front of the card (no zone)', () => {
     expect(text('ident-line-0')).toBe('PA3626350');
     // and the scan step starts with these values and the CAN candidate
     press('ident-continue');
+    press('id-password-toggle');
     expect((q('id-number') as HTMLInputElement).value).toBe('PA3626350');
     expect((q('id-can') as HTMLInputElement).value).toBe('712656');
   });

@@ -1,11 +1,12 @@
 // The video player of iOS and Android: expo-video (ExoPlayer / AVPlayer: files, http(s), HLS, DASH) with OUR buttons over it
 // (VideoControlsOverlay: auto-hide, - N s / + N s, double touch, big Play button, settings). The web twin is VideoPlayerView.web.tsx.
 // It plays ONE uri; MediaPlayer.tsx adds the source input and the queue.
+// Full screen: the box that holds the video AND our buttons moves into a full screen Modal (the native full screen of expo-video would hide our buttons); the device may be turned.
 //
 // Why not react-native-video: expo-audio and expo-video use media3 1.9.0 on Android, react-native-video 6.19 calls a constructor
 // that media3 1.9.0 removed -> "NoSuchMethodError DefaultLoadControl.<init>" and the app closes as soon as a video starts.
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, View } from 'react-native';
 import { useVideoPlayer, VideoView } from 'expo-video';
 import VideoControlsOverlay from './VideoControlsOverlay';
 import type { MediaPlayerViewProps } from './AudioPlayerView';
@@ -23,6 +24,7 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError,
   const [ended, setEnded] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [fullscreen, setFullscreen] = useState(false);
 
   useEffect(() => {
     setDuration(player.duration || 0);
@@ -63,16 +65,29 @@ export default function VideoPlayerView({ uri, autoPlay = false, onEnd, onError,
   // a recording whose file has no date and time stamp (iOS / Android): drawn here from the saved times
   const stampAt = dateTimeOver ? clockTimeAt(dateTimeOver.part, currentTime) : null;
 
-  return (
-    <View style={styles.box} testID="video-player-view">
+  const box = (full: boolean) => (
+    <View style={full ? styles.boxFull : styles.box} testID="video-player-view">
       {/* tsc resolves the .web typings first (moduleSuffixes): the player type differs there */}
       <VideoView player={player as never} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" allowsPictureInPicture />
       {dateTimeOver && stampAt && <DateTimeOverStamp position={dateTimeOver.position} text={formatDateTimeOver(stampAt)} testID="video-player-datetime" />}
-      <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} />
+      <VideoControlsOverlay playing={playing} ended={ended} currentTime={currentTime} duration={duration} onTogglePlay={togglePlay} onSeekTo={seekTo} onToggleFullscreen={() => setFullscreen((f) => !f)} fullscreen={full} />
     </View>
   );
+
+  // full screen: the video lives in the Modal, the place in the page stays black
+  if (fullscreen) {
+    return (
+      <View style={styles.box} testID="video-player-view-placeholder">
+        <Modal visible animationType="fade" presentationStyle="fullScreen" supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']} onRequestClose={() => setFullscreen(false)} testID="video-fullscreen-modal">
+          {box(true)}
+        </Modal>
+      </View>
+    );
+  }
+  return box(false);
 }
 
 const styles = StyleSheet.create({
   box: { width: '100%', aspectRatio: 16 / 9, backgroundColor: '#000', borderRadius: 12, overflow: 'hidden' },
+  boxFull: { flex: 1, backgroundColor: '#000' },
 });

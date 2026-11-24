@@ -55,13 +55,13 @@ jest.mock('../../../kit8/ui/components/table/reusable/tableExportActions', () =>
 }));
 let mockSupabase: any = null;
 jest.mock('../../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: mockSupabase }) }));
-const mockFlash: { props: any } = { props: null };
+const mockFlash: { props: any; handle?: any } = { props: null };
 jest.mock('@shopify/flash-list', () => {
   const R = require('react');
   const { View } = require('react-native');
   return { FlashList: R.forwardRef((p: any, ref: any) => {
     mockFlash.props = p;
-    R.useImperativeHandle(ref, () => ({ scrollToOffset: jest.fn(), scrollToIndex: jest.fn() }));
+    R.useImperativeHandle(ref, () => (mockFlash.handle = { scrollToOffset: jest.fn(), scrollToIndex: jest.fn(), scrollToEnd: jest.fn() }));
     return R.createElement(View, { testID: p.testID }, p.data.slice(0, 200).map((item: any, index: number) => R.createElement(View, { key: p.keyExtractor(item, index) }, p.renderItem({ item, index }))), p.ListFooterComponent);
   }) };
 });
@@ -374,5 +374,150 @@ describe('serverDataMode', () => {
     server({ listOwnerGUID: undefined });
     await wait(10);
     expect(log.length).toBe(0);
+  });
+});
+
+describe('cards: the form of the Add button, the card size, delete by the host, the commands of a row', () => {
+  beforeEach(() => { mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: rowsOf(), readSuccessful: 1 } }; });
+  const Form = ({ testID, onCreateFirst, onCreateLast, onClose }: any) => (
+    <div data-testid={testID}>
+      <button data-testid="form-first" onClick={() => onCreateFirst({ title: 'New first' })} />
+      <button data-testid="form-last" onClick={() => onCreateLast({ title: 'New last' })} />
+      <button data-testid="form-close" onClick={onClose} />
+    </div>
+  );
+
+  it('Add opens the form instead of adding an empty row; Add first / Add last make the row with the data of the form; the form closes', () => {
+    mount({ CreateElementForm: Form, orderDirection: 'desc' });
+    press(`${T}-add`);
+    expect(mockActions.createOne).not.toHaveBeenCalled();
+    expect(q(`${T}-create-form`)).not.toBeNull();
+    press('form-first');
+    expect(mockActions.createOne).toHaveBeenCalledTimes(1);
+    expect(q(`${T}-create-form`)).toBeNull();
+    // the data of the form goes onto the new row
+    expect(mockActions.updateOne.mock.calls.some((c) => c[0]?.rowJSON?.title === 'New first')).toBe(true);
+    press(`${T}-add`);
+    press('form-last');
+    expect(mockActions.createOne).toHaveBeenCalledTimes(2);
+    expect(mockActions.updateOne.mock.calls.some((c) => c[0]?.rowJSON?.title === 'New last')).toBe(true);
+  });
+
+  it('onElementCreated gets the guid of the new row, its rowJSON and the extras of the form (the photo of a person document goes to the file storage)', () => {
+    const onElementCreated = jest.fn();
+    const F = ({ onCreateLast }: any) => <button data-testid="form-extras" onClick={() => onCreateLast({ title: 'P' }, { idPhoto: { base64: 'AA' } })} />;
+    mount({ CreateElementForm: F, onElementCreated });
+    press(`${T}-add`);
+    press('form-extras');
+    expect(onElementCreated).toHaveBeenCalledTimes(1);
+    expect(onElementCreated).toHaveBeenCalledWith(expect.any(String), { title: 'P' }, { idPhoto: { base64: 'AA' } });
+    expect(mockActions.createOne.mock.calls[0][0].rowGUID).toBe(onElementCreated.mock.calls[0][0]);
+  });
+
+  it('the close icon of the form closes it and creates nothing', () => {
+    mount({ CreateElementForm: Form });
+    press(`${T}-add`);
+    press('form-close');
+    expect(q(`${T}-create-form`)).toBeNull();
+    expect(mockActions.createOne).not.toHaveBeenCalled();
+  });
+
+  it('a read only list has no Add button, so no form', () => {
+    mount({ CreateElementForm: Form, readOnly: true });
+    expect(q(`${T}-add`)).toBeNull();
+  });
+
+  it('the toolbar has the card size button only when the host gives the size; a choice is handed to the host', () => {
+    mount();
+    expect(q(`${T}-card-size`)).toBeNull();
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    const onCardSizeChange = jest.fn();
+    mount({ cardSize: 'cardMedium', onCardSizeChange });
+    press(`${T}-card-size`);
+    expect(q(`${T}-card-size-menu`)).not.toBeNull();
+    press(`${T}-card-size-cardBig`);
+    expect(onCardSizeChange).toHaveBeenCalledWith('cardBig');
+  });
+
+  it('the toolbar has icons only: no text next to the Add / Sort and filter / More icons', () => {
+    mount();
+    ['add', 'sort-filter', 'more'].forEach((id) => expect(q(`${T}-${id}`)!.textContent).not.toMatch(/Add|Sort and filter|More/));
+  });
+
+  it('onDeleteRows takes the rows it handles itself; the rest is deleted by the list', () => {
+    const onDeleteRows = jest.fn((ids: string[]) => ids.filter((id) => id !== 'a'));
+    mount({ onDeleteRows });
+    press(`${T}-check-a`);
+    press(`${T}-check-b`);
+    press(`${T}-delete-selected`);
+    press(`${T}-ask-delete-confirm`);
+    expect(onDeleteRows).toHaveBeenCalledTimes(1);
+    expect(onDeleteRows.mock.calls[0][0].sort()).toEqual(['a', 'b']);
+    expect(onDeleteRows.mock.calls[0][1].map((r: any) => r.rowGUID).sort()).toEqual(['a', 'b']);
+    expect(mockActions.deleteOne.mock.calls.map((c) => c[0].rowGUID)).toEqual(['b']);
+  });
+
+  it('a custom item (a card) gets the commands of its row: remove asks first, then deletes; the rights follow readOnly', () => {
+    mount({ renderItem: (row: any, s: any) => <button data-testid={`card-${row.rowGUID}`} data-can-delete={String(s.canDelete)} onClick={() => s.actions.remove(row.rowGUID)} /> });
+    expect(q('card-b')!.getAttribute('data-can-delete')).toBe('true');
+    press('card-b');
+    expect(mockActions.deleteOne).not.toHaveBeenCalled();
+    press(`${T}-ask-delete-confirm`);
+    expect(mockActions.deleteOne.mock.calls.map((c) => c[0].rowGUID)).toEqual(['b']);
+    act(() => root.unmount());
+    document.body.innerHTML = '';
+    mount({ readOnly: true, renderItem: (row: any, s: any) => <button data-testid={`card-${row.rowGUID}`} data-can-delete={String(s.canDelete)} data-can-add={String(s.canAdd)} /> });
+    expect(q('card-b')!.getAttribute('data-can-delete')).toBe('false');
+    expect(q('card-b')!.getAttribute('data-can-add')).toBe('false');
+  });
+
+  it('a card can create a row before / after itself and copy itself', () => {
+    mount({ renderItem: (row: any, s: any) => (
+      <div>
+        <button data-testid={`before-${row.rowGUID}`} onClick={() => s.actions.createBefore(row.rowGUID)} />
+        <button data-testid={`copy-${row.rowGUID}`} onClick={() => s.actions.duplicate(row.rowGUID)} />
+      </div>) });
+    press('before-b');
+    expect(mockActions.createOne).toHaveBeenCalledTimes(1);
+    press('copy-c');
+    expect(mockActions.createOne).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('toolbar: scroll to the last used card, to the top, to the bottom', () => {
+  beforeEach(() => { mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: rowsOf(), readSuccessful: 1 } }; });
+
+  it('top and bottom scroll the list', () => {
+    mount();
+    press(`${T}-scroll-bottom`);
+    expect(mockFlash.handle.scrollToEnd).toHaveBeenCalledWith({ animated: true });
+    press(`${T}-scroll-top`);
+    expect(mockFlash.handle.scrollToOffset).toHaveBeenCalledWith({ offset: 0, animated: true });
+  });
+
+  it('the last used card button is off until a card is used; then it scrolls to THAT card (fixed item height)', () => {
+    const onRowOpen = jest.fn();
+    mount({ itemHeight: 100, onRowOpen });
+    expect(q(`${T}-scroll-last-used`)!.hasAttribute('disabled') || q(`${T}-scroll-last-used`)!.getAttribute('aria-disabled') === 'true').toBe(true);
+    press(`${T}-item-c`);
+    expect(onRowOpen).toHaveBeenCalled();
+    press(`${T}-scroll-last-used`);
+    // index 2 x 100 px (the box is not measured in jsdom: the card is put at the top)
+    expect(mockFlash.handle.scrollToOffset).toHaveBeenLastCalledWith({ offset: 200, animated: true });
+  });
+
+  it('a command of a custom card (its FAB) marks it as used; so does a drop of a new element made by the form', () => {
+    mount({ itemHeight: 100, renderItem: (row: any, s: any) => <button data-testid={`card-${row.rowGUID}`} onClick={() => s.actions.markUsed(row.rowGUID)} /> });
+    press('card-b');
+    press(`${T}-scroll-last-used`);
+    expect(mockFlash.handle.scrollToOffset).toHaveBeenLastCalledWith({ offset: 100, animated: true });
+  });
+
+  it('a used card that is filtered away from the list disables the button again', () => {
+    mount({ itemHeight: 100, onRowOpen: jest.fn() });
+    press(`${T}-item-a`);
+    type(`${T}-search`, 'Bravo');
+    expect(q(`${T}-scroll-last-used`)!.hasAttribute('disabled') || q(`${T}-scroll-last-used`)!.getAttribute('aria-disabled') === 'true').toBe(true);
   });
 });

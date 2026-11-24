@@ -7,6 +7,9 @@ export const DATA_ORIGIN_TYPE = {
     msexcel: "msexcel",
     html: "html",
     text: "text",
+    // a person's document typed in by hand (the ID card / passport READER makes posts with the origin 'idreader')
+    personIDCard: "personIDCard",
+    personPassport: "personPassport",
 } as const;
 
 // 2. Derive the Union Type of the VALUES ("youtube" | "msword" | "msexcel" | "url")

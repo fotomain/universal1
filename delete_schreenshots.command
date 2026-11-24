@@ -5,6 +5,8 @@
 #            SCREENSHOT_DIR=/some/folder ./delete_schreenshots.command   another folder
 #   Files  : only the screenshot files of that folder (not its sub folders, nothing else):
 #            "Screenshot *.png|jpg|jpeg|heic|tiff"  and the older  "Screen Shot *.png|jpg|jpeg|heic|tiff"
+#   Also  : the photos of the app in the Documents folder: "photo_*.*" (a photo taken by the app and saved there). Folder ~/Documents,
+#            PHOTO_DIR=/some/folder ./delete_schreenshots.command   another folder. Only files of that folder, not its sub folders.
 #   ./delete_schreenshots.command --dry    only lists what would be deleted
 # =========================================================================
 
@@ -34,15 +36,28 @@ for ext in png jpg jpeg heic tiff; do
   done
 done
 
+# the photos in Documents: photo_*.*  (a folder that does not exist is skipped, it is no error)
+PHOTO_FOLDER="${PHOTO_DIR:-$HOME/Documents}"
+PHOTO_FOLDER="${PHOTO_FOLDER/#\~/$HOME}"
+PHOTOS=()
+if [ -d "$PHOTO_FOLDER" ]; then
+  for f in "$PHOTO_FOLDER"/photo_*.*; do
+    [ -f "$f" ] && PHOTOS+=("$f")
+  done
+fi
+
 echo "Folder: $DIR"
-if [ ${#FILES[@]} -eq 0 ]; then echo "No screenshots found."; pause_end; exit 0; fi
+[ -d "$PHOTO_FOLDER" ] && echo "Photos: $PHOTO_FOLDER (photo_*.*)" || echo "Photos: $PHOTO_FOLDER does not exist, skipped"
+if [ ${#FILES[@]} -eq 0 ] && [ ${#PHOTOS[@]} -eq 0 ]; then echo "No screenshots and no photo_*.* files found."; pause_end; exit 0; fi
 
 if [ "$DRY" = 1 ]; then
   for f in "${FILES[@]}"; do echo "  would delete: ${f:t}"; done
-  echo "(dry run: ${#FILES[@]} file(s), nothing was deleted)"
+  for f in "${PHOTOS[@]}"; do echo "  would delete photo: ${f:t}"; done
+  echo "(dry run: ${#FILES[@]} screenshot(s) + ${#PHOTOS[@]} photo(s), nothing was deleted)"
   pause_end; exit 0
 fi
 
 for f in "${FILES[@]}"; do rm -f -- "$f"; done
-echo "Deleted ${#FILES[@]} screenshot file(s)."
+for f in "${PHOTOS[@]}"; do rm -f -- "$f"; done
+echo "Deleted ${#FILES[@]} screenshot file(s) and ${#PHOTOS[@]} photo_*.* file(s) of Documents."
 pause_end

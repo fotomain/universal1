@@ -12,6 +12,7 @@ import { useAuthWithMicrosoft } from '../../../kit8/auth/microsoft/useAuthWithMi
 import SignInWithEmailOtp from '../../../kit8/auth/otp/SignInWithEmailOtp';
 import { useAuthWithGoogle } from '../../../kit8/auth/google/useAuth';
 import { checkSupabaseAvailable } from '../../../kit8/auth/session/supabaseAvailability';
+import { clearPendingReturnTo, peekPendingReturnTo, setPendingReturnTo } from '../../../kit8/auth/session/pendingReturnTo';
 import { useSupabase } from '../../../kit8/providers/WithSupabase';
 import { saveUserData, getUserData } from '../../../kit8/lib/localSecureStorage';
 import { setActiveUser, formatTo32CharGUID } from '../../../kit8/redux/activeUserSlice';
@@ -26,9 +27,18 @@ export default function SignInScreen() {
   const params = useLocalSearchParams<{ returnTo?: string }>();
   const returnTo = params.returnTo || '/user/userprofile';
   const navigation = useNavigation();
+  // The screen the user wanted before he was sent here (Identification, Record audio / video ...): the route of this screen's own `returnTo`, else the one the gate
+  // remembered (a sign in that left the page - Google / Microsoft on the web, the e-mail link - or that started at the menu's "Sign In" has no `returnTo`).
+  const goBackAfterSignIn = async () => {
+    const target = params.returnTo || (await peekPendingReturnTo()) || '/user/userprofile';
+    clearPendingReturnTo();
+    router.replace(target as any);
+  };
+  // keep the wish across the page reload of an OAuth sign in
+  useEffect(() => { if (params.returnTo) setPendingReturnTo(params.returnTo); }, [params.returnTo]);
   // Drawer screens stay mounted after the first visit: a Sign in screen opened earlier lives on behind the project dashboard, and every SIGNED_IN that supabase-js re-sends
   // (token refresh, the tab coming back to the front) reached the redirects below and threw the user from the dashboard to /user/userprofile. Redirect only while this screen is the one shown.
-  const leaveToReturnTo = () => { if (navigation.isFocused()) router.replace(returnTo as any); };
+  const leaveToReturnTo = () => { if (navigation.isFocused()) void goBackAfterSignIn(); };
 
   const { user: googleUser, loading: googleLoading, signIn: signInWithGoogleRaw } = useAuthWithGoogle();
   // Microsoft keeps no user here: the session raises SIGNED_IN, which the Google hook above also hears (it reacts to any provider)
@@ -132,7 +142,7 @@ export default function SignInScreen() {
           activeUserLastName: userLastName,
         }));
         Alert.alert('Success', 'Account created and signed in successfully!');
-        router.replace(returnTo as any);
+        await goBackAfterSignIn();
       } else {
         Alert.alert('Notice', 'Please check your email for a confirmation link.');
       }
@@ -149,7 +159,7 @@ export default function SignInScreen() {
         activeUserFirstName: userFirstName,
         activeUserLastName: userLastName,
       }));
-      router.replace(returnTo as any);
+      await goBackAfterSignIn();
     }
 
     setLoading(false);

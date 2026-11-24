@@ -3,7 +3,8 @@
 //             − / + = 25 % smaller / bigger; the field takes a change in percent (50 = 1.5x bigger, -50 = half; Enter or Zoom applies); the level shows 100 % = the whole model fits
 //   3D        the model of the last import (chunks per storey), a press on an element scrolls the tree to its task or stage
 //   under it  the element that was pressed: name, class, type, and its IFC properties (read from the cloud when asked: bim_property_table)
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+//   right click (web) / long press (phone) on an element = a menu: Share (picture + details text) · Go to component (the screen of ONE component, ../component); the same two items are in the Task menu of a task with ONE component
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BIM_ZOOM_STEP_PERCENT, parseZoomPercent } from './bimCamera';
 import type { PMPalette } from '../../view/theme';
@@ -16,6 +17,13 @@ import BimViewer from './BimViewer';
 import { useBimModel } from './useBimModel';
 import { useBimTaskBridge } from './useBimTaskBridge';
 import { DEFAULT_STATE_COLORS } from './bimSceneBuilder';
+import PMContextMenu from '../../inner/menu/PMContextMenu';
+import { makeBimViewRegistration, useBimViewRegistry } from '../component/bimComponentRegistry';
+import { propertyLines } from '../component/bimComponentModel';
+import { useBimComponentActions } from '../component/useBimComponentActions';
+import { shareScreenshotResultText } from '../../../lib/shareScreenshot';
+
+export { propertyLines };
 
 export interface PMProjectBimViewProps {
   projectGUID: string;
@@ -71,6 +79,13 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
   const { supabase } = useSupabase();
   const cloud = useMemo(() => createBimCloud(supabase), [supabase]);
   const colors = useMemo(() => ({ ...DEFAULT_STATE_COLORS, highlight: hexToRgb(palette.primary) }), [palette.primary]);
+  const { goTo, share } = useBimComponentActions();
+  const [menu, setMenu] = useState<{ x: number; y: number; ifcGuid: string } | null>(null);
+  const [shareNote, setShareNote] = useState('');
+  // Share: for the moment of the picture the component alone is lit (and the rest dimmed), whatever the selection is
+  const [captureGuid, setCaptureGuid] = useState<string | null>(null);
+  const captureRef = useRef<((box: number[] | null) => string | null) | null>(null);
+  const highlightedNow = useMemo(() => (captureGuid ? new Set([captureGuid]) : bridge.highlighted), [captureGuid, bridge.highlighted]);
 
   const onElementPress = useCallback(
     (g: string) => {
@@ -79,6 +94,48 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
     },
     [bridge]
   );
+
+  // the menus of the task (PMTaskRowMenu) find the components and the picture of this view through the registry
+  const cloudRef = useRef(cloud);
+  cloudRef.current = cloud;
+  useEffect(() => {
+    if (!manifest) return;
+    const modelGUID = manifest.model.modelGUID;
+    const view = makeBimViewRegistration({
+      projectGUID,
+      modelGUID,
+      elements,
+      storeys: manifest.storeys,
+      properties: (g) => cloudRef.current.property(modelGUID, g).catch(() => null),
+      capture: async (g) => {
+        const el = elements.find((e) => e.ifcGuid === g);
+        if (!el) return null;
+        setCaptureGuid(g);
+        await new Promise((r) => setTimeout(r, 80)); // the lit state reaches the canvas
+        try {
+          return captureRef.current ? captureRef.current(el.bbox) : null;
+        } finally {
+          setCaptureGuid(null);
+        }
+      },
+    });
+    useBimViewRegistry.getState().set(view);
+    return () => {
+      if (useBimViewRegistry.getState().view === view) useBimViewRegistry.getState().set(null);
+    };
+  }, [projectGUID, manifest, elements]);
+
+  // right click / long press on an element: select it like a press, then the menu
+  const onElementContextMenu = useCallback(
+    (g: string | null, x: number, y: number) => {
+      if (!g) return;
+      setPressed(g);
+      bridge.onElementPress(g);
+      setMenu({ x, y, ifcGuid: g });
+    },
+    [bridge]
+  );
+  const menuElement = menu ? bridge.elementOf(menu.ifcGuid) : undefined;
 
   // the properties of the pressed element, read when it is pressed (not with the model)
   useEffect(() => {
@@ -136,8 +193,10 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
             height={viewerH}
             chunks={model.chunks}
             modelBox={model.manifest.model.bbox}
-            highlighted={bridge.highlighted}
-            dimRest={dimRest}
+            highlighted={highlightedNow}
+            dimRest={dimRest || !!captureGuid}
+            captureRef={captureRef}
+            onElementContextMenu={onElementContextMenu}
             colors={colors}
             background={palette.background}
             zoomBox={bridge.zoomBox}
@@ -154,7 +213,10 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
           />
           {pressed ? (
             <View testID="pm-bim-panel" style={[styles.panel, { height: PANEL_H, borderTopColor: palette.border, backgroundColor: palette.surface }]}>
-              <Text style={{ color: palette.text, fontWeight: '700' }}>{el?.name || pressed}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Text style={{ color: palette.text, fontWeight: '700', flexShrink: 1 }} numberOfLines={1}>{el?.name || pressed}</Text>
+                {el ? <Chip testID="pm-bim-open-component" label={pmT('Go to component')} onPress={() => goTo(projectGUID, el)} palette={palette} /> : null}
+              </View>
               <Text style={{ color: palette.textMuted, fontSize: 12 }}>{[el?.ifcClass, el?.typeName].filter(Boolean).join(' · ')}</Text>
               <ScrollView style={{ marginTop: 4 }}>
                 {propertyLines(props?.guid === pressed ? props.json : null).map((l, i) => (
@@ -165,19 +227,32 @@ export default function PMProjectBimView({ projectGUID, width, height, palette }
           ) : null}
         </>
       )}
+      {menu && menuElement ? (
+        <PMContextMenu
+          testID="pm-bim-menu"
+          x={menu.x}
+          y={menu.y}
+          caption={menuElement.name || menuElement.ifcGuid}
+          onClose={() => setMenu(null)}
+          items={[
+            {
+              testID: 'pm-bim-menu-share',
+              label: 'Share (image + details)',
+              icon: 'share',
+              onPress: () => {
+                setMenu(null);
+                // (read when pressed: this view only WRITES the registry, it never re-renders because of it)
+                const registration = useBimViewRegistry.getState().view;
+                if (registration) void share(registration, menuElement).then((r) => setShareNote(pmT(shareScreenshotResultText(r, false))));
+              },
+            },
+            { testID: 'pm-bim-menu-goto', label: 'Go to component', icon: 'open_in_new', onPress: () => { setMenu(null); goTo(projectGUID, menuElement); } },
+          ]}
+        />
+      ) : null}
+      {shareNote ? <Text testID="pm-bim-share-note" onPress={() => setShareNote('')} style={{ position: 'absolute', left: 8, bottom: 8, color: palette.textMuted, fontSize: 12, backgroundColor: palette.surface, padding: 4, borderRadius: 6 }}>{shareNote}</Text> : null}
     </View>
   );
-}
-
-/** the property sets of an element as plain lines: a head line per set, a line per value */
-export function propertyLines(json: Record<string, any> | null): Array<{ head: boolean; text: string }> {
-  if (!json || !json.sets) return [];
-  const out: Array<{ head: boolean; text: string }> = [];
-  for (const [set, vals] of Object.entries<any>(json.sets)) {
-    out.push({ head: true, text: set });
-    for (const [k, v] of Object.entries<any>(vals || {})) out.push({ head: false, text: `${k}: ${typeof v === 'object' ? JSON.stringify(v) : String(v)}` });
-  }
-  return out;
 }
 
 function Centered({ palette, text, action }: { palette: PMPalette; text: string; action?: { label: string; onPress: () => void } }) {

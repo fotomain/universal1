@@ -12,6 +12,7 @@ import type { IdDocument, ReadOptions } from './emrtd';
 import { isoDepSupported } from './idTransport';
 import { fullDate, isValidYyMmDd, MrzAccess, parseMrz, toYyMmDd, accessFromMrz } from './mrz';
 import IdCardPostOffer from './IdCardPostOffer';
+import ExpandableCard from './ExpandableCard';
 import ReadFromDocumentButton from './ReadFromDocumentButton';
 import type { ProbeResult } from './probe';
 import { useIdReader } from './useIdReader';
@@ -242,11 +243,8 @@ export default function IdCardReader({ initialForm, embedded, scrollRef, autoSta
       {/* only when the user asks: the owner's name + the document number become a media post */}
       {reader.document && <View ref={offerRef} collapsable={false} testID="id-post-anchor"><IdCardPostOffer doc={reader.document} /></View>}
 
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={2} testID="id-password">
-        <Card.Content style={styles.content}>
-          <Text variant="titleMedium" style={reader.state === 'needs-password' ? { color: theme.colors.tertiary } : undefined} testID="id-password-title">
-            {reader.state === 'needs-password' ? 'This document needs its password' : 'Password of the document (only if it asks for one)'}
-          </Text>
+      <ExpandableCard testID="id-password" forceOpen={reader.state === 'needs-password'} titleStyle={reader.state === 'needs-password' ? { color: theme.colors.tertiary } : undefined}
+        title={reader.state === 'needs-password' ? 'This document needs its password' : 'Password of the document (only if it asks for one)'}>
           <Text variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>{PASSPORT_NOTE}</Text>
           <TextInputApp label="Issuing country (3 letters, e.g. LVA)" value={form.country} onChangeText={(t: string) => set({ country: t.toUpperCase().slice(0, 3) })} autoCapitalize="characters" testID="id-country" />
           {!!form.country && <Text variant="labelMedium" style={{ color: theme.colors.primary }} testID="id-country-name">{countryName(form.country)}</Text>}
@@ -258,15 +256,11 @@ export default function IdCardReader({ initialForm, embedded, scrollRef, autoSta
           <TextInputApp label="Date of expiry (DD.MM.YYYY)" value={form.expiryDate} onChangeText={(t: string) => set({ expiryDate: t })} testID="id-expiry" />
           <TextInputApp label="or paste the MRZ lines" value={form.mrzLines} onChangeText={(t: string) => setForm((f) => applyMrzLines(f, t))} multiline numberOfLines={3} autoCapitalize="characters" testID="id-mrz-lines" />
           {problems.map((p, i) => <Text key={i} variant="bodySmall" style={{ color: theme.colors.error }} testID={`id-problem-${i}`}>{p}</Text>)}
-        </Card.Content>
-      </Card>
+      </ExpandableCard>
 
-      <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={1} testID="id-limits">
-        <Card.Content>
-          <Text variant="labelLarge">What this reader does</Text>
-          {GENERAL_LIMITS.map((l, i) => <Text key={i} variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant, marginTop: 4 }}>• {l}</Text>)}
-        </Card.Content>
-      </Card>
+      <ExpandableCard testID="id-limits" elevation={1} titleVariant="labelLarge" title="What this reader does">
+        {GENERAL_LIMITS.map((l, i) => <Text key={i} variant="bodySmall" style={{ color: theme.colors.onSurfaceVariant }}>• {l}</Text>)}
+      </ExpandableCard>
     </Wrapper>
   );
 }
