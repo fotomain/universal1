@@ -31,6 +31,7 @@ import { createDragStore, createSelectionStore, useSelectionVersion } from './li
 import { createReorderController } from './reorderController';
 import { useReusableListClient } from './useReusableListClient';
 import { useReusableListServer } from './useReusableListServer';
+import { reusableListWidthStyle } from './reusableListWidth';
 import type { ReusableListProps, ReusableListQuery, ReusableListSource } from './reusableListTypes';
 
 const DEFAULT_ITEM_HEIGHT = 72;
@@ -79,7 +80,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const {
     visualColumns: columns, itemHeight = DEFAULT_ITEM_HEIGHT, itemLabel = 'Row', crudListTitle, testID = 'reusable-list', selectionEnabled = true, searchEnabled = true,
     contextMenuEnabled = true, reorderEnabled = true, addEnabled = true, readOnly = false, deleteEnabled = true, onAdd, onRowOpen, openLabel, EditRowModalCard, extraMenuItems,
-    emptyText, focusRowGUID, onSelectionChange, toolbarExtra, uxuiList, endReachedThreshold = 1.5, entityName,
+    emptyText, focusRowGUID, onSelectionChange, toolbarExtra, uxuiList, endReachedThreshold = 1.5, reusableListWidth, entityName,
   } = props;
   const server = source.mode === 'serverDataMode';
   const dispatch = useDispatch();
@@ -247,7 +248,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const shownCount = server && source.total !== null && source.total !== view.length ? `${view.length} of ${source.total}` : String(view.length);
 
   return (
-    <View testID={testID} style={styles.root}>
+    <View testID={testID} style={[styles.root, reusableListWidthStyle(reusableListWidth)]}>
       <ReusableListBar
         testID={testID} colors={colors} title={crudListTitle} mode={source.mode} search={q.search} onSearch={q.setSearch} searchEnabled={searchEnabled}
         sortLabel={sortCol ? `${sortCol.title} ${q.sort!.direction === 'asc' ? '▲' : '▼'}` : ''} filterCount={filterCount}

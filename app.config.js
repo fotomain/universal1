@@ -86,8 +86,7 @@ const GRADLE_PROPERTIES = {
   'org.gradle.jvmargs': '-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC',
   'org.gradle.caching': 'true',
   'kotlin.daemon.jvm.options': '-Xmx2g',
-  // AGP 9 (RN 0.88) no longer generates BuildConfig for libraries by default: @nozbe/watermelondb uses BuildConfig.DEBUG ("cannot find symbol BuildConfig")
-  'android.defaults.buildfeatures.buildconfig': 'true',
+  // (no 'android.defaults.buildfeatures.buildconfig' here: AGP 9 REFUSES that option; BuildConfig of @nozbe/watermelondb comes from patches/@nozbe+watermelondb+0.28.0.patch)
 };
 const withFastGradle = (config) =>
   withGradleProperties(config, (cfg) => {
@@ -271,9 +270,11 @@ const withGradleUrlAssignment = (config) =>
 // 9.6.0 = 2.3.21, 9.7.0 = 2.4.0 ... 9.9.0 = 2.4.21. So 9.6.1 is the NEWEST that builds; 9.9.2 (newest stable 2026-11-23) failed with 'Module was compiled
 // with an incompatible version of Kotlin. The binary version of its metadata is 2.4.0, expected version is 2.2.0'. (SDK 57 / RN 0.86: Kotlin 2.1.20 -> 9.3.1.)
 const GRADLE_VERSION = '9.6.1';
-const { withDangerousMod } = require('expo/config-plugins');
+// withFinalizedMod runs LAST: a dangerous mod runs before the template files are written, so on a fresh android/ (rm -rf android) the wrapper file did not exist yet
+// and the pin was skipped (the build then failed with 'Minimum supported Gradle version is 9.4.1. Current version is 9.3.1').
+const { withFinalizedMod } = require('expo/config-plugins');
 const withGradleVersion = (config) =>
-  withDangerousMod(config, [
+  withFinalizedMod(config, [
     'android',
     async (cfg) => {
       const fs = require('fs');

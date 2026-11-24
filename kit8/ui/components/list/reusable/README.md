@@ -26,6 +26,8 @@
 
 serverDataMode reads `SystemMetaData[entityName].tableName` through the Supabase client with the user's session (RLS decides what is read). **No SQL is needed**: it uses the existing table. A register with 500k+ rows should get its own view / RPC later (the plan, W11).
 
+**Width** (`reusableListWidth`, px): not set = the list is as wide as its parent but **at most 960 px** (centred when the parent is wider); set = exactly that width, never wider than the parent, also centred. A wrong value (0, negative, NaN) counts as not set. Rule in `reusableListWidth.ts` (`reusableListWidthStyle`), test `__tests__/ui/list/reusableListWidth.test.ts`.
+
 Web scroll limit: a browser scroll element cannot be taller than 33 554 428 px (Chrome / Edge) or 17 895 697 px (Firefox). 500 000 rows x 72 px = 36 000 000 px: the last ~34 000 rows cannot be reached (measured in Chrome 156). `webRowLimit(itemHeight)` = 236 111 rows at 72 px; above it the list shows a warning - use `serverDataMode` or a filter.
 
 ## Drag reorder (phone and web)

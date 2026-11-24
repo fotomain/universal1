@@ -62,6 +62,8 @@ export interface ReusableListProps extends FromTable {
   /** another look of an item (default: built from the columns, see listRole) */
   renderItem?: (row: ReusableTableRow, state: ReusableListItemState) => ReactNode;
   uxuiList?: ReusableListUx;
+  /** width of the list in px (it never gets wider than its parent). Not set = as wide as the parent but at most 960 px; the list is centred when narrower */
+  reusableListWidth?: number;
   /** px under which the list asks for the next page / the end of the list (FlashList onEndReachedThreshold, default 1.5 screens) */
   endReachedThreshold?: number;
 }
