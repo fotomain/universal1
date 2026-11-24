@@ -26,8 +26,8 @@ describe('reminder wiring', () => {
     expect(cfg).toContain('android.permission.POST_NOTIFICATIONS');
   });
 
-  it('expo-notifications is installed for SDK 57', () => {
-    expect(JSON.parse(read('package.json')).dependencies['expo-notifications']).toMatch(/57/);
+  it('expo-notifications is installed for SDK 58', () => {
+    expect(JSON.parse(read('package.json')).dependencies['expo-notifications']).toMatch(/58/);
   });
 
   it('the web service worker is served from the site root and handles the click', () => {

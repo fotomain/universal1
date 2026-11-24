@@ -80,13 +80,18 @@ jest.mock('../kit8/providers/WithDesignSystem', () => ({
     useDesignSystem: () => mockDesignSystem,
 }));
 
-import React from 'react';
-import renderer, { act } from 'react-test-renderer';
-import { AskBeforeDeleteGoogleFile } from '../apps/appClothes1/AskBeforeDeleteGoogleFile';
+// Expo SDK 58 (jest-expo 58): its setup already loads `react-native` (= react-native-web) with the REAL Modal before this file's jest.mock calls
+// are registered: forget those modules, so the component below gets the mocked Modal.
+import type { ReactTestRenderer } from 'react-test-renderer';
+jest.resetModules();
+const React = require('react') as typeof import('react');
+const renderer = require('react-test-renderer') as typeof import('react-test-renderer');
+const { act } = renderer;
+const { AskBeforeDeleteGoogleFile } = require('../apps/appClothes1/AskBeforeDeleteGoogleFile') as typeof import('../apps/appClothes1/AskBeforeDeleteGoogleFile');
 
 describe('AskBeforeDeleteGoogleFile Modal Component', () => {
     it('returns null when visible is false', () => {
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -104,7 +109,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
     });
 
     it('renders "Clear all files?" and folder name when folderTitle is provided (Clear All mode)', () => {
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -135,7 +140,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
             mimeType: 'image/png',
         };
 
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -158,7 +163,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
 
     it('triggers onConfirm when confirm button is pressed', () => {
         const onConfirmMock = jest.fn();
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -182,7 +187,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
 
     it('triggers onDismiss when cancel button or backdrop is pressed', () => {
         const onDismissMock = jest.fn();
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -210,7 +215,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
     });
 
     it('shows progress bar and status text during active deletion (isDeleting = true)', () => {
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile
@@ -234,7 +239,7 @@ describe('AskBeforeDeleteGoogleFile Modal Component', () => {
     });
 
     it('shows completion state when deletion reaches 100%', () => {
-        let tree: renderer.ReactTestRenderer;
+        let tree: ReactTestRenderer;
         act(() => {
             tree = renderer.create(
                 <AskBeforeDeleteGoogleFile

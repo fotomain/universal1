@@ -128,7 +128,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
 
   // ---- reorder: the controller works on fixed item heights ----
   const listRef = useRef<any>(null);
-  const containerRef = useRef<View>(null);
+  const containerRef = useRef<React.ComponentRef<typeof View>>(null);
   const [dragging, setDragging] = useState<{ from: number; target: number; guid: string } | null>(null);
   const ghostY = useRef(new Animated.Value(0)).current;
   const lineY = useRef(new Animated.Value(0)).current;

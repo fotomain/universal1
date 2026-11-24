@@ -86,6 +86,8 @@ const GRADLE_PROPERTIES = {
   'org.gradle.jvmargs': '-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC',
   'org.gradle.caching': 'true',
   'kotlin.daemon.jvm.options': '-Xmx2g',
+  // AGP 9 (RN 0.88) no longer generates BuildConfig for libraries by default: @nozbe/watermelondb uses BuildConfig.DEBUG ("cannot find symbol BuildConfig")
+  'android.defaults.buildfeatures.buildconfig': 'true',
 };
 const withFastGradle = (config) =>
   withGradleProperties(config, (cfg) => {
@@ -264,4 +266,25 @@ const withGradleUrlAssignment = (config) =>
     return cfg;
   });
 
-module.exports = { expo: withGradleUrlAssignment(withFastGradle(expoConfig.expo)) };
+// Gradle version of the wrapper (prebuild --clean would bring the template's back). Expo SDK 58 / React Native 0.88: its gradle plugin is compiled
+// by Kotlin 2.2.0, which reads class metadata up to 2.3; a Gradle embeds a Kotlin (docs.gradle.org compatibility page): 9.4.0 = 2.3.0, 9.5.0 = 2.3.20,
+// 9.6.0 = 2.3.21, 9.7.0 = 2.4.0 ... 9.9.0 = 2.4.21. So 9.6.1 is the NEWEST that builds; 9.9.2 (newest stable 2026-11-23) failed with 'Module was compiled
+// with an incompatible version of Kotlin. The binary version of its metadata is 2.4.0, expected version is 2.2.0'. (SDK 57 / RN 0.86: Kotlin 2.1.20 -> 9.3.1.)
+const GRADLE_VERSION = '9.6.1';
+const { withDangerousMod } = require('expo/config-plugins');
+const withGradleVersion = (config) =>
+  withDangerousMod(config, [
+    'android',
+    async (cfg) => {
+      const fs = require('fs');
+      const path = require('path');
+      const file = path.join(cfg.modRequest.platformProjectRoot, 'gradle', 'wrapper', 'gradle-wrapper.properties');
+      if (fs.existsSync(file)) {
+        const text = fs.readFileSync(file, 'utf8');
+        fs.writeFileSync(file, text.replace(/gradle-[0-9.]+-bin\.zip/, `gradle-${GRADLE_VERSION}-bin.zip`));
+      }
+      return cfg;
+    },
+  ]);
+
+module.exports = { expo: withGradleVersion(withGradleUrlAssignment(withFastGradle(expoConfig.expo))) };
