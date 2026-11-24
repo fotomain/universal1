@@ -23,8 +23,7 @@ git push origin main1:main --force
 ## ███ RUN
 npm run web
 npx expo start --web
-
-
+npx expo start --web -c
 
 [Documents](../../Documents)
 # CLEAR

@@ -8,12 +8,9 @@ import { Card, Text, useTheme } from 'react-native-paper';
 import { useCameraPermission } from 'react-native-vision-camera';
 import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../common';
 import { useDrawerSettled } from './useDrawerSettled';
+import type { CameraPermissionGateProps } from './cameraPermissionGateTypes';
 
-export interface CameraPermissionGateProps {
-  /** what the camera is for, one short sentence ('to photograph the zone of the document') */
-  reason: string;
-  children: React.ReactNode;
-}
+export type { CameraPermissionGateProps };
 
 export default function CameraPermissionGate({ reason, children }: CameraPermissionGateProps) {
   const theme = useTheme();

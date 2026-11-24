@@ -106,16 +106,6 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'record-photo', label: t('drawer.photo'), icon: 'photo_camera', route: 'media/record/photo' },
       ],
     },
-    {
-      id: 'play',
-      label: t('drawer.play'),
-      icon: 'play_circle',
-      route: '',
-      children: [
-        { id: 'play-audio', label: t('drawer.audio'), icon: 'headphones', route: 'media/play/audio' },
-        { id: 'play-video', label: t('drawer.video'), icon: 'movie', route: 'media/play/video' },
-      ],
-    },
     // scan with the camera (QR code, barcode) or with the NFC reader (kit8/ui/components/media/scan, .../nfc): open to guests too
     {
       id: 'scan',
@@ -127,6 +117,16 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
         { id: 'scan-nfc', label: t('drawer.nfc'), icon: 'nfc', route: 'media/nfc' },
         // ID card or passport: photo of the zone -> text recognised on the phone -> NFC scan (kit8/ui/components/media/nfc/identification; the chip reader = nfc/iddocread)
         { id: 'scan-identification', label: t('drawer.identification'), icon: 'badge', route: 'media/nfc/identification' },
+      ],
+    },
+    {
+      id: 'play',
+      label: t('drawer.play'),
+      icon: 'play_circle',
+      route: '',
+      children: [
+        { id: 'play-audio', label: t('drawer.audio'), icon: 'headphones', route: 'media/play/audio' },
+        { id: 'play-video', label: t('drawer.video'), icon: 'movie', route: 'media/play/video' },
       ],
     },
     // the chat (kit8/chat): the themes of the user and the chats of the tasks he works on; the red number of the new messages is in the application bar

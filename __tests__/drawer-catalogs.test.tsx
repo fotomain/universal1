@@ -221,12 +221,12 @@ it('opens by itself on a catalog page (list or edit)', () => {
 });
 
 
-it('Record (Audio, Video, Photo), Play (Audio, Video) and Scan (QR / Barcode, NFC) are closed accordions that open the media screens', () => {
+it('Record (Audio, Video, Photo), Scan (QR / Barcode, NFC) and Play (Audio, Video) are closed accordions that open the media screens', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
   expect(ids.indexOf('drawer-item-record')).toBe(ids.indexOf('drawer-item-posts') + 1);
-  expect(ids.indexOf('drawer-item-play')).toBe(ids.indexOf('drawer-item-record') + 1);
-  expect(ids.indexOf('drawer-item-scan')).toBe(ids.indexOf('drawer-item-play') + 1);
+  expect(ids.indexOf('drawer-item-scan')).toBe(ids.indexOf('drawer-item-record') + 1);
+  expect(ids.indexOf('drawer-item-play')).toBe(ids.indexOf('drawer-item-scan') + 1);
   expect(q('drawer-subitem-record-audio')).toBeNull(); // closed
   expect(q('drawer-subitem-play-audio')).toBeNull();
 
@@ -320,10 +320,10 @@ it('the pinned part (HamburgerMenuUnmovable) holds the user profile row, setting
   expect(mockNavigate).toHaveBeenCalledWith('/catalog/money/account');
 });
 
-it('Chat (after Scan, before Catalogs) navigates to /chat', () => {
+it('Chat (after Play, before Catalogs) navigates to /chat', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  expect(ids.indexOf('drawer-item-chat')).toBe(ids.indexOf('drawer-item-scan') + 1);
+  expect(ids.indexOf('drawer-item-chat')).toBe(ids.indexOf('drawer-item-play') + 1);
   expect(ids.indexOf('drawer-item-catalogs')).toBe(ids.indexOf('drawer-item-chat') + 1);
   press('drawer-item-chat');
   expect(mockNavigate).toHaveBeenCalledWith(expect.stringMatching(/chat$/));
