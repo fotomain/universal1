@@ -151,9 +151,11 @@ export interface IdCardReaderProps {
   embedded?: boolean;
   /** the ScrollView that holds this reader when it is embedded: the screen scrolls it to the Create media post button when the reading is done */
   scrollRef?: React.RefObject<any>;
+  /** the reading starts BY ITSELF when the screen opens: it waits for the document, and starts when the document is held (the button stays for a new reading) */
+  autoStart?: boolean;
 }
 
-export default function IdCardReader({ initialForm, embedded, scrollRef }: IdCardReaderProps = {}) {
+export default function IdCardReader({ initialForm, embedded, scrollRef, autoStart }: IdCardReaderProps = {}) {
   const theme = useTheme();
   const reader = useIdReader();
   const [form, setForm] = useState<IdForm>({ ...EMPTY_FORM, ...initialForm });
@@ -174,6 +176,16 @@ export default function IdCardReader({ initialForm, embedded, scrollRef }: IdCar
     const timer = setTimeout(() => scrollNodeIntoView(offerRef.current, (embedded ? scrollRef?.current : ownScroll.current) ?? null), 300);
     return () => clearTimeout(timer);
   }, [finished, embedded, scrollRef]);
+
+  // autoStart: the reading begins when the screen gets focus (it waits for the document, the first hold starts it)
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  useFocusEffect(
+    useCallback(() => {
+      if (autoStart && supported && optionsRef.current) void reader.read(optionsRef.current);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [autoStart, supported]),
+  );
 
   // the card touching the phone here must not open the NFC screen (background tag)
   useFocusEffect(useCallback(() => suppressBackgroundNfc(), []));
@@ -197,7 +209,7 @@ export default function IdCardReader({ initialForm, embedded, scrollRef }: IdCar
       <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={3} testID="id-reader">
         <Card.Content style={styles.content}>
           {/* the FIRST control of the screen: one press, no input */}
-          <ReadFromDocumentButton onPress={() => options && reader.read(options)} busy={busy} disabled={!supported || !options} withPassword={!!(options?.can || options?.mrz)} />
+          <ReadFromDocumentButton onPress={() => options && reader.read(options)} busy={busy} disabled={!supported || !options} withPassword={!!(options?.can || options?.mrz)} auto={autoStart} />
           {!supported && <Text variant="bodyMedium" style={{ color: theme.colors.error }} testID="id-unsupported">A browser cannot read an ID card or passport over NFC. Use the phone app.</Text>}
           <View style={styles.buttons}>
             <ButtonSecondaryApp icon="delete" onPress={clearAll} testID="id-clear">

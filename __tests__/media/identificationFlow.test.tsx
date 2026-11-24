@@ -60,6 +60,7 @@ jest.mock('../../kit8/ui/components/media/nfc/identification/ocrEngine', () => (
 }));
 (globalThis as any).__sim = { card: null, fail: '', closed: 0 };
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({
+  cancelIsoDepWait: async () => undefined,
   isoDepSupported: () => true,
   openIsoDep: async () => { const m = (globalThis as any).__sim; return { transceive: m.card.transceive, close: async () => { m.closed += 1; } }; },
 }));
@@ -541,4 +542,43 @@ it('the info texts of the confirm step are one line with "more..." that opens th
     expect(q('ident-source')).toBeNull();
     expect(q('ident-info-more')).not.toBeNull();
   }
+});
+
+it('the page goes back to the top when the flow starts and at every step (a scroll left by the ID reader must not hide the wiped flow)', async () => {
+  render(<IdentificationFlow />);
+  await flush();
+  const page: any = q('identification')!;
+  page.scrollTop = 900; // the ID reader had scrolled down to the "Create media post" button
+  press('ident-choose-id');
+  expect(page.scrollTop).toBe(0);
+});
+
+it('the Continue button is the FIRST button, right after the input fields, before "Ask Google AI"', async () => {
+  const order = () => { const h = q('ident-step-confirm')!.innerHTML; return [h.indexOf('ident-continue'), h.indexOf('ident-ask-ai"'), h.indexOf('ident-can')]; };
+  render(<IdentificationFlow />);
+  await flush();
+  press('ident-choose-id');
+  await pressAsync('ident-take');
+  await until('ident-step-confirm');
+  expect(text('ident-confidence')).toContain('All check digits');
+  const [cont, ask, can] = order();
+  expect(cont).toBeGreaterThan(can); // right after the input fields
+  expect(ask).toBeGreaterThan(-1);
+  expect(cont).toBeGreaterThan(-1);
+  expect(cont).toBeLessThan(ask);
+});
+
+it('the scan step reads BY ITSELF (nothing pressed); the button stays on the screen for a new reading', async () => {
+  render(<IdentificationFlow />);
+  await flush();
+  press('ident-choose-id');
+  await pressAsync('ident-take');
+  await until('ident-step-confirm');
+  press('ident-continue');
+  expect(text('ident-progress')).toContain('Step 4 of 4');
+  await until('id-document'); // no press of "Read from document"
+  expect(text('id-surname')).toContain('ZVEJNIEKS');
+  expect(q('id-read-from-document')).not.toBeNull();
+  expect((q('id-read-from-document') as HTMLButtonElement).getAttribute('aria-disabled')).not.toBe('true'); // a finished reading: the button reads again
+  expect(text('id-read-step-1')).toContain('starts by itself');
 });

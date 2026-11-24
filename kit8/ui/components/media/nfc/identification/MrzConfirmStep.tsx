@@ -44,6 +44,8 @@ export default function MrzConfirmStep({ recognition, onContinue, onRetake, onBa
   const aiTextFailure = (recognition?.notes ?? []).find((n) => n.startsWith('Google AI (text):'));
   // always visible while there is recognised text (a device or a text-AI recognition): to ask again after a failure, or to check a zone that passed
   const canAsk = !!onAskAi && !!recognition && (recognition.source === 'device' || recognition.source === 'ai-text') && lines.length > 0;
+  // ALWAYS the first button, right after the input fields (before the printed data and "Ask Google AI"); disabled while the values are not complete
+  const continueButton = <ButtonPrimaryApp icon="nfc" onPress={() => onContinue(v)} disabled={!valid} testID="ident-continue">Continue to the scan</ButtonPrimaryApp>;
   return (
     <Card style={[styles.card, { backgroundColor: theme.colors.surface }]} elevation={3} testID="ident-step-confirm">
       <Card.Content style={styles.content}>
@@ -80,6 +82,7 @@ export default function MrzConfirmStep({ recognition, onContinue, onRetake, onBa
         <TextInputApp label={`Date of birth (DD.MM.YYYY)${mark(m?.birthDate.valid, v.birthDate !== initial.birthDate)}`} value={v.birthDate} onChangeText={(t: string) => setV({ ...v, birthDate: t })} testID="ident-birth" />
         <TextInputApp label={`Date of expiry (DD.MM.YYYY)${mark(m?.expiryDate.valid, v.expiryDate !== initial.expiryDate)}`} value={v.expiryDate} onChangeText={(t: string) => setV({ ...v, expiryDate: t })} testID="ident-expiry" />
         <TextInputApp label="CAN (6 digits on the front of some ID cards, optional)" value={v.can} onChangeText={(t: string) => setV({ ...v, can: t.replace(/[^\d]/g, '').slice(0, 8) })} keyboardType="numeric" testID="ident-can" />
+        {continueButton}
         {recognition?.printed && (
           <View testID="ident-printed">
             <Text variant="labelMedium" style={{ color: theme.colors.onSurfaceVariant }}>Printed on the document (not verified by the chip)</Text>
@@ -96,7 +99,6 @@ export default function MrzConfirmStep({ recognition, onContinue, onRetake, onBa
         )}
         {!!lines.length && <ButtonSecondaryApp onPress={() => setShowLines((s) => !s)} testID="ident-lines-toggle">{showLines ? 'Hide' : 'Show'} recognised text</ButtonSecondaryApp>}
         {showLines && lines.map((l, i) => <Text key={i} variant="bodySmall" style={styles.mono} testID={`ident-line-${i}`}>{l}</Text>)}
-        <ButtonPrimaryApp icon="nfc" onPress={() => onContinue(v)} disabled={!valid} testID="ident-continue">Continue to the scan</ButtonPrimaryApp>
         <View style={styles.row}>
           <ButtonSecondaryApp icon="photo_camera" onPress={onRetake} testID="ident-retake">Retake photo</ButtonSecondaryApp>
           <ButtonSecondaryApp onPress={onBack} testID="ident-confirm-back">Back</ButtonSecondaryApp>

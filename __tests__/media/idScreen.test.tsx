@@ -6,6 +6,7 @@ import { buildFiles, SimCard, TEST_ACCESS, TEST_CAN, TEST_MRZ_LINES } from './id
 
 const mockSim: { card: SimCard | null; fail: string; closed: number } = { card: null, fail: '', closed: 0 };
 jest.mock('../../kit8/ui/components/media/nfc/iddocread/idTransport', () => ({
+  cancelIsoDepWait: async () => undefined,
   isoDepSupported: () => !(globalThis as any).__noIso,
   openIsoDep: async () => {
     const m = (globalThis as any).__sim;

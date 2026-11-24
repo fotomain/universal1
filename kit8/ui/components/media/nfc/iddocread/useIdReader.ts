@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { IdDocument, NeedsPasswordError, ProbeOnlyError, ReadOptions, readEmrtd, StepLog } from './emrtd';
 import type { ProbeResult } from './probe';
-import { openIsoDep } from './idTransport';
+import { cancelIsoDepWait, openIsoDep } from './idTransport';
 
 /** needs-password = a locked travel document (the probe is shown, the password asked); info = the card is not a travel document (the probe is shown) */
 export type IdReaderState = 'idle' | 'reading' | 'done' | 'needs-password' | 'info' | 'error';
@@ -44,8 +44,12 @@ export function useIdReader(): UseIdReader {
     };
   }, []);
 
+  const reading = useRef(false);
+
   const clear = useCallback(() => {
     runId.current += 1;
+    // a reading that waits for the document (or runs) is stopped, else its request stays open and blocks the next one
+    if (reading.current) void cancelIsoDepWait();
     setState('idle');
     setSteps([]);
     setDocument(null);
@@ -55,6 +59,7 @@ export function useIdReader(): UseIdReader {
 
   const read = useCallback(async (options: Omit<ReadOptions, 'onStep'>) => {
     const mine = ++runId.current;
+    reading.current = true;
     setState('reading');
     setSteps([]);
     setDocument(null);
@@ -88,6 +93,7 @@ export function useIdReader(): UseIdReader {
       setError(friendlyIdError(e));
       setState('error');
     } finally {
+      if (mine === runId.current) reading.current = false;
       await transport?.close();
     }
   }, []);

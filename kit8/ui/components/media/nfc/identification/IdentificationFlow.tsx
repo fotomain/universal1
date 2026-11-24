@@ -40,14 +40,27 @@ export default function IdentificationFlow() {
   // the ID card touching the phone anywhere in this flow must not open the NFC screen (background tag)
   useFocusEffect(useCallback(() => suppressBackgroundNfc(), []));
 
-  // leaving the screen wipes everything
+  // the page starts at the top: the screen stays mounted in the Drawer, and after a reading the ID reader had scrolled it down to the "Create media post" button;
+  // the wiped flow is short again, but the old scroll position stayed -> an EMPTY screen (seen on Android, 2026-11-23)
+  const scrollToTop = useCallback(() => scrollRef.current?.scrollTo?.({ y: 0, animated: false }), []);
+
+  // leaving the screen wipes everything; coming back starts at the top
   useFocusEffect(
-    useCallback(() => () => {
-      setStep('type');
-      setRecognition(null);
-      setValues(null);
-    }, []),
+    useCallback(() => {
+      scrollToTop();
+      return () => {
+        setStep('type');
+        setRecognition(null);
+        setValues(null);
+        scrollToTop();
+      };
+    }, [scrollToTop]),
   );
+
+  // every step starts at the top (the scan step scrolls by itself once the reading is finished)
+  useEffect(() => {
+    scrollToTop();
+  }, [step, scrollToTop]);
 
   /** the confirm step's button: Google AI extracts the values from the text this phone recognised */
   const askAi = async () => {
@@ -97,6 +110,7 @@ export default function IdentificationFlow() {
           </Pressable>
           <IdCardReader
             embedded
+            autoStart
             scrollRef={scrollRef}
             initialForm={{ documentNumber: values.documentNumber, birthDate: values.birthDate, expiryDate: values.expiryDate, can: values.can, country: values.country ? normalizeStateCode(values.country) : '' }}
           />
