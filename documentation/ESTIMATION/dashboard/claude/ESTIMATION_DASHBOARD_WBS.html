@@ -1,0 +1,549 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EstimationDashboard - WBS</title>
+<style>
+/* Tamagui light theme tokens + report palette (reference: CAPSTONE_REPORT.html, ONTREND report requirements). Works offline, no external files. */
+:root{
+  --bg-base:#fbfbfc; --bg-surface:#ffffff; --bg-subtle:#f8fafc; --bg-muted:#f1f5f9;
+  --border-subtle:rgba(0,0,0,.08); --border-medium:rgba(0,0,0,.15);
+  --text-primary:#0f172a; --text-secondary:#475569; --text-muted:#64748b; --text-headings:#09090b;
+  --gold:#f59e0b; --amber:#d97706; --gold-dark:#b45309; --blue:#0284c7; --purple:#7c3aed; --green:#10b981; --red:#e11d48; --orange:#ea580c;
+  --r-sm:8px; --r-md:14px; --r-lg:20px; --r-full:9999px;
+  --shadow-sm:0 1px 3px rgba(0,0,0,.05),0 1px 2px rgba(0,0,0,.03); --shadow-md:0 4px 16px -2px rgba(0,0,0,.06),0 2px 6px -1px rgba(0,0,0,.03);
+  --shadow-glow:0 0 35px -5px rgba(245,158,11,.12);
+  --font:'Plus Jakarta Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; --mono:ui-monospace,'JetBrains Mono',Menlo,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;min-width:350px}
+body{font-family:var(--font);background:var(--bg-base);color:var(--text-primary);line-height:1.6;-webkit-font-smoothing:antialiased;padding-bottom:70px;overflow-x:hidden}
+body::before{content:'';position:fixed;top:-12vw;left:-8vw;width:50vw;height:50vw;border-radius:50%;background:radial-gradient(circle,rgba(245,158,11,.08) 0%,rgba(251,191,36,.02) 45%,transparent 70%);filter:blur(80px);pointer-events:none;z-index:0}
+body::after{content:'';position:fixed;bottom:-15vw;right:-10vw;width:55vw;height:55vw;border-radius:50%;background:radial-gradient(circle,rgba(14,165,233,.06) 0%,rgba(124,58,237,.03) 50%,transparent 75%);filter:blur(90px);pointer-events:none;z-index:0}
+.container{max-width:1240px;margin:0 auto;padding:clamp(14px,2.5vw,30px) clamp(10px,2.5vw,24px);position:relative;z-index:1}
+/* sticky quick nav: stays on top while the page scrolls, the button of the section in view is lit again */
+.sticky-nav{position:sticky;top:8px;z-index:100;background:rgba(255,255,255,.93);backdrop-filter:blur(16px);border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:6px 10px;margin-bottom:20px;box-shadow:var(--shadow-md);display:flex;gap:6px;overflow-x:auto;align-items:center;scrollbar-width:none}
+.sticky-nav::-webkit-scrollbar{display:none}
+.nav-link{text-decoration:none;background:#fff;border:1px solid var(--border-subtle);color:var(--text-secondary);font-size:12px;font-weight:600;padding:6px 14px;border-radius:var(--r-full);white-space:nowrap;transition:all .22s cubic-bezier(.34,1.56,.64,1);box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.nav-link:hover{color:#b45309;background:#fffbeb;border-color:rgba(245,158,11,.4);transform:translateY(-1px)}
+.nav-link.active{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;border-color:transparent;box-shadow:0 4px 14px rgba(245,158,11,.4);transform:translateY(-1px) scale(1.02)}
+.hero{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--r-lg);padding:clamp(18px,4vw,36px) clamp(14px,4vw,40px);margin-bottom:22px;box-shadow:var(--shadow-md),var(--shadow-glow)}
+.hero h1{font-size:clamp(22px,4.5vw,34px);font-weight:800;letter-spacing:-.6px;color:var(--text-headings);line-height:1.2;margin-bottom:10px}
+.hero p.lead{font-size:clamp(14px,2.5vw,16.5px);color:var(--text-secondary);max-width:960px}
+.badges{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:var(--r-full);font-size:11.5px;font-weight:700;letter-spacing:.2px;text-transform:uppercase;white-space:nowrap}
+.b-gold{background:rgba(245,158,11,.12);color:#b45309;border:1px solid rgba(245,158,11,.28)}
+.b-blue{background:rgba(2,132,199,.10);color:#0369a1;border:1px solid rgba(2,132,199,.25)}
+.b-green{background:rgba(16,185,129,.12);color:#047857;border:1px solid rgba(16,185,129,.28)}
+.b-purple{background:rgba(124,58,237,.10);color:#6d28d9;border:1px solid rgba(124,58,237,.25)}
+.b-red{background:rgba(225,29,72,.09);color:#be123c;border:1px solid rgba(225,29,72,.25)}
+.b-grey{background:#f1f5f9;color:#475569;border:1px solid #e2e8f0}
+section.plane{margin-bottom:38px;scroll-margin-top:72px}
+.sec-head{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding-bottom:8px;border-bottom:2px solid var(--border-subtle);flex-wrap:wrap}
+.sec-head h2{font-size:clamp(18px,3.5vw,23px);font-weight:800;letter-spacing:-.4px;color:var(--text-headings)}
+.num{background:linear-gradient(135deg,#f59e0b,#ea580c);color:#fff;font-size:12px;font-weight:700;padding:3px 9px;border-radius:var(--r-full);box-shadow:0 2px 6px rgba(245,158,11,.3)}
+h3{font-size:16px;margin:18px 0 8px;color:var(--text-headings)}
+p{margin:8px 0;color:var(--text-secondary)} ul,ol{margin:8px 0 8px 22px;color:var(--text-secondary)} li{margin:3px 0}
+code,.mono{font-family:var(--mono);font-size:12.5px;background:var(--bg-muted);padding:1px 6px;border-radius:6px;overflow-wrap:anywhere}
+.card{background:var(--bg-surface);border:1px solid var(--border-subtle);border-radius:var(--r-md);box-shadow:var(--shadow-sm);padding:16px 18px;margin:12px 0}
+.grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(280px,1fr))}
+.note{border-left:4px solid var(--gold);background:#fffbeb;padding:10px 14px;border-radius:0 var(--r-sm) var(--r-sm) 0;margin:12px 0;color:#78350f;font-size:14px}
+.note.blue{border-color:var(--blue);background:#f0f9ff;color:#075985}
+.note.red{border-color:var(--red);background:#fff1f2;color:#9f1239}
+.note.green{border-color:var(--green);background:#ecfdf5;color:#065f46}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--border-subtle);border-radius:var(--r-md);background:#fff;box-shadow:var(--shadow-sm);margin:10px 0}
+.tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;padding:8px 10px;border-bottom:1px solid var(--border-subtle);background:var(--bg-subtle)}
+.tools input,.tools select{font:inherit;font-size:13px;padding:5px 10px;border:1px solid var(--border-medium);border-radius:var(--r-full);background:#fff;min-width:160px}
+.tools .cnt{margin-left:auto;font-size:12px;color:var(--text-muted)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--bg-muted);text-align:left;padding:8px 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.3px;color:#334155;cursor:pointer;white-space:nowrap;user-select:none;position:sticky;top:0}
+th.sorted-asc::after{content:' ▲';color:var(--amber)} th.sorted-desc::after{content:' ▼';color:var(--amber)}
+td{padding:7px 10px;border-top:1px solid #eef2f6;vertical-align:top;color:var(--text-primary)}
+tr:hover td{background:#fffbeb}
+td.r,th.r{text-align:right;font-variant-numeric:tabular-nums}
+tr.total td{background:#fef3c7;font-weight:700}
+.gallery{display:grid;gap:16px;grid-template-columns:repeat(auto-fit,minmax(440px,1fr))}
+.shot{background:#fff;border:1px solid var(--border-subtle);border-radius:var(--r-md);box-shadow:var(--shadow-md);overflow:hidden}
+.shot img{width:100%;display:block;border-bottom:1px solid var(--border-subtle);cursor:zoom-in}
+.shot figcaption{padding:10px 14px;font-size:13px;color:var(--text-secondary)} .shot figcaption b{color:var(--text-headings)}
+#lightbox{position:fixed;inset:0;background:rgba(15,23,42,.82);display:none;align-items:center;justify-content:center;z-index:500;padding:20px;cursor:zoom-out}
+#lightbox img{max-width:100%;max-height:100%;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+svg text{font-family:var(--font)}
+.kpi{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));margin:12px 0}
+.kpi div{background:#fff;border:1px solid var(--border-subtle);border-radius:var(--r-md);padding:12px 14px;box-shadow:var(--shadow-sm)}
+.kpi b{display:block;font-size:22px;color:var(--gold-dark);font-variant-numeric:tabular-nums} .kpi span{font-size:12px;color:var(--text-muted)}
+details{margin:8px 0} summary{cursor:pointer;font-weight:700;color:var(--gold-dark)}
+@media (max-width:600px){.gallery{grid-template-columns:1fr}}
+@media print{.sticky-nav{display:none}body::before,body::after{display:none}}
+</style>
+</head>
+<body>
+<div class="container">
+
+<nav class="sticky-nav" id="nav"></nav>
+
+<header class="hero">
+  <div class="badges"><span class="badge b-gold">W1 Estimation</span><span class="badge b-blue">Plan - no application code</span><span class="badge b-grey">2026-11-24</span><span class="badge b-purple">Prepared by Claude</span></div>
+  <h1 style="margin-top:12px">EstimationDashboard.tsx - work breakdown, design and prototypes</h1>
+  <p class="lead">One dashboard to <b>input, edit and save</b> a construction estimate, and to <b>export it as Excel and PDF in the forms of Order 421/pr</b> (Methodology for determining the estimated cost of construction). It sits on the existing estimation link (project1 &rarr; project2), the task tree, the task lines and the current catalogs. No deep control logic: the dashboard calculates and shows, it does not block the estimator.</p>
+  <div class="kpi" id="kpi"></div>
+</header>
+
+<!-- 1 -->
+<section class="plane" id="s-request"><div class="sec-head"><span class="num">1</span><h2>Request and answer</h2></div>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>You asked</th><th>Answer in this document</th></tr></thead>
+    <tbody>
+      <tr><td>Advanced <b>EstimationDashboard.tsx</b> that inputs and saves estimations; no deep controlling</td><td>Section 7 (screens), section 9 (data), section 12 (work items E1 - E23). The file name in the request is <code>EstimationDasboard.tsx</code>; the plan uses <code>EstimationDashboard.tsx</code> (spelling corrected, say if you want the typo kept).</td></tr>
+      <tr><td>This file as <code>.../dashboard/claude/ESTIMATION_DASHBOARD_WBS.html</code>, report rules of the ONTREND requirements</td><td>This page: HTML, works offline, 3 diagrams / charts, 1 sample of input and 1 of output (section 8), Tamagui light style with the palette of the reference report, a menu that stays on top and lights the section in view, sortable and filterable tables.</td></tr>
+      <tr><td>Visual JPG prototypes, react-native-paper</td><td>Six JPG files in <code>prototypes/</code>, drawn with react-native-paper + react-native-web (section 7). The source of the prototypes and the build script are next to them.</td></tr>
+      <tr><td>Edit and export by the standard of <i>Смета-Гост-Приказ-Estimation.pdf</i>; Excel and PDF</td><td>The PDF is Order 421/pr (221 pages, edition of 30.01.2026). Section 4 = what the standard requires, section 10 = how Excel and PDF are made.</td></tr>
+      <tr><td>Use existing functionality: task tree; catalogs (management genus, budget items, products, business units if needed)</td><td>Section 6: every object of the standard is mapped to an object that already exists. Nothing in the task tree or the catalogs is rebuilt.</td></tr>
+      <tr><td>Analyze the 4 videos</td><td>Section 5. <b>Limit:</b> YouTube would not give the spoken text (captions blocked). The analysis uses titles, descriptions and chapter lists - see the red note there.</td></tr>
+      <tr><td>Python program to download the templates of exayard.com, download, analyze</td><td><code>download_estimation_templates.py</code> was written and run: 22 files from 4 vendors downloaded and analyzed, 8 vendors give files only after a form (section 5.2).</td></tr>
+      <tr><td>Professional English for builders; SQL tables prefix <code>estimation_</code> if needed</td><td>Used throughout. New tables are listed in section 9; all start with <code>estimation_</code>.</td></tr>
+    </tbody></table></div>
+</section>
+
+<!-- 2 -->
+<section class="plane" id="s-sources"><div class="sec-head"><span class="num">2</span><h2>What was read, and what was not</h2></div>
+  <div class="tbl-wrap"><table id="t-sources"></table></div>
+</section>
+
+<!-- 3 -->
+<section class="plane" id="s-overview"><div class="sec-head"><span class="num">3</span><h2>The idea in one picture</h2></div>
+  <p>The estimate is an ordinary project (project2) that already exists in the app. The dashboard is a <b>specialised editor</b> of that project: positions are tasks, resources are task lines, the estimate documents are stages. Totals and the summary estimate are calculated from them; Excel and PDF are made from the same numbers.</p>
+  <div class="card"><svg viewBox="0 0 1180 400" width="100%" role="img" aria-label="Data flow of the estimation dashboard">
+    <defs><marker id="ar" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#b45309"/></marker></defs>
+    <g font-size="13" fill="#0f172a">
+      <rect x="10" y="20" width="230" height="64" rx="12" fill="#f0f9ff" stroke="#0284c7"/><text x="125" y="46" text-anchor="middle" font-weight="700">Input layout A</text><text x="125" y="66" text-anchor="middle" fill="#475569">Estimate sheet (LS form)</text>
+      <rect x="10" y="100" width="230" height="64" rx="12" fill="#f0f9ff" stroke="#0284c7"/><text x="125" y="126" text-anchor="middle" font-weight="700">Input layout B</text><text x="125" y="146" text-anchor="middle" fill="#475569">Quick quote</text>
+      <rect x="10" y="180" width="230" height="64" rx="12" fill="#f0f9ff" stroke="#0284c7"/><text x="125" y="206" text-anchor="middle" font-weight="700">Input layout C</text><text x="125" y="226" text-anchor="middle" fill="#475569">Trade breakdown</text>
+      <rect x="10" y="260" width="230" height="64" rx="12" fill="#ecfdf5" stroke="#10b981"/><text x="125" y="286" text-anchor="middle" font-weight="700">Takeoff (BoQ)</text><text x="125" y="306" text-anchor="middle" fill="#475569">formulas, drawings, Excel, BIM</text>
+      <rect x="10" y="336" width="230" height="52" rx="12" fill="#f5f3ff" stroke="#7c3aed"/><text x="125" y="360" text-anchor="middle" font-weight="700">Norm book</text><text x="125" y="378" text-anchor="middle" fill="#475569">estimation_norm_catalog</text>
+      <rect x="330" y="90" width="270" height="220" rx="16" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/><text x="465" y="120" text-anchor="middle" font-weight="800" font-size="15">Estimation project (project2)</text>
+      <text x="465" y="148" text-anchor="middle" fill="#475569">stage = object / local estimate / section</text><text x="465" y="170" text-anchor="middle" fill="#475569">task = position</text><text x="465" y="192" text-anchor="middle" fill="#475569">task lines = labour, plant, materials,</text><text x="465" y="212" text-anchor="middle" fill="#475569">transport, equipment</text>
+      <text x="465" y="244" text-anchor="middle" fill="#475569">budget items · management genus</text><text x="465" y="264" text-anchor="middle" fill="#475569">products · business units</text><text x="465" y="290" text-anchor="middle" font-weight="700" fill="#b45309">EXISTING - reused</text>
+      <rect x="690" y="40" width="220" height="70" rx="12" fill="#fff" stroke="#f59e0b"/><text x="800" y="68" text-anchor="middle" font-weight="700">Cost build-up</text><text x="800" y="90" text-anchor="middle" fill="#475569">coefficients · indices · overhead · profit</text>
+      <rect x="690" y="150" width="220" height="70" rx="12" fill="#fff" stroke="#f59e0b"/><text x="800" y="178" text-anchor="middle" font-weight="700">Summary</text><text x="800" y="200" text-anchor="middle" fill="#475569">LS &rarr; OS &rarr; SSRSS, chapters 1 - 12</text>
+      <rect x="690" y="260" width="220" height="70" rx="12" fill="#fff" stroke="#f59e0b"/><text x="800" y="288" text-anchor="middle" font-weight="700">Resources</text><text x="800" y="310" text-anchor="middle" fill="#475569">resource sheet (labour, plant, materials)</text>
+      <rect x="990" y="60" width="180" height="64" rx="12" fill="#ecfdf5" stroke="#10b981"/><text x="1080" y="88" text-anchor="middle" font-weight="700">Excel (.xlsx)</text><text x="1080" y="108" text-anchor="middle" fill="#475569">forms of Order 421/pr</text>
+      <rect x="990" y="150" width="180" height="64" rx="12" fill="#ecfdf5" stroke="#10b981"/><text x="1080" y="178" text-anchor="middle" font-weight="700">PDF</text><text x="1080" y="198" text-anchor="middle" fill="#475569">same forms, print ready</text>
+      <rect x="990" y="250" width="180" height="80" rx="12" fill="#f0f9ff" stroke="#0284c7"/><text x="1080" y="278" text-anchor="middle" font-weight="700">Fill project1</text><text x="1080" y="298" text-anchor="middle" fill="#475569">existing button: copies the</text><text x="1080" y="316" text-anchor="middle" fill="#475569">estimate into the plan</text>
+    </g>
+    <g stroke="#b45309" stroke-width="2" fill="none" marker-end="url(#ar)">
+      <path d="M240 52 L330 130"/><path d="M240 132 L330 160"/><path d="M240 212 L330 200"/><path d="M240 292 L330 250"/><path d="M240 360 Q300 340 330 290"/>
+      <path d="M600 160 L690 75"/><path d="M600 200 L690 185"/><path d="M600 250 L690 290"/>
+      <path d="M910 75 L990 92"/><path d="M910 185 L990 182"/><path d="M910 190 Q950 250 990 280"/>
+    </g></svg></div>
+</section>
+
+<!-- 4 -->
+<section class="plane" id="s-standard"><div class="sec-head"><span class="num">4</span><h2>What the standard requires (Order 421/pr)</h2></div>
+  <p>Source: <i>Смета-Гост-Приказ-Estimation.pdf</i> = Order of the Ministry of Construction of Russia of 04.08.2020 No. 421/pr, edition of 30.01.2026 (221 pages). All 221 pages were converted to text; the forms of appendices 2, 5, 6 and 7 were also looked at as pictures. Item numbers below are the numbers of the Methodology.</p>
+  <h3>4.1 Documents and their numbering (items 25 - 34, 39 - 41)</h3>
+  <div class="card"><svg viewBox="0 0 1100 330" width="100%" role="img" aria-label="Estimate documents hierarchy">
+    <defs><marker id="ar2" markerWidth="9" markerHeight="9" refX="7" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#475569"/></marker></defs>
+    <g font-size="13">
+      <rect x="380" y="10" width="340" height="62" rx="12" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/><text x="550" y="36" text-anchor="middle" font-weight="800">SSRSS - summary estimate of construction cost</text><text x="550" y="56" text-anchor="middle" fill="#475569">chapters 1 - 12 + contingency + VAT · thousands</text>
+      <rect x="40" y="130" width="300" height="62" rx="12" fill="#f0f9ff" stroke="#0284c7" stroke-width="2"/><text x="190" y="156" text-anchor="middle" font-weight="800">OS-02-01 - object estimate</text><text x="190" y="176" text-anchor="middle" fill="#475569">one object · may be skipped if there is one LS</text>
+      <rect x="40" y="250" width="300" height="62" rx="12" fill="#ecfdf5" stroke="#10b981" stroke-width="2"/><text x="190" y="276" text-anchor="middle" font-weight="800">LS-02-01-01 - local estimate</text><text x="190" y="296" text-anchor="middle" fill="#475569">construction solution / type of work · roubles, kopecks</text>
+      <rect x="400" y="190" width="300" height="62" rx="12" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/><text x="550" y="216" text-anchor="middle" font-weight="800">SR-1 - estimate of separate costs</text><text x="550" y="236" text-anchor="middle" fill="#475569">costs no price book covers</text>
+      <rect x="760" y="130" width="300" height="62" rx="12" fill="#fff" stroke="#94a3b8" stroke-width="2" stroke-dasharray="5 4"/><text x="910" y="156" text-anchor="middle" font-weight="800">Cost summary (non-production mix)</text><text x="910" y="176" text-anchor="middle" fill="#475569">only when needed · appendix 7</text>
+      <rect x="760" y="250" width="300" height="62" rx="12" fill="#fff" stroke="#94a3b8" stroke-width="2"/><text x="910" y="276" text-anchor="middle" font-weight="800">Attachments</text><text x="910" y="296" text-anchor="middle" fill="#475569">explanatory note · BoQ · supporting documents</text>
+    </g>
+    <g stroke="#475569" stroke-width="2" fill="none" marker-end="url(#ar2)"><path d="M190 250 L190 194"/><path d="M190 130 L420 74"/><path d="M550 190 L550 74"/><path d="M910 130 L680 74"/></g></svg></div>
+  <ul>
+    <li><b>Cipher</b> (item 29-32): <code>SR-n</code>, <code>LS-xx-xx-xx</code> (first two groups = the object estimate number, third = the order in it), <code>OS-xx-xx</code> (chapter of the summary estimate + line in the chapter), <code>SSRSS</code> (+ stage number when the client builds in stages). The cost summary has no cipher.</li>
+    <li><b>Rounding</b> (item 42): local estimates and separate-cost estimates in <b>roubles with two decimals</b>; object estimates, summary estimate and cost summary in <b>thousands with two decimals</b>.</li>
+    <li>Estimates are made from the design documents, the BoQ with units and volumes, <b>references to drawings and the calculation of volumes with formulas</b> (item 35).</li>
+  </ul>
+  <h3>4.2 Methods of pricing (items 10, 11, 43 - 46)</h3>
+  <div class="tbl-wrap"><table>
+    <thead><tr><th>Method</th><th>How the price is made</th><th>Form</th><th>Plan</th></tr></thead>
+    <tbody>
+      <tr><td><b>Base-index</b></td><td>Unit rates of the price books in <i>base</i> prices, then an index to the <i>current</i> price level (item 45: current = base &times; index)</td><td>Appendix 2, forms 1 - 4</td><td><span class="badge b-green">version 1</span></td></tr>
+      <tr><td>Resource-index</td><td>Norms for resources; resource prices from the price information system; indices for what has no price</td><td>Appendix 3</td><td><span class="badge b-gold">version 2</span></td></tr>
+      <tr><td>Resource</td><td>Norms for resources and prices of resources in current prices</td><td>Appendix 4</td><td><span class="badge b-gold">version 2</span></td></tr>
+    </tbody></table></div>
+  <div class="note blue">The base-index method needs a <b>norm book</b> (price book) as data. The standard defines how to use one, it does not contain one. Section 11, question Q2: the dashboard does not ship the official price books; the user imports the rows he is licensed to use.</div>
+  <h3>4.3 The local estimate (appendix 2, item 43 and following)</h3>
+  <ul>
+    <li><b>Header</b>: region and price zone, construction site, object, estimate number, name of works, method, basis (design documents); estimate cost in base and current level; <i>payroll</i>; labour hours of workers and of machine operators.</li>
+    <li><b>Table of 12 columns</b>: No · justification (the rate code) · name of works and costs · unit · quantity (per unit | coefficients | total) · cost (per unit | coefficients | total) · index · cost in current prices. Sections inside (Section X. name), each with <i>total direct costs</i>.</li>
+    <li><b>Cost elements</b> of a position: <b>OT</b> payroll of workers · <b>EM</b> machine operation · <b>OTm</b> payroll of machine operators (included in EM) · <b>M</b> materials · transport · <b>NR</b> overheads · <b>SP</b> estimated profit · equipment. Overheads and profit are percentages of the payroll (OT + OTm).</li>
+    <li><b>Totals of the estimate</b>: total direct costs &rarr; overheads &rarr; profit &rarr; total in base prices &rarr; total in current prices; lines for temporary buildings and winter work are added by percent.</li>
+    <li><b>Coefficients</b> for working conditions (cramped site, winter and so on): appendix 10; every applied coefficient must show its justification.</li>
+  </ul>
+  <h3>4.4 Object estimate and summary estimate (items 135 - 143, 179 - 181; appendices 5 and 6)</h3>
+  <ul>
+    <li>Summary estimate columns: No · justification · name of chapter / object / work · cost in thousands: <b>construction works · installation works · equipment · other costs · total</b>.</li>
+    <li><b>Chapters 1 - 12</b>: 1 preparation of the site · 2 main objects · 3 auxiliary and service · 4 energy · 5 transport and communications · 6 external utility networks · 7 landscaping · 8 temporary buildings · 9 other works and costs · 10 client's supervision · 11 training of operating staff · 12 design, surveys, expert review. Totals are shown after chapters 1 - 7, 1 - 8, 1 - 9 and 1 - 12 (item 143).</li>
+    <li><b>Contingency</b> (item 179): from the total of chapters 1 - 12, up to <b>2 %</b> for non-production objects, <b>3 %</b> for production and linear objects, <b>10 %</b> for unique, hazardous and technically complex objects; shown as one line spread over columns 4 - 8.</li>
+    <li><b>VAT</b> (items 180, 181): after the contingency, at the rate in force; <b>not shown</b> in a summary estimate in base prices. With the base-index method two summary estimates are made: base prices and current prices (item 136).</li>
+  </ul>
+  <h3>4.5 What the dashboard takes from the standard, and what it leaves out</h3>
+  <div class="grid">
+    <div class="card"><b>Taken (version 1)</b><ul><li>Forms of appendices 2 (base-index LS), 5 (OS), 6 (SSRSS)</li><li>Cipher rules and rounding</li><li>Cost elements OT, EM, OTm, M, transport, NR, SP, equipment</li><li>Chapters 1 - 12, reserve, VAT</li><li>Coefficients with justification</li><li>Volumes with formulas and drawing references (BoQ)</li></ul></div>
+    <div class="card"><b>Left for later</b><ul><li>Resource and resource-index methods (appendices 3, 4)</li><li>Cost summary (appendix 7), commissioning structure (appendix 8)</li><li>Market analysis table (appendix 1), design-work estimate (appendix 11)</li><li>Comparison statements of volumes / cost (appendices 12, 13)</li><li>Special rules: heritage, BIM costs (items 205 - 214), commissioning</li></ul></div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="plane" id="s-videos"><div class="sec-head"><span class="num">5</span><h2>Videos and templates</h2></div>
+  <h3>5.1 The four videos (1C:Smeta 3 and the estimating workflow)</h3>
+  <div class="note red"><b>Limit.</b> YouTube returned no caption text to a script, so the speech of the videos was <b>not</b> read. What was analysed: title, author, length, description and the chapter list of each video, plus what I know of 1C:Smeta 3. Nothing below is quoted from the speech. If you want the speech used, paste a transcript or tell me which minutes matter.</div>
+  <div class="tbl-wrap"><table id="t-videos"></table></div>
+  <h3>What a builder expects, taken from these four sources</h3>
+  <ul>
+    <li><b>The estimate is a hierarchy</b> (object &rarr; local estimate &rarr; section &rarr; position) and everything is built from volumes. &rarr; the task tree is the hierarchy; the BoQ tab owns volumes.</li>
+    <li><b>Pricing reform</b>: the base-index method with price-book norms and indices, overhead and profit by norms. &rarr; cost build-up tab; norm book; index table.</li>
+    <li><b>Print forms must follow the Methodology</b> exactly; the estimator wants Excel to correct by hand. &rarr; Excel + PDF in the forms.</li>
+    <li><b>Exchange formats</b> (state expert-review XML, 5D) and <b>BIM volumes</b> (quantities from the model into the BoQ). &rarr; BoQ import from the BIM data the app already stores; the XML exchange is a later item.</li>
+    <li><b>Classification of estimate data with AI</b> (video 3). &rarr; mapping a position to a budget item / genus is a good place for a suggestion, not in version 1.</li>
+  </ul>
+  <h3>5.2 The 12 free templates (exayard.com) - downloaded and analysed</h3>
+  <p>Program: <code>download_estimation_templates.py</code> (next to this file). It reads the article, opens the page of each vendor, takes the links to real files (.xlsx .xls .docx .pdf .csv, Google Sheets / Docs export links), downloads them to <code>templates/&lt;n&gt;_&lt;vendor&gt;/</code> (15 MB cap, nothing is executed) and writes <code>templates/templates_analysis.md / .json</code>.</p>
+  <div class="tbl-wrap"><div class="tools"><input id="q-tpl" placeholder="Filter vendors..."><select id="f-tpl"><option value="">All</option><option>downloaded</option><option>gated</option></select><span class="cnt" id="c-tpl"></span></div><table id="t-tpl"></table></div>
+  <h3>What the templates teach (three layouts)</h3>
+  <div class="grid">
+    <div class="card"><span class="badge b-gold">Layout A</span><h3 style="margin-top:6px">Estimate sheet</h3><p>Position-by-position with norm code, unit, quantity, unit cost, sections and subtotals. This is the form of the Methodology; the templates have nothing like its resource split, so it comes from the standard.</p></div>
+    <div class="card"><span class="badge b-blue">Layout B</span><h3 style="margin-top:6px">Quick quote</h3><p><b>Eano</b> worksheet: ID · status · category · task · unit · qty · cost / unit · cost · mark-up · price, with three tiles Cost / Profit / Margin. <b>Joist</b>: item · description · qty · unit price · total. Fast for small jobs.</p></div>
+    <div class="card"><span class="badge b-green">Layout C</span><h3 style="margin-top:6px">Trade breakdown</h3><p><b>Smartsheet commercial</b>: sitework and building by trade with labour / materials / total / cost per square foot, then percentages for general conditions, insurance, fees and contingency. Good for concept estimates.</p></div>
+  </div>
+  <div class="note">The commonest column titles over all 22 files: project name (6 files), estimate number (4), unit price (4), sitework and building subtotal (4), description, total, qty. Formulas: Smartsheet residential = 1 552 formulas on one sheet; Eano = 106 over 7 sheets (worksheet, client summary, invoice, contract, proposal). A template with <b>summary + contract + invoice sheets</b> (Eano) suggests that the quote should later become a customer invoice - which the app already has.</div>
+</section>
+
+<!-- 6 -->
+<section class="plane" id="s-reuse"><div class="sec-head"><span class="num">6</span><h2>What already exists and is reused</h2></div>
+  <p>Rule of the request: maximum reuse. The table says, for every object of an estimate, where it lives today. Filter or sort it.</p>
+  <div class="tbl-wrap"><div class="tools"><input id="q-reuse" placeholder="Filter..."><select id="f-reuse"><option value="">All</option><option>Reused as is</option><option>Reused + new key</option><option>New</option></select><span class="cnt" id="c-reuse"></span></div><table id="t-reuse"></table></div>
+  <div class="note green"><b>No posting.</b> Positions and lines of the estimation project are never posted: the estimate must not write plan movements into the register or change Monitor01. The existing Estimation tab already reads the task lines directly (<code>project_estimation_summary</code>), and the existing <b>Fill project from estimation</b> copies them unposted into project1.</div>
+</section>
+
+<!-- 7 -->
+<section class="plane" id="s-dashboard"><div class="sec-head"><span class="num">7</span><h2>The dashboard and the prototypes</h2></div>
+  <p>Route <code>/pm/estimation</code> (screen <code>app/pm/estimation/index.tsx</code> &rarr; <code>kit8/pm/estimation/EstimationDashboard.tsx</code>), opened by a button in <b>Project settings &rarr; Estimation</b> and from the Estimation view of the project dashboard. Left: the task tree of the estimation project (reused). Right: six tabs.</p>
+  <div class="tbl-wrap"><table id="t-tabs"></table></div>
+  <h3>Prototypes (react-native-paper, 1440 &times; 900) - click a picture to enlarge</h3>
+  <div class="gallery" id="gallery"></div>
+  <div class="note">The prototypes show <b>sample numbers</b> (illustrative price-book codes, sample indices 8.74, overhead 90 %, profit 50 %): they are not real price-book data. The totals on the screens are computed by the same rules as section 8, so the screens agree with each other. Source: <code>prototypes/src</code>; to rebuild the pictures see <code>prototypes/build_prototypes.js</code> (bundles with the project's own Metro, no new package).</div>
+  <h3>The three input layouts - one data, three views</h3>
+  <p>The layouts do not create three kinds of estimates. They are three ways to <b>edit the same tasks and task lines</b>. A switch above the table changes the layout; the choice is remembered per user (like the saved main view of a project).</p>
+  <div class="tbl-wrap"><table id="t-layouts"></table></div>
+</section>
+
+<!-- 8 -->
+<section class="plane" id="s-calc"><div class="sec-head"><span class="num">8</span><h2>Calculation rules, sample input and sample output</h2></div>
+  <p>The calculation is a <b>pure TypeScript module</b> (<code>estimationCalc.ts</code>, golden-tested) used by the dashboard and by both exports. It is not duplicated in SQL (the time-sheet cost showed that two copies of a rule drift apart). SQL only stores and guards.</p>
+  <div class="card mono" style="font-size:13px;line-height:1.8">
+    direct(position) = qty &times; coef &times; (OT + EM + M) <span style="color:#64748b">· OTm is part of EM</span><br>
+    payroll = qty &times; coef &times; (OT + OTm) &nbsp;|&nbsp; NR = payroll &times; norm_NR % &nbsp;|&nbsp; SP = payroll &times; norm_SP %<br>
+    total base = &Sigma; direct + NR + SP &nbsp;|&nbsp; total current = total base &times; index<br>
+    SSRSS: &Sigma; chapters 1-12 &rarr; contingency % &rarr; VAT % <span style="color:#64748b">(rates from settings, contingency checked against the cap of item 179)</span>
+  </div>
+  <h3>8.1 Sample INPUT - the positions of one local estimate (editable here)</h3>
+  <p>Change the norms and the index; the output below recalculates.</p>
+  <div class="card" style="display:flex;gap:14px;flex-wrap:wrap;align-items:end">
+    <label>Overheads, % of payroll<br><input id="in-nr" type="number" value="90" step="1" style="padding:6px 10px;border:1px solid var(--border-medium);border-radius:8px;width:130px"></label>
+    <label>Profit, % of payroll<br><input id="in-sp" type="number" value="50" step="1" style="padding:6px 10px;border:1px solid var(--border-medium);border-radius:8px;width:130px"></label>
+    <label>Index to current prices<br><input id="in-ix" type="number" value="8.74" step="0.01" style="padding:6px 10px;border:1px solid var(--border-medium);border-radius:8px;width:130px"></label>
+    <label>Contingency, %<br><input id="in-ct" type="number" value="2" step="0.5" style="padding:6px 10px;border:1px solid var(--border-medium);border-radius:8px;width:130px"></label>
+    <label>VAT, %<br><input id="in-vat" type="number" value="20" step="1" style="padding:6px 10px;border:1px solid var(--border-medium);border-radius:8px;width:130px"></label>
+  </div>
+  <div class="tbl-wrap"><div class="tools"><input id="q-pos" placeholder="Filter positions..."><select id="f-pos"><option value="">All sections</option></select><span class="cnt" id="c-pos"></span></div><table id="t-pos"></table></div>
+  <details><summary>The same sample as stored data (one position, as it is kept in the estimation project)</summary>
+<pre class="card mono" style="overflow:auto;font-size:12px">task (project_task_table, stage "Section 2. Foundations" &rarr; task)
+  rowJSON.taskDescription      = "Reinforced concrete strip foundations, concrete B25, formwork and reinforcement"
+  rowJSON.estimateNormCode     = "FER 06-01-001-16"        // sample code
+  rowJSON.estimateUnit         = "100 m3"
+  rowJSON.estimateTakeoffRef   = "TO-004"
+  rowJSON.estimateCoefficients = []                         // [{ code, value, justification }]
+task lines (task_line_table)
+  Time   work center "Concrete gang A"   budget item "Concrete works"   sumForBudget 18 575.20   rowJSON.estimateComponent = "OT"
+  Time   work center "Concrete pump"     budget item "Concrete works"   sumForBudget  7 588.80   rowJSON.estimateComponent = "EM"  estimateOperatorLabour = 1 370.20
+  Material  product "Concrete B25 etc."  budget item "Concrete works"   sumForBudget 232 376.00  rowJSON.estimateComponent = "M"</pre></details>
+  <h3>8.2 Sample OUTPUT - the totals of the local estimate and the summary estimate</h3>
+  <div class="kpi" id="kpi-out"></div>
+  <div class="grid">
+    <div class="tbl-wrap"><table id="t-out"></table></div>
+    <div class="card"><b>Structure of the total in base prices</b><svg id="chart" viewBox="0 0 520 260" width="100%" role="img" aria-label="Cost structure chart"></svg></div>
+  </div>
+  <h3>Summary estimate (thousands, current prices)</h3>
+  <div class="tbl-wrap"><table id="t-ssr"></table></div>
+  <p style="font-size:12.5px">The object estimate is the sum of three local estimates (this one and two others of 135 % and 80 % of its direct costs); chapters 1, 3, 6 - 10 and 12 use sample shares of the main object.</p>
+</section>
+
+<!-- 9 -->
+<section class="plane" id="s-data"><div class="sec-head"><span class="num">9</span><h2>Data: what is new (prefix <code>estimation_</code>)</h2></div>
+  <p>Least possible new storage. The structure of an estimate lives in tasks and task lines (JSONB keys, no SQL). New tables hold only what has no home yet. All in a new <b>PART 58</b> (tables in <code>start1</code>, code in <code>start2</code>, seeds in <code>start4 / start5</code>, drop in <code>delete_sql_structure.sql</code>), tested with a Docker test <code>108_estimation_dashboard.sql</code>.</p>
+  <div class="tbl-wrap"><div class="tools"><input id="q-sql" placeholder="Filter tables..."><span class="cnt" id="c-sql"></span></div><table id="t-sql"></table></div>
+  <h3>Keys on existing rows (no SQL)</h3>
+  <ul>
+    <li><b>Task / stage</b> (<code>project_task_table.rowJSON</code>): <code>estimateNodeKind</code> object | local | section | position, <code>estimateCipher</code>, <code>estimateChapter</code> (1 - 12, object nodes), <code>estimateNormGUID / estimateNormCode / estimateUnit</code>, <code>estimateTakeoffRef</code>, <code>estimateCoefficients[]</code>. The cleaning of task templates (<code>task_template_clean_task</code>) must keep or strip them as decided in Q10.</li>
+    <li><b>Task line</b> (<code>task_line_table.rowJSON</code>): <code>estimateComponent</code> OT | EM | OTm | M | TR | EQ | NR | SP, <code>estimateOperatorLabour</code> (part of an EM line), <code>estimateGenerated</code> (true for overhead / profit lines made by the build-up).</li>
+    <li><b>Budget item</b> (catalog row): <code>estimateCostElement</code> construction | installation | equipment | other (the four columns of the summary estimate) and default <code>estimateComponent</code>. Edited in the Cost build-up tab; the 36 seeded items get a default.</li>
+    <li><b>Project</b> (<code>project_table.rowJSON</code>): <code>estimateMethod</code>, <code>estimatePriceLevelDate</code>, <code>estimateRegion</code>, <code>estimateObjectKind</code> (for the contingency cap), <code>estimateVatPercent</code>.</li>
+  </ul>
+  <div class="note blue">Overheads and profit are made as <b>Expense lines</b> on the position (budget items "Overheads" and "Estimated profit", seeded), regenerated by <b>Apply cost build-up</b>. That way they travel with the estimate into the existing Estimation tab summary and into <b>Fill project</b>, and cost reports see them. Question Q13 has the default.</div>
+</section>
+
+<!-- 10 -->
+<section class="plane" id="s-export"><div class="sec-head"><span class="num">10</span><h2>Export to Excel and PDF</h2></div>
+  <div class="tbl-wrap"><table id="t-export"></table></div>
+  <h3>How, with what the app already has</h3>
+  <ul>
+    <li><b>Excel</b>: an .xlsx file is a zip of XML. The app already depends on <code>fflate</code> (used by the project package zip), so a small <code>xlsxWriter.ts</code> (sheets, styles, number formats, merged header cells, column widths, formulas for totals) needs <b>no new package</b>. Totals are written as <b>formulas</b> so the estimator can correct a figure in Excel and the sums follow.</li>
+    <li><b>PDF</b>: the existing writer (<code>kit8/pm/crud/exchange/pdf/pdfDocument.ts</code>) makes ONE picture page; an estimate is many pages of text and tables. A text PDF writer is needed, with an embedded TrueType font (core PDF fonts have no Cyrillic or Latvian letters). This is the <b>biggest technical risk</b> of the package: work item E17, question Q5.</li>
+    <li><b>Export window</b>: same pattern as the project export window (<code>PMExportProjectWindow</code>): choose documents, format, header and signature fields; progress bar with the list of steps; <b>Cancel export</b> between files; the options are locked while it runs.</li>
+    <li><b>File names</b>: <code>LS-02-01-01_Earthworks_and_foundations.xlsx</code>, <code>SSRSS-01.pdf</code>; several files go into one zip.</li>
+    <li><b>Language of labels</b>: English for builders by default, with the Methodology's form numbers (Appendix 2 form 1 ...). A Russian label set is the same table with other strings (Q4).</li>
+  </ul>
+</section>
+
+<!-- 11 -->
+<section class="plane" id="s-questions"><div class="sec-head"><span class="num">11</span><h2>Open questions (each with the default that will be built if you say nothing)</h2></div>
+  <div class="tbl-wrap"><div class="tools"><input id="q-q" placeholder="Filter questions..."><span class="cnt" id="c-q"></span></div><table id="t-q"></table></div>
+</section>
+
+<!-- 12 -->
+<section class="plane" id="s-wbs"><div class="sec-head"><span class="num">12</span><h2>Work items</h2></div>
+  <p>Size: S = under a day, M = 1 - 3 days, L = 3 - 6 days, XL = more. Every item that adds code includes its Jest test, its README line and the language keys in the same round (project rule). Click a column title to sort.</p>
+  <div class="tbl-wrap"><div class="tools"><input id="q-wbs" placeholder="Filter work items..."><select id="f-wbs"><option value="">All phases</option></select><select id="f-st"><option value="">All status</option><option>Done in this round</option><option>Planned</option></select><span class="cnt" id="c-wbs"></span></div><table id="t-wbs"></table></div>
+  <div class="kpi" id="kpi-wbs"></div>
+  <div class="card"><b>Suggested order</b> (each step can be shown to you before the next): E1 + E2 + E3 (data and rules) &rarr; E6 + E7 (dashboard with layout A and the tree) &rarr; E13 (summary) &rarr; E15 + E16 (Excel) &rarr; E17 + E18 (PDF and the window) &rarr; layouts B and C, takeoff, resources &rarr; imports.</div>
+</section>
+
+<!-- 13 -->
+<section class="plane" id="s-notbuilt"><div class="sec-head"><span class="num">13</span><h2>Not covered, risks, honesty notes</h2></div>
+  <ul>
+    <li><b>No application code was written</b> (the request says "No code"). The prototypes are pictures made with react-native-paper; their source lives in <code>prototypes/src</code> and is not wired into the app.</li>
+    <li><b>Videos</b>: the speech was not available (section 5.1).</li>
+    <li><b>Templates</b>: 4 of 12 vendors gave files directly (22 files). ProjectManager, Vertex42, QuickBooks (page timed out), Jobber, Xero, ArcSite, Proposable give a file only after a form or sign-up; HubSpot had no link on the exayard page. I did not fill any form. The three layouts rest on the 22 files plus the standard.</li>
+    <li><b>Price books</b>: the official unit-rate books (FER / TER ...) are not in the PDF and not in the app. Without them layout A is usable only with the user's own norm rows (Q2).</li>
+    <li><b>The standard is long</b>: all 221 pages were converted to text and the main forms read; the special sections (heritage, commissioning, BIM costs, design-work estimates) were not studied in depth and are in the "left for later" list.</li>
+    <li><b>Sample numbers</b> in the prototypes and in section 8 are invented for illustration. Index, norms, VAT and contingency are inputs, never constants of the program.</li>
+    <li><b>Not seen</b>: nothing here was shown on a phone or in the owner's Supabase. The prototypes were drawn at 1440 &times; 900 only.</li>
+    <li>A parallel folder <code>dashboard/google</code> exists in the repository; it was not read or used for this document.</li>
+  </ul>
+</section>
+
+</div>
+<div id="lightbox"><img alt=""></div>
+
+<script>
+/* ---------- data ---------- */
+const SECTIONS=[['s-request','Request'],['s-sources','Read'],['s-overview','Idea'],['s-standard','Standard'],['s-videos','Videos and templates'],['s-reuse','Reuse'],['s-dashboard','Dashboard'],['s-calc','Calculation'],['s-data','Data'],['s-export','Export'],['s-questions','Questions'],['s-wbs','Work items'],['s-notbuilt','Limits']];
+const POS=[
+ {no:1,sec:'Section 1. Earthworks',code:'FER 01-01-013-03',name:'Excavation with hydraulic excavator 0.65 m3, soil group 2',unit:'1000 m3',qty:0.84,lab:0,pl:4815,op:620.4,mat:0,coef:1},
+ {no:2,sec:'Section 1. Earthworks',code:'FER 01-02-057-01',name:'Hand trimming of trench bottom, soil group 2 (k=1.2 cramped)',unit:'100 m3',qty:0.36,lab:1260,pl:0,op:0,mat:0,coef:1.2},
+ {no:3,sec:'Section 1. Earthworks',code:'FER 01-01-033-02',name:'Backfilling of trenches, soil from stockpile',unit:'1000 m3',qty:0.41,lab:96.5,pl:1730,op:205,mat:0,coef:1},
+ {no:4,sec:'Section 2. Foundations',code:'FER 06-01-001-01',name:'Blinding concrete B7.5, 100 mm',unit:'100 m3',qty:0.18,lab:3120,pl:1960,op:340,mat:41250,coef:1},
+ {no:5,sec:'Section 2. Foundations',code:'FER 06-01-001-16',name:'Reinforced concrete strip foundations, concrete B25',unit:'100 m3',qty:1.24,lab:14980,pl:6120,op:1105,mat:187400,coef:1},
+ {no:6,sec:'Section 2. Foundations',code:'FER 08-01-003-07',name:'Horizontal waterproofing, two layers of membrane',unit:'100 m2',qty:5.2,lab:842,pl:96,op:18,mat:7340,coef:1},
+ {no:7,sec:'Section 3. Superstructure walls',code:'FER 08-02-001-04',name:'Masonry of external walls, aerated concrete blocks 300 mm',unit:'1 m3',qty:148.04,lab:412,pl:66,op:12.5,mat:3625,coef:1},
+ {no:8,sec:'Section 3. Superstructure walls',code:'FER 09-03-012-02',name:'Lintels, precast reinforced concrete, installation',unit:'100 pcs',qty:0.62,lab:3880,pl:2410,op:380,mat:9150,coef:1}
+];
+const fmt=(n,d=2)=>Number(n).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});
+const val=id=>parseFloat(document.getElementById(id).value)||0;
+const badge=(t,c)=>'<span class="badge b-'+c+'">'+t+'</span>';
+
+/* ---------- generic table: sort + filter ---------- */
+function mkTable(id,cols,rows,opt={}){
+  const tb=document.getElementById(id); let sortKey=null,asc=true,q='',sel='';
+  const qEl=opt.q&&document.getElementById(opt.q), sEl=opt.sel&&document.getElementById(opt.sel), cEl=opt.cnt&&document.getElementById(opt.cnt);
+  function draw(){
+    let r=rows.filter(x=>(!q||JSON.stringify(Object.values(x)).toLowerCase().includes(q))&&(!sel||(opt.selFn?opt.selFn(x,sel):x[opt.selKey]===sel)));
+    if(sortKey){r=[...r].sort((a,b)=>{const A=a[sortKey],B=b[sortKey];const n=typeof A==='number'&&typeof B==='number';return (n?A-B:String(A).localeCompare(String(B),undefined,{numeric:true}))*(asc?1:-1)})}
+    tb.innerHTML='<thead><tr>'+cols.map(c=>'<th class="'+(c.r?'r ':'')+(sortKey===c.k?(asc?'sorted-asc':'sorted-desc'):'')+'" data-k="'+c.k+'">'+c.t+'</th>').join('')+'</tr></thead><tbody>'+r.map(x=>'<tr'+(x._total?' class="total"':'')+'>'+cols.map(c=>'<td class="'+(c.r?'r':'')+'">'+(c.f?c.f(x[c.k],x):(x[c.k]??''))+'</td>').join('')+'</tr>').join('')+'</tbody>';
+    tb.querySelectorAll('th').forEach(th=>th.onclick=()=>{const k=th.dataset.k; if(sortKey===k)asc=!asc; else{sortKey=k;asc=true} draw()});
+    if(cEl)cEl.textContent=r.length+' of '+rows.length;
+  }
+  if(qEl)qEl.oninput=()=>{q=qEl.value.toLowerCase();draw()}; if(sEl)sEl.onchange=()=>{sel=sEl.value;draw()};
+  draw(); return {redraw:(nr)=>{if(nr)rows=nr;draw()}};
+}
+
+/* ---------- nav with scroll spy ---------- */
+const nav=document.getElementById('nav');
+nav.innerHTML=SECTIONS.map(([id,t],i)=>'<a class="nav-link" href="#'+id+'" data-id="'+id+'">'+(i+1)+' · '+t+'</a>').join('');
+const links=[...nav.querySelectorAll('a')];
+function spy(){let cur=SECTIONS[0][0];SECTIONS.forEach(([id])=>{const e=document.getElementById(id);if(e&&e.getBoundingClientRect().top<window.innerHeight*0.35)cur=id});links.forEach(a=>{const on=a.dataset.id===cur;a.classList.toggle('active',on);if(on)a.scrollIntoView({inline:'center',block:'nearest'})})}
+window.addEventListener('scroll',spy,{passive:true});spy();
+
+/* ---------- static tables ---------- */
+mkTable('t-sources',[{k:'what',t:'Source'},{k:'how',t:'How it was read'},{k:'res',t:'Result',f:v=>v}],[
+ {what:'Google Doc "W1 ESTIMATION 1С:Смета"',how:'Read through the Google Docs connector, with comments',res:badge('read in full','green')+' the request'},
+ {what:'Google Doc "ONTREND REPORTS REQUIREMENTS"',how:'Same',res:badge('read in full','green')+' the rules of this report'},
+ {what:'Reference report CAPSTONE_REPORT.html (Drive)',how:'Read through the Drive connector; only the style block was taken',res:badge('palette taken','green')+' Tamagui light tokens, amber gradient, sticky pills'},
+ {what:'Смета-Гост-Приказ-Estimation.pdf (221 pages)',how:'All pages converted to text; forms of appendices 2, 5, 6, 7 viewed as pictures',res:badge('read','green')+' structure, forms, rules; special sections only skimmed'},
+ {what:'4 YouTube videos',how:'Title, author, length, description, chapters',res:badge('speech not read','red')+' captions were blocked'},
+ {what:'exayard.com article + 12 vendor pages',how:'Python program, public pages only, no forms filled',res:badge('22 files from 4 vendors','green')+badge('8 gated','gold')},
+ {what:'The existing code and docs of the app',how:'KNOW_HOW.md, estimation README + model, export folders, package.json',res:badge('read','green')+' reuse map of section 6'},
+],{});
+mkTable('t-videos',[{k:'v',t:'Video'},{k:'a',t:'Author'},{k:'len',t:'Length'},{k:'c',t:'Content (from description / chapters)'},{k:'u',t:'Used for'}],[
+ {v:'Overview of the capabilities of "1C:Smeta 3"',a:'Vladimir Sudarikov',len:'42 min',c:'Main capabilities of the product (description only: one sentence)',u:'Feature checklist of a professional estimating tool'},
+ {v:'"1C:Smeta - new industry functionality" (webinar 20 Jan 2022)',a:'Konstantin Bukalov',len:'74 min',c:'Pricing methodology changes: Order 421/pr, overhead norms (Order 812/pr), profit norms (Order 774/pr); new print forms; import of estimate data: state expert-review XML, 5D; BIM: automatic estimate properties for a model version',u:'Order of work, print forms, exchange formats, BIM link'},
+ {v:'1C:Smeta - classification of estimate data with AI, and other innovations',a:'University of the Ministry of Construction',len:'14 min',c:'Forum talk, 31 May 2024: classification of estimate data with AI; typical estimating errors; checks of estimates',u:'Idea of suggested classification (budget item / genus); validation list'},
+ {v:'How to calculate BoQs with 1C:Smeta?',a:'BIM-Support',len:'46 min',c:'Chapters: who needs a BoQ · Revit to 1C import · search sets · volumes of materials · multi-layer structures · windows · engineering systems · macros · BoQ visualization · manual correction of volumes · statements · new interface · roadmap',u:'The Takeoff tab: sources, formulas, manual correction, linking volumes to positions'},
+],{});
+mkTable('t-tpl',[{k:'n',t:'#',r:1},{k:'vendor',t:'Vendor'},{k:'state',t:'State',f:v=>badge(v,v==='downloaded'?'green':'gold')},{k:'files',t:'Files',r:1},{k:'formulas',t:'Formulas',r:1},{k:'what',t:'What it shows'}],[
+ {n:1,vendor:'Smartsheet',state:'downloaded',files:8,formulas:4271,what:'Simple, residential, commercial and contractor estimates (Excel, Google Sheets, Word). Commercial: trades with labour / materials / cost per sq ft, then % allowances. Contractor: 1 000-row sheet with drop-down keys.'},
+ {n:2,vendor:'ProjectManager',state:'gated',files:0,formulas:0,what:'Download behind sign-up'},
+ {n:3,vendor:'Vertex42',state:'gated',files:0,formulas:0,what:'No direct file link on the page'},
+ {n:4,vendor:'QuickBooks',state:'gated',files:0,formulas:0,what:'Page did not answer within 40 s'},
+ {n:5,vendor:'FreshBooks',state:'downloaded',files:5,formulas:4,what:'Excel, Word, Google Docs / Sheets and PDF: a client-facing quote (address, dates, line items)'},
+ {n:6,vendor:'Jobber',state:'gated',files:0,formulas:0,what:'Online customiser, no file'},
+ {n:7,vendor:'Xero',state:'gated',files:0,formulas:0,what:'Download button leads to a form'},
+ {n:8,vendor:'Joist',state:'downloaded',files:8,formulas:47,what:'Work / free / job / cost estimate, Word and Excel: item no, product/service, quantity, unit price, total'},
+ {n:9,vendor:'ArcSite',state:'gated',files:0,formulas:0,what:'Form before download'},
+ {n:10,vendor:'HubSpot',state:'gated',files:0,formulas:0,what:'No link in the article'},
+ {n:11,vendor:'Proposable',state:'gated',files:0,formulas:0,what:'Online editor'},
+ {n:12,vendor:'Eano',state:'downloaded',files:1,formulas:106,what:'7 sheets: worksheet (ID, status, category, task, unit, qty, cost/unit, cost, markup), client summary, invoice, contract, proposal'},
+],{q:'q-tpl',sel:'f-tpl',selKey:'state',cnt:'c-tpl'});
+mkTable('t-reuse',[{k:'g',t:'Object of an estimate'},{k:'use',t:'Where it lives in the app'},{k:'st',t:'Status',f:v=>badge(v,v==='Reused as is'?'green':v==='New'?'purple':'gold')},{k:'how',t:'What changes'}],[
+ {g:'Hierarchy: object, local estimate, section, position',use:'Task tree of the estimation project (stages and tasks, WBS numbering)',st:'Reused + new key',how:'Keys estimateNodeKind / estimateCipher on the row; the tree component is the same'},
+ {g:'Position (work item)',use:'A task',st:'Reused + new key',how:'Keys: norm code, unit, takeoff reference, coefficients'},
+ {g:'Labour OT, machine operation EM / OTm, materials M, transport, equipment',use:'Task lines: Time (work center: person / equipment), Material, Expense; the four genus types of the management genus catalog',st:'Reused + new key',how:'rowJSON.estimateComponent says which GOST element a line is'},
+ {g:'Budget item (cost class)',use:'Budget items catalog (activity.genus keys, direction)',st:'Reused + new key',how:'estimateCostElement: construction / installation / equipment / other. Seed items Overheads, Estimated profit, Contingency'},
+ {g:'Materials, equipment, products',use:'Products catalog (+ descriptor sides, translations)',st:'Reused as is',how:'A material line picks a product; price taken from the product / supplier prices as today'},
+ {g:'Crews and machines',use:'Work centers (Person / Equipment / Partner with calendar and variant)',st:'Reused as is',how:'A Time line books a work center, as every Time line does'},
+ {g:'Business unit (if needed)',use:'Business units catalog (cost / revenue / profit centers)',st:'Reused as is',how:'Optional column; default from the project'},
+ {g:'Currency and exchange rates',use:'Project currencies, currency catalog, rate book',st:'Reused as is',how:'Estimate in the budget currency of the project; the existing converted column of the Estimation tab'},
+ {g:'Estimate link and copy into the plan',use:'Project settings -> Estimation (link, summary per budget item, Fill: append / replace)',st:'Reused as is',how:'The dashboard opens from the tab; Fill is unchanged'},
+ {g:'Excel / PDF / zip',use:'fflate (project package zip), PDF writer (picture page), export window pattern',st:'Reused + new key',how:'New xlsx writer on fflate; new text PDF writer (section 10)'},
+ {g:'Permissions',use:'Project permission profiles and the matrix (task and task-line rights)',st:'Reused as is',how:'New tables get rows in the permission matrix'},
+ {g:'Language of texts',use:'pmT keys in 14 languages',st:'Reused as is',how:'New keys for every dashboard text'},
+ {g:'Norm book (price book)',use:'-',st:'New',how:'estimation_norm_catalog (organization level)'},
+ {g:'Indices to current prices',use:'-',st:'New',how:'estimation_index_history (per zone, cost element, price date)'},
+ {g:'Overhead and profit norms',use:'-',st:'New',how:'estimation_overhead_profit_table'},
+ {g:'Estimate document header (cipher, method, signatures)',use:'-',st:'New',how:'estimation_document_table'},
+ {g:'Volumes of work (BoQ) with formulas and drawings',use:'-',st:'New',how:'estimation_takeoff_table'},
+],{q:'q-reuse',sel:'f-reuse',selKey:'st',cnt:'c-reuse'});
+mkTable('t-tabs',[{k:'t',t:'Tab'},{k:'what',t:'What the user does'},{k:'src',t:'Reads / writes'},{k:'p',t:'Prototype'}],[
+ {t:'Estimate',what:'Edits positions and their resource split in one of three layouts; applies norms and coefficients; sees the totals under the table',src:'tasks, task lines, norm book',p:'01, 02, 03'},
+ {t:'Takeoff (BoQ)',what:'Types or imports quantities with a formula and a drawing reference; the linked position takes the quantity; a drawing revision flags what must be re-checked',src:'estimation_takeoff_table',p:'04'},
+ {t:'Resources',what:'Read-only resource sheet: labour hours, machine hours, materials with total quantities per resource; filter by section',src:'task lines (grouped)',p:'-'},
+ {t:'Cost build-up',what:'Sets method, price level date, region, indices, overhead and profit norms per type of work; maps budget items to cost elements; Apply cost build-up regenerates overhead / profit lines',src:'index history, norms, budget items',p:'-'},
+ {t:'Summary',what:'Sees local estimates, object estimates and the summary estimate by chapters 1 - 12, contingency, VAT; a checklist of what is missing (no violation blocks anything)',src:'calculated',p:'05'},
+ {t:'Export',what:'Chooses documents, format, header and signatures; Export; progress and Cancel',src:'calculated, document headers',p:'06'},
+],{});
+mkTable('t-layouts',[{k:'l',t:'Layout'},{k:'for',t:'Best for'},{k:'cols',t:'Columns'},{k:'map',t:'Stored as'}],[
+ {l:'A · Estimate sheet (LS form)',for:'Official estimates; price-book norms; expert review',cols:'No, norm, description, unit, quantity, coefficient, quantity total, unit cost, total, index, total in current prices; resource rows under a position',map:'Position = task. Resource rows = its task lines'},
+ {l:'B · Quick quote',for:'Small jobs, client quotes, renovation',cols:'ID, status, category, task, unit, qty, cost per unit, cost, mark-up %, price; tiles Cost / Profit / Margin / Total',map:'One line = one task with one Material or Time line; mark-up becomes a Revenue line when released'},
+ {l:'C · Trade breakdown',for:'Concept and feasibility estimates',cols:'Trade, labour, materials, total, cost per m2, share; allowances in % (general conditions, insurance, fees, contingency)',map:'Trade = stage with two task lines (labour, materials); allowances = Expense lines by percent'},
+],{});
+mkTable('t-export',[{k:'doc',t:'Document'},{k:'form',t:'Form of the Methodology'},{k:'unit',t:'Money unit'},{k:'xl',t:'Excel'},{k:'pdf',t:'PDF'},{k:'ph',t:'Version'}],[
+ {doc:'Local estimate (LS)',form:'Appendix 2, form 1 (base-index)',unit:'roubles, 2 decimals',xl:'one sheet per LS, formulas for subtotals and totals',pdf:'landscape A4, header repeated on every page',ph:'1'},
+ {doc:'Object estimate (OS)',form:'Appendix 5',unit:'thousands, 2 decimals',xl:'sheet; each line sums its LS',pdf:'portrait A4',ph:'1'},
+ {doc:'Summary estimate (SSRSS)',form:'Appendix 6',unit:'thousands, 2 decimals',xl:'sheet with chapters, totals after 1-7, 1-8, 1-9, 1-12, contingency, VAT',pdf:'portrait A4; base-prices and current-prices versions',ph:'1'},
+ {doc:'Resource sheet',form:'(no form; summary of lines)',unit:'natural units + money',xl:'sheet',pdf:'portrait',ph:'1'},
+ {doc:'Bill of quantities',form:'(no form)',unit:'natural units',xl:'sheet with formulas as text',pdf:'portrait',ph:'1'},
+ {doc:'Estimate of separate costs (SR)',form:'Appendix 2 (as LS)',unit:'roubles',xl:'sheet',pdf:'landscape',ph:'2'},
+ {doc:'Cost summary',form:'Appendix 7',unit:'thousands',xl:'sheet',pdf:'portrait',ph:'2'},
+ {doc:'Resource-index / resource LS',form:'Appendices 3, 4',unit:'roubles',xl:'sheet',pdf:'landscape',ph:'2'},
+],{});
+mkTable('t-sql',[{k:'t',t:'Table'},{k:'kind',t:'Kind'},{k:'what',t:'What it holds'},{k:'rls',t:'Who reads / writes'}],[
+ {t:'estimation_norm_catalog',kind:'catalog (справочник)',what:'Price-book rows: book, code, name, unit, unit cost split into OT / EM / OTm / M in base prices, labour hours, validity dates, source. Imported by the user (CSV / Excel).',rls:'organization members read; administrator and project manager write (permission matrix)'},
+ {t:'estimation_index_history',kind:'history (periodic register)',what:'Index to current prices per organization, region zone, cost element (construction, installation, equipment, other) and price date',rls:'as above'},
+ {t:'estimation_overhead_profit_table',kind:'table (non-periodic register)',what:'Type of work code, overhead % and profit % of payroll, validity dates, source order',rls:'as above'},
+ {t:'estimation_document_table',kind:'table',what:'Header of an estimate document (LS / OS / SSRSS / SR): node GUID, cipher, method, price date, zone, object kind, client, compiled by, approved on, signatures',rls:'by project (owner or permission profile)'},
+ {t:'estimation_takeoff_table',kind:'table',what:'BoQ line: project, position task, ref, description, drawing refs, formula, variables (JSONB), quantity, unit, source (hand / Excel / BIM), drawing revision, changed flag',rls:'by project'},
+ {t:'estimation_export_history (optional)',kind:'table',what:'Who exported which document, when, format, file name (an audit trail)',rls:'by project; insert by the export RPC only'},
+ {t:'RPCs',kind:'code (start2)',what:'estimation_norm_import (chunked), estimation_takeoff_set (writes the quantity into the position), estimation_apply_build_up (regenerates overhead / profit lines, bulk switch on), estimation_document_set_header',rls:'SECURITY INVOKER where the policies decide; every write RPC asks perm_can_in / perm_require; read-only project guard (PART 51) honoured'},
+],{q:'q-sql',cnt:'c-sql'});
+mkTable('t-q',[{k:'id',t:'#'},{k:'q',t:'Question'},{k:'d',t:'Default if you say nothing'}],[
+ {id:'Q1',q:'Which pricing method first?',d:'Base-index only (appendix 2). Resource and resource-index later.'},
+ {id:'Q2',q:'Where do the norm book rows come from? The official price books are large and have their own terms of use.',d:'Not shipped. Empty catalog + import from CSV / Excel + about 20 sample rows marked "sample".'},
+ {id:'Q3',q:'Money unit of documents',d:'LS in the project currency with 2 decimals; OS and SSRSS in thousands with 2 decimals (item 42). The currency is the budget currency of the project.'},
+ {id:'Q4',q:'Language of exported labels',d:'English for builders with the form numbers of the Methodology; a Russian label set can be added as strings only.'},
+ {id:'Q5',q:'PDF engine',d:'Own text PDF writer with one embedded TrueType font (Noto Sans) in the repo; web also gets a print stylesheet. Alternative: an Edge Function.'},
+ {id:'Q6',q:'Where does the dashboard open?',d:'New screen /pm/estimation for the linked estimation project, opened by a button in Project settings -> Estimation and from the Estimation view; the read-only view stays.'},
+ {id:'Q7',q:'Who may edit?',d:'The task and task-line rights of the estimation project (no new right in version 1).'},
+ {id:'Q8',q:'VAT rate and contingency cap',d:'Rate from the project / organization setting; contingency typed, a warning (not a block) above the cap of item 179 for the chosen object kind.'},
+ {id:'Q9',q:'Is the estimation project ever posted?',d:'No. The dashboard never posts; no plan movements, no Monitor01 rows.'},
+ {id:'Q10',q:'Do the estimate keys travel in task templates / project copy / file export?',d:'Project copy: yes (same project kind). Task templates: yes, the estimate keys stay. File export: yes in the project package (rows are plain JSON).'},
+ {id:'Q11',q:'Indices and zones',d:'Typed by the estimator per price date; no automatic fetch from the state price system in version 1.'},
+ {id:'Q12',q:'Phone',d:'Version 1 is a web / tablet dashboard; on a phone the Summary and Export tabs only.'},
+ {id:'Q13',q:'Overhead and profit as generated Expense lines or only as numbers of the form?',d:'Generated lines (Apply cost build-up), so the Estimation tab and Fill carry them.'},
+ {id:'Q14',q:'The file name: EstimationDasboard.tsx (as typed) or EstimationDashboard.tsx?',d:'EstimationDashboard.tsx.'},
+],{q:'q-q',cnt:'c-q'});
+
+const WBS=[
+ ['E0','0 Decisions','Answer the questions of section 11 (or accept the defaults)','-','S','Planned','-'],
+ ['E1','1 Data','start1 PART 58: tables estimation_norm_catalog, _index_history, _overhead_profit_table, _document_table, _takeoff_table (+ export history)','E0','M','Planned','Docker 108, Jest SQL scan'],
+ ['E2','1 Data','start2 PART 58: RLS + permission-matrix rows, RPCs (norm import, takeoff set, apply build-up, header set), guards, read-only project hook; delete_sql_structure part','E1','L','Planned','Docker 108'],
+ ['E3','1 Data','estimationCalc.ts: cost elements, overhead / profit, index, section / LS / OS / SSRSS totals, contingency cap, rounding of item 42','E0','L','Planned','Jest golden cases (this document, section 8)'],
+ ['E4','1 Data','Safe formula parser for the BoQ (named variables, + - * / ( ) and a few functions; no eval)','E0','M','Planned','Jest'],
+ ['E5','1 Data','Norm book import (CSV / Excel paste) with a preview and an error list; ~20 sample rows in start4 / start5','E2','M','Planned','Jest + Docker'],
+ ['E6','2 Dashboard','EstimationDashboard.tsx shell: route, tabs (ScrollableTabBar), task tree reuse, header, saved state, open buttons in Project settings + Estimation view','E3','L','Planned','Jest UI'],
+ ['E7','2 Dashboard','Layout A: estimate sheet on ReusableTable (positions + resource rows), norm picker, coefficient window, inspector','E6, E5','XL','Planned','Jest UI'],
+ ['E8','2 Dashboard','Layout B: quick quote + tiles, paste from Excel, mark-up for all','E6','M','Planned','Jest UI'],
+ ['E9','2 Dashboard','Layout C: trade breakdown + allowances','E6','M','Planned','Jest UI'],
+ ['E10','2 Dashboard','Takeoff tab: lines, formula editor, drawing refs, link to positions, changed flag','E4, E6','L','Planned','Jest UI'],
+ ['E11','2 Dashboard','Resources tab (grouped read-only sheet)','E6','M','Planned','Jest'],
+ ['E12','2 Dashboard','Cost build-up tab: method, price date, indices, norms, budget item mapping, Apply cost build-up','E2, E3','L','Planned','Jest + Docker'],
+ ['E13','2 Dashboard','Summary tab: LS / OS / SSRSS, chapters 1 - 12, contingency, VAT, checklist','E3','L','Planned','Jest'],
+ ['E14','2 Dashboard','Language keys (14 languages), README, KNOW_HOW row','all UI','M','Planned','i18n test'],
+ ['E15','3 Export','xlsxWriter.ts on fflate: sheets, styles, merged cells, widths, formulas','E3','L','Planned','Jest: read back with a zip + xml check'],
+ ['E16','3 Export','Excel forms: LS, OS, SSRSS, resource sheet, BoQ','E15','L','Planned','Jest golden files'],
+ ['E17','3 Export','Text PDF writer with embedded TrueType font, table layout, header on every page, page numbers','E3','XL','Planned','Jest: parse back, text present'],
+ ['E18','3 Export','Export window: choose documents / format / header, progress, Cancel export, zip of many files','E16, E17','M','Planned','Jest UI'],
+ ['E19','4 Interop','BoQ from Excel paste / file; BoQ from the BIM elements of a BIM project','E10','L','Planned','Jest'],
+ ['E20','4 Interop','Exchange XML of the state expert review (read first, write later)','E3','XL','Planned','-'],
+ ['E21','5 Research','Prototypes: six JPG screens with react-native-paper (+ source and build script)','-','M','Done in this round','Looked at in a browser pane'],
+ ['E22','5 Research','Python template downloader + analysis of 22 files','-','M','Done in this round','Run once, real downloads'],
+ ['E23','5 Research','This WBS document','-','M','Done in this round','-'],
+];
+const wbsRows=WBS.map(r=>({id:r[0],ph:r[1],what:r[2],dep:r[3],size:r[4],st:r[5],test:r[6]}));
+const phases=[...new Set(wbsRows.map(r=>r.ph))]; const fw=document.getElementById('f-wbs'); phases.forEach(p=>{const o=document.createElement('option');o.textContent=p;fw.appendChild(o)});
+let wbsSel='',stSel='';
+const wbsT=mkTable('t-wbs',[{k:'id',t:'ID'},{k:'ph',t:'Phase'},{k:'what',t:'Work item'},{k:'dep',t:'Needs'},{k:'size',t:'Size'},{k:'st',t:'Status',f:v=>badge(v,v==='Planned'?'gold':'green')},{k:'test',t:'Test'}],wbsRows,{q:'q-wbs',sel:'f-wbs',selKey:'ph',cnt:'c-wbs',selFn:(x,s)=>x.ph===s});
+document.getElementById('f-st').onchange=e=>{stSel=e.target.value;wbsT.redraw(stSel?wbsRows.filter(r=>r.st===stSel):wbsRows)};
+const sz={S:.5,M:2,L:4.5,XL:8};
+document.getElementById('kpi-wbs').innerHTML=[['Work items',wbsRows.length],['Planned',wbsRows.filter(r=>r.st==='Planned').length],['Done in this round',wbsRows.filter(r=>r.st!=='Planned').length],['Rough effort of planned items (days)','~'+Math.round(wbsRows.filter(r=>r.st==='Planned').reduce((a,r)=>a+sz[r.size],0))]].map(([t,v])=>'<div><b>'+v+'</b><span>'+t+'</span></div>').join('');
+
+/* ---------- gallery ---------- */
+const SHOTS=[['proto_01_estimate_sheet_gost_form','Estimate sheet (LS form)','The Methodology form with sections, norm codes, resource split of the selected position, totals, and the inspector on the right that maps the position to task lines.'],
+['proto_02_quick_quote_layout','Quick quote','One line = one task. Tiles Cost / Profit / Margin / Total price, status chips, paste from Excel, mark-up for all.'],
+['proto_03_trade_breakdown_layout','Trade breakdown','Cost by trade with labour / materials / cost per m2 and a bar of the share; allowances in percent; labour-materials split.'],
+['proto_04_takeoff_boq','Takeoff (BoQ)','Quantity with the formula, the variables and the drawing reference; the linked position; a flag when a drawing revision changed the line.'],
+['proto_05_summary_ls_os_ssrss','Summary','Local estimates into the object estimate, then chapters 1 - 12, contingency, VAT, and a checklist of what is missing.'],
+['proto_06_export_excel_pdf','Export','Choose documents and format, fill the header and signatures, preview of the local estimate form.']];
+document.getElementById('gallery').innerHTML=SHOTS.map(([f,t,c],i)=>'<figure class="shot"><img src="prototypes/'+f+'.jpg" alt="'+t+'" loading="lazy"><figcaption><b>'+(i+1)+' · '+t+'</b><br>'+c+'<br><code>prototypes/'+f+'.jpg</code></figcaption></figure>').join('');
+const lb=document.getElementById('lightbox');document.querySelectorAll('.shot img').forEach(im=>im.onclick=()=>{lb.querySelector('img').src=im.src;lb.style.display='flex'});lb.onclick=()=>lb.style.display='none';
+
+/* ---------- live calculation (same rules as estimationCalc.ts) ---------- */
+function calc(){
+  const NR=val('in-nr'),SP=val('in-sp'),IX=val('in-ix'),CT=val('in-ct'),VAT=val('in-vat');
+  const rows=POS.map(p=>{const lab=p.qty*p.lab*p.coef,pl=p.qty*p.pl*p.coef,op=p.qty*p.op*p.coef,mat=p.qty*p.mat*p.coef,direct=lab+pl+mat,pay=lab+op;return Object.assign({},p,{lab_t:lab,pl_t:pl,op_t:op,mat_t:mat,direct,pay,nr:pay*NR/100,sp:pay*SP/100})});
+  const S=k=>rows.reduce((a,r)=>a+r[k],0); const T={direct:S('direct'),pay:S('pay'),nr:S('nr'),sp:S('sp'),lab:S('lab_t'),pl:S('pl_t'),op:S('op_t'),mat:S('mat_t')};
+  T.base=T.direct+T.nr+T.sp; T.cur=T.base*IX; return {rows,T,NR,SP,IX,CT,VAT};
+}
+let posT;
+function render(){
+  const {rows,T,NR,SP,IX,CT,VAT}=calc();
+  const view=rows.map(r=>({no:r.no,sec:r.sec,code:r.code,name:r.name,unit:r.unit,qty:r.qty,coef:r.coef,unit_cost:r.lab+r.pl+r.mat,direct:r.direct,pay:r.pay,cur:(r.direct+r.nr+r.sp)*IX}));
+  if(!posT){posT=mkTable('t-pos',[{k:'no',t:'No',r:1},{k:'sec',t:'Section'},{k:'code',t:'Norm (sample)'},{k:'name',t:'Description'},{k:'unit',t:'Unit'},{k:'qty',t:'Qty',r:1,f:v=>fmt(v)},{k:'coef',t:'Coef.',r:1},{k:'unit_cost',t:'Unit cost, base',r:1,f:v=>fmt(v)},{k:'direct',t:'Direct, base',r:1,f:v=>fmt(v)},{k:'pay',t:'Payroll',r:1,f:v=>fmt(v)},{k:'cur',t:'Total, current',r:1,f:v=>fmt(v)}],view,{q:'q-pos',sel:'f-pos',selKey:'sec',cnt:'c-pos'});
+    [...new Set(POS.map(p=>p.sec))].forEach(s=>{const o=document.createElement('option');o.textContent=s;document.getElementById('f-pos').appendChild(o)});}
+  else posT.redraw(view);
+  document.getElementById('kpi-out').innerHTML=[['Direct costs',fmt(T.direct)],['Overheads',fmt(T.nr)],['Profit',fmt(T.sp)],['Total, base',fmt(T.base)],['Total, current',fmt(T.cur)]].map(([t,v])=>'<div><b>'+v+'</b><span>'+t+'</span></div>').join('');
+  const out=[['Labour (OT)',T.lab],['Plant and machinery (EM), operators included',T.pl],['  of which operators (OTm)',T.op],['Materials (M)',T.mat],['Total direct costs',T.direct],['Payroll (OT + OTm)',T.pay],['Overheads, '+NR+' % of payroll',T.nr],['Estimated profit, '+SP+' % of payroll',T.sp],['TOTAL, base prices',T.base],['TOTAL, current prices (index '+IX+')',T.cur]].map(([n,v],i)=>({n,v,_total:i>=8}));
+  mkTable('t-out',[{k:'n',t:'Local estimate LS-02-01-01'},{k:'v',t:'Amount',r:1,f:v=>fmt(v)}],out,{});
+  // chart: stacked bar of base total
+  const parts=[['Labour',T.lab,'#0284c7'],['Plant',T.pl,'#7c3aed'],['Materials',T.mat,'#10b981'],['Overheads',T.nr,'#f59e0b'],['Profit',T.sp,'#ea580c']]; const tot=parts.reduce((a,p)=>a+p[1],0); let x=20,svg='';
+  parts.forEach(([n,v,c])=>{const w=480*v/tot;svg+='<rect x="'+x+'" y="30" width="'+Math.max(w,1)+'" height="44" fill="'+c+'"><title>'+n+' '+fmt(v)+'</title></rect>';x+=w});
+  svg+=parts.map(([n,v,c],i)=>'<g transform="translate(20,'+(110+i*28)+')"><rect width="14" height="14" rx="3" fill="'+c+'"/><text x="22" y="12" font-size="13" fill="#0f172a">'+n+'</text><text x="500" y="12" font-size="13" text-anchor="end" fill="#475569" style="font-variant-numeric:tabular-nums">'+fmt(v)+'  ('+fmt(100*v/tot,1)+' %)</text></g>').join('');
+  document.getElementById('chart').innerHTML=svg;
+  // summary estimate
+  const k=v=>v/1000, lsr=[['LS-02-01-01 Earthworks and foundations',(T.base)*IX],['LS-02-01-02 Superstructure',T.base*1.35*IX],['LS-02-01-03 Finishes',T.base*0.8*IX]]; const obj=lsr.reduce((a,x)=>a+x[1],0);
+  const ch=[[1,'Site preparation',obj*.04],[2,'Main construction objects (OS-02-01)',obj],[3,'Auxiliary and service objects',obj*.06],[6,'External utility networks',obj*.09],[7,'Landscaping',obj*.05],[8,'Temporary buildings and structures',obj*.031],[9,'Other works and costs',obj*.052],[10,"Client's supervision, technical oversight",obj*.024],[12,'Design, surveys, expert review',obj*.058]];
+  const s12=ch.reduce((a,c)=>a+c[2],0),res=s12*CT/100,vat=(s12+res)*VAT/100; const ssr=ch.map(c=>({ch:c[0],n:c[1],v:k(c[2])})); ssr.push({ch:'',n:'Total, chapters 1 - 12',v:k(s12),_total:1},{ch:'',n:'Contingency, '+CT+' % (cap by item 179: 2 / 3 / 10 %)',v:k(res),_total:1},{ch:'',n:'VAT '+VAT+' %',v:k(vat),_total:1},{ch:'',n:'TOTAL WITH VAT',v:k(s12+res+vat),_total:1});
+  mkTable('t-ssr',[{k:'ch',t:'Chapter'},{k:'n',t:'Name'},{k:'v',t:'Total, thousands',r:1,f:v=>fmt(v)}],ssr,{});
+}
+['in-nr','in-sp','in-ix','in-ct','in-vat'].forEach(id=>document.getElementById(id).oninput=render);
+render();
+document.getElementById('kpi').innerHTML=[['6','JPG prototypes (react-native-paper)'],['22','template files downloaded and analysed'],['221','pages of the standard read'],['5','new tables (estimation_)'],['23','work items']].map(([b,s])=>'<div><b>'+b+'</b><span>'+s+'</span></div>').join('');
+</script>
+</body>
+</html>

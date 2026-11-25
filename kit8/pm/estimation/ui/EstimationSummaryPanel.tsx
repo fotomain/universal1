@@ -4,6 +4,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import SegmentButtonsApp from '../../../ui/components/common/SegmentButtonsApp';
+import InfoModal from '../../../ui/components/info/InfoModal';
+import { objectKindHelp } from '../model/objectKindHelpModel';
 import TextInputApp from '../../../ui/components/common/TextInputApp';
 import { readAllPages } from '../../crud/api/apiUtils';
 import { pmT } from '../../i18n/pmT';
@@ -31,6 +33,8 @@ export default function EstimationSummaryPanel({ client, projectGUID, documents,
   const [contingency, setContingency] = useState('2');
   const [vat, setVat] = useState('20');
   const [kind, setKind] = useState<EstimationObjectKind>('nonProduction');
+  // the help for the CFO of an object kind: right click / double click / double touch / long press on its button
+  const [helpKind, setHelpKind] = useState<EstimationObjectKind | null>(null);
   useEffect(() => {
     let alive = true;
     readSummaryRows(client, projectGUID, documents).then((r) => alive && setRows(r)).catch((e) => alive && setError(String(e?.message ?? e)));
@@ -50,9 +54,9 @@ export default function EstimationSummaryPanel({ client, projectGUID, documents,
     <ScrollView testID={testID} contentContainerStyle={{ gap: 12, paddingBottom: 30 }}>
       <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('Local estimates and estimates of separate costs go into their chapter (set in the settings of each document). Amounts in thousands, currency {{c}}.', { c: currency || '-' })}</Text>
       <View style={styles.row}>
-        <View style={{ width: 170 }}><TextInputApp testID={`${testID}-contingency`} label={pmT('Contingency, %')} value={contingency} keyboardType="numeric" onChangeText={setContingency} /></View>
-        <View style={{ width: 170 }}><TextInputApp testID={`${testID}-vat`} label={pmT('VAT, %')} value={vat} keyboardType="numeric" onChangeText={setVat} /></View>
-        <SegmentButtonsApp testID={`${testID}-kind`} value={kind} onValueChange={setKind} buttons={[{ value: 'nonProduction', label: pmT('Non-production') }, { value: 'production', label: pmT('Production') }, { value: 'linear', label: pmT('Linear') }, { value: 'unique', label: pmT('Unique / hazardous') }]} />
+        <View style={{ width: 170 }}><TextInputApp style={{ marginBottom: 0 }} testID={`${testID}-contingency`} label={pmT('Contingency, %')} value={contingency} keyboardType="numeric" onChangeText={setContingency} /></View>
+        <View style={{ width: 170 }}><TextInputApp style={{ marginBottom: 0 }} testID={`${testID}-vat`} label={pmT('VAT, %')} value={vat} keyboardType="numeric" onChangeText={setVat} /></View>
+        <SegmentButtonsApp testID={`${testID}-kind`} onInfo={setHelpKind} value={kind} onValueChange={setKind} buttons={[{ value: 'nonProduction', label: pmT('Non-production') }, { value: 'production', label: pmT('Production') }, { value: 'linear', label: pmT('Linear') }, { value: 'unique', label: pmT('Unique / hazardous') }]} />
       </View>
       {!!error && <Text style={{ color: c.error }}>{error}</Text>}
       {s.warnings.map((w) => <Text key={w} style={{ color: c.error, fontSize: 12 }}>{w}</Text>)}
@@ -74,12 +78,13 @@ export default function EstimationSummaryPanel({ client, projectGUID, documents,
         {line(pmT('VAT, {{p}} %', { p: vp }), s.vat)}
         {line(pmT('TOTAL WITH VAT'), s.grand, true)}
       </View></ScrollView>
+      <InfoModal testID={`${testID}-kind-help`} content={helpKind ? objectKindHelp(helpKind) : null} onClose={() => setHelpKind(null)} closeLabel={pmT('Close')} />
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'flex-end' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 12, alignItems: 'center' },
   tr: { flexDirection: 'row', borderBottomWidth: 1, paddingVertical: 6, paddingHorizontal: 6 },
   cName: { flex: 1, minWidth: 260, fontSize: 13 },
   cNum: { width: 110, textAlign: 'right', fontSize: 13 },

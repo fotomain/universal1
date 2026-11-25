@@ -80,7 +80,7 @@ export default function EstimationExportPanel({ client, projectGUID, documents, 
   };
 
   return (
-    <ScrollView testID={testID} contentContainerStyle={{ gap: 12, paddingBottom: 30 }}>
+    <ScrollView testID={testID} contentContainerStyle={{ gap: 12, paddingBottom: 30, width: '100%', maxWidth: EXPORT_PANEL_MAX_WIDTH }}>
       <Text style={[styles.h, { color: c.text }]}>{pmT('Documents')}</Text>
       {documents.length === 0 && <Text style={{ color: c.text, opacity: 0.7 }}>{pmT('No estimate yet: make one in the Estimate tab or from an example in the Templates tab.')}</Text>}
       {documents.map((d) => (
@@ -99,5 +99,8 @@ export default function EstimationExportPanel({ client, projectGUID, documents, 
     </ScrollView>
   );
 }
+
+/** the Export tab is a form: it stays this wide (px) on a wide screen, left justified */
+export const EXPORT_PANEL_MAX_WIDTH = 960;
 
 const styles = StyleSheet.create({ h: { fontSize: 15, fontWeight: '700' }, row: { flexDirection: 'row', gap: 10 } });

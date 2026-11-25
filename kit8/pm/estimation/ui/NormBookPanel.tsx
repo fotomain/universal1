@@ -43,6 +43,11 @@ export function decodeNormPair(text: string): NormFilterPair | null {
 /** "Direct cost / unit: 100 … 500" (an open border stays empty) */
 export const normPairLabel = (p: NormFilterPair, t: (s: string) => string): string => `${t(NORM_FILTER_FIELDS.find((f) => f.key === p.field)!.title)}: ${p.from} … ${p.to}`.trim();
 
+/** the World Norms panel (the folders tree) beside the table: its width and the gap to the table. The bar above starts its search where the TABLE starts (a left block as wide as the panel) */
+export const NORM_TREE_WIDTH = 300;
+/** a container narrower than this puts the tree ABOVE the table (ReusableTable foldersTreeStackBelowWidth default): no left block then */
+export const NORM_TREE_STACK_BELOW = 720;
+
 export interface NormBookPanelProps {
   client: any;
   canManage: boolean;
@@ -98,6 +103,9 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
   // the table + the tree are as high as the window (ReusableTable alwaysFullHeight) - but this panel sits in a WINDOW with the Close button under it: the room kept free below the table is measured
   // (the distance from the bottom edge of the table space to the bottom of the screen), so the table ends where its space ends
   const win = useWindowDimensions();
+  // the width of this panel: wide = the tree stands LEFT of the table and the bar keeps a left block as wide as the tree
+  const [panelW, setPanelW] = useState(0);
+  const treeBeside = panelW >= NORM_TREE_STACK_BELOW;
   const spaceRef = useRef<View>(null);
   const [bottomOffset, setBottomOffset] = useState(16);
   const measureSpace = useCallback(() => {
@@ -236,27 +244,22 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
       { key: 'spCode', title: pmT('Profit norm (SP)'), type: 'text', width: 140, editable: false },
       { key: 'language', title: pmT('Language'), type: 'text', width: 90, editable: false },
     ];
-    // the window that SELECTS a norm leads with what decides the choice: Direct cost, Unit, Title, Kind, Code (the rest keeps its order)
-    if (pickMode) {
-      const lead = ['unitDirect', 'unit', 'titleShown', 'kindShown', 'code'];
+    // the norm books (the screen AND the window that selects a norm) lead with what decides the choice: Direct cost, Unit, Title, Code, Kind (the rest keeps its order)
+    {
+      const lead = ['unitDirect', 'unit', 'titleShown', 'code', 'kindShown'];
       cols.sort((a, b) => { const ia = lead.indexOf(a.key as string); const ib = lead.indexOf(b.key as string); return (ia < 0 ? lead.length : ia) - (ib < 0 ? lead.length : ib); });
     }
-    // the first column holds the buttons of the row (a button must not sit inside a row that is itself a button: the table has no row-open handler): a section opens its folder, a norm joins the estimate
+    // the action column is a LINK column (hypertext, no buttons): the picker says Select, the norm books screen says "+ Add" (to the estimate), a section says Open.
+    // It is as wide as its longest word (the "+ Add" has its icon: 14 px + 6 px gap) + 6 px at the left and the right (+ the 1 px delimiter), the word centred
+    const actionWord = pickMode ? pmT('Select') : pmT('Add');
+    const actionW = Math.max(textWidthPx(actionWord, LINK_FONT_SIZE) + (pickMode ? 0 : 14 + 6), textWidthPx(pmT('Open'), LINK_FONT_SIZE)) + 12 + 1;
     cols.unshift({
-      // the picker: the column is as wide as its word (Select / Open) + 6 px at the left and the right (+ the 1 px delimiter), the word centred
-      key: 'rowAction', title: '', type: 'custom', width: pickMode ? Math.max(textWidthPx(pmT('Select'), LINK_FONT_SIZE), textWidthPx(pmT('Open'), LINK_FONT_SIZE)) + 12 + 1 : 190, ...(pickMode ? { cellPaddingX: 6, align: 'center' as const } : {}), editable: false, pinFirst: true, searchText: () => '',
+      key: 'rowAction', title: '', type: 'custom', width: actionW, cellPaddingX: 6, align: 'center', editable: false, pinFirst: true, searchText: () => '',
       renderCell: (row: any) => (row.rowJSON?.nodeKind === 'section'
-        ? (pickMode
-          ? <IconLinkAction testID={`${testID}-open-${row.rowGUID}`} title={pmT('Open')} label={pmT('Open section')} onPress={() => setPicked(row.rowGUID)} />
-          : <PMDialogButton testID={`${testID}-open-${row.rowGUID}`} kind="secondary" title={pmT('Open section')} onPress={() => setPicked(row.rowGUID)} />)
+        ? <IconLinkAction testID={`${testID}-open-${row.rowGUID}`} title={pmT('Open')} label={pmT('Open section')} onPress={() => setPicked(row.rowGUID)} />
         : row.rowJSON?.nodeKind === 'norm' && onAddNorm
-          ? (() => {
-            const onPress = () => { const n = items.find((i) => i.rowGUID === row.rowGUID); if (n) void add(n); };
-            // the picker: Select is a LINK (hypertext, as narrow as its word), the norm books screen keeps its button
-            return pickMode
-              ? <IconLinkAction testID={`${testID}-add-${row.rowGUID}`} title={pmT('Select')} onPress={onPress} />
-              : <PMDialogButton testID={`${testID}-add-${row.rowGUID}`} kind="secondary" icon="add" title={pmT('Add to the estimate')} onPress={onPress} />;
-          })()
+          ? <IconLinkAction testID={`${testID}-add-${row.rowGUID}`} icon={pickMode ? undefined : 'add'} title={actionWord} label={pickMode ? undefined : pmT('Add to the estimate')}
+            onPress={() => { const n = items.find((i) => i.rowGUID === row.rowGUID); if (n) void add(n); }} />
           : null),
     } as VisualColumn);
     return cols;
@@ -265,7 +268,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
   const folderOfRow = useCallback((r: ReusableTableRow) => (searching ? picked : (r.rowParentGUID === 'empty' ? (bookGUID ?? 'empty') : (r.rowParentGUID ?? 'empty'))), [searching, picked, bookGUID]);
 
   return (
-    <View testID={testID} style={styles.root}>
+    <View testID={testID} style={styles.root} onLayout={(e) => { const w = Math.round(e.nativeEvent.layout.width); setPanelW((p) => (p === w ? p : w)); }}>
       {pairMenu && (
         <PMContextMenu testID={`${testID}-filter-pairs-menu`} x={pairMenu.x} y={pairMenu.y} caption={pmT('Search history')} onClose={() => setPairMenu(null)}
           items={[
@@ -279,8 +282,13 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
           ]} />
       )}
       <View style={styles.bar}>
-        {!pickMode && <PMDialogButton testID={`${testID}-import`} kind="primary" icon="upload" title={pmT('Import norm books')} disabled={!canManage} onPress={onImport} />}
-        {!pickMode && <PMDialogButton testID={`${testID}-export`} kind="secondary" icon="download" title={pmT('Export')} disabled={!bookGUID} onPress={() => bookGUID && onExport(bookGUID)} />}
+        {/* the left block is as wide as the World Norms panel below: the Import / Export buttons share it (the picker has none: it stays empty), so the search starts where the table starts */}
+        {(treeBeside || !pickMode) && (
+          <View testID={`${testID}-bar-left`} style={[styles.barLeft, treeBeside ? { width: NORM_TREE_WIDTH } : null]}>
+            {!pickMode && <View style={{ flex: 3 }}><PMDialogButton testID={`${testID}-import`} kind="primary" icon="upload" title={pmT('Import norm books')} disabled={!canManage} onPress={onImport} /></View>}
+            {!pickMode && <View style={{ flex: 2 }}><PMDialogButton testID={`${testID}-export`} kind="secondary" icon="download" title={pmT('Export')} disabled={!bookGUID} onPress={() => bookGUID && onExport(bookGUID)} /></View>}
+          </View>
+        )}
         <View style={{ flex: 1, minWidth: 220, flexDirection: 'row' }}>
           <HistoryTextInput ref={searchRef} historyKey="estimationNormSearch" testID={`${testID}-search`} label={pmT('Search by code or title')} value={query} onChangeText={setQuery} />
         </View>
@@ -330,7 +338,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
         contextMenuEnabled={false}
         resizeColumnWidth
         // (uxuiFolders: the bottom offset above)
-        uxuiTable={{ showFoldersTree: true, foldersTreeWidth: 300, foldersTreeResizable: true, foldersTreeCollapsible: true }}
+        uxuiTable={{ showFoldersTree: true, foldersTreeWidth: NORM_TREE_WIDTH, foldersTreeResizable: false, foldersTreeCollapsible: true }}
         foldersTree={{
           nodes, folderOfRow, includeSubfolders: false, rowsDraggable: !pickMode, selectedFolderId: picked, onSelectedFolderChange: setPicked,
           tree: { readOnly: true, title: pmT('World Norms'), allLabel: pmT('All norm books') },
@@ -345,6 +353,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
 const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 360 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingBottom: 8 },
+  barLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tableSpace: { flex: 1, minHeight: 0 },
   h: { fontSize: 14, fontWeight: '700', paddingVertical: 4 },
 });

@@ -1,0 +1,577 @@
+[
+  {
+    "n": 1,
+    "title": "Smartsheet – Free Construction Estimate Templates",
+    "vendor": "Smartsheet",
+    "url": "https://www.smartsheet.com/content/construction-estimate-templates",
+    "about": "Smartsheet занимает первое место благодаря хорошо организованной и обширной коллекции бесплатных шаблонов из одного надежного источника. Вместо поисков по множеству сайтов вы можете просматривать кураторскую библиотеку, охватывающую общее строительство, жилые объекты, коммерческие проекты и конкретные специальности вроде кровли и электротехники. Этот централизованный подход упрощает сравнение разных макетов и поиск бесплатного шаблона сметы для строительства , который лучше всего подходит вашему рабочему процессу.  Платформа предоставляет несколько форматов файлов, включая Excel , Word, Google",
+    "files": [
+      {
+        "file": "IC-Simple-Construction-Estimate-Template-10964.xlsx",
+        "bytes": 333467,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Simple Construction Estimate",
+            "rows": 66,
+            "cols": 255,
+            "formulas": 22,
+            "header": [
+              "Phone",
+              "Email",
+              "Date of Estimate Request"
+            ]
+          },
+          {
+            "sheet": "- Disclaimer -",
+            "rows": 2,
+            "cols": 2,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Simple-Construction-Estimate-Template-10964_WORD.docx",
+        "bytes": 33308,
+        "kind": "docx",
+        "text": " 4253214 -17273 0 0 Simple Construction Estimate Template Company Name Your Logo 123 Company Address Drive Fourth Floor, Suite 412 Company City, NY 11101 321-654-9870 Email Address Estimate Client Name Project Name Phone Email Date of Estimate Request Client Address Project Location ( if different) Prepared By Date Estimate Prepared Estimate ID Project Scope What is included and excluded from the project scope? Within Scope Outside of Scope Materials Description Quantity Cost Amount Total Labor Description Hours Rate Amount Total Other Costs Description Amount Total Conditions / Instructions S"
+      },
+      {
+        "file": "IC-Simple-Construction-Estimate-Template_Google-Sheets.xlsx",
+        "bytes": 143060,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Simple Construction Estimate",
+            "rows": 66,
+            "cols": 28,
+            "formulas": 22,
+            "header": [
+              "Phone",
+              "Email",
+              "Date of Estimate Request"
+            ]
+          },
+          {
+            "sheet": "- Disclaimer -",
+            "rows": 1000,
+            "cols": 26,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Residential-Construction-Estimate-Template-10964.xlsx",
+        "bytes": 336177,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Residential Construction",
+            "rows": 402,
+            "cols": 42,
+            "formulas": 1552,
+            "header": [
+              "Project Name",
+              "Project ID",
+              "Project Location",
+              "Start Date",
+              "End Date"
+            ]
+          },
+          {
+            "sheet": "– Disclaimer –",
+            "rows": 2,
+            "cols": 2,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Residential-Construction-Estimate-Template_Google-Sheets.xlsx",
+        "bytes": 222222,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Residential Construction",
+            "rows": 1000,
+            "cols": 32,
+            "formulas": 1552,
+            "header": [
+              "Project Name",
+              "Project ID",
+              "Project Location",
+              "Start Date",
+              "End Date"
+            ]
+          },
+          {
+            "sheet": "– Disclaimer –",
+            "rows": 1000,
+            "cols": 26,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Commercial-Construction-Estimate-Template-10964.xlsx",
+        "bytes": 372208,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Construction Estimate",
+            "rows": 57,
+            "cols": 42,
+            "formulas": 86,
+            "header": [
+              "Estimate Number",
+              "Project Name",
+              "Sitework and Building Subtotal"
+            ]
+          },
+          {
+            "sheet": "Construction Estimate - Blank",
+            "rows": 54,
+            "cols": 42,
+            "formulas": 49,
+            "header": [
+              "Estimate Number",
+              "Project Name",
+              "Sitework and Building Subtotal"
+            ]
+          },
+          {
+            "sheet": "-Disclaimer-",
+            "rows": 2,
+            "cols": 2,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Commercial-Construction-Estimate-Template_Google-Sheets.xlsx",
+        "bytes": 152235,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Construction Estimate",
+            "rows": 57,
+            "cols": 30,
+            "formulas": 86,
+            "header": [
+              "Estimate Number",
+              "Project Name",
+              "Sitework and Building Subtotal"
+            ]
+          },
+          {
+            "sheet": "Construction Estimate - Blank",
+            "rows": 54,
+            "cols": 30,
+            "formulas": 49,
+            "header": [
+              "Estimate Number",
+              "Project Name",
+              "Sitework and Building Subtotal"
+            ]
+          },
+          {
+            "sheet": "-Disclaimer-",
+            "rows": 1000,
+            "cols": 26,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      },
+      {
+        "file": "IC-Contractor-Estimate-Template-10964.xlsx",
+        "bytes": 490559,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Contractor Estimate Template",
+            "rows": 1002,
+            "cols": 26,
+            "formulas": 853,
+            "header": [
+              "Job Title",
+              "Project Manager",
+              "Projected Start Date"
+            ]
+          },
+          {
+            "sheet": "Dropdown Keys - Do Not Delete -",
+            "rows": 60,
+            "cols": 30,
+            "formulas": 0,
+            "header": []
+          },
+          {
+            "sheet": "- Disclaimer -",
+            "rows": 1000,
+            "cols": 26,
+            "formulas": 0,
+            "header": []
+          }
+        ]
+      }
+    ],
+    "candidates": [
+      "https://www.smartsheet.com/sites/default/files/2025-06/IC-Simple-Construction-Estimate-Template-10964.xlsx",
+      "https://www.smartsheet.com/sites/default/files/2025-06/IC-Simple-Construction-Estimate-Template-10964_WORD.docx",
+      "https://docs.google.com/spreadsheets/d/1s2xQ5zxpEtOLdzZWj1eOtucdbDhd6nz28IvfFkKJnEo/export?format=xlsx",
+      "https://www.smartsheet.com/sites/default/files/2025-06/IC-Residential-Construction-Estimate-Template-10964.xlsx",
+      "https://docs.google.com/spreadsheets/d/1TBxHlUCuQisLQAV8YZHygEiETE4KgdBRl6Itq0r5reg/export?format=xlsx",
+      "https://www.smartsheet.com/sites/default/files/2025-06/IC-Commercial-Construction-Estimate-Template-10964.xlsx",
+      "https://docs.google.com/spreadsheets/d/1HUv2AGtNjE-LGyf7R2lFKM5w7C_5Aq0SWzBp8RaWhPg/export?format=xlsx",
+      "https://www.smartsheet.com/sites/default/files/2025-06/IC-Contractor-Estimate-Template-10964.xlsx"
+    ]
+  },
+  {
+    "n": 2,
+    "title": "ProjectManager – Construction Estimate Template ( Excel )",
+    "vendor": "ProjectManager",
+    "url": "https://www.projectmanager.com/templates/construction-estimate-template",
+    "about": "ProjectManager предлагает мощный шаблон на базе Excel , выделяющийся логической организацией по фазам. Он четко делит процесс оценки на предстроительные, строительные и постстроительные фазы, что отражает, как многие генеральные подрядчики планируют и выполняют проекты. Эта структура обеспечивает ясный каркас для распределения затрат и отслеживания бюджетов от мобилизации до финальной сдачи, делая его отличным бесплатным шаблоном сметы для строительства для ГП, управляющих полным жизненным циклом проекта.  Лист Excel спроектирован с учетом удобства, с отдельными разделами для деталей поставщик",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 3,
+    "title": "Vertex42 – Job/Work Estimate ( Excel , Word, Google Sheets)",
+    "vendor": "Vertex42",
+    "url": "https://www.vertex42.com/ExcelTemplates/job-estimate-template.html",
+    "about": "Vertex42 предлагает чистый, профессиональный и легковесный шаблон оценки работ, идеальный для подрядчиков, нуждающихся в простой форме, а не сложной базе затрат. Его сила — в простоте и профессиональном виде, что делает его отличной отправной точкой для создания отполированного документа заявки. Дизайн минималистичен и удобен для печати, фокусируясь на четкой презентации детализированных затрат, количеств и ставок клиенту.  Доступен для Excel , Google Sheets и Microsoft Word, этот бесплатный шаблон сметы для строительства обеспечивает универсальность для разных нужд. Версии таблиц включают баз",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 4,
+    "title": "QuickBooks – Free Estimate Templates ( Excel /Word/ PDF )",
+    "vendor": "QuickBooks",
+    "url": "https://quickbooks.intuit.com/r/accounting/estimate-templates/",
+    "about": "QuickBooks, лидер в бухгалтерском учете для бизнеса, предлагает коллекцию универсальных шаблонов оценок, идеальных для подрядчиков, нуждающихся в чистой профессиональной отправной точке. Хотя не специально для строительства, их шаблоны спроектированы с учетом лучших финансовых практик, обеспечивая наличие всей необходимой бизнес-информации. Это делает их надежным вариантом для создания бесплатного шаблона сметы для строительства без лишнего беспорядка, часто встречающегося в чрезмерно сложных отраслевых листах.  Платформа предоставляет скачивания в Excel , Word и PDF , удовлетворяя разные нужд",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 5,
+    "title": "FreshBooks – Free Estimate Templates",
+    "vendor": "FreshBooks",
+    "url": "https://www.freshbooks.com/estimate-templates",
+    "about": "FreshBooks фокусируется на создании профессиональных клиентских документов, делая его отличным ресурсом для подрядчиков, приоритизирующих отполированный бренд-имидж в заявках. В отличие от данных-тяжелых таблиц, эти шаблоны спроектированы с учетом эстетики, предлагая несколько современных макетов, простых для скачивания и кастомизации с вашим логотипом и цветами. Это упрощает производство чистого привлекательного бесплатного шаблона сметы для строительства , идеального для малых бизнесов и независимых подрядчиков.  Платформа предлагает шаблоны в различных форматах, включая Word, Excel и PDF , ",
+    "files": [
+      {
+        "file": "Excel-Estimate-Template-Main-Style-01.xlsx",
+        "bytes": 126831,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Invoice 1",
+            "rows": 999,
+            "cols": 27,
+            "formulas": 2,
+            "header": [
+              "Estimate Date",
+              "MM/DD/YYYY",
+              "Street Address Line 01"
+            ]
+          }
+        ]
+      },
+      {
+        "file": "Word-Estimate-Template-Style-01.docx",
+        "bytes": 66062,
+        "kind": "docx",
+        "text": " -77453 -179 0 0 627836 97790 Estimate 0 0 Estimate 673100 989330 0 0 4476750 692150 Business Name Street Address Line 01 Street Address Line 02 +1 (999)-999-9999 Email Address Website 0 0 Business Name Street Address Line 01 Street Address Line 02 +1 (999)-999-9999 Email Address Website 5203825 45720 PREPARED FOR : CUSTOMER NAME Street Address Line 01 Street Address Line 02 0 0 PREPARED FOR : CUSTOMER NAME Street Address Line 01 Street Address Line 02 690880 52070 ESTIMATE DETAILS: Estimate # 0000 Estimate Date MM/DD/YYYY 0 ESTIMATE DETAILS: Estimate # 0000 Estimate Date MM/DD/YYYY 0 75284 IT"
+      },
+      {
+        "file": "GoogleDocsEstimateTemplatesStyle01.docx",
+        "bytes": 72539,
+        "kind": "docx",
+        "text": " -6349 0 -6349 0 4241800 238125 Business Name Street Address Line 01 Street Address Line 02 +1 (999)-999-9999 Email Address Website 4241800 238125 609600 130163 Estimate 609600 130163 704850 152433 ESTIMATE DETAILS: Estimate # 0000 Estimate Date MM/DD/YYYY PREPARED FOR: CUSTOMER NAME Street Address Line 01 Street Address Line 02 0 63500 0 63500 ITEM/SERVICE DESCRIPTION QTY/HOURS RATE AMOUNT Placeholder Text 000 000 000 Placeholder Text 000 000 000 Placeholder Text 000 000 000 Placeholder Text 000 000 000 695325 91440 695325 91440 TERMS Text Here Subtotal $00.00 Tax Rate 5% Tax $00.00 TOTAL $00"
+      },
+      {
+        "file": "GoogleSheetsEstimateTemplatesStyle1.xlsx",
+        "bytes": 65054,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Invoice 1",
+            "rows": 230,
+            "cols": 26,
+            "formulas": 2,
+            "header": [
+              "Estimate Date",
+              "MM/DD/YYYY",
+              "Street Address Line 01"
+            ]
+          }
+        ]
+      },
+      {
+        "file": "PDF-Estimate-Templates-Style-01.pdf",
+        "bytes": 1136116,
+        "kind": "pdf",
+        "error": "ModuleNotFoundError: No module named 'pymupdf'"
+      }
+    ],
+    "candidates": [
+      "https://www.freshbooks.com/media/2025/07/Excel-Estimate-Template-Main-Style-01.xlsx",
+      "https://www.freshbooks.com/media/2025/07/Word-Estimate-Template-Style-01.docx",
+      "https://docs.google.com/document/d/1K0xMRWki-kYJDhQ4vflapFpcGtWvxmP9ZqrnLwCE6aM/export?format=docx",
+      "https://docs.google.com/spreadsheets/d/1vDIYl2uoHK2ruJ0jLsRZL0pruosEJc5QhGnYb9rtIlg/export?format=xlsx",
+      "https://www.freshbooks.com/media/2025/07/PDF-Estimate-Templates-Style-01.pdf"
+    ]
+  },
+  {
+    "n": 6,
+    "title": "Jobber – Free Construction Estimate Template ( PDF / Excel + Онлайн-кастомайзер)",
+    "vendor": "Jobber",
+    "url": "https://www.getjobber.com/free-tools/estimate-template/construction/",
+    "about": "Jobber предлагает уникальный гибридный подход, сочетая скачиваемые шаблоны с бесплатным онлайн-инструментом для создания и отслеживания заявок. Это идеально для малых генеральных подрядчиков и специальностей, желающих больше функциональности, чем статический файл, но не готовых к полноценному ПО. Вы можете скачать стандартный Excel или PDF или использовать их онлайн-генератор для добавления логотипа и деталей клиента, получая профессиональный брендированный документ.  Сила платформы — в направлении пользователей к более организованному workflow. После создания сметы онлайн вы можете отслеживат",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 7,
+    "title": "Xero – Free Construction Estimate Template (Редактируемый PDF )",
+    "vendor": "Xero",
+    "url": "https://www.xero.com/us/templates/construction-estimate-template/",
+    "about": "Xero, крупный провайдер бухгалтерского ПО, предлагает отполированный профессиональный шаблон оценки для малых бизнесов и подрядчиков, приоритизирующих чистые готовые к клиенту документы. В отличие от таблиц-тяжелых вариантов, предложение Xero — один заполняемый PDF . Этот подход обеспечивает стандартизированный вид финальной заявки и простоту email или печати, делая его отличным выбором для быстрого бесплатного шаблона сметы для строительства без сложных формул.  Шаблон доставляется по email после простой онлайн-формы. Он сопровождается полезным руководством, дающим практические советы по вклю",
+    "files": [],
+    "candidates": [
+      "https://www.xero.com/us/templates/construction-estimate-template/#download-the-construction-estimate-template"
+    ]
+  },
+  {
+    "n": 8,
+    "title": "Joist – General Contractor Estimate Templates ( Excel /Word)",
+    "vendor": "Joist",
+    "url": "https://www.joist.com/estimate-templates/general-contractor/",
+    "about": "Joist предлагает бесплатные шаблоны как прямой вход в популярное приложение для подрядчиков, делая его отличной отправной точкой для ремоделеров жилых объектов и специальностей. Ресурсы включают шаблон оценки для генерального подрядчика вместе с шаблоном счета, оба в знакомых форматах Excel и Word. Этот подход обеспечивает прямолинейный метод без излишеств для быстрых котировок, ненавязчиво вводя преимущества цифровой платформы Joist.  В отличие от сайтов с огромными библиотеками, предложение Joist сфокусировано, предоставляя ключевые документы, простые для скачивания и редактирования. Сайт та",
+    "files": [
+      {
+        "file": "Work-Estimate-Template-Word.docx",
+        "bytes": 33562,
+        "kind": "docx",
+        "text": " &lt;Your Company Name&gt; &lt;Your Company Address&gt; &lt;Your Contact Details&gt; PAGE DATE DATE OF EXPIRY ESTIMATE NO. CUSTOMER ID ESTIMATE TO &lt;Contact Name&gt; &lt;Client Company Name&gt; &lt;Address&gt; &lt;Phone&gt; &lt;Email&gt; ESTIMATE FROM &lt;Name / Dept&gt; &lt;Client Company Name&gt; &lt;Address&gt; &lt;Phone&gt; ITEM PART # DESCRIPTION QTY UNIT PRICE TOTAL 75663 Service Widget #1 1 $ 85.00 $ 85.00 23321 Warehouse Gadget 2 $ 75.00 $ 150.00 33322 Business Guide 1 $ 100.00 $ 100.00 $ - $ - $ - $ - $ - $ - $ - $ - $ - $ - $ - $ - $ - $ - SPECIAL NOTES, ESTIMATE TERMS SUBTOTAL DiS"
+      },
+      {
+        "file": "Work-Estimate-Template-Excel.xlsx",
+        "bytes": 33803,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Invoice Template",
+            "rows": 49,
+            "cols": 6,
+            "formulas": 21,
+            "header": [
+              "ITEM PART #",
+              "DESCRIPTION",
+              "QTY",
+              "UNIT PRICE",
+              "TOTAL"
+            ]
+          }
+        ]
+      },
+      {
+        "file": "Free-Estimate-Template-Word.docx",
+        "bytes": 39022,
+        "kind": "docx",
+        "text": " ESTIMATE #001 DATE 01.01.2025 &lt; Estimate terms &gt; COMPANY NAME ESTIMATE TO &lt;Name&gt; &lt;Address&gt; &lt;Phone&gt; &lt;Email&gt; &lt;Name / Dept&gt; &lt;Client Company Name&gt; &lt;Address&gt; &lt;Phone&gt; DESCRIPTION QTY UNIT PRICE TOTAL 1 $ 5.00 $ 5.00 1 $ 7.00 $ 7.00 1 $ 6.00 $ 6.00 $ - $ - $ - Remarks / Estimate Notes: SUBTOTAL DISCOUNT SUBTOTAL LESS DISCOUNT TAX RATE TOTAL TAX SHIPPING/HANDLIN G $ 18.00 $ 2.00 $ 16.00 8% $ 1.28 $ 2.99 ESTIMATE TOTAL $ 20.27 "
+      },
+      {
+        "file": "Free-Estimate-Template-Excel.xlsx",
+        "bytes": 32422,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Sheet1",
+            "rows": 35,
+            "cols": 10,
+            "formulas": 10,
+            "header": [
+              "DESCRIPTION",
+              "QTY",
+              "UNIT PRICE",
+              "TOTAL"
+            ]
+          }
+        ]
+      },
+      {
+        "file": "Job-Estimate-Template-Word.docx",
+        "bytes": 39238,
+        "kind": "docx",
+        "text": " ESTIMATE ESTIMATE NO: 76543 ESTIMATE DATE. 01.01.25 ESTIMATE EXPIRES 12.31.25 YOUR COMPANY NAME Address: 14256 Street Name City, State Zip Code Phone: Email: Website: ESTIMATE TO Client Name 14256 Street Name City, State Zip Code Phone: Email: ITEM NO. PRODUCT/SERVICE QUANTITY UNIT PRICE TOTAL 175 Monthly Mowing 1 $40.00 $40.00 20 Fertilization 1 $50.00 $50.00 35 Weed Control 1 $70.00 $70.00 ESTIMATE Notes SUBTOTAL $160.00 If you have any questions about this esimate please contact us using the below details. Company Phone Number, Email DISCOUNT (0%) $0.00 ESTIMATE TOTAL $173.20 TAX (8%) $13."
+      },
+      {
+        "file": "Job-Estimate-Template-Excel.xlsx",
+        "bytes": 31582,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Sheet1",
+            "rows": 30,
+            "cols": 8,
+            "formulas": 7,
+            "header": [
+              "ITEM NO.",
+              "PRODUCT/SERVICE",
+              "QUANTITY",
+              "UNIT PRICE",
+              "TOTAL"
+            ]
+          }
+        ]
+      },
+      {
+        "file": "Cost-Estimate-Template-Word.docx",
+        "bytes": 24742,
+        "kind": "docx",
+        "text": " Company Name ESTIMATE 123 Address Date: 1/1/2025 Anywhere, USA 54321 ESTIMATE # 123 Phone : (555) 555-5555 Expiry Date: 12/31/2025 email@companyemail.com ESTIMATE For: Contact Name Company Name Address City, State, Zip Phone Quantity Description Unit price Amount 1 Item 1 $2.00 $- 1 Widget 2 $2.00 $- 1 Gadget 3 $2.00 $- 1 Tool 4 $4.00 $- $- $- $- $- $- $- Subtotal $10.00 Credit $1.00 Tax 8.20% ESTIMATE $9.74 ESTIMATE notes Thank you for your business! "
+      },
+      {
+        "file": "Cost-Estimate-Template-Excel.xlsx",
+        "bytes": 28022,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Sheet1",
+            "rows": 29,
+            "cols": 13,
+            "formulas": 9,
+            "header": [
+              "Quantity",
+              "Description",
+              "Unit price",
+              "Amount"
+            ]
+          }
+        ]
+      }
+    ],
+    "candidates": [
+      "https://www.joist.com/wp-content/uploads/Work-Estimate-Template-Word.docx",
+      "https://www.joist.com/wp-content/uploads/Work-Estimate-Template-Excel.xlsx",
+      "https://www.joist.com/wp-content/uploads/Free-Estimate-Template-Word.docx",
+      "https://www.joist.com/wp-content/uploads/Free-Estimate-Template-Excel.xlsx",
+      "https://www.joist.com/wp-content/uploads/Job-Estimate-Template-Word.docx",
+      "https://www.joist.com/wp-content/uploads/Job-Estimate-Template-Excel.xlsx",
+      "https://www.joist.com/wp-content/uploads/Cost-Estimate-Template-Word.docx",
+      "https://www.joist.com/wp-content/uploads/Cost-Estimate-Template-Excel.xlsx"
+    ]
+  },
+  {
+    "n": 9,
+    "title": "ArcSite – Free Job/Contractor Estimate Template (Google Sheets/ Excel )",
+    "vendor": "ArcSite",
+    "url": "https://www.arcsite.com/utility/job-estimate-template",
+    "about": "ArcSite предлагает прямолинейный и высоко практичный шаблон для подрядчиков, нуждающихся в чистом решении без хлопот. Хотя компания специализируется на цифровом черчении и разборах объемов, ее бесплатный шаблон — отличная точка входа для строителей и ремоделеров. Этот бесплатный шаблон сметы для строительства не требует логина, делая его одним из самых доступных для быстрого создания профессиональной заявки.  Доступен в форматах Google Sheets и Excel , шаблон включает встроенные формулы для подытогов, налогов и финальных итогов. Его макет особенно дружелюбен для работ по объектам, с четкими ра",
+    "files": [],
+    "candidates": [
+      "https://www.arcsite.com/download",
+      "https://www.arcsite.com/utility/job-estimate-template#form-heading2"
+    ]
+  },
+  {
+    "n": 10,
+    "title": "HubSpot – Contractor Estimate Template (Word/ PDF )",
+    "vendor": "HubSpot",
+    "url": null,
+    "about": "HubSpot, лидер в ПО для маркетинга и продаж, предлагает простой, но профессиональный шаблон оценки для подрядчиков, предназначенный для презентации клиенту. Хотя не инструмент специально для строительства, его сила — в чистом бизнес-ориентированном макете, включающем все необходимые элементы для формальной котировки, такие как четкие линии подписи и раздел условий. Это делает его отличным выбором для малых работ или подрядчиков, желающих отполированный финальный документ после внутренних расчетов. Доступен в форматах Word и PDF , этот шаблон прост в использовании для нетехнического персонала. ",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 11,
+    "title": "Proposable – Construction Cost Estimate Template (Онлайн/Заполняемый)",
+    "vendor": "Proposable",
+    "url": "https://proposable.com/estimate-templates/construction-cost-estimate-template",
+    "about": "Proposable смещает фокус с скачиваемого файла на полную веб-опыт提案. Вместо традиционной таблицы предлагает заполняемый онлайн-документ для презентации, отслеживания и цифровых подписей. Этот подход идеален для подрядчиков, желающих оптимизировать процесс одобрения и получать insights о вовлеченности клиента без сборки отдельных инструментов для оценки и подписи.  Сила платформы — в автоматизации workflow. Вы можете отправить профессиональную оценку прямо в inbox клиента, отслеживать открытие и позволить немедленную e-подпись. Это делает отличным бесплатным шаблоном сметы для строительства без ",
+    "files": [],
+    "candidates": []
+  },
+  {
+    "n": 12,
+    "title": "Eano – Free Contractor Estimate Template (Google Sheets)",
+    "vendor": "Eano",
+    "url": "https://www.eano.com/tools-templates/contractor-estimate-template",
+    "about": "Eano предоставляет чистый профессиональный бесплатный шаблон сметы для строительства , специально для Google Sheets. Выбор платформы делает его идеальным для современных подрядчиков, приоритизирующих облачные workflow и командное сотрудничество. Шаблон логически структурирован, с четкими разделами для материалов, труда по задачам, разрешений и аренды оборудования, упрощая создание детальной прозрачной котировки для клиентов.  Дизайн прямолинейный и фокусируется на функциональности. Включает поля для подытогов, налогов, накладных и финальной наценки, позволяя быстрые корректировки маржи прибыли",
+    "files": [
+      {
+        "file": "EanoEstimateTemplatev1.1.xlsx",
+        "bytes": 2349168,
+        "kind": "xlsx",
+        "sheets": [
+          {
+            "sheet": "Instructions",
+            "rows": 1004,
+            "cols": 26,
+            "formulas": 0,
+            "header": []
+          },
+          {
+            "sheet": "Categories",
+            "rows": 1474,
+            "cols": 1,
+            "formulas": 0,
+            "header": []
+          },
+          {
+            "sheet": "Estimate Worksheet",
+            "rows": 70,
+            "cols": 12,
+            "formulas": 82,
+            "header": [
+              "Cost",
+              "Profit",
+              "Margin",
+              "Total cost:"
+            ]
+          },
+          {
+            "sheet": "Estimate Summary (Client)",
+            "rows": 1013,
+            "cols": 4,
+            "formulas": 2,
+            "header": []
+          },
+          {
+            "sheet": "Invoice (Client)",
+            "rows": 1013,
+            "cols": 5,
+            "formulas": 7,
+            "header": []
+          },
+          {
+            "sheet": "Contract",
+            "rows": 56,
+            "cols": 5,
+            "formulas": 5,
+            "header": []
+          },
+          {
+            "sheet": "Proposal (Client)",
+            "rows": 176,
+            "cols": 6,
+            "formulas": 10,
+            "header": []
+          }
+        ]
+      }
+    ],
+    "candidates": [
+      "https://www.eano.com/tools-templates/contractor-estimate-template#form-header",
+      "https://docs.google.com/spreadsheets/d/1uavXevSiXuhzHwlEjyxQZbdaTKPiIlklYogksNKdj6M/export?format=xlsx"
+    ]
+  }
+]

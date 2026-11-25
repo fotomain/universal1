@@ -10,7 +10,7 @@
 //   Wording: neutral English unless the project switch useGOSTInformationInDocuments is ON (then the forms of the Methodology are named). Every text is a pmT key (14 languages).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { useSupabase } from '../../providers/WithSupabase';
 import { useMyOrganization } from '../../catalog/organization/useMyOrganization';
@@ -20,6 +20,10 @@ import ScrollableTabBar from '../../ui/components/tabs/ScrollableTabBar';
 import { useReadProjectQuery } from '../crud/project/projectQueries';
 import { pmT } from '../i18n/pmT';
 import { PMDialogButton } from '../inner/buttons/PMDialogButton';
+import { PMIconButton } from '../inner/buttons/PMIconButton';
+import SelectProjectFromList from '../view/project/SelectProjectFromList';
+import { projectIsReadonly } from '../model/projectReadonly';
+import { usePMOwnerGUID } from '../crud/queries';
 import { usePMStore } from '../store/store_pm';
 import { estimationLinkOf } from '../view/project/estimation/estimationModel';
 import { readCurrencyRate } from '../view/project/estimation/estimationApi';
@@ -42,12 +46,14 @@ import { docKindTitle } from './export/estimationForms';
 import { calcDocument } from './model/estimationCalc';
 import { assignLinesToTask, canCarryEstimate, taskKindOf, linesOfScope, stageTotals, taskPaneState, unassignedLines } from './model/estimationTaskModel';
 import EstimationStageTotals from './ui/EstimationStageTotals';
+import InfoModal from '../../ui/components/info/InfoModal';
+import { layoutHelp } from './model/layoutHelpModel';
 import PMProjectTreeHost from '../view/project/tree/PMProjectTreeHost';
 import type { PMPalette } from '../view/theme';
 
 type TabId = 'estimate' | 'document' | 'norms' | 'templates' | 'summary' | 'export';
 const TABS: { id: TabId; label: string }[] = [
-  { id: 'estimate', label: 'Estimate' }, { id: 'document', label: 'Document settings' }, { id: 'norms', label: 'Norm books' }, { id: 'templates', label: 'Templates' }, { id: 'summary', label: 'Summary' }, { id: 'export', label: 'Export' },
+  { id: 'estimate', label: 'Estimate' }, { id: 'summary', label: 'Summary' }, { id: 'document', label: 'Document settings' }, { id: 'norms', label: 'Norm books' }, { id: 'templates', label: 'Templates' }, { id: 'export', label: 'Export' },
 ];
 const fmt = (n: number): string => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
@@ -55,6 +61,8 @@ const BASIS_LABELS: Record<EstimationCurrencyBasis, string> = { budget: 'Budget'
 
 export default function EstimationDashboard() {
   const { themeColors: c } = useDesignSystem();
+  const router = useRouter();
+  const ownerGUID = usePMOwnerGUID();
   const params = useLocalSearchParams<{ projectGUID?: string }>();
   const selected = usePMStore((s: any) => s.selectedProjectGUID) as string | null;
   const [pickedGUID, setPickedGUID] = useState<string | null>(null);
@@ -93,6 +101,8 @@ export default function EstimationDashboard() {
 
   const [tab, setTab] = useState<TabId>('estimate');
   const [layout, setLayout] = useState<EstimationLayout>('simple');
+  // the help for the CFO of a layout: right click / double click / double touch / long press on its button
+  const [helpLayout, setHelpLayout] = useState<EstimationLayout | null>(null);
   const [basis, setBasis] = useState<EstimationCurrencyBasis>('budget');
   const [importOpen, setImportOpen] = useState(false);
   const [exportBook, setExportBook] = useState<string | null>(null);
@@ -176,14 +186,13 @@ export default function EstimationDashboard() {
                   </Pressable>
                 ))}
               </View>
-              <PMDialogButton testID="estimation-new-document" kind="primary" icon="note_add" title={pmT('New estimate')} disabled={readOnly} onPress={() => { void newDocument('local'); }} />
-              <PMDialogButton testID="estimation-new-quote" kind="secondary" icon="request_quote" title={pmT('New quotation')} disabled={readOnly} onPress={() => { void newDocument('bid'); }} />
-              {!!doc && <PMDialogButton testID="estimation-delete-document" kind="dangerOutlined" icon="delete" title={pmT('Delete estimate')} disabled={readOnly} onPress={() => { void data.deleteDocument(doc.rowGUID); }} />}
             </View>
             <View style={styles.bar}>
-              <SegmentButtonsApp testID="estimation-layout" value={layout} onValueChange={setLayout} buttons={ESTIMATION_LAYOUTS.map((l) => ({ value: l.value, label: pmT(l.label), tip: l.tip ? pmT(l.tip) : undefined, testID: `estimation-layout-${l.value}` }))} />
+              <SegmentButtonsApp testID="estimation-layout" onInfo={setHelpLayout} value={layout} onValueChange={setLayout} buttons={ESTIMATION_LAYOUTS.map((l) => ({ value: l.value, label: pmT(l.label), tip: l.tip ? pmT(l.tip) : undefined, testID: `estimation-layout-${l.value}` }))} />
               <SegmentButtonsApp
                 testID="estimation-basis"
+                // right justified in the row of the layout buttons
+                style={{ marginLeft: 'auto' }}
                 value={basis}
                 onValueChange={setBasis}
                 buttons={(['budget', 'accounting', 'consolidation'] as const).map((b) => ({ value: b, label: `${currencies[b]} ${pmT(BASIS_LABELS[b])}`.trim(), tip: `${pmT(BASIS_TIPS[b].name)}${currencies[b] ? ` (${currencies[b]})` : ''}: ${pmT(BASIS_TIPS[b].description)}` }))}
@@ -229,19 +238,29 @@ export default function EstimationDashboard() {
   const ready = !!projectGUID;
   const saveLabel = data.saveState === 'saving' ? pmT('Saving...') : data.saveState === 'error' ? pmT('Not saved') : data.saveState === 'saved' ? pmT('Saved') : '';
 
+  const statusText = [
+    !ready ? pmT('Pick a project below or make a new one for the estimation.') : '',
+    ready && editsLinked ? pmT('its estimation project is edited') : '',
+    ready && readOnly ? (canManage ? pmT('read-only project') : pmT('you may read, not change (permissionEstimationManager)')) : '',
+  ].filter(Boolean).join(' · ');
+
   return (
     <View testID="estimation-dashboard" style={[styles.root, { backgroundColor: c.background }]}>
-      <View style={[styles.header, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
-        <View style={{ flex: 1, minWidth: 220 }}>
-          <Text style={[styles.h1, { color: c.text }]}>{pmT('Estimation dashboard')}</Text>
-          <Text numberOfLines={2} style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>
-            {ready ? `${pmT('Project')}: ${String(projectJSON.name ?? '')}${editsLinked ? ` · ${pmT('its estimation project is edited')}` : ''}` : pmT('Pick a project below or make a new one for the estimation.')}
-            {readOnly && ready ? ` · ${canManage ? pmT('read-only project') : pmT('you may read, not change (permissionEstimationManager)')}` : ''}
-          </Text>
+      {/* the tool bar of the screen, as in the Project dashboard: icon buttons (the name is the hover tip), LEFT justified, then the state of the save; the document buttons (New estimate / New quotation / Delete estimate) are RIGHT justified */}
+      <View testID="estimation-toolbar" style={[styles.toolbar, { borderBottomColor: c.border, backgroundColor: c.surface }]}>
+        {/* the project field of the Project dashboard (search by name, ✕, ▾ the list, Create new) - it picks the project of THIS screen */}
+        <SelectProjectFromList ownerGUID={ownerGUID ?? ''} width={260} onPick={(g) => { setPickedGUID(g); setPickerOpen(false); setTab('estimate'); }}
+          selectedName={ready ? String(asked.data?.rowJSON?.name ?? '') : ''} selectedReadonly={!!askedGUID && projectIsReadonly(projectJSON)} onCreateNew={() => setPickerOpen(true)} />
+        <PMIconButton tipScope="app" testID="estimation-go-projects" icon="view_timeline" title="Go to Projects" color={c.text} onPress={() => router.push('/catalog/project')} />
+        <PMIconButton tipScope="app" testID="estimation-reload" icon="refresh" title="Reload" color={c.text} disabled={!ready} onPress={data.reload} />
+        {/* no title block (the app bar has the name of the screen): only what the user must know - a hint without a project, a read-only / linked project */}
+        {!!statusText && <Text testID="estimation-status" numberOfLines={2} style={{ color: c.text, opacity: 0.7, fontSize: 12, marginLeft: 8, flexShrink: 1 }}>{statusText}</Text>}
+        {!!saveLabel && <Text testID="estimation-save-state" style={{ color: data.saveState === 'error' ? c.error : c.text, opacity: 0.8, fontSize: 12, marginLeft: 8 }}>{saveLabel}</Text>}
+        <View style={styles.actions}>
+          <PMIconButton tipScope="app" testID="estimation-new-document" icon="note_add" title="New estimate" color={c.primary} disabled={readOnly} onPress={() => { void newDocument('local'); }} />
+          <PMIconButton tipScope="app" testID="estimation-new-quote" icon="request_quote" title="New quotation" color={c.primary} disabled={readOnly} onPress={() => { void newDocument('bid'); }} />
+          {!!doc && <PMIconButton tipScope="app" testID="estimation-delete-document" icon="delete" title="Delete estimate" color={c.error} disabled={readOnly} onPress={() => { void data.deleteDocument(doc.rowGUID); }} />}
         </View>
-        {!!saveLabel && <Text testID="estimation-save-state" style={{ color: data.saveState === 'error' ? c.error : c.text, opacity: 0.8, fontSize: 12 }}>{saveLabel}</Text>}
-        <PMDialogButton testID="estimation-change-project" kind="secondary" icon="folder_open" title={pmT('Change project')} onPress={() => setPickerOpen(true)} />
-        <PMDialogButton testID="estimation-reload" kind="secondary" icon="refresh" title={pmT('Reload')} disabled={!ready} onPress={data.reload} />
       </View>
 
       <ScrollableTabBar testID="estimation-tabs" style={[styles.tabs, { borderBottomColor: c.border }]} arrowColor={c.text}>
@@ -255,6 +274,7 @@ export default function EstimationDashboard() {
       {!!data.error && <Text testID="estimation-error" style={{ color: c.error, padding: 8 }}>{data.error} {pmT('(Run start1 + start2 + start4: SQL PART 58.)')}</Text>}
       {!!note && <Text testID="estimation-note" style={{ color: c.text, paddingHorizontal: 12, paddingTop: 6, fontSize: 12 }}>{note}</Text>}
 
+      <InfoModal testID="estimation-layout-help" content={helpLayout ? layoutHelp(helpLayout) : null} onClose={() => setHelpLayout(null)} closeLabel={pmT('Close')} />
       <SelectNormWindow visible={!!normLine} client={client} onSelect={selectNorm} onClose={() => setNormLine(null)} />
       <View style={styles.body}>
         {!ready || pickerOpen ? (
@@ -283,12 +303,15 @@ export default function EstimationDashboard() {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  // zIndex: the dropdown of the project field opens OVER the tab bar and the body below (a sibling later in the tree would be drawn above it)
+  toolbar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: 4, paddingHorizontal: 12, paddingVertical: 4, borderBottomWidth: 1, position: 'relative', zIndex: 100, elevation: 10 },
   header: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, paddingVertical: 10, borderBottomWidth: 1, flexWrap: 'wrap' },
   h1: { fontSize: 20, fontWeight: '800' },
   tabs: { flexDirection: 'row', borderBottomWidth: 1, paddingHorizontal: 8 },
   tab: { paddingHorizontal: 14, paddingVertical: 10 },
   body: { flex: 1, padding: 12 },
   bar: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 8, paddingBottom: 8 },
+  actions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   docs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1, minWidth: 200 },
   docChip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, maxWidth: 320 },
   totals: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1 },

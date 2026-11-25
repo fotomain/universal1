@@ -522,6 +522,9 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const hbarX = useDerivedValue(() => (treeMaxScrollX.value > 0 ? (treeScrollX.value / treeMaxScrollX.value) * (width - hbarW) : 0), [width, hbarW]);
 
   const dragFrom = useSharedValue(-1);
+  /** row + view x where the finger / mouse went DOWN (the drag activates later, a fast move is already rows away) */
+  const pressRow = useSharedValue(-1);
+  const pressX = useSharedValue(0);
   /** mouse: the current drag scrolls the columns (pressed a row and moved left / right) */
   const sidePan = useSharedValue(0);
   /** touch: the current scroll gesture gave way to a row reorder */
@@ -532,6 +535,11 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const menuY = useSharedValue(0);
   const dragY = useSharedValue(0);
   const dropSlot = useSharedValue(-1);
+  /** row (stage) the dragged row is dropped ONTO (middle of its row = becomes its last child), -1 = a gap drop */
+  const dropInto = useSharedValue(-1);
+  /** per visible row, for the UI thread: 1 = a stage / summary (a row can be dropped onto it) and the depth of the row */
+  const rowIsStage = useSharedValue<number[]>([]);
+  const rowDepths = useSharedValue<number[]>([]);
   const handleStartY = useSharedValue(0);
   /** UI-thread copy of uxuiSettings.dragAndDropTaskInTree */
   const dragEnabledSV = useSharedValue(true);
@@ -541,6 +549,23 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   const handleStartScroll = useSharedValue(0);
   const ghostOpacity = useDerivedValue(() => (dragFrom.value >= 0 ? 1 : 0));
   const dropLineY = useDerivedValue(() => Math.max(0, dropSlot.value) * PM_ROW_HEIGHT - 1);
+  const dropLineOpacity = useDerivedValue(() => (dragFrom.value >= 0 && dropInto.value < 0 ? 1 : 0));
+  const dropIntoY = useDerivedValue(() => Math.max(0, dropInto.value) * PM_ROW_HEIGHT);
+  const dropIntoOpacity = useDerivedValue(() => (dragFrom.value >= 0 && dropInto.value >= 0 ? 0.22 : 0));
+  /** at the press: which visible rows are stages + their depth, read from the store (the UI thread only sees these two arrays) */
+  const prepareDrop = useCallback(() => {
+    const s = usePMStore.getState();
+    const stages: number[] = [];
+    const depths: number[] = [];
+    for (const g of s.visibleRows) {
+      let d = 0;
+      for (let p = s.tree.parentById[g]; p; p = s.tree.parentById[p]) d++;
+      depths.push(d);
+      stages.push((s.tree.childrenById[g]?.length ?? 0) > 0 || s.tasksById[g]?.rowJSON.rowKind === 'stage' || s.schedule[g]?.isSummary ? 1 : 0);
+    }
+    rowIsStage.value = stages;
+    rowDepths.value = depths;
+  }, [rowIsStage, rowDepths]);
 
   // ---- JS callbacks from gestures -------------------------------------------------------
   const canvasBoxRef = useRef<View>(null);
@@ -796,17 +821,17 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   );
 
   const onDrop = useCallback(
-    (from: number, slot: number) => {
+    (from: number, slot: number, into: number = -1) => {
       const s = usePMStore.getState();
       if (s.treeColumnSort) {
         // the tree order is the sort order now: a drop could not keep its place
-        if (slot !== from && slot !== from + 1) {
+        if (into >= 0 || (slot !== from && slot !== from + 1)) {
           const title = colsRef.current.byKey[s.treeColumnSort.key]?.title ?? s.treeColumnSort.key;
           s.setError(`The tree is sorted by "${title}" - clear the sort (column ▾ -> Filter & sort) to reorder rows by drag & drop.`);
         }
         return;
       }
-      crud.dropRow(from, slot);
+      crud.dropRow(from, slot, into);
     },
     [crud]
   );
@@ -936,6 +961,36 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
       'worklet';
       return vx + treeScrollX.value;
     };
+    /** the stage row the finger is over (middle half of the row) when the dragged row may become its child, else -1 */
+    const intoRowAt = (contentY: number) => {
+      'worklet';
+      const from = dragFrom.value;
+      const stages = rowIsStage.value;
+      const depths = rowDepths.value;
+      const row = Math.floor(contentY / PM_ROW_HEIGHT);
+      if (from < 0 || row < 0 || row >= stages.length || row === from || !stages[row]) return -1;
+      const frac = contentY / PM_ROW_HEIGHT - row;
+      if (frac < 0.25 || frac > 0.75) return -1;
+      if (stages[from] && depths[from] === 0) return -1; // a top-level stage stays directly under the project
+      if (row > from) {
+        // a row inside the dragged one (its subtree follows it in the list) is no target
+        let inside = true;
+        for (let i = from + 1; i <= row; i++) {
+          if (depths[i] <= depths[from]) {
+            inside = false;
+            break;
+          }
+        }
+        if (inside) return -1;
+      }
+      return row;
+    };
+    /** the drop target for the finger at content y: the gap (slot) and, in the middle of a stage row, that stage */
+    const setDropTarget = (contentY: number) => {
+      'worklet';
+      dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
+      dropInto.value = intoRowAt(contentY);
+    };
 
     const hover = Gesture.Hover()
       .onBegin((e) => {
@@ -991,6 +1046,12 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
 
     const reorder = Gesture.Pan()
       .minDistance(6)
+      .onBegin((e) => {
+        'worklet';
+        pressRow.value = rowAt(e.y);
+        pressX.value = e.x;
+        runOnJS(prepareDrop)();
+      })
       .onStart((e) => {
         'worklet';
         // mouse: press a row (e.g. the task name) and move LEFT / RIGHT = scroll the columns;
@@ -1001,14 +1062,15 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           runOnJS(hidePMTip)();
           return;
         }
-        const idx = rowAt(e.y);
+        const idx = pressRow.value; // the row under the press, not under the finger at activation
         // drag & drop only from the Task name / # columns (the cells are for inline editing)
-        if (idx < 0 || !dragEnabledSV.value || !inRowDragZone(cx(e.x)) || onPanel(idx, e.x)) return;
+        if (idx < 0 || !dragEnabledSV.value || !inRowDragZone(cx(pressX.value)) || onPanel(idx, pressX.value)) return;
         dragFrom.value = idx;
         dragging.value = 1;
         runOnJS(hidePMTip)();
         dragY.value = idx * PM_ROW_HEIGHT;
         dropSlot.value = idx;
+        dropInto.value = -1;
       })
       .onChange((e) => {
         'worklet';
@@ -1021,19 +1083,20 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         // Kanban: to the right of the tree the row is dragged onto the board (surface coords: canvas is below the toolbar)
         if (bridge && kanbanBridgeMove(bridge, e.x + leftW, e.y + TB, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
-        dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
+        setDropTarget(contentY);
       })
       .onEnd(() => {
         'worklet';
         if (dragFrom.value < 0) return;
         if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
-        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value, dropInto.value);
       })
       .onFinalize(() => {
         'worklet';
         sidePan.value = 0;
         dragFrom.value = -1;
         dropSlot.value = -1;
+        dropInto.value = -1;
         dragging.value = 0;
         if (bridge) kanbanBridgeFinish(bridge);
       });
@@ -1132,6 +1195,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         dropSlot.value = idx;
         handleStartY.value = idx * PM_ROW_HEIGHT + PM_ROW_HEIGHT / 2;
         handleStartScroll.value = scrollY.value;
+        runOnJS(prepareDrop)();
         runOnJS(onHandleDrag)(idx);
       })
       .onChange((e) => {
@@ -1145,18 +1209,19 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
           if (kanbanBridgeMove(bridge, handleX + e.translationX, handleY + e.translationY, dragFrom.value)) return;
         }
         const contentY = handleStartY.value + e.translationY + (scrollY.value - handleStartScroll.value);
-        dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
+        setDropTarget(contentY);
       })
       .onEnd(() => {
         'worklet';
         if (dragFrom.value < 0) return;
         if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
-        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value, dropInto.value);
       })
       .onFinalize(() => {
         'worklet';
         dragFrom.value = -1;
         dropSlot.value = -1;
+        dropInto.value = -1;
         dragging.value = 0;
         runOnJS(onHandleDrag)(-1);
         if (bridge) kanbanBridgeFinish(bridge);
@@ -1165,10 +1230,15 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     /** the drag column (a grip per row, left of the grid): press a row's grip and move = move the task; no long press, also on touch */
     const dragColumn = Gesture.Pan()
       .minDistance(2)
-      .onStart((e) => {
+      .onBegin((e) => {
+        'worklet';
+        pressRow.value = rowAt(e.y);
+        runOnJS(prepareDrop)();
+      })
+      .onStart(() => {
         'worklet';
         if (!dragEnabledSV.value) return;
-        const idx = rowAt(e.y);
+        const idx = pressRow.value; // the grip that was pressed, not the row under the finger at activation
         if (idx < 0) return;
         dragFrom.value = idx;
         dragging.value = 1;
@@ -1183,18 +1253,19 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         // the column starts `selectW` px from the left of the pane, the grid at `leftW`: the surface x of the finger
         if (bridge && kanbanBridgeMove(bridge, e.x + selectW, e.y + TB, dragFrom.value)) return;
         const contentY = e.y - PM_SCALE_HEIGHT + scrollY.value;
-        dropSlot.value = clampValue(Math.round(contentY / PM_ROW_HEIGHT), 0, rowCount.value);
+        setDropTarget(contentY);
       })
       .onEnd(() => {
         'worklet';
         if (dragFrom.value < 0) return;
         if (bridge && kanbanBridgeRelease(bridge, dragFrom.value)) return;
-        runOnJS(onDrop)(dragFrom.value, dropSlot.value);
+        runOnJS(onDrop)(dragFrom.value, dropSlot.value, dropInto.value);
       })
       .onFinalize(() => {
         'worklet';
         dragFrom.value = -1;
         dropSlot.value = -1;
+        dropInto.value = -1;
         dragging.value = 0;
         if (bridge) kanbanBridgeFinish(bridge);
       });
@@ -1212,12 +1283,12 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
     if (IS_TOUCH_UI) handle.blocksExternalGesture(reorder, scroll, tap, doubleTap);
     else handle.blocksExternalGesture(reorder, tap, doubleTap);
     return {
-      gesture: Gesture.Simultaneous(hover, rowMenu, Gesture.Race(Gesture.Exclusive(header, pans), Gesture.Exclusive(doubleTap, tap))),
+      gesture: Gesture.Simultaneous(hover, rowMenu, Gesture.Race(IS_TOUCH_UI ? Gesture.Exclusive(header, pans) : Gesture.Simultaneous(header, pans), Gesture.Exclusive(doubleTap, tap))),
       handleGesture: handle,
       dragColumnGesture: dragColumn,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, leftW, dragEnabledSV, selectW]);
+  }, [scrollY, rowCount, hoverRow, bodyH, dragging, dragFrom, dragY, dropSlot, panelRowSV, panelLeftSV, panelWidthSV, paneWidthSV, rowDragRanges, prepareDrop, pressRow, pressX, dropInto, rowIsStage, rowDepths, treeScrollX, treeMaxScrollX, canvasHSV, colDrag.gesture, colResize.gesture, setHoveredIndex, onTapRow, onDoubleTapRow, onDoubleTapHeader, onTapHeader, openHeaderMenu, onDrop, onHandleDrag, rowMenuMode, openRowMenu, menuRow, menuX, menuY, bridge, TB, leftW, dragEnabledSV, selectW]);
 
   // ---- multi selection column (round check boxes): rows follow the vertical scroll on the UI thread ----
   const selectRowsStyle = useAnimatedStyle(() => ({ transform: [{ translateY: -scrollY.value }] }));
@@ -1472,7 +1543,8 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
                 })}
                 {/* drag-to-reorder feedback */}
                 <Rect x={0} y={dragY} width={gridW} height={PM_ROW_HEIGHT} color={palette.ghost} opacity={ghostOpacity} />
-                <Rect x={0} y={dropLineY} width={gridW} height={2} color={palette.primary} opacity={ghostOpacity} />
+                <Rect x={0} y={dropLineY} width={gridW} height={2} color={palette.primary} opacity={dropLineOpacity} />
+                <Rect x={0} y={dropIntoY} width={gridW} height={PM_ROW_HEIGHT} color={palette.primary} opacity={dropIntoOpacity} />
               </Group>
             </Group>
 

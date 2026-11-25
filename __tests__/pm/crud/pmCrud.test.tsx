@@ -210,6 +210,38 @@ describe('reorder / re-parent', () => {
     expect(dbTask('Task 111').treePath.startsWith(`${dbTask('Stage 2').treePath}.`)).toBe(true);
     expect(hasDep('Task 111', 'Task 113')).toBe(true); // dependencies survive the move
   });
+
+  it('dropRow ONTO a stage row (middle of the row) makes the task its last child', async () => {
+    const rows = h.store().visibleRows;
+    const from = rows.indexOf(g('Task 111'));
+    const into = rows.indexOf(g('Stage 2'));
+    await run(() => h.crud.dropRow(from, into, into));
+    expect(h.childrenOf(g('Stage 2'))).toEqual(['Task 121', 'Task 122', 'Task 123', 'Task 111']);
+    expect(h.childrenOf(g('Stage 1'))).toEqual(['Task 112', 'Task 113']);
+    expect(dbTask('Task 111').treePath.startsWith(`${dbTask('Stage 2').treePath}.`)).toBe(true);
+  });
+
+  it('dropRow ONTO a collapsed stage nests the task and expands the stage', async () => {
+    await run(() => h.store().toggleExpanded(g('Stage 2')));
+    const rows = h.store().visibleRows;
+    expect(rows).not.toContain(g('Task 121'));
+    const from = rows.indexOf(g('Task 111'));
+    const into = rows.indexOf(g('Stage 2'));
+    await run(() => h.crud.dropRow(from, into, into));
+    expect(h.childrenOf(g('Stage 2'))).toContain('Task 111');
+    expect(h.store().visibleRows).toContain(g('Task 121'));
+  });
+
+  it('dropRow ONTO a stage that is empty fills it; a top-level stage dropped onto a stage is not nested', async () => {
+    const stage = (await run(() => h.crud.createSubStage(g('Stage 1')))) as string;
+    const rows = h.store().visibleRows;
+    const into = rows.indexOf(stage);
+    await run(() => h.crud.dropRow(rows.indexOf(g('Task 111')), into, into));
+    expect(h.childrenOf(stage)).toEqual(['Task 111']);
+    const rows2 = h.store().visibleRows;
+    await run(() => h.crud.dropRow(rows2.indexOf(g('Stage 2')), rows2.indexOf(g('Stage 1')), rows2.indexOf(g('Stage 1'))));
+    expect(h.childrenOf(null)).toContain('Stage 2'); // still directly under the project
+  });
 });
 
 describe('sql_for_delete (asks first)', () => {

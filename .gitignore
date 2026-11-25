@@ -10,6 +10,7 @@ web-build/
 build/
 
 # Environment files
+.venv
 .env
 .env.local
 .env.development.local

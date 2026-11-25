@@ -1,0 +1,2872 @@
+{
+  "source_article": "https://exayard.com/ru/blog/besplatnye-shablony-smet-stroitelstva",
+  "vendors_cataloged": 12,
+  "vendors_with_direct_downloads": 4,
+  "total_files_downloaded": 39,
+  "vendors": [
+    {
+      "rank": 1,
+      "name": "Smartsheet – Free Construction Estimate Templates",
+      "slug": "01_smartsheet",
+      "landing_url": "https://www.smartsheet.com/content/construction-estimate-templates",
+      "exayard_summary_ru": "Smartsheet занимает первое место благодаря хорошо организованной и обширной коллекции бесплатных шаблонов из одного надежного источника. Вместо поисков по множеству сайтов вы можете просматривать кураторскую библиотеку, охватывающую общее строительство, жилые объекты, коммерческие проекты и конкретные специальности вроде кровли и электротехники. Этот централизованный подход упрощает сравнение разных макетов и поиск бесплатного шаблона сметы для строительства , который лучше всего подходит вашему рабочему процессу. Платформа предоставляет несколько форматов файлов, включая Excel , Word, Google ",
+      "downloaded_files": [
+        {
+          "filename": "IC-Simple-Construction-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Simple-Construction-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Simple-Construction-Estimate-Template-10964.xlsx",
+          "size_info": "333467 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Simple Construction Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 22,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Tax Rate %",
+              "Total Tax"
+            ],
+            "detected_sections": [
+              "Client Name",
+              "Client Address",
+              "Within \nScope",
+              "Outside \nof Scope",
+              "Materials",
+              "Total",
+              "Labor",
+              "Other Costs",
+              "Description",
+              "Subtotal",
+              "Tax Rate %",
+              "Total Tax"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Simple Construction Estimate",
+                "rows": 66,
+                "cols": 255,
+                "non_empty_rows": 54,
+                "formula_count": 22,
+                "sample_formulas": [
+                  "H27: =F27*G27",
+                  "H28: =F28*G28",
+                  "H29: =F29*G29",
+                  "H30: =F30*G30",
+                  "H31: =F31*G31",
+                  "H32: =F32*G32"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 26,
+                    "columns": [
+                      "Description",
+                      "Quantity",
+                      "Cost",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 38,
+                    "columns": [
+                      "Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Simple-Construction-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Simple-Construction-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Simple-Construction-Estimate-Template-10964_WORD.docx",
+          "size_info": "33308 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 1,
+            "table_count": 5,
+            "sample_headings": [
+              "Simple Construction Estimate \nTemplate"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 16,
+                "cols": 11,
+                "first_row_headers": [
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Your Logo"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 16,
+                "cols": 8,
+                "first_row_headers": [
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?",
+                  "Project Scope   What is included and excluded from the project scope?"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 23,
+                "cols": 7,
+                "first_row_headers": [
+                  "Labor",
+                  "Labor",
+                  "Labor",
+                  "Labor",
+                  "Labor",
+                  "Labor",
+                  "Labor"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 5,
+                "cols": 4,
+                "first_row_headers": [
+                  "Conditions / Instructions",
+                  "Conditions / Instructions"
+                ]
+              },
+              {
+                "table_index": 5,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "google_sheet_1s2xQ5zxpE.xlsx",
+          "relative_path": "templates/01_smartsheet/google_sheet_1s2xQ5zxpE.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1s2xQ5zxpEtOLdzZWj1eOtucdbDhd6nz28IvfFkKJnEo/export?format=xlsx",
+          "size_info": "146307 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Simple Construction Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 22,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Tax Rate %",
+              "Total Tax"
+            ],
+            "detected_sections": [
+              "Client Name",
+              "Client Address",
+              "Within \nScope",
+              "Outside \nof Scope",
+              "Materials",
+              "Total",
+              "Labor",
+              "Other Costs",
+              "Description",
+              "Subtotal",
+              "Tax Rate %",
+              "Total Tax"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Simple Construction Estimate",
+                "rows": 66,
+                "cols": 28,
+                "non_empty_rows": 54,
+                "formula_count": 22,
+                "sample_formulas": [
+                  "H27: =F27*G27",
+                  "H28: =F28*G28",
+                  "H29: =F29*G29",
+                  "H30: =F30*G30",
+                  "H31: =F31*G31",
+                  "H32: =F32*G32"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 26,
+                    "columns": [
+                      "Description",
+                      "Quantity",
+                      "Cost",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 38,
+                    "columns": [
+                      "Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Residential-Construction-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Residential-Construction-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Residential-Construction-Estimate-Template-10964.xlsx",
+          "size_info": "336177 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Residential Construction",
+              "– Disclaimer –"
+            ],
+            "total_formulas": 952,
+            "layout_archetype": "Cost-Plus / Markup Line-Item Estimator",
+            "detected_totals_and_markups": [
+              "Contingency",
+              "Gross Profit\nTotal",
+              "Margin\nof Profit",
+              "Total Estimated Expense",
+              "Markup Amount",
+              "Gross Profit"
+            ],
+            "detected_sections": [],
+            "sheets": [
+              {
+                "sheet_name": "Residential Construction",
+                "rows": 402,
+                "cols": 42,
+                "non_empty_rows": 244,
+                "formula_count": 952,
+                "sample_formulas": [
+                  "G11: =SUM(G14,G29,G44,G64,G80,G100,G129,G149,G165,G191,G203,G242,G227,G262,G284,G301,G311,G337,G351,G370,G214,G383)",
+                  "I11: =SUM(I14,I29,I44,I64,I80,I100,I129,I149,I165,I191,I203,I242,I227,I262,I284,I301,I311,I337,I351,I370,I214,I383)",
+                  "J11: =IF(K11=0,\"\",I11/K11)",
+                  "K11: =SUM(K14,K29,K44,K64,K80,K100,K129,K149,K165,K191,K203,K242,K227,K262,K284,K301,K311,K337,K351,K370,K214,K383)+(G11*H11)",
+                  "G14: =SUM(G15:G28)",
+                  "I14: =SUM(I15:I28)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 10,
+                    "columns": [
+                      "Base Price\nTotal",
+                      "Contingency",
+                      "Gross Profit\nTotal",
+                      "Margin\nof Profit",
+                      "Total Estimated Expense"
+                    ]
+                  },
+                  {
+                    "row": 13,
+                    "columns": [
+                      "Category & Items",
+                      "In Scope?",
+                      "Units",
+                      "Per",
+                      "Unit Price",
+                      "Base Price",
+                      "Markup Amount",
+                      "Gross Profit",
+                      "Margin\nof Profit",
+                      "Total \nExpense",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 144,
+                    "columns": [
+                      "Labor Costs",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "– Disclaimer –",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "google_sheet_1TBxHlUCuQ.xlsx",
+          "relative_path": "templates/01_smartsheet/google_sheet_1TBxHlUCuQ.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1TBxHlUCuQisLQAV8YZHygEiETE4KgdBRl6Itq0r5reg/export?format=xlsx",
+          "size_info": "222219 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Residential Construction",
+              "– Disclaimer –"
+            ],
+            "total_formulas": 952,
+            "layout_archetype": "Cost-Plus / Markup Line-Item Estimator",
+            "detected_totals_and_markups": [
+              "Contingency",
+              "Gross Profit\nTotal",
+              "Margin\nof Profit",
+              "Total Estimated Expense",
+              "Markup Amount",
+              "Gross Profit"
+            ],
+            "detected_sections": [],
+            "sheets": [
+              {
+                "sheet_name": "Residential Construction",
+                "rows": 1000,
+                "cols": 32,
+                "non_empty_rows": 245,
+                "formula_count": 952,
+                "sample_formulas": [
+                  "G11: =SUM(G14,G29,G44,G64,G80,G100,G129,G149,G165,G191,G203,G242,G227,G262,G284,G301,G311,G337,G351,G370,G214,G383)",
+                  "I11: =SUM(I14,I29,I44,I64,I80,I100,I129,I149,I165,I191,I203,I242,I227,I262,I284,I301,I311,I337,I351,I370,I214,I383)",
+                  "J11: =IF(K11=0,\"\",I11/K11)",
+                  "K11: =SUM(K14,K29,K44,K64,K80,K100,K129,K149,K165,K191,K203,K242,K227,K262,K284,K301,K311,K337,K351,K370,K214,K383)+(G11*H11)",
+                  "G14: =SUM(G15:G28)",
+                  "I14: =SUM(I15:I28)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 10,
+                    "columns": [
+                      "Base Price\nTotal",
+                      "Contingency",
+                      "Gross Profit\nTotal",
+                      "Margin\nof Profit",
+                      "Total Estimated Expense"
+                    ]
+                  },
+                  {
+                    "row": 13,
+                    "columns": [
+                      "Category & Items",
+                      "In Scope?",
+                      "Units",
+                      "Per",
+                      "Unit Price",
+                      "Base Price",
+                      "Markup Amount",
+                      "Gross Profit",
+                      "Margin\nof Profit",
+                      "Total \nExpense",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 144,
+                    "columns": [
+                      "Labor Costs",
+                      "0.0",
+                      "0",
+                      "0",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "– Disclaimer –",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Commercial-Construction-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Commercial-Construction-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Commercial-Construction-Estimate-Template-10964.xlsx",
+          "size_info": "372208 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 3,
+            "sheet_names": [
+              "Construction Estimate",
+              "Construction Estimate - Blank",
+              "-Disclaimer-"
+            ],
+            "total_formulas": 135,
+            "layout_archetype": "Multi-Sheet Phase / WBS Workbook (Summary + Detail Tabs)",
+            "detected_totals_and_markups": [
+              "Sitework and Building Subtotal",
+              "Contingency",
+              "Total Cost"
+            ],
+            "detected_sections": [
+              "Estimate Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Construction Estimate",
+                "rows": 57,
+                "cols": 42,
+                "non_empty_rows": 52,
+                "formula_count": 86,
+                "sample_formulas": [
+                  "H7: =SUM(G31+G55)",
+                  "H8: =SUM(H7*G8)",
+                  "H9: =SUM(H7*G9)",
+                  "H10: =SUM(H7*G10)",
+                  "H11: =SUM(H7*G11)",
+                  "H12: =SUM(H7:H11)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 7,
+                    "columns": [
+                      "Estimate Number",
+                      "Project Name",
+                      "Sitework and Building Subtotal",
+                      "365826"
+                    ]
+                  },
+                  {
+                    "row": 14,
+                    "columns": [
+                      "Sitework",
+                      "Notes",
+                      "Labor",
+                      "Materials",
+                      "Total Cost",
+                      "Cost/Sq. Ft."
+                    ]
+                  },
+                  {
+                    "row": 31,
+                    "columns": [
+                      "Total Site Costs",
+                      "12800",
+                      "26148",
+                      "38948"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "Construction Estimate - Blank",
+                "rows": 54,
+                "cols": 42,
+                "non_empty_rows": 51,
+                "formula_count": 49,
+                "sample_formulas": [
+                  "H6: =SUM(G30+G54)",
+                  "H7: =SUM(H6*G7)",
+                  "H8: =SUM(H6*G8)",
+                  "H9: =SUM(H6*G9)",
+                  "H10: =SUM(H6*G10)",
+                  "H11: =SUM(H6:H10)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 6,
+                    "columns": [
+                      "Estimate Number",
+                      "Project Name",
+                      "Sitework and Building Subtotal",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 13,
+                    "columns": [
+                      "Sitework",
+                      "Notes",
+                      "Labor",
+                      "Materials",
+                      "Total Cost",
+                      "Cost/Sq. Ft."
+                    ]
+                  },
+                  {
+                    "row": 30,
+                    "columns": [
+                      "Total Site Costs",
+                      "0",
+                      "0",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "-Disclaimer-",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "google_sheet_1HUv2AGtNj.xlsx",
+          "relative_path": "templates/01_smartsheet/google_sheet_1HUv2AGtNj.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1HUv2AGtNjE-LGyf7R2lFKM5w7C_5Aq0SWzBp8RaWhPg/export?format=xlsx",
+          "size_info": "152269 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 3,
+            "sheet_names": [
+              "Construction Estimate",
+              "Construction Estimate - Blank",
+              "-Disclaimer-"
+            ],
+            "total_formulas": 135,
+            "layout_archetype": "Multi-Sheet Phase / WBS Workbook (Summary + Detail Tabs)",
+            "detected_totals_and_markups": [
+              "Sitework and Building Subtotal",
+              "Contingency",
+              "Total Cost"
+            ],
+            "detected_sections": [
+              "Estimate Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Construction Estimate",
+                "rows": 57,
+                "cols": 30,
+                "non_empty_rows": 52,
+                "formula_count": 86,
+                "sample_formulas": [
+                  "H7: =SUM(G31+G55)",
+                  "H8: =SUM(H7*G8)",
+                  "H9: =SUM(H7*G9)",
+                  "H10: =SUM(H7*G10)",
+                  "H11: =SUM(H7*G11)",
+                  "H12: =SUM(H7:H11)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 7,
+                    "columns": [
+                      "Estimate Number",
+                      "Project Name",
+                      "Sitework and Building Subtotal",
+                      "365826"
+                    ]
+                  },
+                  {
+                    "row": 14,
+                    "columns": [
+                      "Sitework",
+                      "Notes",
+                      "Labor",
+                      "Materials",
+                      "Total Cost",
+                      "Cost/Sq. Ft."
+                    ]
+                  },
+                  {
+                    "row": 31,
+                    "columns": [
+                      "Total Site Costs",
+                      "12800",
+                      "26148",
+                      "38948"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "Construction Estimate - Blank",
+                "rows": 54,
+                "cols": 30,
+                "non_empty_rows": 51,
+                "formula_count": 49,
+                "sample_formulas": [
+                  "H6: =SUM(G30+G54)",
+                  "H7: =SUM(H6*G7)",
+                  "H8: =SUM(H6*G8)",
+                  "H9: =SUM(H6*G9)",
+                  "H10: =SUM(H6*G10)",
+                  "H11: =SUM(H6:H10)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 6,
+                    "columns": [
+                      "Estimate Number",
+                      "Project Name",
+                      "Sitework and Building Subtotal",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 13,
+                    "columns": [
+                      "Sitework",
+                      "Notes",
+                      "Labor",
+                      "Materials",
+                      "Total Cost",
+                      "Cost/Sq. Ft."
+                    ]
+                  },
+                  {
+                    "row": 30,
+                    "columns": [
+                      "Total Site Costs",
+                      "0",
+                      "0",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "-Disclaimer-",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Contractor-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Contractor-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Contractor-Estimate-Template-10964.xlsx",
+          "size_info": "490559 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 3,
+            "sheet_names": [
+              "Contractor Estimate Template",
+              "Dropdown Keys - Do Not Delete -",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 529,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "Projected Subtotal",
+              "Actual \nSubtotal"
+            ],
+            "detected_sections": [],
+            "sheets": [
+              {
+                "sheet_name": "Contractor Estimate Template",
+                "rows": 1002,
+                "cols": 26,
+                "non_empty_rows": 247,
+                "formula_count": 529,
+                "sample_formulas": [
+                  "D7: =SUM(D10,D25,D45,D67,D83,D103,D132,D152,D168,D194,D206,D245,D230,D265,D287,D304,D314,D340,D354,D373,D217,D386)",
+                  "E7: =SUM(E10,E25,E45,E67,E83,E103,E132,E152,E168,E194,E206,E245,E230,E265,E287,E304,E314,E340,E354,E373,E217,E386)",
+                  "F7: =E7-D7",
+                  "J7: =SUM(J10,J25,J45,J67,J83,J103,J132,J152,J168,J194,J206,J245,J230,J265,J287,J304,J314,J340,J354,J373,J217,J386)",
+                  "K7: =SUM(K10,K25,K45,K67,K83,K103,K132,K152,K168,K194,K206,K245,K230,K265,K287,K304,K314,K340,K354,K373,K217,K386)",
+                  "D10: =SUM(D11:D24)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 6,
+                    "columns": [
+                      "Projected \nTotal",
+                      "Actual \nTotal",
+                      "Variance",
+                      "Current Paid",
+                      "Amount Due"
+                    ]
+                  },
+                  {
+                    "row": 9,
+                    "columns": [
+                      "Line ID",
+                      "Category & Items",
+                      "Projected Subtotal",
+                      "Actual \nSubtotal",
+                      "Variance",
+                      "Party Responsible\nVendor, Contractor, etc.",
+                      "Status",
+                      "% of Task Complete",
+                      "Current Paid",
+                      "Amount Due",
+                      "Comments"
+                    ]
+                  },
+                  {
+                    "row": 147,
+                    "columns": [
+                      "Labor Costs",
+                      "0",
+                      "0",
+                      "0",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "Dropdown Keys - Do Not Delete -",
+                "rows": 60,
+                "cols": 30,
+                "non_empty_rows": 6,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Contractor-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Contractor-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Contractor-Estimate-Template-10964_WORD.docx",
+          "size_info": "125330 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 1,
+            "table_count": 4,
+            "sample_headings": [
+              "Contractor Estimate Template"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 2,
+                "cols": 6,
+                "first_row_headers": [
+                  "Job Title",
+                  "Project Manager",
+                  "Projected Start Date"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 2,
+                "cols": 11,
+                "first_row_headers": [
+                  "Projected  Total",
+                  "Actual  Total",
+                  "Variance",
+                  "Current Paid",
+                  "Amount Due"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 395,
+                "cols": 11,
+                "first_row_headers": [
+                  "Line ID",
+                  "Category & Items",
+                  "Projected Subtotal",
+                  "Actual  Subtotal",
+                  "Variance",
+                  "Party Responsible Vendor, Contractor, etc.",
+                  "Status",
+                  "% of Task Complete",
+                  "Current Paid",
+                  "Amount Due"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "IC-Contractor-Estimate-Template-10964_PDF.pdf",
+          "relative_path": "templates/01_smartsheet/IC-Contractor-Estimate-Template-10964_PDF.pdf",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Contractor-Estimate-Template-10964_PDF.pdf",
+          "size_info": "392632 bytes",
+          "analysis": {
+            "file_type": "pdf",
+            "page_count": 6,
+            "has_fillable_fields": true,
+            "fillable_field_count": 670,
+            "sample_lines": [
+              "Contractor Estimate Template",
+              "Job Title   Project Manager   Projected Start Date",
+              "Location   Projected End Date",
+              "Projected",
+              "Total",
+              "Actual",
+              "Total Variance    Current Paid Amount Due",
+              "Line ID Category & Items Projected Subtotal Actual  Subtotal Variance Party Responsible Vendor, Contractor, etc. Status % of Task Complete Current Paid Amount Due Comments",
+              "Line ID Category & Items Projected Subtotal Actual  Subtotal Variance Party Responsible Vendor, Contractor, etc. Status % of Task Complete Current Paid Amount Due Comments",
+              "Line ID Category & Items Projected Subtotal Actual  Subtotal Variance Party Responsible Vendor, Contractor, etc. Status % of Task Complete Current Paid Amount Due Comments",
+              "Line ID Category & Items Projected Subtotal Actual  Subtotal Variance Party Responsible Vendor, Contractor, etc. Status % of Task Complete Current Paid Amount Due Comments",
+              "Line ID Category & Items Projected Subtotal Actual  Subtotal Variance Party Responsible Vendor, Contractor, etc. Status % of Task Complete Current Paid Amount Due Comments",
+              "Provided by Smartsheet, Inc."
+            ],
+            "layout_archetype": "Fillable / Printable Client Quote Form (PDF)"
+          }
+        },
+        {
+          "filename": "IC-Remodeling-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Remodeling-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Remodeling-Estimate-Template-10964.xlsx",
+          "size_info": "346380 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Remodeling Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 240,
+            "layout_archetype": "Cost-Plus / Markup Line-Item Estimator",
+            "detected_totals_and_markups": [
+              "Contingency",
+              "Markup"
+            ],
+            "detected_sections": [
+              "Carpentry Labor",
+              "Electrical Labor",
+              "Plumbing Labor",
+              "Plumbing Supplies"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Remodeling Estimate",
+                "rows": 431,
+                "cols": 15,
+                "non_empty_rows": 241,
+                "formula_count": 240,
+                "sample_formulas": [
+                  "O3: =PROPER(H3)",
+                  "O4: =PROPER(H4)",
+                  "O5: =PROPER(H5)",
+                  "I6: =PROPER(B6)",
+                  "J6: =PROPER(C6)",
+                  "K6: =PROPER(D6)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 11,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 55,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 99,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "google_sheet_1Hxo99isvS.xlsx",
+          "relative_path": "templates/01_smartsheet/google_sheet_1Hxo99isvS.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1Hxo99isvSOUnBrzOFngEHeZ_gPCXrM3QXsFhni5QFAo/export?format=xlsx",
+          "size_info": "164615 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Remodeling Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 240,
+            "layout_archetype": "Cost-Plus / Markup Line-Item Estimator",
+            "detected_totals_and_markups": [
+              "Contingency",
+              "Markup"
+            ],
+            "detected_sections": [
+              "Carpentry Labor",
+              "Electrical Labor",
+              "Plumbing Labor",
+              "Plumbing Supplies"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Remodeling Estimate",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 241,
+                "formula_count": 240,
+                "sample_formulas": [
+                  "O3: =PROPER(H3)",
+                  "O4: =PROPER(H4)",
+                  "O5: =PROPER(H5)",
+                  "I6: =PROPER(B6)",
+                  "J6: =PROPER(C6)",
+                  "K6: =PROPER(D6)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 11,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 55,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  },
+                  {
+                    "row": 99,
+                    "columns": [
+                      "Task / Item",
+                      "Quantity",
+                      "Unit Cost",
+                      "Markup",
+                      "Total",
+                      "Notes"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Construction-Bid-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Construction-Bid-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Construction-Bid-Estimate-Template-10964.xlsx",
+          "size_info": "331697 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Construction Bid Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 37,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Contingency",
+              "Tax Rate",
+              "Total Tax"
+            ],
+            "detected_sections": [
+              "Scope of Work",
+              "Materials and Services Not Included",
+              "Authorized Client Signature",
+              "Cost Breakdown",
+              "Total Materials",
+              "Total Labor",
+              "Total Miscellaneous",
+              "Subtotal",
+              "Contingency",
+              "Tax Rate",
+              "Total Tax",
+              "Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Construction Bid Estimate",
+                "rows": 62,
+                "cols": 61,
+                "non_empty_rows": 48,
+                "formula_count": 37,
+                "sample_formulas": [
+                  "G32: =B32*F32",
+                  "M32: =K32*L32",
+                  "G33: =B33*F33",
+                  "M33: =K33*L33",
+                  "G34: =B34*F34",
+                  "M34: =K34*L34"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 31,
+                    "columns": [
+                      "Qty",
+                      "UOM",
+                      "Material",
+                      "Rate",
+                      "Total",
+                      "Labor",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 41,
+                    "columns": [
+                      "0",
+                      "Total Labor",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 51,
+                    "columns": [
+                      "Total Materials",
+                      "0",
+                      "Total Miscellaneous",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Construction-Bid-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Construction-Bid-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Construction-Bid-Estimate-Template-10964_WORD.docx",
+          "size_info": "36933 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 1,
+            "table_count": 3,
+            "sample_headings": [
+              "Construction Bid Estimate \nTemplate"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 25,
+                "cols": 9,
+                "first_row_headers": [
+                  "Project Name",
+                  "Project Name",
+                  "Estimated Start Date",
+                  "Estimated Start Date"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 32,
+                "cols": 23,
+                "first_row_headers": [
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown",
+                  "Cost Breakdown"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "IC-Construction-Bid-Estimate-Template-10964_PDF.pdf",
+          "relative_path": "templates/01_smartsheet/IC-Construction-Bid-Estimate-Template-10964_PDF.pdf",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Construction-Bid-Estimate-Template-10964_PDF.pdf",
+          "size_info": "269557 bytes",
+          "analysis": {
+            "file_type": "pdf",
+            "page_count": 3,
+            "has_fillable_fields": true,
+            "fillable_field_count": 177,
+            "sample_lines": [
+              "Construction Bid Estimate Template",
+              "Project Name Estimated Start Date",
+              "Job Location Estimated Finish Date",
+              "Bid Number",
+              "Owner Information Contractor Information",
+              "Owner",
+              "Company Name",
+              "Contractor",
+              "Company Name",
+              "Owner",
+              "Contact Name",
+              "Contractor",
+              "Contact Name",
+              "Address Address",
+              "Owner Phone Contractor Phone",
+              "Owner Email Contractor Email",
+              "Scope of Work",
+              "Materials and Services Not Included",
+              "Agreement Terms",
+              "Proposal may be withdrawn if not accepted by date of"
+            ],
+            "layout_archetype": "Fillable / Printable Client Quote Form (PDF)"
+          }
+        },
+        {
+          "filename": "google_sheet_1HFaNP8Zmy.xlsx",
+          "relative_path": "templates/01_smartsheet/google_sheet_1HFaNP8Zmy.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1HFaNP8ZmyMysAomNyn-XGGD6tqUowz_Il2UOOfwz8So/export?format=xlsx",
+          "size_info": "203199 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Construction Bid Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 37,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Contingency",
+              "Tax Rate",
+              "Total Tax"
+            ],
+            "detected_sections": [
+              "Scope of Work",
+              "Materials and Services Not Included",
+              "Authorized Client Signature",
+              "Cost Breakdown",
+              "Total Materials",
+              "Total Labor",
+              "Total Miscellaneous",
+              "Subtotal",
+              "Contingency",
+              "Tax Rate",
+              "Total Tax",
+              "Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Construction Bid Estimate",
+                "rows": 1000,
+                "cols": 33,
+                "non_empty_rows": 48,
+                "formula_count": 37,
+                "sample_formulas": [
+                  "G32: =B32*F32",
+                  "M32: =K32*L32",
+                  "G33: =B33*F33",
+                  "M33: =K33*L33",
+                  "G34: =B34*F34",
+                  "M34: =K34*L34"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 31,
+                    "columns": [
+                      "Qty",
+                      "UOM",
+                      "Material",
+                      "Rate",
+                      "Total",
+                      "Labor",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 41,
+                    "columns": [
+                      "0",
+                      "Total Labor",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 51,
+                    "columns": [
+                      "Total Materials",
+                      "0",
+                      "Total Miscellaneous",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 1000,
+                "cols": 26,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Roofing-Estimate-Template-10964_0.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Roofing-Estimate-Template-10964_0.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Roofing-Estimate-Template-10964_0.xlsx",
+          "size_info": "330817 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Roofing Estimate",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 21,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [],
+            "detected_sections": [
+              "Client Phone",
+              "Estimated Total Labor"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Roofing Estimate",
+                "rows": 37,
+                "cols": 164,
+                "non_empty_rows": 34,
+                "formula_count": 21,
+                "sample_formulas": [
+                  "N12: =L12*M12",
+                  "N13: =L13*M13",
+                  "N14: =L14*M14",
+                  "N15: =L15*M15",
+                  "N16: =L16*M16",
+                  "N17: =L17*M17"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 11,
+                    "columns": [
+                      "Client Name",
+                      "Currently Leaking?",
+                      "Materials Description",
+                      "Qty",
+                      "Cost",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 21,
+                    "columns": [
+                      "Address of Job",
+                      "Estimated Total Materials",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 23,
+                    "columns": [
+                      "Labor Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Roofing-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Roofing-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Roofing-Estimate-Template-10964_WORD.docx",
+          "size_info": "47042 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 1,
+            "table_count": 3,
+            "sample_headings": [
+              "Roofing Estimate Template"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 6,
+                "cols": 6,
+                "first_row_headers": [
+                  "Company Name 123 Company Address Drive Fourth Floor, Suite 412 Company City, NY  11101 321-654-9870 email@address.com webaddress.com",
+                  "Roofing Estimate",
+                  "Roofing Estimate",
+                  "Roofing Estimate",
+                  "Roofing Estimate"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 26,
+                "cols": 19,
+                "first_row_headers": [
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS",
+                  "STATUS AND JOB DETAILS"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "IC-Roofing-Estimate-Template-10964_PDF.pdf",
+          "relative_path": "templates/01_smartsheet/IC-Roofing-Estimate-Template-10964_PDF.pdf",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Roofing-Estimate-Template-10964_PDF.pdf",
+          "size_info": "205404 bytes",
+          "analysis": {
+            "file_type": "pdf",
+            "page_count": 2,
+            "has_fillable_fields": true,
+            "fillable_field_count": 117,
+            "sample_lines": [
+              "Roofing Estimate Template",
+              "Company Name",
+              "123 Company Address Drive",
+              "Fourth Floor, Suite 412",
+              "Company City, NY  11101",
+              "321-654-9870",
+              "email@address.com",
+              "webaddress.com",
+              "Roofing Estimate",
+              "Job Name Estimate Prepared By Contractor License Number Estimate Number",
+              "Date of Estimate Estimated Start Date Estimated End Date Date Estimate Valid Through",
+              "STATUS AND JOB DETAILS MATERIALS",
+              "Client Name Currently Leaking? Materials Description Qty Cost Amount",
+              "History of Leaking?",
+              "Client Billing Address Drainage and Leak Details",
+              "Inspection",
+              "Date",
+              "Year",
+              "Installed Roof Size Roof Height Roof Shape No. of Layers",
+              "Roof"
+            ],
+            "layout_archetype": "Fillable / Printable Client Quote Form (PDF)"
+          }
+        },
+        {
+          "filename": "IC-Sample-Painting-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Sample-Painting-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Sample-Painting-Estimate-Template-10964.xlsx",
+          "size_info": "352623 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 3,
+            "sheet_names": [
+              "Painting Estimate Example",
+              "Painting Estimate Blank",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 82,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [],
+            "detected_sections": [
+              "Client Name",
+              "Est. Interior Total",
+              "Est. Exterior Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Painting Estimate Example",
+                "rows": 39,
+                "cols": 161,
+                "non_empty_rows": 35,
+                "formula_count": 41,
+                "sample_formulas": [
+                  "G12: =E12*F12",
+                  "K12: =I12*J12",
+                  "G13: =E13*F13",
+                  "K13: =I13*J13",
+                  "G14: =E14*F14",
+                  "K14: =I14*J14"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 11,
+                    "columns": [
+                      "Brian Gorman",
+                      "Interior Materials Description",
+                      "Qty",
+                      "Cost",
+                      "Amount",
+                      "Interior Labor Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 22,
+                    "columns": [
+                      "Interior Materials Total",
+                      "925",
+                      "Interior Labor Total",
+                      "2100"
+                    ]
+                  },
+                  {
+                    "row": 26,
+                    "columns": [
+                      "Exterior Materials Description",
+                      "Qty",
+                      "Cost",
+                      "Amount",
+                      "Exterior Labor Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "Painting Estimate Blank",
+                "rows": 38,
+                "cols": 161,
+                "non_empty_rows": 35,
+                "formula_count": 41,
+                "sample_formulas": [
+                  "G11: =E11*F11",
+                  "K11: =I11*J11",
+                  "G12: =E12*F12",
+                  "K12: =I12*J12",
+                  "G13: =E13*F13",
+                  "K13: =I13*J13"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 10,
+                    "columns": [
+                      "Interior Materials Description",
+                      "Qty",
+                      "Cost",
+                      "Amount",
+                      "Interior Labor Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  },
+                  {
+                    "row": 21,
+                    "columns": [
+                      "Interior Materials Total",
+                      "0",
+                      "Interior Labor Total",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 25,
+                    "columns": [
+                      "Exterior Materials Description",
+                      "Qty",
+                      "Cost",
+                      "Amount",
+                      "Exterior Labor Description",
+                      "Hours",
+                      "Rate",
+                      "Amount"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Sample-Painting-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Sample-Painting-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Sample-Painting-Estimate-Template-10964_WORD.docx",
+          "size_info": "56340 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 2,
+            "table_count": 5,
+            "sample_headings": [
+              "Sample Painting Estimate Template",
+              "Sample Painting Estimate Template"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 6,
+                "cols": 7,
+                "first_row_headers": [
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 25,
+                "cols": 10,
+                "first_row_headers": [
+                  "Client Name",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 6,
+                "cols": 7,
+                "first_row_headers": [
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate",
+                  "Painting Estimate"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 25,
+                "cols": 10,
+                "first_row_headers": [
+                  "Client Name",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior",
+                  "Interior"
+                ]
+              },
+              {
+                "table_index": 5,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "IC-Sample-Painting-Estimate-Template-10964_PDF.pdf",
+          "relative_path": "templates/01_smartsheet/IC-Sample-Painting-Estimate-Template-10964_PDF.pdf",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Sample-Painting-Estimate-Template-10964_PDF.pdf",
+          "size_info": "324450 bytes",
+          "analysis": {
+            "file_type": "pdf",
+            "page_count": 3,
+            "has_fillable_fields": true,
+            "fillable_field_count": 136,
+            "sample_lines": [
+              "Sample Painting Estimate Template Example",
+              "Painting Estimate",
+              "Company Name",
+              "123 C",
+              "ompany Address Drive",
+              "Fourth Floor, Suite 412",
+              "Company City, NY  11101",
+              "321-654-9870",
+              "email@address.com",
+              "webaddress.com",
+              "Job Name Estimate Prepared By Total Sq Ft Work Type Estimate Number",
+              "Gorman Home Repaint Hilda Wilson 3,200 Interior & Exterior Residential P-1 125",
+              "Date of Estimate Estimated Start Date Estimated End Date Date Estimate Valid Through",
+              "05/16/2025 06/03/2025 06/10/2025 06/30/2025",
+              "Client Name Interior",
+              "Brian Gorman Interior Materials Description Qty Cost Amount Interior Labor Description Hours Rate Amount",
+              "Client Billing Address Primer 10 $18.00 $180.00 Wall prep + patching 8 $50.00 $400.00",
+              "Matte wall paint (white) 15 $32.00 $480.00 Wall painting 18 $50.00 $900.00",
+              "Ceiling paint (flat) 5 $29.00 $145.00 Ceiling painting 6 $50.00 $300.00",
+              "Client Phone Trim paint (semi-gloss) 4 $30.00 $120.00 Trim & Doors 10 $50.00 $500.00"
+            ],
+            "layout_archetype": "Fillable / Printable Client Quote Form (PDF)"
+          }
+        },
+        {
+          "filename": "IC-Electrical-Estimate-Template-10964.xlsx",
+          "relative_path": "templates/01_smartsheet/IC-Electrical-Estimate-Template-10964.xlsx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Electrical-Estimate-Template-10964.xlsx",
+          "size_info": "332012 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 2,
+            "sheet_names": [
+              "Electrical Estimate Template",
+              "- Disclaimer -"
+            ],
+            "total_formulas": 34,
+            "layout_archetype": "Split Labor & Materials Grid (Dual-Resource Cost Matrix)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Discount (enter total amount)",
+              "Subtotal Less Discount",
+              "Tax Rate (enter percentage)",
+              "Total Tax"
+            ],
+            "detected_sections": [
+              "Electrical Estimate Template",
+              "Subtotal",
+              "Tax Rate (enter percentage)"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Electrical Estimate Template",
+                "rows": 39,
+                "cols": 46,
+                "non_empty_rows": 34,
+                "formula_count": 34,
+                "sample_formulas": [
+                  "P11: =PROPER(O11)",
+                  "Q11: =PROPER(P11)",
+                  "G15: =E15*F15",
+                  "O15: =L15*N15",
+                  "G16: =E16*F16",
+                  "O16: =L16*N16"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 14,
+                    "columns": [
+                      "Material",
+                      "Qty",
+                      "Unit Price",
+                      "Total",
+                      "Labor",
+                      "Hours",
+                      "Rate",
+                      "Total"
+                    ]
+                  },
+                  {
+                    "row": 28,
+                    "columns": [
+                      "Estimated Total Materials",
+                      "0",
+                      "Estimated Total Labor",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 31,
+                    "columns": [
+                      "THANK YOU",
+                      "Discount (enter total amount)",
+                      "0"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "- Disclaimer -",
+                "rows": 2,
+                "cols": 2,
+                "non_empty_rows": 1,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        },
+        {
+          "filename": "IC-Electrical-Estimate-Template-10964_WORD.docx",
+          "relative_path": "templates/01_smartsheet/IC-Electrical-Estimate-Template-10964_WORD.docx",
+          "source_url": "https://www.smartsheet.com/sites/default/files/2025-06/IC-Electrical-Estimate-Template-10964_WORD.docx",
+          "size_info": "37507 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 1,
+            "table_count": 4,
+            "sample_headings": [
+              "Electrical Estimate Template"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 8,
+                "cols": 16,
+                "first_row_headers": [
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 13,
+                "cols": 9,
+                "first_row_headers": [
+                  "Material",
+                  "Qty",
+                  "Unit Price",
+                  "Total",
+                  "Labor",
+                  "Hours",
+                  "Rate",
+                  "Total"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 8,
+                "cols": 5,
+                "first_row_headers": [
+                  "THANK YOU",
+                  "This estimate is for informational purposes only and is not a binding agreement.  Subject to revision pending material cost changes or scope adjustments.",
+                  "Subtotal"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "google_doc_1Upqn6TvXU.docx",
+          "relative_path": "templates/01_smartsheet/google_doc_1Upqn6TvXU.docx",
+          "source_url": "https://docs.google.com/document/d/1Upqn6TvXU5Z3Hbj-R5svbLsVqCEGqao9H0gxu-3bXTk/export?format=docx",
+          "size_info": "579334 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 2,
+            "table_count": 4,
+            "sample_headings": [
+              "Electrical Estimate Template",
+              "Electrical Estimate Template"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 8,
+                "cols": 16,
+                "first_row_headers": [
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Your Logo",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate",
+                  "Electrical Estimate"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 12,
+                "cols": 9,
+                "first_row_headers": [
+                  "Material",
+                  "Qty",
+                  "Unit Price",
+                  "Total",
+                  "Labor",
+                  "Hours",
+                  "Rate",
+                  "Total"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 8,
+                "cols": 5,
+                "first_row_headers": [
+                  "THANK YOU",
+                  "This estimate is for informational purposes only and is not a binding agreement.  Subject to revision pending material cost changes or scope adjustments.",
+                  "Subtotal"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 1,
+                "cols": 1,
+                "first_row_headers": [
+                  "DISCLAIMER  Any articles, templates, or information provided by Smartsheet on the website are for reference only. While we strive to keep the information up to date and correct, we make no representations or warranties of any kind, express or implied, about the completeness, accuracy, reliability, suitability, or availability with respect to the website or the information, articles, templates, or related graphics contained on the website. Any reliance you place on such information is therefore strictly at your own risk."
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        }
+      ],
+      "status": "DIRECT_AVAILABLE",
+      "note": "Found 25 direct file URL(s)."
+    },
+    {
+      "rank": 2,
+      "name": "ProjectManager – Construction Estimate Template ( Excel )",
+      "slug": "02_projectmanager",
+      "landing_url": "https://www.projectmanager.com/templates/construction-estimate-template",
+      "exayard_summary_ru": "ProjectManager предлагает мощный шаблон на базе Excel , выделяющийся логической организацией по фазам. Он четко делит процесс оценки на предстроительные, строительные и постстроительные фазы, что отражает, как многие генеральные подрядчики планируют и выполняют проекты. Эта структура обеспечивает ясный каркас для распределения затрат и отслеживания бюджетов от мобилизации до финальной сдачи, делая его отличным бесплатным шаблоном сметы для строительства для ГП, управляющих полным жизненным циклом проекта. Лист Excel спроектирован с учетом удобства, с отдельными разделами для деталей поставщико",
+      "downloaded_files": [],
+      "status": "WEB_APP_OR_INTERACTIVE_ONLY",
+      "note": "Vendor provides an interactive online builder rather than a static file download."
+    },
+    {
+      "rank": 3,
+      "name": "Vertex42 – Job/Work Estimate ( Excel , Word, Google Sheets)",
+      "slug": "03_vertex42",
+      "landing_url": "https://www.vertex42.com/ExcelTemplates/job-estimate-template.html",
+      "exayard_summary_ru": "Vertex42 предлагает чистый, профессиональный и легковесный шаблон оценки работ, идеальный для подрядчиков, нуждающихся в простой форме, а не сложной базе затрат. Его сила — в простоте и профессиональном виде, что делает его отличной отправной точкой для создания отполированного документа заявки. Дизайн минималистичен и удобен для печати, фокусируясь на четкой презентации детализированных затрат, количеств и ставок клиенту. Доступен для Excel , Google Sheets и Microsoft Word, этот бесплатный шаблон сметы для строительства обеспечивает универсальность для разных нужд. Версии таблиц включают базо",
+      "downloaded_files": [],
+      "status": "INTERSTITIAL_OR_GATED",
+      "note": "Found 1 direct file URL(s).",
+      "failed_urls": [
+        {
+          "url": "https://www.vertex42.com/Files/download2/doc.php?file=job-estimate.docx",
+          "reason": "Returned HTML instead of binary file (text/html; charset=utf-8)"
+        }
+      ]
+    },
+    {
+      "rank": 4,
+      "name": "QuickBooks – Free Estimate Templates ( Excel /Word/ PDF )",
+      "slug": "04_quickbooks",
+      "landing_url": "https://quickbooks.intuit.com/r/accounting/estimate-templates/",
+      "exayard_summary_ru": "QuickBooks, лидер в бухгалтерском учете для бизнеса, предлагает коллекцию универсальных шаблонов оценок, идеальных для подрядчиков, нуждающихся в чистой профессиональной отправной точке. Хотя не специально для строительства, их шаблоны спроектированы с учетом лучших финансовых практик, обеспечивая наличие всей необходимой бизнес-информации. Это делает их надежным вариантом для создания бесплатного шаблона сметы для строительства без лишнего беспорядка, часто встречающегося в чрезмерно сложных отраслевых листах. Платформа предоставляет скачивания в Excel , Word и PDF , удовлетворяя разные нужды",
+      "downloaded_files": [],
+      "status": "TIMEOUT_OR_NETWORK_ERROR",
+      "note": "HTTPSConnectionPool(host='quickbooks.intuit.com', port=443): Read timed out. (read timeout=15)"
+    },
+    {
+      "rank": 5,
+      "name": "FreshBooks – Free Estimate Templates",
+      "slug": "05_freshbooks",
+      "landing_url": "https://www.freshbooks.com/estimate-templates",
+      "exayard_summary_ru": "FreshBooks фокусируется на создании профессиональных клиентских документов, делая его отличным ресурсом для подрядчиков, приоритизирующих отполированный бренд-имидж в заявках. В отличие от данных-тяжелых таблиц, эти шаблоны спроектированы с учетом эстетики, предлагая несколько современных макетов, простых для скачивания и кастомизации с вашим логотипом и цветами. Это упрощает производство чистого привлекательного бесплатного шаблона сметы для строительства , идеального для малых бизнесов и независимых подрядчиков. Платформа предлагает шаблоны в различных форматах, включая Word, Excel и PDF , б",
+      "downloaded_files": [
+        {
+          "filename": "Excel-Estimate-Template-Main-Style-01.xlsx",
+          "relative_path": "templates/05_freshbooks/Excel-Estimate-Template-Main-Style-01.xlsx",
+          "source_url": "https://www.freshbooks.com/media/2025/07/Excel-Estimate-Template-Main-Style-01.xlsx",
+          "size_info": "126831 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Invoice 1"
+            ],
+            "total_formulas": 2,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Tax Rate",
+              "Tax"
+            ],
+            "detected_sections": [
+              "Website",
+              "Tax",
+              "TOTAL"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Invoice 1",
+                "rows": 999,
+                "cols": 27,
+                "non_empty_rows": 22,
+                "formula_count": 2,
+                "sample_formulas": [
+                  "G25: =G24*(G22-G23)",
+                  "G26: =G22-G23+G25"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 17,
+                    "columns": [
+                      "ITEM/SERVICE",
+                      "DESCRIPTION",
+                      "QTY/HRS",
+                      "RATE",
+                      "AMOUNT"
+                    ]
+                  },
+                  {
+                    "row": 23,
+                    "columns": [
+                      "TERMS",
+                      "Subtotal",
+                      "0"
+                    ]
+                  },
+                  {
+                    "row": 24,
+                    "columns": [
+                      "Text Here",
+                      "Tax Rate",
+                      "0.05"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "filename": "Word-Estimate-Template-Style-01.docx",
+          "relative_path": "templates/05_freshbooks/Word-Estimate-Template-Style-01.docx",
+          "source_url": "https://www.freshbooks.com/media/2025/07/Word-Estimate-Template-Style-01.docx",
+          "size_info": "66062 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 3,
+            "table_count": 2,
+            "sample_headings": [
+              "ITEM/SERVICE\tDESCRIPTION          QTY/HOURS\t    RATE \t    AMOUNT",
+              "TERMS",
+              "Text Here"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 4,
+                "cols": 5,
+                "first_row_headers": [
+                  "Placeholder",
+                  "Text",
+                  "000",
+                  "000",
+                  "000"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 7,
+                "cols": 3,
+                "first_row_headers": [
+                  "Subtotal",
+                  "$00.00"
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "google_doc_1K0xMRWki-.docx",
+          "relative_path": "templates/05_freshbooks/google_doc_1K0xMRWki-.docx",
+          "source_url": "https://docs.google.com/document/d/1K0xMRWki-kYJDhQ4vflapFpcGtWvxmP9ZqrnLwCE6aM/export?format=docx",
+          "size_info": "72539 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 2,
+            "table_count": 4,
+            "sample_headings": [
+              "TERMS",
+              "freshbooks.com"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 1,
+                "cols": 2,
+                "first_row_headers": [
+                  "ESTIMATE DETAILS: Estimate #           \t0000 Estimate Date         MM/DD/YYYY",
+                  "PREPARED FOR: CUSTOMER NAME Street Address Line 01 Street Address Line 02"
+                ]
+              },
+              {
+                "table_index": 2,
+                "rows": 1,
+                "cols": 5,
+                "first_row_headers": [
+                  "ITEM/SERVICE",
+                  "DESCRIPTION",
+                  "QTY/HOURS",
+                  "RATE",
+                  "AMOUNT"
+                ]
+              },
+              {
+                "table_index": 3,
+                "rows": 4,
+                "cols": 5,
+                "first_row_headers": [
+                  "Placeholder",
+                  "Text",
+                  "000",
+                  "000",
+                  "000"
+                ]
+              },
+              {
+                "table_index": 4,
+                "rows": 6,
+                "cols": 3,
+                "first_row_headers": [
+                  "Text Here",
+                  "Subtotal",
+                  "$00.00"
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "google_sheet_1vDIYl2uoH.xlsx",
+          "relative_path": "templates/05_freshbooks/google_sheet_1vDIYl2uoH.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1vDIYl2uoHK2ruJ0jLsRZL0pruosEJc5QhGnYb9rtIlg/export?format=xlsx",
+          "size_info": "65054 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Invoice 1"
+            ],
+            "total_formulas": 2,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Tax Rate",
+              "Tax"
+            ],
+            "detected_sections": [
+              "Website",
+              "Tax",
+              "TOTAL"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Invoice 1",
+                "rows": 230,
+                "cols": 26,
+                "non_empty_rows": 23,
+                "formula_count": 2,
+                "sample_formulas": [
+                  "F25: =F24*(F22-F23)",
+                  "F26: =F22-F23+F25"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 17,
+                    "columns": [
+                      "ITEM/SERVICE",
+                      "DESCRIPTION",
+                      "QTY/HRS",
+                      "RATE",
+                      "AMOUNT"
+                    ]
+                  },
+                  {
+                    "row": 23,
+                    "columns": [
+                      "TERMS",
+                      "Subtotal",
+                      "0.0"
+                    ]
+                  },
+                  {
+                    "row": 24,
+                    "columns": [
+                      "Text Here",
+                      "Tax Rate",
+                      "0.05"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "filename": "PDF-Estimate-Templates-Style-01.pdf",
+          "relative_path": "templates/05_freshbooks/PDF-Estimate-Templates-Style-01.pdf",
+          "source_url": "https://www.freshbooks.com/media/2025/07/PDF-Estimate-Templates-Style-01.pdf",
+          "size_info": "1136116 bytes",
+          "analysis": {
+            "file_type": "pdf",
+            "page_count": 1,
+            "has_fillable_fields": true,
+            "fillable_field_count": 37,
+            "sample_lines": [
+              "ITEM/SERVICE DESCRIPTION QTY/HRS RATE AMOUNT",
+              "Estimate",
+              "ESTIMATE DETAILS:",
+              "Estimate #",
+              "Estimate Date",
+              "TERMS Subtotal",
+              "Tax Rate",
+              "Ta x",
+              "TOTAL",
+              "CONDITIONS/INSTRUCTIONS",
+              "PREPARED FOR:",
+              "Your Company",
+              "Logo"
+            ],
+            "layout_archetype": "Fillable / Printable Client Quote Form (PDF)"
+          }
+        }
+      ],
+      "status": "DIRECT_AVAILABLE",
+      "note": "Found 5 direct file URL(s)."
+    },
+    {
+      "rank": 6,
+      "name": "Jobber – Free Construction Estimate Template ( PDF / Excel + Онлайн-кастомайзер)",
+      "slug": "06_jobber",
+      "landing_url": "https://www.getjobber.com/free-tools/estimate-template/construction/",
+      "exayard_summary_ru": "Jobber предлагает уникальный гибридный подход, сочетая скачиваемые шаблоны с бесплатным онлайн-инструментом для создания и отслеживания заявок. Это идеально для малых генеральных подрядчиков и специальностей, желающих больше функциональности, чем статический файл, но не готовых к полноценному ПО. Вы можете скачать стандартный Excel или PDF или использовать их онлайн-генератор для добавления логотипа и деталей клиента, получая профессиональный брендированный документ. Сила платформы — в направлении пользователей к более организованному workflow. После создания сметы онлайн вы можете отслеживать",
+      "downloaded_files": [],
+      "status": "WEB_APP_OR_INTERACTIVE_ONLY",
+      "note": "Vendor provides an interactive online builder rather than a static file download."
+    },
+    {
+      "rank": 7,
+      "name": "Xero – Free Construction Estimate Template (Редактируемый PDF )",
+      "slug": "07_xero",
+      "landing_url": "https://www.xero.com/us/templates/construction-estimate-template/",
+      "exayard_summary_ru": "Xero, крупный провайдер бухгалтерского ПО, предлагает отполированный профессиональный шаблон оценки для малых бизнесов и подрядчиков, приоритизирующих чистые готовые к клиенту документы. В отличие от таблиц-тяжелых вариантов, предложение Xero — один заполняемый PDF . Этот подход обеспечивает стандартизированный вид финальной заявки и простоту email или печати, делая его отличным выбором для быстрого бесплатного шаблона сметы для строительства без сложных формул. Шаблон доставляется по email после простой онлайн-формы. Он сопровождается полезным руководством, дающим практические советы по включ",
+      "downloaded_files": [],
+      "status": "EMAIL_GATED_FORM",
+      "note": "Template requires submitting an email lead-capture form on vendor site."
+    },
+    {
+      "rank": 8,
+      "name": "Joist – General Contractor Estimate Templates ( Excel /Word)",
+      "slug": "08_joist",
+      "landing_url": "https://www.joist.com/estimate-templates/general-contractor/",
+      "exayard_summary_ru": "Joist предлагает бесплатные шаблоны как прямой вход в популярное приложение для подрядчиков, делая его отличной отправной точкой для ремоделеров жилых объектов и специальностей. Ресурсы включают шаблон оценки для генерального подрядчика вместе с шаблоном счета, оба в знакомых форматах Excel и Word. Этот подход обеспечивает прямолинейный метод без излишеств для быстрых котировок, ненавязчиво вводя преимущества цифровой платформы Joist. В отличие от сайтов с огромными библиотеками, предложение Joist сфокусировано, предоставляя ключевые документы, простые для скачивания и редактирования. Сайт так",
+      "downloaded_files": [
+        {
+          "filename": "Work-Estimate-Template-Word.docx",
+          "relative_path": "templates/08_joist/Work-Estimate-Template-Word.docx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Work-Estimate-Template-Word.docx",
+          "size_info": "33562 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 14,
+            "table_count": 0,
+            "sample_headings": [
+              "ESTIMATE TO",
+              "<Contact Name>",
+              "<Client Company Name>",
+              "<Address>",
+              "<Phone>",
+              "<Email>",
+              "ESTIMATE FROM",
+              "<Name / Dept>",
+              "<Client Company Name>",
+              "<Address>",
+              "<Phone>",
+              "ESTIMATE Total"
+            ],
+            "tables": [],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "Work-Estimate-Template-Excel.xlsx",
+          "relative_path": "templates/08_joist/Work-Estimate-Template-Excel.xlsx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Work-Estimate-Template-Excel.xlsx",
+          "size_info": "33803 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Invoice Template"
+            ],
+            "total_formulas": 21,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "SUBTOTAL",
+              "DiSCOUNT",
+              "SUBTOTAL AFTER DISCOUNT",
+              "TAX RATE",
+              "TOTAL TAX"
+            ],
+            "detected_sections": [
+              "<Client Company Name>",
+              "SUBTOTAL",
+              "SUBTOTAL AFTER DISCOUNT",
+              "TAX RATE",
+              "TOTAL TAX",
+              "ESTIMATE Total"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Invoice Template",
+                "rows": 49,
+                "cols": 6,
+                "non_empty_rows": 41,
+                "formula_count": 21,
+                "sample_formulas": [
+                  "F19: =SUM(D19*E19)",
+                  "F20: =SUM(D20*E20)",
+                  "F21: =SUM(D21*E21)",
+                  "F22: =SUM(D22*E22)",
+                  "F23: =SUM(D23*E23)",
+                  "F24: =SUM(D24*E24)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 18,
+                    "columns": [
+                      "ITEM PART #",
+                      "DESCRIPTION",
+                      "QTY",
+                      "UNIT PRICE",
+                      "TOTAL"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "filename": "Free-Estimate-Template-Word.docx",
+          "relative_path": "templates/08_joist/Free-Estimate-Template-Word.docx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Free-Estimate-Template-Word.docx",
+          "size_info": "39022 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 10,
+            "table_count": 1,
+            "sample_headings": [
+              "< Estimate terms >",
+              "COMPANY NAME\tESTIMATE TO",
+              "<Name>",
+              "<Address>",
+              "<Phone>",
+              "<Email>",
+              "<Name / Dept>",
+              "<Client Company Name>",
+              "<Address>",
+              "<Phone>"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 14,
+                "cols": 5,
+                "first_row_headers": [
+                  "DESCRIPTION",
+                  "QTY",
+                  "UNIT PRICE",
+                  "TOTAL"
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "Free-Estimate-Template-Excel.xlsx",
+          "relative_path": "templates/08_joist/Free-Estimate-Template-Excel.xlsx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Free-Estimate-Template-Excel.xlsx",
+          "size_info": "32422 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Sheet1"
+            ],
+            "total_formulas": 10,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "SUBTOTAL",
+              "DISCOUNT",
+              "SUBTOTAL LESS DISCOUNT",
+              "TAX RATE",
+              "TOTAL TAX"
+            ],
+            "detected_sections": [
+              "SUBTOTAL",
+              "SUBTOTAL LESS DISCOUNT",
+              "TAX RATE",
+              "TOTAL TAX",
+              "ESTIMATE TOTAL"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Sheet1",
+                "rows": 35,
+                "cols": 10,
+                "non_empty_rows": 23,
+                "formula_count": 10,
+                "sample_formulas": [
+                  "I18: =SUM(G18*H18)",
+                  "I19: =SUM(G19*H19)",
+                  "I20: =SUM(G20*H20)",
+                  "I21: =SUM(G21*H21)",
+                  "I22: =SUM(G22*H22)",
+                  "I23: =SUM(G23*H23)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 17,
+                    "columns": [
+                      "DESCRIPTION",
+                      "QTY",
+                      "UNIT PRICE",
+                      "TOTAL"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "filename": "Job-Estimate-Template-Word.docx",
+          "relative_path": "templates/08_joist/Job-Estimate-Template-Word.docx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Job-Estimate-Template-Word.docx",
+          "size_info": "39238 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 14,
+            "table_count": 1,
+            "sample_headings": [
+              "YOUR COMPANY NAME",
+              "Address: 14256 Street Name City, State Zip Code",
+              "Phone: Email: Website:",
+              "ESTIMATE TO",
+              "Client Name",
+              "14256 Street Name City, State Zip Code Phone:",
+              "Email:",
+              "ESTIMATE Notes",
+              "SUBTOTAL",
+              "$160.00",
+              "If you have any questions about this esimate please contact us using the below details.",
+              "Company Phone Number, Email"
+            ],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 8,
+                "cols": 5,
+                "first_row_headers": [
+                  "ITEM NO.",
+                  "PRODUCT/SERVICE",
+                  "QUANTITY",
+                  "UNIT PRICE",
+                  "TOTAL"
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "Job-Estimate-Template-Excel.xlsx",
+          "relative_path": "templates/08_joist/Job-Estimate-Template-Excel.xlsx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Job-Estimate-Template-Excel.xlsx",
+          "size_info": "31582 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Sheet1"
+            ],
+            "total_formulas": 7,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "SUBTOTAL",
+              "DISCOUNT",
+              "TAX"
+            ],
+            "detected_sections": [
+              "Website:",
+              "SUBTOTAL"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Sheet1",
+                "rows": 30,
+                "cols": 8,
+                "non_empty_rows": 18,
+                "formula_count": 7,
+                "sample_formulas": [
+                  "G15: =E15*F15",
+                  "G16: =E16*F16",
+                  "G17: =E17*F17",
+                  "H24: =SUM(G15:H21)",
+                  "H25: =H24*G25",
+                  "H26: =G26*(H24-H25)"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 14,
+                    "columns": [
+                      "ITEM NO.",
+                      "PRODUCT/SERVICE",
+                      "QUANTITY",
+                      "UNIT PRICE",
+                      "TOTAL"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "filename": "Cost-Estimate-Template-Word.docx",
+          "relative_path": "templates/08_joist/Cost-Estimate-Template-Word.docx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Cost-Estimate-Template-Word.docx",
+          "size_info": "24742 bytes",
+          "analysis": {
+            "file_type": "docx",
+            "paragraph_count": 0,
+            "table_count": 1,
+            "sample_headings": [],
+            "tables": [
+              {
+                "table_index": 1,
+                "rows": 29,
+                "cols": 5,
+                "first_row_headers": [
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name",
+                  "Company Name"
+                ]
+              }
+            ],
+            "layout_archetype": "Client-Facing Narrative & Table Proposal (Word Document)"
+          }
+        },
+        {
+          "filename": "Cost-Estimate-Template-Excel.xlsx",
+          "relative_path": "templates/08_joist/Cost-Estimate-Template-Excel.xlsx",
+          "source_url": "https://www.joist.com/wp-content/uploads/Cost-Estimate-Template-Excel.xlsx",
+          "size_info": "28022 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 1,
+            "sheet_names": [
+              "Sheet1"
+            ],
+            "total_formulas": 9,
+            "layout_archetype": "Flat Line-Item Quote Table (Qty × Unit Rate → Subtotal/Tax/Total)",
+            "detected_totals_and_markups": [
+              "Subtotal",
+              "Tax"
+            ],
+            "detected_sections": [
+              "Subtotal",
+              "Tax"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Sheet1",
+                "rows": 29,
+                "cols": 13,
+                "non_empty_rows": 26,
+                "formula_count": 9,
+                "sample_formulas": [
+                  "F16: =Amount",
+                  "F17: =Amount",
+                  "F18: =Amount",
+                  "F19: =Amount",
+                  "F20: =Amount",
+                  "F21: =Amount"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 15,
+                    "columns": [
+                      "Quantity",
+                      "Description",
+                      "Unit price",
+                      "Amount"
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      "status": "DIRECT_AVAILABLE",
+      "note": "Found 8 direct file URL(s)."
+    },
+    {
+      "rank": 9,
+      "name": "ArcSite – Free Job/Contractor Estimate Template (Google Sheets/ Excel )",
+      "slug": "09_arcsite",
+      "landing_url": "https://www.arcsite.com/utility/job-estimate-template",
+      "exayard_summary_ru": "ArcSite предлагает прямолинейный и высоко практичный шаблон для подрядчиков, нуждающихся в чистом решении без хлопот. Хотя компания специализируется на цифровом черчении и разборах объемов, ее бесплатный шаблон — отличная точка входа для строителей и ремоделеров. Этот бесплатный шаблон сметы для строительства не требует логина, делая его одним из самых доступных для быстрого создания профессиональной заявки. Доступен в форматах Google Sheets и Excel , шаблон включает встроенные формулы для подытогов, налогов и финальных итогов. Его макет особенно дружелюбен для работ по объектам, с четкими раз",
+      "downloaded_files": [],
+      "status": "EMAIL_GATED_FORM",
+      "note": "Template requires submitting an email lead-capture form on vendor site."
+    },
+    {
+      "rank": 10,
+      "name": "HubSpot – Contractor Estimate Template (Word/ PDF )",
+      "slug": "10_hubspot",
+      "landing_url": null,
+      "exayard_summary_ru": "HubSpot, лидер в ПО для маркетинга и продаж, предлагает простой, но профессиональный шаблон оценки для подрядчиков, предназначенный для презентации клиенту. Хотя не инструмент специально для строительства, его сила — в чистом бизнес-ориентированном макете, включающем все необходимые элементы для формальной котировки, такие как четкие линии подписи и раздел условий. Это делает его отличным выбором для малых работ или подрядчиков, желающих отполированный финальный документ после внутренних расчетов. Доступен в форматах Word и PDF , этот шаблон прост в использовании для нетехнического персонала. ",
+      "downloaded_files": [],
+      "status": "NO_LINK_IN_ARTICLE",
+      "note": "Exayard did not hyperlink this vendor (HubSpot uses an email-gated form)."
+    },
+    {
+      "rank": 11,
+      "name": "Proposable – Construction Cost Estimate Template (Онлайн/Заполняемый)",
+      "slug": "11_proposable",
+      "landing_url": "https://proposable.com/estimate-templates/construction-cost-estimate-template",
+      "exayard_summary_ru": "Proposable смещает фокус с скачиваемого файла на полную веб-опыт提案. Вместо традиционной таблицы предлагает заполняемый онлайн-документ для презентации, отслеживания и цифровых подписей. Этот подход идеален для подрядчиков, желающих оптимизировать процесс одобрения и получать insights о вовлеченности клиента без сборки отдельных инструментов для оценки и подписи. Сила платформы — в автоматизации workflow. Вы можете отправить профессиональную оценку прямо в inbox клиента, отслеживать открытие и позволить немедленную e-подпись. Это делает отличным бесплатным шаблоном сметы для строительства без о",
+      "downloaded_files": [],
+      "status": "WEB_APP_OR_INTERACTIVE_ONLY",
+      "note": "Vendor provides an interactive online builder rather than a static file download."
+    },
+    {
+      "rank": 12,
+      "name": "Eano – Free Contractor Estimate Template (Google Sheets)",
+      "slug": "12_eano",
+      "landing_url": "https://www.eano.com/tools-templates/contractor-estimate-template",
+      "exayard_summary_ru": "Eano предоставляет чистый профессиональный бесплатный шаблон сметы для строительства , специально для Google Sheets. Выбор платформы делает его идеальным для современных подрядчиков, приоритизирующих облачные workflow и командное сотрудничество. Шаблон логически структурирован, с четкими разделами для материалов, труда по задачам, разрешений и аренды оборудования, упрощая создание детальной прозрачной котировки для клиентов. Дизайн прямолинейный и фокусируется на функциональности. Включает поля для подытогов, налогов, накладных и финальной наценки, позволяя быстрые корректировки маржи прибыли.",
+      "downloaded_files": [
+        {
+          "filename": "google_sheet_1uavXevSiX.xlsx",
+          "relative_path": "templates/12_eano/google_sheet_1uavXevSiX.xlsx",
+          "source_url": "https://docs.google.com/spreadsheets/d/1uavXevSiXuhzHwlEjyxQZbdaTKPiIlklYogksNKdj6M/export?format=xlsx",
+          "size_info": "2251704 bytes",
+          "analysis": {
+            "file_type": "xlsx",
+            "sheet_count": 7,
+            "sheet_names": [
+              "Instructions",
+              "Categories",
+              "Estimate Worksheet",
+              "Estimate Summary (Client)",
+              "Invoice (Client)",
+              "Contract",
+              "Proposal (Client)"
+            ],
+            "total_formulas": 106,
+            "layout_archetype": "Cost-Plus / Markup Line-Item Estimator",
+            "detected_totals_and_markups": [
+              "Profit",
+              "Total cost:",
+              "Markup",
+              "Credits / Deposits",
+              "Discount",
+              "Subtotal",
+              "Tax"
+            ],
+            "detected_sections": [
+              "Plans and permitting",
+              "Excavation / Landscaping",
+              "Electrical",
+              "Plumbing",
+              "Framing",
+              "Finishes",
+              "Discount",
+              "Subtotal",
+              "Price and Payment",
+              "Scope of Work"
+            ],
+            "sheets": [
+              {
+                "sheet_name": "Instructions",
+                "rows": 1004,
+                "cols": 26,
+                "non_empty_rows": 15,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "Categories",
+                "rows": 1474,
+                "cols": 1,
+                "non_empty_rows": 43,
+                "formula_count": 0,
+                "sample_formulas": [],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "Estimate Worksheet",
+                "rows": 70,
+                "cols": 12,
+                "non_empty_rows": 28,
+                "formula_count": 82,
+                "sample_formulas": [
+                  "I4: =H70",
+                  "J4: =J70",
+                  "K4: =if(iserror(J4/L4)=TRUE,\"\",J4/L4)",
+                  "L4: =K70",
+                  "H7: =F7*G7",
+                  "J7: =I7*H7"
+                ],
+                "detected_table_headers": [
+                  {
+                    "row": 3,
+                    "columns": [
+                      "Cost",
+                      "Profit",
+                      "Margin",
+                      "Total cost:"
+                    ]
+                  },
+                  {
+                    "row": 6,
+                    "columns": [
+                      "ID",
+                      "Status",
+                      "Category",
+                      "Task description",
+                      "Unit",
+                      "Qty",
+                      "Cost / unit",
+                      "Cost",
+                      "Markup",
+                      "Profit",
+                      "Total",
+                      "% of Total"
+                    ]
+                  }
+                ]
+              },
+              {
+                "sheet_name": "Estimate Summary (Client)",
+                "rows": 1013,
+                "cols": 4,
+                "non_empty_rows": 7,
+                "formula_count": 2,
+                "sample_formulas": [
+                  "B2: ='Estimate Worksheet'!C1",
+                  "B5: ='Estimate Worksheet'!C2"
+                ],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "Invoice (Client)",
+                "rows": 1013,
+                "cols": 5,
+                "non_empty_rows": 14,
+                "formula_count": 7,
+                "sample_formulas": [
+                  "B2: ='Estimate Worksheet'!C1",
+                  "B5: ='Estimate Summary (Client)'!B5",
+                  "B9: ='Estimate Summary (Client)'!B10",
+                  "B10: ='Estimate Summary (Client)'!B8",
+                  "E39: =GETPIVOTDATA(\"SUM of Total\",B13)+E37+E38",
+                  "E40: =E39*C40"
+                ],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "Contract",
+                "rows": 56,
+                "cols": 5,
+                "non_empty_rows": 37,
+                "formula_count": 5,
+                "sample_formulas": [
+                  "B2: ='Estimate Worksheet'!C1",
+                  "B4: ='Estimate Worksheet'!C2",
+                  "D12: ='Estimate Summary (Client)'!B8",
+                  "C51: =TODAY()",
+                  "C56: =TODAY()"
+                ],
+                "detected_table_headers": []
+              },
+              {
+                "sheet_name": "Proposal (Client)",
+                "rows": 176,
+                "cols": 6,
+                "non_empty_rows": 63,
+                "formula_count": 10,
+                "sample_formulas": [
+                  "B1: ='Estimate Worksheet'!C1",
+                  "B3: ='Estimate Worksheet'!C2",
+                  "B6: ='Estimate Summary (Client)'!B10",
+                  "B7: ='Estimate Summary (Client)'!B8",
+                  "D104: =C104*$D$109",
+                  "D105: =C105*$D$109"
+                ],
+                "detected_table_headers": []
+              }
+            ]
+          }
+        }
+      ],
+      "status": "DIRECT_AVAILABLE",
+      "note": "Found 1 direct file URL(s)."
+    }
+  ]
+}

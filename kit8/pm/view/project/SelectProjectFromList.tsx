@@ -28,13 +28,28 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-export default function SelectProjectFromList({ ownerGUID, width = 220 }: { ownerGUID: string; width?: number }) {
+export interface SelectProjectFromListProps {
+  ownerGUID: string;
+  width?: number;
+  /**
+   * CONTROLLED mode (a screen that holds its own project, e.g. the Estimation dashboard): the field shows `selectedName` / the lock `selectedReadonly`, a pick calls `onPick` and
+   * touches neither the PM store nor the ribbon of recent projects, `onCreateNew` answers "Create new". Without `onPick` the field works on the PM store as in the project bar.
+   */
+  onPick?: (projectGUID: string) => void;
+  selectedName?: string;
+  selectedReadonly?: boolean;
+  onCreateNew?: () => void;
+}
+
+export default function SelectProjectFromList({ ownerGUID, width = 220, onPick, selectedName: nameProp, selectedReadonly: readonlyProp, onCreateNew }: SelectProjectFromListProps) {
   const { themeColors: c } = useDesignSystem();
-  const selectedName = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON.name ?? '' : ''));
+  const storeName = usePMStore((s) => (s.selectedProjectGUID ? s.projectsById[s.selectedProjectGUID]?.rowJSON.name ?? '' : ''));
+  const selectedName = onPick ? nameProp ?? '' : storeName;
   /** the loaded projects: their row is newer than a cached search answer (the read-only switch just saved) */
   const projectsById = usePMStore((s) => s.projectsById);
   /** the selected project is read-only: a lock before its name in the field (only while the field shows that name, not a search text) */
-  const selectedReadonly = usePMStore((s) => (s.selectedProjectGUID ? projectIsReadonly(s.projectsById[s.selectedProjectGUID]?.rowJSON) : false));
+  const storeReadonly = usePMStore((s) => (s.selectedProjectGUID ? projectIsReadonly(s.projectsById[s.selectedProjectGUID]?.rowJSON) : false));
+  const selectedReadonly = onPick ? !!readonlyProp : storeReadonly;
   const [text, setText] = useState('');
   const [filter, setFilter] = useState('');
   const [open, setOpen] = useState(false);
@@ -54,9 +69,12 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
   }, []);
 
   const pick = (p: PMProjectRow) => {
-    const s = usePMStore.getState();
-    s.addRecentProject(p.rowGUID);
-    s.selectProject(p.rowGUID);
+    if (onPick) onPick(p.rowGUID);
+    else {
+      const s = usePMStore.getState();
+      s.addRecentProject(p.rowGUID);
+      s.selectProject(p.rowGUID);
+    }
     setText(p.rowJSON.name || '');
     setFilter('');
     setOpen(false);
@@ -68,7 +86,8 @@ export default function SelectProjectFromList({ ownerGUID, width = 220 }: { owne
     setFilter('');
     setOpen(false);
     inputRef.current?.blur();
-    usePMStore.getState().openProjectSettings('new');
+    if (onCreateNew) onCreateNew();
+    else usePMStore.getState().openProjectSettings('new');
   };
 
   const onChange = (t: string) => {

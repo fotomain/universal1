@@ -10,8 +10,8 @@
 //
 // testIDs: `testID` = the group, button.testID (or `${testID}-${value}`) = each segment.
 
-import React from 'react';
-import { Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Platform, Pressable, StyleProp, Text, View, ViewStyle } from 'react-native';
 import { SegmentedButtons as PaperSegmentedButtons } from 'react-native-paper';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from './IconApp';
@@ -42,9 +42,54 @@ export interface SegmentButtonsAppProps<T extends string = string> {
   showSelectedCheck?: boolean;
   style?: StyleProp<ViewStyle>;
   testID?: string;
+  /**
+   * a longer description of a button: a RIGHT CLICK (web), a DOUBLE CLICK (web) / DOUBLE TOUCH (phone) or a LONG PRESS on a button calls this with its value; the first touch still selects the button.
+   * (apple look: web only)
+   */
+  onInfo?: (value: T) => void;
 }
 
-export function SegmentButtonsApp<T extends string = string>({
+/** two touches on the SAME button within this time = a double touch */
+export const SEGMENT_DOUBLE_TOUCH_MS = 380;
+
+export function SegmentButtonsApp<T extends string = string>(props: SegmentButtonsAppProps<T>) {
+  const { onInfo, buttons, testID = 'segment-buttons-app' } = props;
+  const wrapRef = useRef<View>(null);
+  const lastTap = useRef<{ value: string; at: number } | null>(null);
+  const idOf = (b: SegmentButtonApp<T>) => b.testID || `${testID}-${b.value}`;
+  const idKey = buttons.map((b) => `${idOf(b)}=${b.value}`).join('|');
+  // a phone: two touches on the same button (the web uses dblclick below)
+  const infoTap = useCallback((value: T) => {
+    if (!onInfo || Platform.OS === 'web') return;
+    const now = Date.now();
+    const prev = lastTap.current;
+    if (prev && prev.value === value && now - prev.at <= SEGMENT_DOUBLE_TOUCH_MS) { lastTap.current = null; onInfo(value); } else lastTap.current = { value, at: now };
+  }, [onInfo]);
+  // web: right click and double click on a button, whatever the design system draws (the button is found by its testID in the DOM)
+  useEffect(() => {
+    if (!onInfo || Platform.OS !== 'web') return;
+    const el = wrapRef.current as unknown as HTMLElement | null;
+    if (!el || typeof el.addEventListener !== 'function') return;
+    const byId = new Map(buttons.map((b) => [idOf(b), b.value] as const));
+    const valueAt = (target: EventTarget | null): T | null => {
+      for (let n = target as HTMLElement | null; n && n !== el; n = n.parentElement) {
+        const id = n.getAttribute?.('data-testid');
+        if (id && byId.has(id)) return byId.get(id)!;
+      }
+      return null;
+    };
+    const onContext = (e: Event) => { const v = valueAt(e.target); if (v !== null) { e.preventDefault(); onInfo(v); } };
+    const onDouble = (e: Event) => { const v = valueAt(e.target); if (v !== null) onInfo(v); };
+    el.addEventListener('contextmenu', onContext);
+    el.addEventListener('dblclick', onDouble);
+    return () => { el.removeEventListener('contextmenu', onContext); el.removeEventListener('dblclick', onDouble); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onInfo, idKey]);
+  const node = <SegmentButtonsView {...props} onInfoTap={onInfo ? infoTap : undefined} onInfoLong={onInfo} />;
+  return onInfo ? <View ref={wrapRef} collapsable={false}>{node}</View> : node;
+}
+
+function SegmentButtonsView<T extends string = string>({
   value,
   onValueChange,
   buttons,
@@ -54,7 +99,9 @@ export function SegmentButtonsApp<T extends string = string>({
   showSelectedCheck,
   style,
   testID = 'segment-buttons-app',
-}: SegmentButtonsAppProps<T>) {
+  onInfoTap,
+  onInfoLong,
+}: SegmentButtonsAppProps<T> & { onInfoTap?: (value: T) => void; onInfoLong?: (value: T) => void }) {
   const { activeSystem, themeColors, isDark } = useDesignSystem();
   const idOf = (b: SegmentButtonApp<T>) => b.testID || `${testID}-${b.value}`;
   const labelNode = label ? <Text style={{ fontSize: 13, fontWeight: '600', color: themeColors.text, marginBottom: 6 }}>{label}</Text> : null;
@@ -75,6 +122,7 @@ export function SegmentButtonsApp<T extends string = string>({
             showSelectedCheck: showSelectedCheck ?? true,
             testID: idOf(b),
             accessibilityLabel: b.accessibilityLabel || b.label,
+            ...(onInfoTap ? { onPress: () => onInfoTap(b.value), onLongPress: () => onInfoLong?.(b.value) } : {}),
           }))}
         />
       </View>
@@ -146,8 +194,10 @@ export function SegmentButtonsApp<T extends string = string>({
               check={check}
               primary={primary}
               onPress={() => {
+                onInfoTap?.(b.value);
                 if (!selected) onValueChange(b.value);
               }}
+              onLongPress={onInfoLong ? () => onInfoLong(b.value) : undefined}
             />
           );
         })}
@@ -157,7 +207,7 @@ export function SegmentButtonsApp<T extends string = string>({
 }
 
 /** ONE drawn segment (a component of its own: the tip is a hook) */
-function SegmentItem<T extends string>({ b, testID, selected, off, first, look, color, check, primary, onPress }: { b: SegmentButtonApp<T>; testID: string; selected: boolean; off: boolean; first: boolean; look: any; color: string; check: boolean; primary: string; onPress: () => void }) {
+function SegmentItem<T extends string>({ b, testID, selected, off, first, look, color, check, primary, onPress, onLongPress }: { b: SegmentButtonApp<T>; testID: string; selected: boolean; off: boolean; first: boolean; look: any; color: string; check: boolean; primary: string; onPress: () => void; onLongPress?: () => void }) {
   const tip = usePMTip(b.tip, 'app');
   return (
     <Pressable
@@ -171,6 +221,7 @@ function SegmentItem<T extends string>({ b, testID, selected, off, first, look, 
       aria-selected={selected}
       disabled={off}
       onPress={onPress}
+      onLongPress={onLongPress}
       style={({ hovered, pressed }: any) => ({
         flex: 1,
         minWidth: 0,

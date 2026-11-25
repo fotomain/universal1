@@ -354,11 +354,22 @@ export function useTaskCommands(ownerGUID: string, projectGUID: string | null, u
         moveTo(guid, grand, parent, sibs[i + 1] ?? null, 'Outdent');
       },
 
-      /** Tree drag-and-drop: row `fromIndex` dropped into gap `slot` (0..rows.length). */
-      dropRow: (fromIndex: number, slot: number) => {
+      /**
+       * Tree drag-and-drop: row `fromIndex` dropped into gap `slot` (0..rows.length), or - `intoIndex` >= 0 - dropped ONTO
+       * the stage row `intoIndex` (the middle of the row): it becomes the LAST child of that stage, collapsed or not.
+       */
+      dropRow: (fromIndex: number, slot: number, intoIndex = -1) => {
         const s = st();
         const rows = s.visibleRows;
         const guid = rows[fromIndex];
+        const into = intoIndex >= 0 ? rows[intoIndex] : null;
+        const isRootStage = s.tasksById[guid ?? '']?.rowJSON.rowKind === 'stage' && !s.tree.parentById[guid ?? ''];
+        if (guid && into && into !== guid && isSummary(into) && !isRootStage) {
+          const kids = siblingsOf(into).map((t) => t.rowGUID).filter((g) => g !== guid);
+          moveTo(guid, into, kids[kids.length - 1] ?? null, null, 'Move row');
+          if (projectGUID && st().expandedByProject[projectGUID]?.[into] === false) st().toggleExpanded(into);
+          return;
+        }
         if (!guid || slot === fromIndex || slot === fromIndex + 1) return;
         const above = slot > 0 ? rows[slot - 1] : null;
         const below = slot < rows.length ? rows[slot] : null;

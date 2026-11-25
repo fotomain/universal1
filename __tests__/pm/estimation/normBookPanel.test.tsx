@@ -132,19 +132,19 @@ test('the search mode selector (Start | Contains | Finished) follows the search 
   expect(mockSearchModes[mockSearchModes.length - 1]).toBe('start');
 });
 
-test('the window that SELECTS a norm: the button column is narrow, the columns lead Direct cost, Unit, Title, Kind, Code and the rows cannot be dragged', async () => {
+test('the window that SELECTS a norm: the button column is narrow, the columns lead Direct cost, Unit, Title, Code, Kind and the rows cannot be dragged', async () => {
   renderUI(<NormBookPanel client={{}} canManage={false} pickMode onAddNorm={() => {}} onImport={() => {}} onExport={() => {}} />);
   await wait(30); await wait(30);
   const keys = mockTableProps.visualColumns.map((c: any) => c.key);
-  expect(keys.slice(0, 6)).toEqual(['rowAction', 'unitDirect', 'unit', 'titleShown', 'kindShown', 'code']);
+  expect(keys.slice(0, 6)).toEqual(['rowAction', 'unitDirect', 'unit', 'titleShown', 'code', 'kindShown']);
   expect(mockTableProps.visualColumns[0].width).toBeLessThan(150);
   expect(mockTableProps.foldersTree.rowsDraggable).toBe(false);
 });
 
-test('the norm books screen (not the picker) keeps its column order and the drag onto a folder', async () => {
+test('the norm books screen has the same column order as the picker, and keeps the drag onto a folder', async () => {
   renderUI(<NormBookPanel client={{}} canManage onAddNorm={null} onImport={() => {}} onExport={() => {}} />);
   await wait(30); await wait(30);
-  expect(mockTableProps.visualColumns.map((c: any) => c.key).slice(0, 4)).toEqual(['rowAction', 'kindShown', 'code', 'titleShown']);
+  expect(mockTableProps.visualColumns.map((c: any) => c.key).slice(0, 6)).toEqual(['rowAction', 'unitDirect', 'unit', 'titleShown', 'code', 'kindShown']);
   expect(mockTableProps.foldersTree.rowsDraggable).toBe(true);
 });
 
@@ -293,4 +293,43 @@ test('the history of PAIRS (field + from + to): kept when the user leaves From /
   const call = set.mock.calls.filter((c: any[]) => String(c[0]).endsWith('estimationNormFilterPairs')).pop();
   expect(call).toBeTruthy();
   expect(decodeNormPair(JSON.parse(call![1] as string)[0])).toEqual({ field: 'unitDirect', from: '100', to: '500' });
+});
+
+test('the left block of the bar is as wide as the World Norms panel (the tree is a fixed width), so the search starts where the table starts', async () => {
+  const { NORM_TREE_WIDTH, NORM_TREE_STACK_BELOW } = require('../../../kit8/pm/estimation/ui/NormBookPanel');
+  renderUI(<NormBookPanel client={{}} canManage onAddNorm={null} onImport={() => {}} onExport={() => {}} />);
+  await wait(30);
+  expect(mockTableProps.uxuiTable).toMatchObject({ foldersTreeWidth: NORM_TREE_WIDTH, foldersTreeResizable: false });
+  expect(NORM_TREE_STACK_BELOW).toBe(720); // = the default of ReusableTable: below it the tree is above the table and no block is kept
+  // the norm books screen: the Import / Export buttons live in that block
+  const left = q('estimation-norm-books-bar-left')!;
+  expect(left).not.toBeNull();
+  expect(left.contains(q('estimation-norm-books-import')!)).toBe(true);
+  expect(left.contains(q('estimation-norm-books-export')!)).toBe(true);
+});
+
+test('the picker has no buttons: its left block is empty (it only keeps the room of the tree when the panel is wide)', async () => {
+  renderUI(<NormBookPanel client={{}} canManage={false} pickMode onAddNorm={() => {}} onImport={() => {}} onExport={() => {}} />);
+  await wait(30);
+  expect(q('estimation-norm-books-import')).toBeNull();
+  expect(q('estimation-norm-books-export')).toBeNull();
+});
+
+test('the norm books screen: the action column is a narrow LINK column - "+ Add" for a norm (not a button), "Open" for a section; the same width logic as the picker', async () => {
+  const onAddNorm = jest.fn();
+  renderUI(<NormBookPanel client={{}} canManage onAddNorm={onAddNorm} onImport={() => {}} onExport={() => {}} />);
+  await wait(30); await wait(30);
+  const col = mockTableProps.visualColumns[0];
+  expect(col).toMatchObject({ key: 'rowAction', cellPaddingX: 6, align: 'center' });
+  expect(col.width).toBeLessThanOrEqual(90);
+  renderUI(col.renderCell({ rowGUID: 'n1', rowJSON: { nodeKind: 'norm' } }));
+  const add = q('estimation-norm-books-add-n1')!;
+  expect(add.getAttribute('role')).toBe('link');
+  expect(add.textContent).toContain('Add');
+  expect(add.getAttribute('aria-label')).toBe('Add to the estimate');
+  cleanupUI();
+  renderUI(col.renderCell({ rowGUID: 's1', rowJSON: { nodeKind: 'section' } }));
+  const open = q('estimation-norm-books-open-s1')!;
+  expect(open.getAttribute('role')).toBe('link');
+  expect(open.textContent).toBe('Open');
 });
