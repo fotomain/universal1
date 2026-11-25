@@ -3,7 +3,7 @@ import type { PMTreeIndex } from '../view/project/scheduling';
 import type { PMCalcSignature } from '../model/calcSignature';
 import type { PMExtendedOptions } from '../extended/extendedOptions';
 import type { PMCustomColumnDef, PMCustomColumnKey, PMCustomColumnType } from '../view/tree/columns/customColumns';
-import type { PMTreeColumnsFilters, PMTreeColumnSort } from '../view/tree/filter/treeColumnFilter';
+import type { PMTreeColumnsFilters, PMTreeColumnSort, PMTreeExternalView } from '../view/tree/filter/treeColumnFilter';
 import type { PMSelectRowCheckBoxForm, PMDepRef, PMTreeColumnKey, PMGanttVsNetworkView, PMLinkLineForm, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMProjectRow, PMContextCommandsMode, PMUxUiSettings, PMScheduledRow, PMTaskDependencyRow, PMTaskRow, PMPlanDateInputFormat } from '../model/types';
 
 /** Tree cells that can be edited inline (click on taskStartDate / taskFinishDate / taskDuration / % / Kanban / Kanban % or on a custom column cell). */
@@ -149,6 +149,9 @@ export interface PMStoreState {
   treeColumnsFilters: PMTreeColumnsFilters;
   /** rowJSON.uxuiSettings.treeColumnSort - sorted tree column (null = tree order). */
   treeColumnSort: PMTreeColumnSort | null;
+  /** filter / sort of a grid beside the tree (Estimation dashboard), not saved; null = none (tree/filter/treeColumnFilter.ts `PMTreeExternalView`) */
+  treeExternalView: PMTreeExternalView | null;
+  setTreeExternalView: (view: PMTreeExternalView | null) => void;
   /** rowJSON.uxuiSettings.columnFilterIconColor - filter icon of a filtered header. */
   columnFilterIconColor: string;
   /** rowJSON.uxuiSettings.postButtonBackgroundColor - background of the Post button of the task line table. */

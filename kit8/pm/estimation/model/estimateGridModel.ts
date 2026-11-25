@@ -124,6 +124,10 @@ export interface GridRow {
   sums: EstimationSums;
   /** the sum of the prices of the quote layout (cost x (1 + mark-up)) */
   price: number;
+  /** the unit of everything in the row when it is ONE unit (a stage whose tasks all count in m3); null = different units or a position without a unit; undefined = no position */
+  unit: string | null | undefined;
+  /** the sum of the quantities of the positions in the row (meaningful when `unit` is a unit) */
+  qty: number;
 }
 
 export interface GridRowsInput {
@@ -164,20 +168,28 @@ const carries = (kind: string | undefined, hasChildren: boolean): boolean => kin
 export function buildGridRows(input: GridRowsInput): GridRow[] {
   const own = positionsByTask(input.lines);
   const price = (l: LineRow): number => round2((input.byLine[l.rowGUID]?.direct ?? 0) * (1 + (Number(l.rowJSON.markupPct) || 0) / 100));
-  const memo = new Map<string, { cost: CostBreakdown; positions: number; price: number }>();
+  type Total = { cost: CostBreakdown; positions: number; price: number; unit: string | null | undefined; qty: number };
+  const memo = new Map<string, Total>();
+  const mergeUnit = (a: string | null | undefined, b: string | null | undefined): string | null | undefined => (a === undefined ? b : b === undefined ? a : a === b ? a : null);
   const visiting = new Set<string>();
-  const total = (guid: string): { cost: CostBreakdown; positions: number; price: number } => {
+  const total = (guid: string): Total => {
     const hit = memo.get(guid);
     if (hit) return hit;
-    if (visiting.has(guid)) return { cost: EMPTY_COST, positions: 0, price: 0 };
+    if (visiting.has(guid)) return { cost: EMPTY_COST, positions: 0, price: 0, unit: undefined, qty: 0 };
     visiting.add(guid);
     let cost = EMPTY_COST;
     let positions = 0;
     let sumPrice = 0;
-    for (const l of own.get(guid) ?? []) { cost = addCost(cost, input.byLine[l.rowGUID] ?? EMPTY_COST); positions += 1; sumPrice = round2(sumPrice + price(l)); }
-    for (const k of input.childrenById[guid] ?? []) { const c = total(k); cost = addCost(cost, c.cost); positions += c.positions; sumPrice = round2(sumPrice + c.price); }
+    let unit: string | null | undefined;
+    let qty = 0;
+    for (const l of own.get(guid) ?? []) {
+      cost = addCost(cost, input.byLine[l.rowGUID] ?? EMPTY_COST); positions += 1; sumPrice = round2(sumPrice + price(l));
+      unit = mergeUnit(unit, String(l.rowJSON.unit ?? '').trim() || null);
+      qty += Number(l.rowJSON.qty) || 0;
+    }
+    for (const k of input.childrenById[guid] ?? []) { const c = total(k); cost = addCost(cost, c.cost); positions += c.positions; sumPrice = round2(sumPrice + c.price); unit = mergeUnit(unit, c.unit); qty += c.qty; }
     visiting.delete(guid);
-    const r = { cost, positions, price: sumPrice };
+    const r: Total = { cost, positions, price: sumPrice, unit, qty: Math.round(qty * 1e4) / 1e4 };
     memo.set(guid, r);
     return r;
   };
@@ -186,7 +198,7 @@ export function buildGridRows(input: GridRowsInput): GridRow[] {
     const t = total(guid);
     const mine = own.get(guid) ?? [];
     const kind = carries(input.kindOf(guid), hasChildren) ? 'task' : 'summary';
-    return { guid, kind, line: kind === 'task' && mine.length === 1 ? mine[0] : null, positions: t.positions, multi: kind === 'task' && mine.length > 1, cost: t.cost, sums: inThreeCurrencies(t.cost.current, input.doc?.rates), price: t.price };
+    return { guid, kind, line: kind === 'task' && mine.length === 1 ? mine[0] : null, positions: t.positions, multi: kind === 'task' && mine.length > 1, cost: t.cost, sums: inThreeCurrencies(t.cost.current, input.doc?.rates), price: t.price, unit: t.unit, qty: t.qty };
   });
 }
 
@@ -213,6 +225,8 @@ export const shareOf = (row: GridRow, ctx: CellContext): number => (ctx.totalCur
 export function cellText(col: GridColumn, row: GridRow, ctx: CellContext): string {
   const j = (row.line?.rowJSON ?? null) as Record<string, any> | null;
   const field = col.field ?? col.key;
+  // the SUBTOTAL of a stage (or of a task with several positions): when every position below it counts in the same unit, that unit and the sum of the quantities
+  if (!row.line && row.positions > 0 && (col.key === 'unit' || col.key === 'qty')) return typeof row.unit === 'string' ? (col.key === 'unit' ? row.unit : fmtNumber(row.qty)) : '';
   switch (col.kind) {
     case 'text':
       if (col.key === 'title' && row.multi) return `${row.positions} ${(ctx.t ?? ((s: string) => s))('positions')}`;
@@ -330,4 +344,14 @@ export function wrapTitle(title: string, maxWidth: number, measure: (s: string) 
   }
   const rest = words.slice(i).join(' ');
   return rest ? [fitText(first, maxWidth, measure), fitText(rest, maxWidth, measure)] : [fitText(first, maxWidth, measure)];
+}
+
+/** where the editor of a cell stands (content x): EXACTLY the cell - a number editor (- + calculator inside) shrinks its buttons to fit the column, it never grows over the next column */
+export function editorBox(col: Pick<GridColumn, 'x' | 'width' | 'kind'>, _contentWidth: number): { x: number; width: number } {
+  return { x: col.x, width: col.width };
+}
+
+/** the size of the - / + / calculator buttons of a number editor: 26, smaller in a narrow column so that the three buttons and a few digits stay INSIDE the cell */
+export function editorButtonSize(width: number): number {
+  return Math.max(16, Math.min(26, Math.floor((width - 4 - 40) / 3)));
 }

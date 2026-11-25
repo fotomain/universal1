@@ -7,12 +7,14 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import SegmentButtonsApp from '../../../ui/components/common/SegmentButtonsApp';
 import SwitchApp from '../../../ui/components/common/SwitchApp';
 import { readAllPages } from '../../crud/api/apiUtils';
+import { createTaskApi } from '../../crud/api/taskApi';
 import { pmT } from '../../i18n/pmT';
 import { PMDialogButton } from '../../inner/buttons/PMDialogButton';
 import { exportTableFile } from '../../../ui/components/table/reusable/tableExportActions';
 import { buildTablePdf } from '../../../ui/components/table/reusable/tablePdf';
 import { buildLocalEstimateForm, buildQuotationForm, buildResourceSheet, buildSummaryForm, formsToXlsx, formToTextRows, summaryRowsOf, type Form } from '../export/estimationForms';
 import { calcDocument } from '../model/estimationCalc';
+import type { OutlineTask } from '../model/estimateOutlineModel';
 import type { DocumentRow, LineRow } from '../model/estimationDocumentModel';
 import { recalcLines } from '../model/estimationDocumentModel';
 import { ESTIMATION_TABLES, type EstimationCurrencyBasis } from '../model/estimationModel';
@@ -30,9 +32,9 @@ export interface EstimationExportPanelProps {
 
 export const EXPORT_MIME = { xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', pdf: 'application/pdf' } as const;
 
-/** every form of the chosen documents (pure given the lines) */
-export function formsFor(args: { documents: DocumentRow[]; linesByDoc: Map<string, LineRow[]>; picked: Set<string>; resources: boolean; summary: boolean; gost: boolean; basis: EstimationCurrencyBasis; currency: string; contingencyPct: number; vatPct: number; objectKind: any }): Form[] {
-  const o = { gost: args.gost, t: pmT, basis: args.basis, currency: args.currency };
+/** every form of the chosen documents (pure given the lines and the tasks). `tasks` = the task tree of the estimation project: its stages are the headings of the forms, its order is theirs */
+export function formsFor(args: { documents: DocumentRow[]; linesByDoc: Map<string, LineRow[]>; picked: Set<string>; resources: boolean; summary: boolean; gost: boolean; basis: EstimationCurrencyBasis; currency: string; contingencyPct: number; vatPct: number; objectKind: any; tasks?: readonly OutlineTask[] | null }): Form[] {
+  const o = { gost: args.gost, t: pmT, basis: args.basis, currency: args.currency, tasks: args.tasks };
   const forms: Form[] = [];
   const all: { doc: DocumentRow; total: any }[] = [];
   for (const doc of args.documents) {
@@ -63,7 +65,10 @@ export default function EstimationExportPanel({ client, projectGUID, documents, 
       const lines = await readAllPages<LineRow>((from, to) => client.from(ESTIMATION_TABLES.line.table).select('*').eq('rowOwnerGUID', projectGUID).order('orderInList').order('rowGUID').range(from, to));
       const linesByDoc = new Map<string, LineRow[]>();
       for (const l of lines) { const d = l.rowJSON.documentGUID; if (!linesByDoc.has(d)) linesByDoc.set(d, []); linesByDoc.get(d)!.push(l); }
-      const forms = formsFor({ documents, linesByDoc, picked: pickedAll, resources, summary: withSummary, gost, basis, currency, contingencyPct: summary.contingencyPct, vatPct: summary.vatPct, objectKind: summary.objectKind });
+      // the stages and the order of the printed forms are those of the task tree
+      setMessage(pmT('Reading the tasks'));
+      const { tasks } = await createTaskApi(client).readProjectData(projectGUID);
+      const forms = formsFor({ tasks, documents, linesByDoc, picked: pickedAll, resources, summary: withSummary, gost, basis, currency, contingencyPct: summary.contingencyPct, vatPct: summary.vatPct, objectKind: summary.objectKind });
       if (!forms.length) { setError(pmT('Nothing is chosen to export.')); setBusy(false); return; }
       const stamp = new Date().toISOString().slice(0, 10);
       if (format === 'xlsx') {

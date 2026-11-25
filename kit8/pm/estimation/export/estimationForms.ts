@@ -2,6 +2,7 @@
 // formulas; the PDF prints the same rows as text). The wording follows the project switch useGOSTInformationInDocuments: OFF (default) = neutral English wording, no country, no authority,
 // no form number; ON = the names of the forms of the Methodology (Order 421/pr) are added. Every text goes through `t` (pmT in the app): the forms follow the language of the interface.
 import { calcDocument, positionInputOf, summaryEstimate, SUMMARY_CHAPTERS, round2, type ChapterRow, type CostBreakdown } from '../model/estimationCalc';
+import { buildEstimateOutline, type OutlineEntry, type OutlineTask } from '../model/estimateOutlineModel';
 import type { DocumentRow, LineRow } from '../model/estimationDocumentModel';
 import { BASIS_TO_SUM_KEY, type EstimationCurrencyBasis, type EstimationDocKind, type EstimationLineJSON } from '../model/estimationModel';
 import { buildXlsx, cellRef, type XlsxCell, type XlsxSheet } from './xlsxWriter';
@@ -14,7 +15,8 @@ export interface FormColumn { title: string; width: number; kind: 'text' | 'mone
 export interface FormRow { cells: (string | number | null)[]; bold?: boolean; section?: boolean; total?: boolean; sumPositions?: boolean }
 export interface Form { title: string; subtitle: string; header: string[]; columns: FormColumn[]; rows: FormRow[]; fileName: string; sheetName: string }
 
-export interface FormOptions { gost: boolean; t: Translate; basis: EstimationCurrencyBasis; currency: string; now?: Date }
+/** `tasks` = the task tree of the estimation project: the stages are the headings of the forms and the tasks give the order (without it a document is outlined by its own older section lines) */
+export interface FormOptions { gost: boolean; t: Translate; basis: EstimationCurrencyBasis; currency: string; now?: Date; tasks?: readonly OutlineTask[] | null }
 
 export function docKindTitle(kind: EstimationDocKind, o: Pick<FormOptions, 'gost' | 't'>): string {
   const { t, gost } = o;
@@ -42,11 +44,16 @@ const headerOf = (doc: DocumentRow, o: FormOptions): string[] => {
 
 const ZERO: CostBreakdown = { labour: 0, machines: 0, operators: 0, materials: 0, other: 0, equipment: 0, direct: 0, payroll: 0, overheads: 0, profit: 0, base: 0, current: 0 };
 
-/** the local estimate: sections, positions (norm, unit, quantity, coefficient, unit cost, total, index, total in current prices) and the totals of the estimate */
+/** the heading row of a stage / section (the sums of everything below it) */
+const headingText = (e: Exclude<OutlineEntry, { type: 'position' }>, t: Translate): string =>
+  e.type === 'unplaced' ? t('Lines without a task') : e.type === 'stage' && e.wbs ? `${e.wbs}. ${e.title}` : e.title;
+
+/** the local estimate: stages (the tasks that have tasks below them) as headings, positions (norm, unit, quantity, coefficient, unit cost, total, index, total in current prices) in the order
+ *  of the task tree, and the totals of the estimate */
 export function buildLocalEstimateForm(doc: DocumentRow, lines: readonly LineRow[], o: FormOptions): Form {
   const { t } = o;
   const calc = calcDocument(lines, doc.rowJSON);
-  const byGUID = new Map(lines.map((l) => [l.rowGUID, l]));
+  const outline = buildEstimateOutline({ tasks: o.tasks, lines, byLine: calc.byLine, doc: doc.rowJSON });
   const columns: FormColumn[] = [
     { title: t('No'), width: 6, kind: 'int' }, { title: t('Justification'), width: 20, kind: 'text' }, { title: t('Description of works and costs'), width: 50, kind: 'text' }, { title: t('Unit'), width: 10, kind: 'text' },
     { title: t('Quantity'), width: 12, kind: 'qty' }, { title: t('Coefficient'), width: 11, kind: 'qty' }, { title: t('Unit cost, base prices'), width: 16, kind: 'money' }, { title: t('Total, base prices'), width: 16, kind: 'money' },
@@ -54,16 +61,14 @@ export function buildLocalEstimateForm(doc: DocumentRow, lines: readonly LineRow
   ];
   const rows: FormRow[] = [];
   let n = 0;
-  for (const { rowGUID, depth } of calc.order) {
-    const l = byGUID.get(rowGUID)!;
-    const cost = calc.byLine[rowGUID] ?? ZERO;
-    if (l.rowJSON.lineKind === 'section') { rows.push({ cells: [null, null, l.rowJSON.title ?? '', null, null, null, null, cost.base, null, cost.current], section: true, bold: true }); continue; }
-    if (l.rowJSON.lineKind !== 'position') continue;
+  for (const e of outline.entries) {
+    if (e.type !== 'position') { rows.push({ cells: [null, null, headingText(e, t), null, null, null, null, e.cost.base, null, e.cost.current], section: true, bold: true }); continue; }
+    const l = e.line;
+    const cost = calc.byLine[l.rowGUID] ?? ZERO;
     const j = l.rowJSON;
     const k = (j.qty ?? 0) || 1;
     const idx = j.index ?? doc.rowJSON.index ?? 1;
-    rows.push({ cells: [++n, j.normCode ?? '', j.title ?? '', j.unit ?? '', j.qty ?? 0, calcCoef(j), round2(cost.base / k), cost.base, idx, cost.current] });
-    void depth;
+    rows.push({ cells: [++n, j.normCode ?? '', e.title, j.unit ?? '', j.qty ?? 0, calcCoef(j), round2(cost.base / k), cost.base, idx, cost.current] });
   }
   const T = calc.total;
   const sumRow = (label: string, base: number | null, cur: number | null, bold = false): FormRow => ({ cells: [null, null, label, null, null, null, null, base, null, cur], bold, total: true });
@@ -84,37 +89,41 @@ export function buildLocalEstimateForm(doc: DocumentRow, lines: readonly LineRow
 }
 const calcCoef = (j: Partial<EstimationLineJSON>): number => positionInputOf(j).coef;
 
-/** the resources of a document: the sums of labour, machines, operators, materials, other and equipment per position and in total (a resource sheet) */
+/** the resources of a document: the sums of labour, machines, operators, materials, other and equipment per position (in the order of the task tree, a stage heading carries its sums) and in total (a resource sheet) */
 export function buildResourceSheet(doc: DocumentRow, lines: readonly LineRow[], o: FormOptions): Form {
   const { t } = o;
   const calc = calcDocument(lines, doc.rowJSON);
+  const outline = buildEstimateOutline({ tasks: o.tasks, lines, byLine: calc.byLine, doc: doc.rowJSON });
   const columns: FormColumn[] = [{ title: t('No'), width: 6, kind: 'int' }, { title: t('Description of works and costs'), width: 50, kind: 'text' }, { title: t('Labour'), width: 14, kind: 'money' }, { title: t('Machines'), width: 14, kind: 'money' }, { title: t('of which operators'), width: 14, kind: 'money' }, { title: t('Materials'), width: 14, kind: 'money' }, { title: t('Other'), width: 12, kind: 'money' }, { title: t('Equipment'), width: 14, kind: 'money' }];
   const rows: FormRow[] = [];
   let n = 0;
-  for (const l of lines.filter((x) => x.rowJSON.lineKind === 'position').sort((a, b) => (calc.order.findIndex((x) => x.rowGUID === a.rowGUID)) - (calc.order.findIndex((x) => x.rowGUID === b.rowGUID)))) {
-    const c = calc.byLine[l.rowGUID] ?? ZERO;
-    rows.push({ cells: [++n, l.rowJSON.title ?? '', c.labour, c.machines, c.operators, c.materials, c.other, c.equipment] });
+  for (const e of outline.entries) {
+    if (e.type !== 'position') { rows.push({ cells: [null, headingText(e, t), e.cost.labour, e.cost.machines, e.cost.operators, e.cost.materials, e.cost.other, e.cost.equipment], section: true, bold: true }); continue; }
+    const c = calc.byLine[e.line.rowGUID] ?? ZERO;
+    rows.push({ cells: [++n, e.title, c.labour, c.machines, c.operators, c.materials, c.other, c.equipment] });
   }
   const T = calc.total;
   rows.push({ cells: [null, t('TOTAL'), T.labour, T.machines, T.operators, T.materials, T.other, T.equipment], bold: true, total: true, sumPositions: true });
   return { title: `${t('Resource sheet')}: ${doc.rowJSON.title ?? ''}`.trim(), subtitle: t('Resource sheet'), header: headerOf(doc, o), columns, rows, fileName: safeFile(`${t('Resource sheet')}_${doc.rowJSON.title ?? ''}`), sheetName: t('Resource sheet') };
 }
 
-/** the quotation: category, description, unit, quantity, cost, mark-up, price - for the quick quote layout */
+/** the quotation: category, description, unit, quantity, cost, mark-up, price - for the quick quote layout. The positions stand in the order of the task tree; a position with no typed category
+ *  takes the name of the stage its task stands in */
 export function buildQuotationForm(doc: DocumentRow, lines: readonly LineRow[], o: FormOptions): Form {
   const { t } = o;
+  const outline = buildEstimateOutline({ tasks: o.tasks, lines, byLine: {}, doc: doc.rowJSON });
   const columns: FormColumn[] = [{ title: t('No'), width: 6, kind: 'int' }, { title: t('Category'), width: 24, kind: 'text' }, { title: t('Description'), width: 44, kind: 'text' }, { title: t('Unit'), width: 10, kind: 'text' }, { title: t('Quantity'), width: 12, kind: 'qty' }, { title: t('Cost per unit'), width: 14, kind: 'money' }, { title: t('Cost'), width: 14, kind: 'money' }, { title: t('Mark-up, %'), width: 11, kind: 'money' }, { title: t('Price'), width: 14, kind: 'money' }];
   const rows: FormRow[] = [];
   let n = 0;
   let cost = 0;
   let price = 0;
-  for (const l of lines.filter((x) => x.rowJSON.lineKind === 'position')) {
-    const j = l.rowJSON;
+  for (const e of outline.positions) {
+    const j = e.line.rowJSON;
     const unit = (j.unitOther ?? 0) + (j.unitMaterials ?? 0) + (j.unitLabour ?? 0) + (j.unitMachines ?? 0);
     const c = round2((j.qty ?? 0) * unit);
     const p = round2(c * (1 + (j.markupPct ?? 0) / 100));
     cost += c; price += p;
-    rows.push({ cells: [++n, j.category ?? '', j.title ?? '', j.unit ?? '', j.qty ?? 0, unit, c, j.markupPct ?? 0, p] });
+    rows.push({ cells: [++n, j.category || e.stage || '', e.title, j.unit ?? '', j.qty ?? 0, unit, c, j.markupPct ?? 0, p] });
   }
   rows.push({ cells: [null, null, t('TOTAL'), null, null, null, round2(cost), null, round2(price)], bold: true, total: true, sumPositions: true });
   rows.push({ cells: [null, null, t('Profit'), null, null, null, null, null, round2(price - cost)], bold: true, total: true });

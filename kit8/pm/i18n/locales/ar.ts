@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "تصفية حسب",
   "From": "من",
   "To": "إلى",
+  "Reading the tasks": "قراءة المهام",
+  "Lines without a task": "بنود بلا مهمة",
+  "Sign in to make the tasks of the estimate.": "سجّل الدخول لإنشاء مهام التقدير.",
 };
 export default texts;

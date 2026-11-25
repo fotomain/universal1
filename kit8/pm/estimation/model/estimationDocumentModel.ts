@@ -2,6 +2,7 @@
 // written to the database, and the example documents the user can start from. Rows have the generic shape (rowGUID / rowOwnerGUID = the project / rowParentGUID / orderInList / rowJSON).
 import { calcDocument, positionCost, positionInputOf, sumsOfLine, type CalcLine, type DocumentCalc } from './estimationCalc';
 import type { EstimationDocumentJSON, EstimationDocKind, EstimationLineJSON, EstimationLineKind } from './estimationModel';
+import type { TaskPlanRow } from './estimationTaskModel';
 
 export interface EstimationRow<J = Record<string, any>> { rowGUID: string; rowOwnerGUID: string; rowParentGUID: string; orderInList: number; rowJSON: J }
 export type DocumentRow = EstimationRow<EstimationDocumentJSON>;
@@ -106,37 +107,47 @@ const QUOTE: [string, string, string, number, number, number][] = [
 ];
 const TRADES: [string, number, number][] = [['Surveying', 1000, 0], ['Erosion control', 1800, 1260], ['Sewer and water', 2000, 1700], ['Concrete paving', 700, 1400], ['Rebar and concrete', 3500, 5787], ['Structural metals', 6500, 16500], ['Roofing', 4500, 18765], ['Windows', 2750, 26000], ['Drywall', 4000, 5500]];
 
-/** a ready estimate (document + lines) of one of the layouts; the numbers are illustrative samples, not price-book data */
-export function exampleDocument(projectGUID: string, key: ExampleKey): { doc: DocumentRow; lines: LineRow[] } {
+/** a ready estimate of one of the layouts: the document, its positions and the TASK PLAN it stands on (a stage per section / trade, a task per position; the positions name their task by
+ *  `taskGUID`). The dashboard creates the tasks in the task tree of the project, then the lines. The numbers are illustrative samples, not price-book data. */
+export interface ExampleEstimate { doc: DocumentRow; lines: LineRow[]; tasks: TaskPlanRow[] }
+
+/** a position with its own task (under `parent`, null = under the project) */
+function positionOnNewTask(projectGUID: string, documentGUID: string, tasks: TaskPlanRow[], parent: string | null, order: number, name: string, extra: Partial<EstimationLineJSON>): LineRow {
+  const line = newLineRow(projectGUID, documentGUID, 'position', 'empty', order, extra);
+  tasks.push({ rowGUID: newGUID(), parentGUID: parent, kind: 'task', name });
+  return { ...line, rowJSON: { ...line.rowJSON, taskGUID: tasks[tasks.length - 1].rowGUID } };
+}
+const stageOf = (tasks: TaskPlanRow[], name: string): string => { const g = newGUID(); tasks.push({ rowGUID: g, parentGUID: null, kind: 'stage', name }); return g; };
+
+export function exampleDocument(projectGUID: string, key: ExampleKey): ExampleEstimate {
+  const tasks: TaskPlanRow[] = [];
   if (key === 'estimateSheet') {
     const doc = newDocumentRow(projectGUID, 'local', { title: 'Example: local estimate (earthworks, foundations, walls)', cipher: 'LS-01-01-01', overheadPct: 90, profitPct: 50, index: 8.74 });
     const lines: LineRow[] = [];
     let order = 10;
     for (const s of SHEET) {
-      const sec = newLineRow(projectGUID, doc.rowGUID, 'section', 'empty', order, { title: s.section });
-      order += 10;
-      lines.push(sec);
+      const stage = stageOf(tasks, s.section);
       for (const p of s.positions) {
-        lines.push(newLineRow(projectGUID, doc.rowGUID, 'position', sec.rowGUID, order, { title: p.title, normCode: p.code, unit: p.unit, qty: p.qty, unitLabour: p.labour, unitMachines: p.machines, unitOperators: p.operators, unitMaterials: p.materials, coefficients: p.coef ? [{ value: p.coef, justification: 'Cramped conditions' }] : [] }));
+        lines.push(positionOnNewTask(projectGUID, doc.rowGUID, tasks, stage, order, p.title, { title: p.title, normCode: p.code, unit: p.unit, qty: p.qty, unitLabour: p.labour, unitMachines: p.machines, unitOperators: p.operators, unitMaterials: p.materials, coefficients: p.coef ? [{ value: p.coef, justification: 'Cramped conditions' }] : [] }));
         order += 10;
       }
     }
-    return { doc, lines };
+    return { doc, lines, tasks };
   }
   if (key === 'quickQuote') {
     const doc = newDocumentRow(projectGUID, 'bid', { title: 'Example: quick quote (kitchen refurbishment)', method: 'commercial' });
-    const lines = QUOTE.map(([category, title, unit, qty, cost, markup], i) => newLineRow(projectGUID, doc.rowGUID, 'position', 'empty', (i + 1) * 10, { title, category, unit, qty, unitOther: cost, markupPct: markup, status: i < 3 ? 'Complete' : 'Open' }));
-    return { doc, lines };
+    const lines = QUOTE.map(([category, title, unit, qty, cost, markup], i) => positionOnNewTask(projectGUID, doc.rowGUID, tasks, null, (i + 1) * 10, title, { title, category, unit, qty, unitOther: cost, markupPct: markup, status: i < 3 ? 'Complete' : 'Open' }));
+    return { doc, lines, tasks };
   }
   const doc = newDocumentRow(projectGUID, 'object', { title: 'Example: trade breakdown (commercial building)', method: 'commercial', overheadPct: 0, profitPct: 0 });
   const lines: LineRow[] = [];
   TRADES.forEach(([trade, labour, material], i) => {
-    const sec = newLineRow(projectGUID, doc.rowGUID, 'section', 'empty', (i + 1) * 10, { title: trade, category: trade });
-    lines.push(sec,
-      newLineRow(projectGUID, doc.rowGUID, 'position', sec.rowGUID, (i + 1) * 10 + 1, { title: `${trade} - labour`, qty: 1, unit: 'lump sum', unitLabour: labour }),
-      newLineRow(projectGUID, doc.rowGUID, 'position', sec.rowGUID, (i + 1) * 10 + 2, { title: `${trade} - materials`, qty: 1, unit: 'lump sum', unitMaterials: material }));
+    const stage = stageOf(tasks, trade);
+    lines.push(
+      positionOnNewTask(projectGUID, doc.rowGUID, tasks, stage, (i + 1) * 10 + 1, `${trade} - labour`, { title: `${trade} - labour`, category: trade, qty: 1, unit: 'lump sum', unitLabour: labour }),
+      positionOnNewTask(projectGUID, doc.rowGUID, tasks, stage, (i + 1) * 10 + 2, `${trade} - materials`, { title: `${trade} - materials`, category: trade, qty: 1, unit: 'lump sum', unitMaterials: material }));
   });
-  return { doc, lines };
+  return { doc, lines, tasks };
 }
 
 /** the columns of an INPUT template (a CSV the user fills in and pastes / imports): one row per position */
@@ -145,17 +156,19 @@ export const INPUT_TEMPLATE_COLUMNS = ['section', 'normCode', 'title', 'unit', '
 /** the text of the input template: a header + the positions of the example (CSV, comma, quotes where needed) */
 export function inputTemplateCsv(projectGUID: string): string {
   const q = (v: unknown) => { const t = v == null ? '' : String(v); return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
-  const { lines } = exampleDocument(projectGUID, 'estimateSheet');
-  const secTitle = new Map(lines.filter((l) => l.rowJSON.lineKind === 'section').map((l) => [l.rowGUID, l.rowJSON.title ?? '']));
+  const { lines, tasks } = exampleDocument(projectGUID, 'estimateSheet');
+  const taskById = new Map(tasks.map((t) => [t.rowGUID, t]));
+  const stageName = (l: LineRow): string => { const t = taskById.get(l.rowJSON.taskGUID ?? ''); return (t?.parentGUID && taskById.get(t.parentGUID)?.name) || ''; };
   const rows = lines.filter((l) => l.rowJSON.lineKind === 'position').map((l) => {
     const j = l.rowJSON;
-    return [secTitle.get(l.rowParentGUID) ?? '', j.normCode, j.title, j.unit, j.qty, (j.coefficients ?? [])[0]?.value ?? 1, j.unitLabour, j.unitMachines, j.unitOperators, j.unitMaterials, j.unitOther ?? 0, j.unitEquipment ?? 0, '', ''];
+    return [stageName(l), j.normCode, j.title, j.unit, j.qty, (j.coefficients ?? [])[0]?.value ?? 1, j.unitLabour, j.unitMachines, j.unitOperators, j.unitMaterials, j.unitOther ?? 0, j.unitEquipment ?? 0, '', ''];
   });
   return '﻿' + [INPUT_TEMPLATE_COLUMNS.join(','), ...rows.map((r) => r.map(q).join(','))].join('\r\n') + '\r\n';
 }
 
-/** a CSV of the template (or an Excel paste, tab separated) -> position rows; unknown columns are ignored, a section column groups the positions */
-export function linesFromTable(projectGUID: string, documentGUID: string, text: string, startOrder = 10): LineRow[] {
+/** a CSV of the template (or an Excel paste, tab separated) -> the estimate of the table: ONE position per row, each on a task of its own (named by the description); the column `section` is the
+ *  STAGE the task goes under (a stage of the project with that name is joined, else one is made once per name). Unknown columns are ignored. Returns the positions and the TASK PLAN to create. */
+export function estimateFromTable(projectGUID: string, documentGUID: string, text: string, o: { startOrder?: number; existingStages?: ReadonlyMap<string, string> } = {}): { lines: LineRow[]; tasks: TaskPlanRow[] } {
   const clean = text.replace(/^﻿/, '');
   const delim = clean.split('\n', 1)[0].includes('\t') ? '\t' : ',';
   const rows: string[][] = [];
@@ -172,31 +185,36 @@ export function linesFromTable(projectGUID: string, documentGUID: string, text: 
   }
   cur.push(cell);
   if (cur.some((c) => c.trim())) rows.push(cur);
-  if (rows.length < 2) return [];
+  if (rows.length < 2) return { lines: [], tasks: [] };
   const head = rows[0].map((h) => h.trim());
   const col = (name: string) => head.indexOf(name);
   const num = (r: string[], name: string): number | undefined => { const i = col(name); if (i < 0) return undefined; const v = Number(String(r[i] ?? '').replace(',', '.').replace(/\s/g, '')); return Number.isFinite(v) && String(r[i] ?? '').trim() !== '' ? v : undefined; };
   const txt = (r: string[], name: string): string => { const i = col(name); return i < 0 ? '' : String(r[i] ?? '').trim(); };
-  const out: LineRow[] = [];
-  const sections = new Map<string, LineRow>();
-  let order = startOrder;
+  const lines: LineRow[] = [];
+  const tasks: TaskPlanRow[] = [];
+  // a stage of the project with the same name (case does not matter) is joined; every new name makes ONE stage
+  const stages = new Map<string, string>([...(o.existingStages ?? [])].map(([name, guid]) => [name.trim().toLowerCase(), guid]));
+  let order = o.startOrder ?? 10;
   for (const r of rows.slice(1)) {
-    const sectionTitle = txt(r, 'section');
-    let parent = 'empty';
-    if (sectionTitle) {
-      let sec = sections.get(sectionTitle);
-      if (!sec) { sec = newLineRow(projectGUID, documentGUID, 'section', 'empty', order, { title: sectionTitle }); order += 10; sections.set(sectionTitle, sec); out.push(sec); }
-      parent = sec.rowGUID;
+    const stageTitle = txt(r, 'section');
+    let parent: string | null = null;
+    if (stageTitle) {
+      parent = stages.get(stageTitle.toLowerCase()) ?? null;
+      if (!parent) { parent = newGUID(); stages.set(stageTitle.toLowerCase(), parent); tasks.push({ rowGUID: parent, parentGUID: null, kind: 'stage', name: stageTitle }); }
     }
+    const title = txt(r, 'title');
+    const task: TaskPlanRow = { rowGUID: newGUID(), parentGUID: parent, kind: 'task', name: title || txt(r, 'normCode') || `Position ${lines.length + 1}` };
+    tasks.push(task);
     const coef = num(r, 'coefficient');
-    out.push(newLineRow(projectGUID, documentGUID, 'position', parent, order, {
-      title: txt(r, 'title'), normCode: txt(r, 'normCode') || null, unit: txt(r, 'unit'), qty: num(r, 'qty') ?? 1,
+    lines.push(newLineRow(projectGUID, documentGUID, 'position', 'empty', order, {
+      taskGUID: task.rowGUID,
+      title, normCode: txt(r, 'normCode') || null, unit: txt(r, 'unit'), qty: num(r, 'qty') ?? 1,
       coefficients: coef && coef !== 1 ? [{ value: coef }] : [],
       unitLabour: num(r, 'unitLabour') ?? 0, unitMachines: num(r, 'unitMachines') ?? 0, unitOperators: num(r, 'unitOperators') ?? 0, unitMaterials: num(r, 'unitMaterials') ?? 0, unitOther: num(r, 'unitOther') ?? 0, unitEquipment: num(r, 'unitEquipment') ?? 0,
     }));
     order += 10;
   }
-  return out;
+  return { lines, tasks };
 }
 
 export { positionCost, positionInputOf };

@@ -10,6 +10,7 @@
 //   Wording: neutral English unless the project switch useGOSTInformationInDocuments is ON (then the forms of the Methodology are named). Every text is a pmT key (14 languages).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useDesignSystem } from '../../providers/WithDesignSystem';
 import { useSupabase } from '../../providers/WithSupabase';
@@ -24,10 +25,12 @@ import { PMIconButton } from '../inner/buttons/PMIconButton';
 import SelectProjectFromList from '../view/project/SelectProjectFromList';
 import { projectIsReadonly } from '../model/projectReadonly';
 import { usePMOwnerGUID } from '../crud/queries';
+import { createTaskApi } from '../crud/api/taskApi';
+import { pmKeys } from '../crud/shared/queryShared';
 import { usePMStore } from '../store/store_pm';
 import { estimationLinkOf } from '../view/project/estimation/estimationModel';
 import { readCurrencyRate } from '../view/project/estimation/estimationApi';
-import { applyNormToLine, newLineRow, type DocumentRow } from './model/estimationDocumentModel';
+import { applyNormToLine, estimateFromTable, exampleDocument, newLineRow, type DocumentRow, type ExampleKey } from './model/estimationDocumentModel';
 import { newDocumentRow } from './model/estimationDocumentModel';
 import { BASIS_TIPS, BASIS_TO_SUM_KEY, useGOSTInformationOf, type EstimationCurrencyBasis, type EstimationDocKind } from './model/estimationModel';
 import { ESTIMATION_LAYOUTS, type EstimationLayout } from './model/estimationLayouts';
@@ -43,7 +46,9 @@ import SelectNormWindow from './ui/SelectNormWindow';
 import { saveLastEstimation, useLastEstimation } from './ui/lastEstimationLocal';
 import { useEstimationData } from './ui/useEstimationData';
 import { docKindTitle } from './export/estimationForms';
-import { assignLinesToTask, canCarryEstimate, taskKindOf, unassignedLines } from './model/estimationTaskModel';
+import { ESTIMATION_TREE_LABELS } from '../view/tree/toolbars/treeToolbarLabels';
+import { assignLinesToTask, canCarryEstimate, rootStagesByName, taskKindOf, taskRowsFromPlan, unassignedLines, type TaskPlanRow } from './model/estimationTaskModel';
+import type { PMTaskRow } from '../model/types';
 import { positionCountOf, removePositionOf } from './model/estimateGridModel';
 import InfoModal from '../../ui/components/info/InfoModal';
 import { layoutHelp } from './model/layoutHelpModel';
@@ -115,6 +120,10 @@ export default function EstimationDashboard() {
   const [note, setNote] = useState('');
   // the TASK whose position gets the norm being selected (the norm cell of the grid opens the norm books in a window)
   const [normTask, setNormTask] = useState<string | null>(null);
+  // the norm window was closed: the grid takes the keyboard back (else the keys would reach the task tree)
+  const [gridFocus, setGridFocus] = useState(0);
+  const wasNorm = React.useRef(false);
+  useEffect(() => { if (wasNorm.current && !normTask) setGridFocus((n) => n + 1); wasNorm.current = !!normTask; }, [normTask]);
   // the row picked in the task tree (PM store); the grid has one row per tree row, so it needs nothing else from the tree
   const pickedRaw = usePMStore((s: any) => s.selectedGUID) as string | null;
   const pickedTask = usePMStore((s: any) => (pickedRaw && s.tasksById?.[pickedRaw] ? pickedRaw : null)) as string | null;
@@ -123,7 +132,8 @@ export default function EstimationDashboard() {
   const pickedCanCarry = !!pickedTask && canCarryEstimate(taskKindOf(tasksById?.[pickedTask]), (childrenById?.[pickedTask]?.length ?? 0) > 0);
   const pickedPositions = pickedTask ? positionCountOf(data.lines, pickedTask) : 0;
   // an old / imported line has no task: it is given to the picked task one by one (a task carries ONE position)
-  const unassigned = useMemo(() => unassignedLines(data.lines).filter((l) => l.rowJSON.lineKind === 'position').sort((x, y) => x.orderInList - y.orderInList), [data.lines]);
+  const knownTasks = useMemo(() => new Set(Object.keys(tasksById ?? {})), [tasksById]);
+  const unassigned = useMemo(() => unassignedLines(data.lines, knownTasks).filter((l) => l.rowJSON.lineKind === 'position').sort((x, y) => x.orderInList - y.orderInList), [data.lines]);
 
   const currencies = useMemo(() => ({
     budget: String(projectJSON.currencyForBudget ?? ''), accounting: String(projectJSON.currencyForAccounting ?? ''), consolidation: String(organizationJSON?.currencyForConsolidation ?? ''),
@@ -177,6 +187,40 @@ export default function EstimationDashboard() {
     setNote(costs.missing.length ? pmT('The norm was set. {{n}} resource(s) have no price in the book: price them in the board.', { n: costs.missing.length }) : pmT('The norm was set on the position.'));
   }, [data, normTask, projectGUID, doc]);
 
+  // ---- the stages and tasks an example / an imported table needs: written into the TASK TREE of the project first (the positions name them), then the tree is read again
+  const queryClient = useQueryClient();
+  const makeTasks = useCallback(async (plan: readonly TaskPlanRow[], existing?: readonly PMTaskRow[]) => {
+    if (!plan.length || !projectGUID) return;
+    // the tasks are written for the signed-in user: without him nothing is made (the caller stops before it makes positions that name tasks which do not exist)
+    if (!ownerGUID) throw new Error(pmT('Sign in to make the tasks of the estimate.'));
+    const api = createTaskApi(client);
+    const rows = taskRowsFromPlan(plan, { projectGUID, ownerGUID, existing: existing ?? (await api.readProjectData(projectGUID)).tasks });
+    for (let i = 0; i < rows.length; i += 400) await api.importTasks(projectGUID, rows.slice(i, i + 400));
+    await queryClient.invalidateQueries({ queryKey: pmKeys.projectData(projectGUID) });
+  }, [client, ownerGUID, projectGUID, queryClient]);
+
+  const createExample = useCallback(async (key: ExampleKey) => {
+    if (!projectGUID) return;
+    try {
+      const ex = exampleDocument(projectGUID, key);
+      await makeTasks(ex.tasks);
+      await data.createFromExample(ex);
+      setTab('estimate');
+    } catch (e: any) { setNote(String(e?.message ?? e)); }
+  }, [data, makeTasks, projectGUID]);
+
+  // a pasted table / CSV: a task per row (under the stage named in the column `section`, a stage of the project with that name is joined), its position on it
+  const importTable = useCallback(async (text: string): Promise<number> => {
+    if (!projectGUID || !doc) return 0;
+    const { tasks: existing } = await createTaskApi(client).readProjectData(projectGUID);
+    const order = data.lines.reduce((m, l) => Math.max(m, l.orderInList), 0) + 10;
+    const made = estimateFromTable(projectGUID, doc.rowGUID, text, { startOrder: order, existingStages: rootStagesByName(existing) });
+    if (!made.lines.length) return 0;
+    await makeTasks(made.tasks, existing);
+    data.changeLines((prev) => [...prev, ...made.lines]);
+    return made.lines.length;
+  }, [client, data, doc, makeTasks, projectGUID]);
+
   // the right pane of the tree: [ a bar as high as the toolbar of the tree | the grid (header as high as the header of the tree) ]. The grid has one row per tree row on the tree's own scroll value.
   const estimatePane = (area: { width: number; height: number; palette: PMPalette; viewport: PMViewport; toolbarHeight: number }) => (
     <View style={{ flex: 1 }}>
@@ -215,7 +259,7 @@ export default function EstimationDashboard() {
           <LazyEstimateGrid
             width={area.width} height={Math.max(0, area.height - area.toolbarHeight)} palette={area.palette} viewport={area.viewport}
             projectGUID={projectGUID!} documentGUID={doc.rowGUID} doc={doc.rowJSON as any} lines={data.lines} calc={data.calc}
-            layout={layout} basis={basis} currency={basisCurrency} readOnly={readOnly} onChangeLines={data.changeLines} onSelectNorm={readOnly ? undefined : setNormTask}
+            layout={layout} basis={basis} currency={basisCurrency} readOnly={readOnly} onChangeLines={data.changeLines} onSelectNorm={readOnly ? undefined : setNormTask} focusToken={gridFocus}
           />
         </React.Suspense>
       )}
@@ -289,7 +333,7 @@ export default function EstimationDashboard() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" emptyText={pmT('This project has no tasks yet. The estimate is made per task: add the first stage, then its tasks.')} />
+              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" labels={ESTIMATION_TREE_LABELS} emptyText={pmT('This project has no lines yet. The estimate is made per line: add the first section, then its lines.')} />
             </View>
           </View>
         ) : tab === 'document' ? (
@@ -301,7 +345,7 @@ export default function EstimationDashboard() {
             <ExportNormBooks visible={!!exportBook} client={client} bookGUID={exportBook} onClose={() => setExportBook(null)} />
           </>
         ) : tab === 'templates' ? (
-          <EstimationTemplatesPanel projectGUID={projectGUID!} documentGUID={data.documentGUID} canEdit={!readOnly} gost={gost} currency={currencies.budget} onCreateExample={async (k) => { await data.createFromExample(k); setTab('estimate'); }} onAddLines={(ls) => data.changeLines((prev) => [...prev, ...ls.map((l, i) => ({ ...l, orderInList: prev.reduce((m, p) => Math.max(m, p.orderInList), 0) + (i + 1) * 10 }))])} />
+          <EstimationTemplatesPanel projectGUID={projectGUID!} documentGUID={data.documentGUID} canEdit={!readOnly} gost={gost} currency={currencies.budget} onCreateExample={createExample} onImportTable={importTable} />
         ) : tab === 'summary' ? (
           <EstimationSummaryPanel client={client} projectGUID={projectGUID!} documents={data.documents} currency={currencies.budget} onSettings={setSummarySettings as any} />
         ) : (

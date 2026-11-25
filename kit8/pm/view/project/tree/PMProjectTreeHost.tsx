@@ -4,6 +4,7 @@
 // and mounts the windows the tree opens (edit task, row menu, column menus, templates ...). A click on a row selects it in the PM store (`selectedGUID`): the pane reads it from there.
 // The right pane: `renderRight` (rightPane 'custom') or any other pane PMGanttSurface knows (`rightPane`).
 // Only ONE host (or the Project dashboard) may be mounted at a time: the PM store holds ONE selected project.
+import { DEFAULT_PM_TREE_LABELS, PMTreeLabelsContext, type PMTreeLabels } from '../../tree/toolbars/treeToolbarLabels';
 import React from 'react';
 import { Text, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
@@ -41,6 +42,8 @@ export interface PMProjectTreeHostProps {
   emptyText?: string;
   hideRight?: boolean;
   hideToolbars?: boolean;
+  /** the words of the "+ Stage" / "+ Task" buttons (default Stage / Task; the Estimation dashboard: Section / Line) */
+  labels?: PMTreeLabels;
 }
 
 export default function PMProjectTreeHost(props: PMProjectTreeHostProps) {
@@ -51,11 +54,12 @@ export default function PMProjectTreeHost(props: PMProjectTreeHostProps) {
   );
 }
 
-function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, rightPane, fabId = 'pm-project-tree', scope, emptyText, hideRight, hideToolbars }: PMProjectTreeHostProps) {
+function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, rightPane, fabId = 'pm-project-tree', scope, emptyText, hideRight, hideToolbars, labels = DEFAULT_PM_TREE_LABELS }: PMProjectTreeHostProps) {
   const { themeColors } = useDesignSystem();
   const ownerGUID = usePMOwnerGUID();
   const loadedProjectGUID = usePMStore((s) => s.loadedProjectGUID);
-  const rowCount = usePMStore((s) => s.visibleRows.length);
+  // the tasks of the project, NOT the rows the tree shows now: a filter that matches nothing must not turn the screen into the "empty project" view (the panes would unmount and lose the filter)
+  const rowCount = usePMStore((s) => s.tasks.length);
 
   useReadProjectsQuery(ownerGUID);
   useReadProjectUserSettingsQuery(ownerGUID);
@@ -77,6 +81,7 @@ function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, ri
   const error = dataQuery.error as Error | null;
 
   return (
+    <PMTreeLabelsContext.Provider value={labels}>
     <View testID="pm-project-tree-host" style={{ flex: 1, backgroundColor: themeColors.background }}>
       {!ownerGUID ? (
         <Centered><Text style={{ color: themeColors.text }}>{pmT('Sign in to manage projects')}</Text></Centered>
@@ -87,7 +92,7 @@ function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, ri
       ) : rowCount === 0 ? (
         <Centered>
           <Text testID="pm-project-tree-empty" style={{ color: themeColors.text, marginBottom: 10, textAlign: 'center' }}>{emptyText ?? pmT('This project has no tasks yet.')}</Text>
-          <PMDialogButton testID="pm-project-tree-add-stage" kind="primary" icon="create_new_folder" title={pmT('Add the first stage')} disabled={readOnly} onPress={() => crud.createStage()} />
+          <PMDialogButton testID="pm-project-tree-add-stage" kind="primary" icon="create_new_folder" title={labels === DEFAULT_PM_TREE_LABELS ? pmT('Add the first stage') : `Add the first ${labels.stage.toLowerCase()}`} disabled={readOnly} onPress={() => crud.createStage()} />
         </Centered>
       ) : (
         <PMGanttSurfaceLoader
@@ -102,6 +107,7 @@ function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, ri
       )}
       <PMTreeWindows ownerGUID={ownerGUID ?? ''} projectGUID={projectGUID} crud={crud} kanban={kanban} />
     </View>
+    </PMTreeLabelsContext.Provider>
   );
 }
 

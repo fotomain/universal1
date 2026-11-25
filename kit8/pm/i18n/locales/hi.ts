@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "इसके अनुसार फ़िल्टर करें",
   "From": "से",
   "To": "तक",
+  "Reading the tasks": "कार्य पढ़े जा रहे हैं",
+  "Lines without a task": "बिना कार्य वाली पंक्तियाँ",
+  "Sign in to make the tasks of the estimate.": "अनुमान के कार्य बनाने के लिए साइन इन करें।",
 };
 export default texts;

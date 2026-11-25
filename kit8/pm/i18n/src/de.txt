@@ -1504,3 +1504,6 @@
 1504|Filtern nach
 1505|Von
 1506|Bis
+1507|Aufgaben werden gelesen
+1508|Zeilen ohne Aufgabe
+1509|Melden Sie sich an, um die Aufgaben der Kalkulation anzulegen.

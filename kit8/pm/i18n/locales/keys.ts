@@ -1508,4 +1508,7 @@ export const PM_KEYS: readonly string[] = [
   "Filter by",
   "From",
   "To",
+  "Reading the tasks",
+  "Lines without a task",
+  "Sign in to make the tasks of the estimate.",
 ];

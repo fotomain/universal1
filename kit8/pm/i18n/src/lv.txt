@@ -1504,3 +1504,6 @@
 1504|Filtrēt pēc
 1505|No
 1506|Līdz
+1507|Notiek uzdevumu lasīšana
+1508|Rindas bez uzdevuma
+1509|Pierakstieties, lai izveidotu tāmes uzdevumus.

@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "فیلتر بر اساس",
   "From": "از",
   "To": "تا",
+  "Reading the tasks": "خواندن وظایف",
+  "Lines without a task": "ردیف‌های بدون وظیفه",
+  "Sign in to make the tasks of the estimate.": "برای ایجاد وظایف برآورد وارد شوید.",
 };
 export default texts;

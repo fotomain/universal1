@@ -8,6 +8,7 @@ let mockProject: any = null;
 let mockData: any;
 const mockChangeDocument = jest.fn();
 jest.mock('../../../kit8/permissions/usePermissions', () => ({ usePermissions: () => mockPerms }));
+jest.mock('../../../kit8/pm/crud/queries', () => ({ usePMOwnerGUID: () => 'u1' }));
 jest.mock('../../../kit8/pm/crud/project/projectQueries', () => ({ useReadProjectQuery: () => ({ data: mockProject }) }));
 jest.mock('../../../kit8/catalog/organization/useMyOrganization', () => ({ useMyOrganization: () => ({ organizationJSON: { currencyForConsolidation: 'USD' } }) }));
 jest.mock('../../../kit8/pm/estimation/ui/useEstimationData', () => ({ useEstimationData: () => mockData, newDocumentRow: jest.requireActual('../../../kit8/pm/estimation/model/estimationDocumentModel').newDocumentRow }));
@@ -19,7 +20,10 @@ jest.mock('../../../kit8/pm/view/project/tree/PMProjectTreeHost', () => ({ __esM
 jest.mock('../../../kit8/pm/estimation/ui/NormBookPanel', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../kit8/pm/estimation/ui/ImportNormBooks', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../kit8/pm/estimation/ui/ExportNormBooks', () => ({ __esModule: true, default: () => null }));
-jest.mock('../../../kit8/pm/estimation/ui/EstimationTemplatesPanel', () => ({ __esModule: true, default: () => require('react').createElement(require('react-native').Text, { testID: 'templates-stub' }, 'templates') }));
+jest.mock('../../../kit8/pm/estimation/ui/EstimationTemplatesPanel', () => ({ __esModule: true, default: (p: any) => { ((globalThis as any).__templatesProps = p); return require('react').createElement(require('react-native').Text, { testID: 'templates-stub' }, 'templates'); } }));
+const mockImportTasks = jest.fn(async (_p: string, _rows: any[]) => undefined);
+const mockExistingTasks: { current: any[] } = { current: [] };
+jest.mock('../../../kit8/pm/crud/api/taskApi', () => ({ createTaskApi: () => ({ readProjectData: async () => ({ tasks: mockExistingTasks.current, deps: [] }), importTasks: (p: string, rows: any[]) => mockImportTasks(p, rows) }) }));
 jest.mock('../../../kit8/pm/estimation/ui/EstimationSummaryPanel', () => ({ __esModule: true, default: () => require('react').createElement(require('react-native').Text, { testID: 'summary-stub' }, 'summary') }));
 jest.mock('../../../kit8/pm/estimation/ui/EstimationExportPanel', () => ({ __esModule: true, ...jest.requireActual('../../../kit8/pm/estimation/ui/EstimationExportPanel'), default: (p: any) => require('react').createElement(require('react-native').Text, { testID: 'export-stub' }, `gost:${p.gost}`) }));
 jest.mock('../../../kit8/pm/view/project/estimation/estimationApi', () => ({ readCurrencyRate: jest.fn(async () => 1) }));
@@ -43,7 +47,8 @@ import { newDocumentRow, newLineRow } from '../../../kit8/pm/estimation/model/es
 import { calcDocument } from '../../../kit8/pm/estimation/model/estimationCalc';
 
 const doc = () => newDocumentRow('p1', 'local', { title: 'Hall', currency: 'EUR' });
-const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
+// the grid is lazy (React.lazy over a resolved promise): give it a few turns of the event loop, also under load
+const flush = () => act(async () => { for (let i = 0; i < 5; i++) await new Promise((r) => setTimeout(r, 0)); });
 const baseData = (d: any) => ({
   loading: false, error: '', saveState: 'idle', documents: d ? [d] : [], documentGUID: d?.rowGUID ?? null, document: d, lines: [], calc: calcDocument([], d?.rowJSON),
   selectDocument: jest.fn(), changeLines: jest.fn(), changeDocument: mockChangeDocument, createDocument: jest.fn(async () => {}), createFromExample: jest.fn(async () => {}), deleteDocument: jest.fn(async () => {}), deleteLines: jest.fn(), reload: jest.fn(), flush: jest.fn(async () => {}),
@@ -334,5 +339,44 @@ describe('the Export tab', () => {
     expect(EXPORT_PANEL_MAX_WIDTH).toBe(960);
     const src = require('fs').readFileSync(require('path').join(__dirname, '../../../kit8/pm/estimation/ui/EstimationExportPanel.tsx'), 'utf8');
     expect(src).toContain("maxWidth: EXPORT_PANEL_MAX_WIDTH");
+  });
+});
+
+describe('the Templates tab makes the tasks of the estimate in the task tree', () => {
+  const open = async () => { renderUI(<EstimationDashboard />); await flush(); act(() => press('estimation-tab-templates')); await flush(); return (globalThis as any).__templatesProps; };
+  beforeEach(() => { mockImportTasks.mockClear(); mockExistingTasks.current = []; });
+  test('an example: its stages and tasks are written FIRST (parents before children, the project of the estimate), then the document with its positions on those tasks', async () => {
+    const p = await open();
+    await act(async () => { await p.onCreateExample('estimateSheet'); });
+    expect(mockImportTasks).toHaveBeenCalledTimes(1);
+    const [project, rows] = mockImportTasks.mock.calls[0] as [string, any[]];
+    expect(project).toBe('p1');
+    expect(rows.map((r) => r.rowJSON.rowKind).filter((k) => k === 'stage')).toHaveLength(3);
+    expect(rows.filter((r) => r.rowJSON.rowKind === 'task')).toHaveLength(8);
+    const created = mockData.createFromExample.mock.calls[0][0];
+    const taskGUIDs = new Set(rows.map((r) => r.rowGUID));
+    expect(created.lines).toHaveLength(8);
+    expect(created.lines.every((l: any) => taskGUIDs.has(l.rowJSON.taskGUID))).toBe(true);
+    expect(mockImportTasks.mock.invocationCallOrder[0]).toBeLessThan(mockData.createFromExample.mock.invocationCallOrder[0]);
+  });
+  test('a pasted table: a task per row, a stage of the project with the same name is joined, the positions go to the document', async () => {
+    mockExistingTasks.current = [{ rowGUID: 'eeeeeeee-0000-0000-0000-000000000001', treePath: 'p.eeeeeeee_0000_0000_0000_000000000001', projectGUID: 'p1', rowOwnerGUID: 'u', orderInList: 1024, rowProgress: 0, rowDuration: null, rowJSON: { rowKind: 'stage', taskDescription: 'Foundations' } }];
+    const p = await open();
+    let n = 0;
+    await act(async () => { n = await p.onImportTable('section,title,qty\nfoundations,Slab,1\nRoof,Tiles,2\n'); });
+    expect(n).toBe(2);
+    const rows = (mockImportTasks.mock.calls[0] as [string, any[]])[1];
+    expect(rows.map((r) => [r.rowJSON.rowKind, r.rowJSON.taskDescription])).toEqual([['task', 'Slab'], ['stage', 'Roof'], ['task', 'Tiles']]);
+    expect(rows[0].treePath.startsWith('p.eeeeeeee_0000_0000_0000_000000000001.')).toBe(true); // under the stage that exists
+    expect(mockData.changeLines).toHaveBeenCalledTimes(1);
+    const next = mockData.changeLines.mock.calls[0][0]([]);
+    expect(next.map((l: any) => l.rowJSON.title)).toEqual(['Slab', 'Tiles']);
+  });
+  test('a table with no rows makes no task', async () => {
+    const p = await open();
+    let n = -1;
+    await act(async () => { n = await p.onImportTable('only a header'); });
+    expect(n).toBe(0);
+    expect(mockImportTasks).not.toHaveBeenCalled();
   });
 });

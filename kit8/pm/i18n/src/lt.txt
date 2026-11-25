@@ -1504,3 +1504,6 @@
 1504|Filtruoti pagal
 1505|Nuo
 1506|Iki
+1507|Skaitomos užduotys
+1508|Eilutės be užduoties
+1509|Prisijunkite, kad sukurtumėte sąmatos užduotis.

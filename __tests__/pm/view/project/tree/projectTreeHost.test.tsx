@@ -32,7 +32,7 @@ const mockScope = jest.fn();
 jest.mock('../../../../../kit8/pm/view/project/tree/useTreeScopeSelection', () => ({ useTreeScopeSelection: (...a: any[]) => mockScope(...a) }));
 jest.mock('../../../../../kit8/pm/view/project/tree/useTreeKeyboardShortcuts', () => ({ useTreeKeyboardShortcuts: (...a: any[]) => mockKeys(...a) }));
 jest.mock('../../../../../kit8/pm/store/store_pm', () => ({
-  usePMStore: Object.assign((sel: any) => sel({ selectedProjectGUID: null, loadedProjectGUID: mockLoaded, visibleRows: new Array(mockRows) }), { getState: () => ({ selectProject: mockSelectProject }) }),
+  usePMStore: Object.assign((sel: any) => sel({ selectedProjectGUID: null, loadedProjectGUID: mockLoaded, visibleRows: new Array(mockRows), tasks: new Array(mockRows) }), { getState: () => ({ selectProject: mockSelectProject }) }),
 }));
 
 import React from 'react';

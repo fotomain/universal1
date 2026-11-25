@@ -1,6 +1,7 @@
 // EstimationTemplatesPanel - starting points for INPUT and for OUTPUT:
-//   input    three ready estimates (estimate sheet / quick quote / trade breakdown) the user starts from, a CSV input template (the columns of the sheet) and a box where a table copied from Excel or a CSV
-//            is pasted and becomes the lines of the open estimate
+//   input    three ready estimates (estimate sheet / quick quote / trade breakdown) the user starts from (each makes its stages and tasks in the task tree of the project, the positions stand on
+//            those tasks), a CSV input template (the columns of the sheet) and a box where a table copied from Excel or a CSV is pasted: every row becomes a task with its position, the column
+//            `section` is the stage it goes under
 //   output   the same examples exported as a ready Excel / PDF, so the user sees what the export looks like before he has an estimate of his own
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -9,7 +10,8 @@ import { exportTableFile } from '../../../ui/components/table/reusable/tableExpo
 import { buildTablePdf } from '../../../ui/components/table/reusable/tablePdf';
 import { pmT } from '../../i18n/pmT';
 import { PMDialogButton } from '../../inner/buttons/PMDialogButton';
-import { exampleDocument, inputTemplateCsv, linesFromTable, recalcLines, type ExampleKey, type LineRow } from '../model/estimationDocumentModel';
+import { exampleDocument, inputTemplateCsv, recalcLines, type ExampleEstimate, type ExampleKey } from '../model/estimationDocumentModel';
+import { taskRowsFromPlan } from '../model/estimationTaskModel';
 import { buildLocalEstimateForm, buildQuotationForm, buildSummaryForm, formsToXlsx, formToTextRows, summaryRowsOf } from '../export/estimationForms';
 import { calcDocument } from '../model/estimationCalc';
 import { EXPORT_MIME } from './EstimationExportPanel';
@@ -21,7 +23,8 @@ export interface EstimationTemplatesPanelProps {
   gost: boolean;
   currency: string;
   onCreateExample: (key: ExampleKey) => void | Promise<void>;
-  onAddLines: (lines: LineRow[]) => void;
+  /** the pasted table: the dashboard makes the tasks (and the stages) in the task tree and adds the positions; answers how many positions were added (0 = the text holds none) */
+  onImportTable: (text: string) => Promise<number>;
   testID?: string;
 }
 
@@ -31,19 +34,21 @@ const EXAMPLES: { key: ExampleKey; title: string; text: string }[] = [
   { key: 'tradeBreakdown', title: 'Trade breakdown', text: 'A section per trade with labour and materials, cost per m2 and share: for concept estimates.' },
 ];
 
-export default function EstimationTemplatesPanel({ projectGUID, documentGUID, canEdit, gost, currency, onCreateExample, onAddLines, testID = 'estimation-templates' }: EstimationTemplatesPanelProps) {
+export default function EstimationTemplatesPanel({ projectGUID, documentGUID, canEdit, gost, currency, onCreateExample, onImportTable, testID = 'estimation-templates' }: EstimationTemplatesPanelProps) {
   const { themeColors: c } = useDesignSystem();
   const [paste, setPaste] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const o = { gost, t: pmT, basis: 'budget' as const, currency: currency || 'EUR' };
 
+  // the forms of an example are made on ITS task plan (what the dashboard would create in the task tree)
+  const tasksOf = (ex: ExampleEstimate) => taskRowsFromPlan(ex.tasks, { projectGUID, ownerGUID: 'example' });
   const exampleForms = () => {
     const sheet = exampleDocument(projectGUID, 'estimateSheet');
     const sLines = recalcLines(sheet.lines, sheet.doc.rowJSON).lines;
     const quote = exampleDocument(projectGUID, 'quickQuote');
     const qLines = recalcLines(quote.lines, quote.doc.rowJSON).lines;
-    return [buildLocalEstimateForm(sheet.doc, sLines, o), buildQuotationForm(quote.doc, qLines, o), buildSummaryForm(summaryRowsOf([{ doc: sheet.doc, total: calcDocument(sLines, sheet.doc.rowJSON).total }]), { ...o, contingencyPct: 2, vatPct: 20 })];
+    return [buildLocalEstimateForm(sheet.doc, sLines, { ...o, tasks: tasksOf(sheet) }), buildQuotationForm(quote.doc, qLines, { ...o, tasks: tasksOf(quote) }), buildSummaryForm(summaryRowsOf([{ doc: sheet.doc, total: calcDocument(sLines, sheet.doc.rowJSON).total }]), { ...o, contingencyPct: 2, vatPct: 20 })];
   };
 
   const downloadTemplate = async () => { await exportTableFile({ fileName: 'estimate-input-template.csv', mimeType: 'text/csv', text: inputTemplateCsv(projectGUID) }); };
@@ -57,13 +62,15 @@ export default function EstimationTemplatesPanel({ projectGUID, documentGUID, ca
     } catch (e: any) { setMessage(String(e?.message ?? e)); }
     setBusy(false);
   };
-  const addPasted = () => {
+  const addPasted = async () => {
     if (!documentGUID) return;
-    const lines = linesFromTable(projectGUID, documentGUID, paste);
-    if (!lines.length) { setMessage(pmT('No lines were found: the first row must hold the column names of the input template.')); return; }
-    onAddLines(lines);
-    setPaste('');
-    setMessage(pmT('{{n}} lines were added.', { n: lines.length }));
+    setBusy(true);
+    try {
+      const n = await onImportTable(paste);
+      if (!n) setMessage(pmT('No lines were found: the first row must hold the column names of the input template.'));
+      else { setPaste(''); setMessage(pmT('{{n}} lines were added.', { n })); }
+    } catch (e: any) { setMessage(String(e?.message ?? e)); }
+    setBusy(false);
   };
 
   return (
@@ -92,7 +99,7 @@ export default function EstimationTemplatesPanel({ projectGUID, documentGUID, ca
         placeholderTextColor={c.text + '88'}
         style={[styles.paste, { color: c.text, borderColor: c.border }]}
       />
-      <View style={styles.row}><PMDialogButton testID={`${testID}-add-lines`} kind="primary" icon="playlist_add" title={pmT('Add the lines to the open estimate')} disabled={!canEdit || !documentGUID || !paste.trim()} onPress={addPasted} /></View>
+      <View style={styles.row}><PMDialogButton testID={`${testID}-add-lines`} kind="primary" icon="playlist_add" title={pmT('Add the lines to the open estimate')} disabled={busy || !canEdit || !documentGUID || !paste.trim()} onPress={() => { void addPasted(); }} /></View>
 
       <Text style={[styles.h, { color: c.text }]}>{pmT('Examples of the output')}</Text>
       <Text style={{ color: c.text, opacity: 0.75, fontSize: 12 }}>{pmT('Local estimate, quotation and summary estimate made from the examples above - to see the documents before you make your own.')}</Text>

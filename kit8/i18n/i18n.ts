@@ -69,7 +69,7 @@ const resources = {
         catalogs: 'Catalogs',
         documents: 'Documents',
         projectDashboard: 'Project Dashboard',
-        estimationDashboard: 'Estimation dashboard',
+        estimationDashboard: 'Estimation Dashboard',
         reports: 'Reports',
         budgets: 'Budgets',
         systemSettings: 'System settings',

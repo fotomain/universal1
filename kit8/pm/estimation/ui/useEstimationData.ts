@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { readAllPages } from '../../crud/api/apiUtils';
 import { calcDocument, type DocumentCalc } from '../model/estimationCalc';
-import { diffRows, exampleDocument, newDocumentRow, recalcLines, subtreeGUIDs, type DocumentRow, type ExampleKey, type LineRow } from '../model/estimationDocumentModel';
+import { diffRows, newDocumentRow, recalcLines, subtreeGUIDs, type DocumentRow, type ExampleEstimate, type LineRow } from '../model/estimationDocumentModel';
 import { ESTIMATION_TABLES, type EstimationDocumentJSON } from '../model/estimationModel';
 
 export type SaveState = 'idle' | 'saving' | 'saved' | 'error';
@@ -26,7 +26,8 @@ export interface EstimationData {
   /** the document changed (title, norms, index, rates ...): the sums of the lines follow */
   changeDocument: (patch: Partial<EstimationDocumentJSON>) => void;
   createDocument: (row: DocumentRow) => Promise<void>;
-  createFromExample: (key: ExampleKey) => Promise<void>;
+  /** an example estimate (its TASKS are made by the caller first: the positions name them by `taskGUID`) becomes a document of the project */
+  createFromExample: (ex: Pick<ExampleEstimate, 'doc' | 'lines'>) => Promise<void>;
   deleteDocument: (guid: string) => Promise<void>;
   deleteLines: (guids: string[]) => void;
   reload: () => void;
@@ -149,10 +150,9 @@ export function useEstimationData(client: any, projectGUID: string | null, prefe
     await flush();
   }, [flush]);
 
-  const createFromExample = useCallback(async (key: ExampleKey) => {
+  const createFromExample = useCallback(async (ex: Pick<ExampleEstimate, 'doc' | 'lines'>) => {
     if (!projectGUID) return;
     await flush();
-    const ex = exampleDocument(projectGUID, key);
     const { lines: calculated } = recalcLines(ex.lines, ex.doc.rowJSON);
     docsRef.current = [...docsRef.current, ex.doc];
     setDocuments(docsRef.current);

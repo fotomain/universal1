@@ -1504,3 +1504,6 @@
 1504|Filtrer par
 1505|De
 1506|À
+1507|Lecture des tâches
+1508|Lignes sans tâche
+1509|Connectez-vous pour créer les tâches du devis.

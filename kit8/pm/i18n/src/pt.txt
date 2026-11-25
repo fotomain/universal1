@@ -1504,3 +1504,6 @@
 1504|Filtrar por
 1505|De
 1506|Até
+1507|A ler as tarefas
+1508|Linhas sem tarefa
+1509|Inicie sessão para criar as tarefas do orçamento.

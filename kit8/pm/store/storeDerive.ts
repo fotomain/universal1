@@ -14,7 +14,7 @@ import { groupOrderOf } from '../extended/rowRules';
 import { projectCustomColumnsOf } from '../view/tree/columns/customColumns';
 import { PMLinkLineForm, PMProjectRow, PMScheduledRow, PMUxUiSettings, uxuiSettingsOf } from '../model/types';
 import type { PMStoreState } from './storeTypes';
-import { filterAndSortTreeRows } from '../view/tree/filter/treeColumnFilter';
+import { filterAndSortTreeRows, type PMTreeExternalView } from '../view/tree/filter/treeColumnFilter';
 import type { PMTaskRow } from '../model/types';
 import { usePMKanbanStore } from './store_kanban';
 
@@ -26,13 +26,14 @@ const NO_CONTEXT: Record<string, true> = Object.freeze({}) as Record<string, tru
  * so tree rows and Gantt bars always follow the same order.
  */
 export function treeRowsOf(
-  s: Pick<PMStoreState, 'tree' | 'schedule' | 'customColumns' | 'treeColumnsFilters' | 'treeColumnSort'> & { tasksById?: Record<string, PMTaskRow>; tasks?: PMTaskRow[]; deps?: PMStoreState['deps']; extOptions?: PMExtendedOptions; extFlags?: Record<string, boolean> },
+  s: Pick<PMStoreState, 'tree' | 'schedule' | 'customColumns' | 'treeColumnsFilters' | 'treeColumnSort'> & { treeExternalView?: PMTreeExternalView | null; tasksById?: Record<string, PMTaskRow>; tasks?: PMTaskRow[]; deps?: PMStoreState['deps']; extOptions?: PMExtendedOptions; extFlags?: Record<string, boolean> },
   expanded: Record<string, boolean>
 ) {
   const filters = s.treeColumnsFilters;
   // Extended F8: the rows are grouped by a field (kept together, a band per group on the chart)
   const groupBy = s.extFlags?.ganttGroupByEnabled ? s.extOptions?.groupBy ?? 'none' : 'none';
-  const active = (filters && Object.keys(filters).length > 0) || !!s.treeColumnSort || groupBy !== 'none';
+  const external = s.treeExternalView && (s.treeExternalView.matches || s.treeExternalView.compare) ? s.treeExternalView : null;
+  const active = (filters && Object.keys(filters).length > 0) || !!s.treeColumnSort || groupBy !== 'none' || !!external;
   let visibleRows: string[];
   let treeFilterContextGUIDs = NO_CONTEXT;
   let treeFilterMatchCount: number | null = null;
@@ -53,7 +54,9 @@ export function treeRowsOf(
       { tasksById, schedule: s.schedule, tree: s.tree, customColumns: s.customColumns ?? [], kanbanStages, kanbanStates: k.statesByTask, ext: extContextOf({ deps: s.deps ?? [], tree: s.tree, tasksById, customColumns: s.customColumns ?? [], extOptions: s.extOptions }),
         groupOrder: groupBy !== 'none' ? (g: string) => { const t = tasksById![g]; const r = s.schedule[g]; return t && r ? groupOrderOf(groupBy, t, r) : 0; } : undefined },
       filters,
-      s.treeColumnSort
+      s.treeColumnSort,
+      undefined,
+      external
     );
     visibleRows = r.visibleRows;
     if (r.contextGUIDs && Object.keys(r.contextGUIDs).length) treeFilterContextGUIDs = r.contextGUIDs;
@@ -235,7 +238,7 @@ export function derive(
 
   const expanded = (projectGUID && s.expandedByProject[projectGUID]) || {};
   const rows = treeRowsOf(
-    { tree, schedule: rowsOut, tasks: s.tasks, customColumns: s.customColumns ?? [], treeColumnsFilters: s.treeColumnsFilters ?? {}, treeColumnSort: s.treeColumnSort ?? null, deps: s.deps, extOptions: s.extOptions, extFlags: s.extFlags },
+    { tree, schedule: rowsOut, tasks: s.tasks, customColumns: s.customColumns ?? [], treeColumnsFilters: s.treeColumnsFilters ?? {}, treeColumnSort: s.treeColumnSort ?? null, treeExternalView: (s as { treeExternalView?: PMTreeExternalView | null }).treeExternalView ?? null, deps: s.deps, extOptions: s.extOptions, extFlags: s.extFlags },
     expanded
   );
   return {

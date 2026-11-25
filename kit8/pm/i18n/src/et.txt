@@ -1504,3 +1504,6 @@
 1504|Filtreeri välja järgi
 1505|Alates
 1506|Kuni
+1507|Ülesannete lugemine
+1508|Ülesandeta read
+1509|Kalkulatsiooni ülesannete loomiseks logige sisse.

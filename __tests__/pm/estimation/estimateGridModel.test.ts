@@ -1,6 +1,6 @@
 // The model of the estimate grid: the columns of a layout, one row per tree row (a task = its position, a stage = the sums below it), the text of a cell, the edits.
 import {
-  applyGridEdit, buildGridRows, cellText, columnAtX, editSeed, fitText, gridColumns, isCellEditable, neighbourColumn, nextOption, parseGridInput, positionCountOf, removePositionOf, shareOf, singlePositionOf, wrapTitle,
+  applyGridEdit, buildGridRows, editorBox, editorButtonSize, cellText, columnAtX, editSeed, fitText, gridColumns, isCellEditable, neighbourColumn, nextOption, parseGridInput, positionCountOf, removePositionOf, shareOf, singlePositionOf, wrapTitle,
   type CellContext,
 } from '../../../kit8/pm/estimation/model/estimateGridModel';
 import { calcDocument } from '../../../kit8/pm/estimation/model/estimationCalc';
@@ -93,6 +93,35 @@ describe('buildGridRows', () => {
   });
 });
 
+describe('subtotals of a stage by unit', () => {
+  const cols = Object.fromEntries(gridColumns('simple').columns.map((c) => [c.key, c]));
+  const at = (lines: any[]) => buildGridRows(input(lines));
+  test('every position below the stage counts in the same unit: the stage shows the unit and the sum of the quantities (also through a stage in a stage)', () => {
+    const r = at([mk('a', { unit: 'm3', qty: 2 }), mk('c', { unit: 'm3', qty: 3.5 })]);
+    expect(cellText(cols.unit, r[0], ctx)).toBe('m3');
+    expect(cellText(cols.qty, r[0], ctx)).toBe('5.5');
+    expect(cellText(cols.unit, r[2], ctx)).toBe('m3');
+    expect(cellText(cols.qty, r[2], ctx)).toBe('3.5');
+    // a task keeps showing its own position
+    expect(cellText(cols.qty, r[1], ctx)).toBe('2');
+  });
+  test('different units, or a position without a unit, or no position: nothing is added up', () => {
+    const mixed = at([mk('a', { unit: 'm3', qty: 2 }), mk('c', { unit: 'm2', qty: 3 })]);
+    expect(cellText(cols.unit, mixed[0], ctx)).toBe('');
+    expect(cellText(cols.qty, mixed[0], ctx)).toBe('');
+    // the stage b has only c: one unit
+    expect(cellText(cols.unit, mixed[2], ctx)).toBe('m2');
+    const noUnit = at([mk('a', { unit: 'm3', qty: 2 }), mk('c', { qty: 3 })]);
+    expect(cellText(cols.qty, noUnit[0], ctx)).toBe('');
+    expect(cellText(cols.unit, at([])[0], ctx)).toBe('');
+  });
+  test('a task with several positions shows the subtotal too, and stays read only', () => {
+    const r = buildGridRows(input([mk('a', { unit: 'kg', qty: 1 }), mk('a', { unit: 'kg', qty: 4 }, 20)], ['a']))[0];
+    expect(cellText(cols.unit, r, ctx)).toBe('kg');
+    expect(cellText(cols.qty, r, ctx)).toBe('5');
+  });
+});
+
 describe('cellText', () => {
   const cols = Object.fromEntries(gridColumns('advanced').columns.map((c) => [c.key, c]));
   const quote = Object.fromEntries(gridColumns('quote').columns.map((c) => [c.key, c]));
@@ -100,14 +129,16 @@ describe('cellText', () => {
   const la = mk('a', { unit: 'm3', normCode: '01-01', unitLabour: 5049.9477, budgetItemGUID: 'bi1', status: 'Open' });
   const rows = buildGridRows(input([la]));
 
-  test('inputs show the stored value; a unit cost keeps its decimals; a stage shows no input', () => {
+  test('inputs show the stored value; a unit cost keeps its decimals; a stage shows no input value', () => {
     expect(cellText(cols.title, rows[1], ctx)).toBe('L-a');
     expect(cellText(cols.unit, rows[1], ctx)).toBe('m3');
     expect(cellText(cols.normCode, rows[1], ctx)).toBe('01-01');
     expect(cellText(cols.unitLabour, rows[1], ctx)).toBe('5,049.9477');
     expect(cellText(cols.qty, rows[1], ctx)).toBe('2');
-    expect(cellText(cols.unit, rows[0], ctx)).toBe('');
-    expect(cellText(cols.qty, rows[0], ctx)).toBe('');
+    // a stage shows only the subtotal of unit and quantity (see 'subtotals of a stage by unit'), never an input value
+    expect(cellText(cols.unitLabour, rows[0], ctx)).toBe('');
+    expect(cellText(cols.title, rows[0], ctx)).toBe('');
+    expect(cellText(cols.normCode, rows[0], ctx)).toBe('');
   });
   test('calculated cells show the money of the row; a stage shows the sum; zero is empty', () => {
     expect(cellText(cols['c-labour'], rows[1], ctx)).toBe('10,099.90');
@@ -234,5 +265,27 @@ describe('navigation and text', () => {
     expect(wrapTitle('Total, current prices', 120, m)).toEqual(['Total,', 'current pri…']);
     expect(wrapTitle('Consolidation currency', 120, m).length).toBe(2);
     expect(wrapTitle('Averyveryverylongsingleword', 100, m)).toEqual(['Averyvery…']);
+  });
+});
+
+describe('editorBox', () => {
+  const { columns, contentWidth } = gridColumns('simple');
+  const c = (k: string) => columns.find((x) => x.key === k)!;
+  test('the editor is exactly the cell, also a number editor (its buttons shrink to fit; it never covers the next column)', () => {
+    expect(editorBox(c('title'), contentWidth)).toEqual({ x: c('title').x, width: c('title').width });
+    expect(editorBox(c('qty'), contentWidth)).toEqual({ x: c('qty').x, width: c('qty').width });
+    expect(editorBox({ x: 950, width: 50, kind: 'number' }, 1000)).toEqual({ x: 950, width: 50 });
+  });
+});
+
+describe('editorButtonSize', () => {
+  // the three buttons (- + calculator) + 4 px of border + at least 40 px of digits must fit in the cell
+  test('the buttons are 26 px in a wide cell and shrink in a narrow one; the row always fits the cell', () => {
+    expect(editorButtonSize(300)).toBe(26);
+    for (const w of [100, 110, 120, 130]) {
+      const b = editorButtonSize(w);
+      expect(b).toBeGreaterThanOrEqual(16);
+      expect(b * 3 + 4 + 40).toBeLessThanOrEqual(w);
+    }
   });
 });

@@ -157,6 +157,8 @@ export const usePMStore = create<PMStoreState>((set, get) => ({
   treeHeadersBackgroundColors: {},
   treeColumnsFilters: {},
   treeColumnSort: null,
+  treeExternalView: null,
+  setTreeExternalView: (view) => set((state) => ({ treeExternalView: view, ...rowsOf({ ...state, treeExternalView: view }) })),
   columnFilterIconColor: PM_DEFAULT_COLUMN_FILTER_ICON_COLOR,
   postButtonBackgroundColor: PM_DEFAULT_POST_BUTTON_COLOR,
   planDay: true,

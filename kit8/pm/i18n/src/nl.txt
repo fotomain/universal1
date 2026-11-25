@@ -1504,3 +1504,6 @@
 1504|Filteren op
 1505|Van
 1506|Tot
+1507|Taken lezen
+1508|Regels zonder taak
+1509|Meld u aan om de taken van de raming aan te maken.

@@ -148,6 +148,20 @@ describe('PMTreeToolbar', () => {
     expect(crud.createTask.mock.calls[1][1]).toBe('milestone');
   });
 
+  it('the Estimation dashboard names the buttons Section / Line; the Project dashboard keeps Stage / Task', () => {
+    seedStore();
+    const { PMTreeLabelsContext, ESTIMATION_TREE_LABELS } = require('../../../kit8/pm/view/tree/toolbars/treeToolbarLabels');
+    const crud = fakeCrud();
+    renderUI(<PMTreeToolbar crud={crud} palette={palette} />);
+    expect(textOf('pm-tree-add-stage')).toContain('Stage');
+    expect(textOf('pm-tree-add-task')).toContain('Task');
+    cleanupUI();
+    renderUI(<PMTreeLabelsContext.Provider value={ESTIMATION_TREE_LABELS}><PMTreeToolbar crud={crud} palette={palette} /></PMTreeLabelsContext.Provider>);
+    expect(textOf('pm-tree-add-stage')).toContain('Section');
+    expect(textOf('pm-tree-add-task')).toContain('Line');
+    expect(textOf('pm-tree-add-stage')).not.toContain('Stage');
+  });
+
   it('row commands are disabled without a selection and act on the selected row', () => {
     const { byName } = seedStore();
     act(() => usePMStore.getState().setSelected(null));

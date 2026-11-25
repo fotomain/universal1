@@ -621,6 +621,16 @@ export function isTreeColumnFilterActive(key: string, filter: PMTreeColumnFilter
 // visible rows
 // =====================================================================================
 
+/**
+ * A filter / sort that does NOT come from the tree columns: the grid beside the tree (Estimation dashboard) has columns of its own. `matches` = the rows that pass
+ * the filters of that grid (null = no filter; ancestors of a match stay as context rows, like with the tree filters); `compare` orders the siblings of every parent
+ * (null = tree order). It is never saved: the grid sets it while it is shown and clears it when it goes.
+ */
+export interface PMTreeExternalView {
+  matches: ReadonlySet<string> | null;
+  compare: ((a: string, b: string) => number) | null;
+}
+
 export interface PMFilteredTreeRows {
   visibleRows: string[];
   /** rows shown only because a descendant matches (drawn muted); null = no filter */
@@ -641,7 +651,8 @@ export function filterAndSortTreeRows(
   ctx: PMTreeFilterContext,
   filters: PMTreeColumnsFilters | null | undefined,
   sort: PMTreeColumnSort | null | undefined,
-  today: number = todayUTC()
+  today: number = todayUTC(),
+  external?: PMTreeExternalView | null
 ): PMFilteredTreeRows {
   const compiled: { key: string; test: PMCellPredicate }[] = [];
   for (const [key, f] of Object.entries(filters ?? {})) {
@@ -662,7 +673,12 @@ export function filterAndSortTreeRows(
   };
   const childrenOf = (guid: string): string[] => {
     const kids = children(guid);
-    if (!sort || !sortType || kids.length < 2) return grouped(kids);
+    const ext = external?.compare;
+    if (!sort || !sortType || kids.length < 2) {
+      if (!ext || kids.length < 2) return grouped(kids);
+      if (sortedCache[guid]) return sortedCache[guid];
+      return (sortedCache[guid] = grouped(kids.map((g, i) => ({ g, i })).sort((a, b) => ext(a.g, b.g) || a.i - b.i).map((x) => x.g)));
+    }
     if (sortedCache[guid]) return sortedCache[guid];
     const dir = sort.direction === 'desc' ? -1 : 1;
     const keyed = kids.map((g, i) => ({ g, i, v: treeCellFilterValue(sort.key, g, ctx) }));
@@ -672,14 +688,16 @@ export function filterAndSortTreeRows(
       if (ea || eb) return ea === eb ? a.i - b.i : ea ? 1 : -1;
       return dir * compareFilterValues(a.v!, b.v!, sortType) || a.i - b.i;
     });
-    return (sortedCache[guid] = grouped(keyed.map((k) => k.g)));
+    const sorted = keyed.map((k) => k.g);
+    return (sortedCache[guid] = grouped(ext ? sorted.map((g, i) => ({ g, i })).sort((a, b) => ext(a.g, b.g) || a.i - b.i).map((x) => x.g) : sorted));
   };
 
   // ---- filter: matching rows + their ancestors (post-order over the whole tree) ----
   let keep: Set<string> | null = null;
   let contextGUIDs: Record<string, true> | null = null;
   let matchCount: number | null = null;
-  if (compiled.length) {
+  const extMatches = external?.matches ?? null;
+  if (compiled.length || extMatches) {
     const kept = new Set<string>();
     const context: Record<string, true> = {};
     let matches = 0;
@@ -689,7 +707,7 @@ export function filterAndSortTreeRows(
       seen.add(guid);
       let anyChild = false;
       for (const c of children(guid)) if (visit(c)) anyChild = true;
-      const match = compiled.every((f) => f.test(treeCellFilterValue(f.key, guid, ctx)));
+      const match = compiled.every((f) => f.test(treeCellFilterValue(f.key, guid, ctx))) && (!extMatches || extMatches.has(guid));
       if (match) matches++;
       if (!match && !anyChild) return false;
       kept.add(guid);

@@ -4,6 +4,7 @@
 // clear all column filters + sort (only while the tree is filtered / sorted; badge = filtered columns) ·
 // "select lines" column (round check boxes) on / off (uxui.hideTreeSelectColumn, the same on every project).
 
+import { DEFAULT_PM_TREE_LABELS, usePMTreeLabels } from './treeToolbarLabels';
 import React, { useRef, useState } from 'react';
 import { View } from 'react-native';
 import { useDispatch, useSelector } from 'react-redux';
@@ -22,6 +23,7 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
   const hasSelection = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID]));
   const showNumbers = usePMStore((s) => s.showTreeHierarchyNumbers);
   const filterCount = usePMStore((s) => Object.keys(s.treeColumnsFilters).length);
+  const labels = usePMTreeLabels();
   const sorted = usePMStore((s) => !!s.treeColumnSort);
   const matchCount = usePMStore((s) => s.treeFilterMatchCount);
   const filterIconColor = usePMStore((s) => s.columnFilterIconColor);
@@ -52,22 +54,22 @@ export default function PMTreeToolbar({ crud, palette }: { crud: PMCrud; palette
   return (
     <PMToolbar background={palette.surface} border={palette.border}>
       <View ref={stageBtnRef} collapsable={false}>
-        <PMIconButton testID="pm-tree-add-stage" icon="create_new_folder" label={pmT('Stage')} title={stageActive ? 'Add stage / substage' : 'Add stage'} color={palette.primary} onPress={onAddStage} />
+        <PMIconButton testID="pm-tree-add-stage" icon="create_new_folder" label={pmT(labels.stage)} title={stageActive ? `Add ${labels.stage.toLowerCase()} / ${labels.substage.toLowerCase()}` : `Add ${labels.stage.toLowerCase()}`} color={palette.primary} onPress={onAddStage} />
       </View>
       {!!stageMenu && (
         <PMContextMenu
           testID="pm-tree-add-stage-menu"
           x={stageMenu.x}
           y={stageMenu.y}
-          caption={pmT('+ Stage')}
+          caption={`+ ${pmT(labels.stage)}`}
           onClose={() => setStageMenu(null)}
           items={[
-            { testID: 'pm-tree-add-stage-menu-stage', label: 'Stage', icon: 'create_new_folder', onPress: () => (setStageMenu(null), void (selectedGUID ? crud.createStageBelow(selectedGUID) : crud.createStage(null))) },
-            { testID: 'pm-tree-add-stage-menu-substage', label: 'Substage', icon: 'subdirectory_arrow_right', onPress: () => (setStageMenu(null), void (selectedGUID && crud.createSubStage(selectedGUID))) },
+            { testID: 'pm-tree-add-stage-menu-stage', label: pmT(labels.stage), icon: 'create_new_folder', onPress: () => (setStageMenu(null), void (selectedGUID ? crud.createStageBelow(selectedGUID) : crud.createStage(null))) },
+            { testID: 'pm-tree-add-stage-menu-substage', label: pmT(labels.substage), icon: 'subdirectory_arrow_right', onPress: () => (setStageMenu(null), void (selectedGUID && crud.createSubStage(selectedGUID))) },
           ]}
         />
       )}
-      <PMIconButton testID="pm-tree-add-task" icon="add" label={pmT('Task')} title={pmT('Add task (inside the selected stage / after the selected task)')} color={palette.primary} onPress={() => crud.createTask(selectedGUID)} />
+      <PMIconButton testID="pm-tree-add-task" icon="add" label={pmT(labels.task)} title={labels === DEFAULT_PM_TREE_LABELS ? pmT('Add task (inside the selected stage / after the selected task)') : `Add ${labels.task.toLowerCase()} (inside the selected ${labels.stage.toLowerCase()} / after the selected ${labels.task.toLowerCase()})`} color={palette.primary} onPress={() => crud.createTask(selectedGUID)} />
       <PMIconButton testID="pm-tree-add-milestone" icon="flag" title={pmT('Add milestone')} color={palette.primary} onPress={() => crud.createTask(selectedGUID, 'milestone')} />
       <PMToolbarDivider color={palette.border} />
       <PMIconButton testID="pm-tree-move-up" icon="arrow_upward" title={pmT('Move up')} color={text} disabled={!hasSelection} onPress={withSel((g) => crud.moveBy(g, -1))} />

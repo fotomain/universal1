@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "Filtrēt pēc",
   "From": "No",
   "To": "Līdz",
+  "Reading the tasks": "Notiek uzdevumu lasīšana",
+  "Lines without a task": "Rindas bez uzdevuma",
+  "Sign in to make the tasks of the estimate.": "Pierakstieties, lai izveidotu tāmes uzdevumus.",
 };
 export default texts;

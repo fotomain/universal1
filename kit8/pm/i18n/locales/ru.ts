@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "Фильтр по",
   "From": "От",
   "To": "До",
+  "Reading the tasks": "Чтение задач",
+  "Lines without a task": "Строки без задачи",
+  "Sign in to make the tasks of the estimate.": "Войдите, чтобы создать задачи сметы.",
 };
 export default texts;

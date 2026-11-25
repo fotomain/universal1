@@ -1504,3 +1504,6 @@
 1504|Filtrar por
 1505|Desde
 1506|Hasta
+1507|Leyendo las tareas
+1508|Líneas sin tarea
+1509|Inicie sesión para crear las tareas del presupuesto.

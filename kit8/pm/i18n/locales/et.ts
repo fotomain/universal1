@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "Filtreeri välja järgi",
   "From": "Alates",
   "To": "Kuni",
+  "Reading the tasks": "Ülesannete lugemine",
+  "Lines without a task": "Ülesandeta read",
+  "Sign in to make the tasks of the estimate.": "Kalkulatsiooni ülesannete loomiseks logige sisse.",
 };
 export default texts;

@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "筛选字段",
   "From": "从",
   "To": "至",
+  "Reading the tasks": "正在读取任务",
+  "Lines without a task": "无任务的行",
+  "Sign in to make the tasks of the estimate.": "请登录以创建估算的任务。",
 };
 export default texts;

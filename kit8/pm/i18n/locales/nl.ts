@@ -1506,5 +1506,8 @@ const texts: Record<string, string> = {
   "Filter by": "Filteren op",
   "From": "Van",
   "To": "Tot",
+  "Reading the tasks": "Taken lezen",
+  "Lines without a task": "Regels zonder taak",
+  "Sign in to make the tasks of the estimate.": "Meld u aan om de taken van de raming aan te maken.",
 };
 export default texts;
