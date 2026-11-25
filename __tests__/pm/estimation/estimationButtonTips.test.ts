@@ -1,6 +1,4 @@
 // The tips of the Estimation dashboard buttons: the NAME first, the description after it.
-import fs from 'fs';
-import path from 'path';
 import { BASIS_TIPS } from '../../../kit8/pm/estimation/model/estimationModel';
 
 describe('estimation button tips', () => {
@@ -11,10 +9,8 @@ describe('estimation button tips', () => {
     }
   });
   test('every layout tip starts with its own button name, then a colon and the description', () => {
-    // EstimateSheet pulls the whole design system: read the list from the source
-    const src = fs.readFileSync(path.join(__dirname, '../../../kit8/pm/estimation/ui/EstimateSheet.tsx'), 'utf8');
-    const rows = [...src.matchAll(/\{ value: '(\w+)', label: '([^']+)', tip: '([^']+)' \}/g)];
-    expect(rows.length).toBe(4);
-    for (const [, , label, tip] of rows) expect(tip.startsWith(`${label}: `) && tip.length > label.length + 10).toBe(true);
+    const { ESTIMATION_LAYOUTS } = require('../../../kit8/pm/estimation/model/estimationLayouts');
+    expect(ESTIMATION_LAYOUTS.length).toBe(4);
+    for (const { label, tip } of ESTIMATION_LAYOUTS) expect(tip.startsWith(`${label}: `) && tip.length > label.length + 10).toBe(true);
   });
 });

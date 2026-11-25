@@ -47,7 +47,7 @@ async function fetchFontBytes(urls: string[]): Promise<Uint8Array | null> {
   return null;
 }
 
-function createTypefaceFromBytes(bytes: Uint8Array | null): SkTypeface | null {
+export function createTypefaceFromBytes(bytes: Uint8Array | null): SkTypeface | null {
   if (!bytes) return null;
   try {
     const data = Skia.Data.fromBytes(bytes);

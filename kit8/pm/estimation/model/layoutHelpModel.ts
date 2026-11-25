@@ -3,7 +3,7 @@
 // The worked examples are CALCULATED here with positionCost, never typed: the help cannot disagree with the sheet.
 import type { InfoContent } from '../../../ui/components/info/infoContent';
 import { positionCost, round2 } from './estimationCalc';
-import type { EstimationLayout } from '../ui/EstimateSheet';
+import type { EstimationLayout } from './estimationLayouts';
 
 const n2 = (n: number): string => n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 

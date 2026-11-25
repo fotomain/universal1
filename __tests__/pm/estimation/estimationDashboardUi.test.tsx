@@ -11,10 +11,11 @@ jest.mock('../../../kit8/permissions/usePermissions', () => ({ usePermissions: (
 jest.mock('../../../kit8/pm/crud/project/projectQueries', () => ({ useReadProjectQuery: () => ({ data: mockProject }) }));
 jest.mock('../../../kit8/catalog/organization/useMyOrganization', () => ({ useMyOrganization: () => ({ organizationJSON: { currencyForConsolidation: 'USD' } }) }));
 jest.mock('../../../kit8/pm/estimation/ui/useEstimationData', () => ({ useEstimationData: () => mockData, newDocumentRow: jest.requireActual('../../../kit8/pm/estimation/model/estimationDocumentModel').newDocumentRow }));
-jest.mock('../../../kit8/pm/estimation/ui/EstimateSheet', () => ({ __esModule: true, LAYOUT_COLUMNS: { simple: [{ key: 'title', title: 'Title' }, { key: 'qty', title: 'Quantity' }], advanced: [{ key: 'title', title: 'Title' }] }, ESTIMATION_LAYOUTS: [{ value: 'simple', label: 'Simple' }, { value: 'advanced', label: 'Advanced' }, { value: 'quote', label: 'Quote' }, { value: 'trades', label: 'Trades' }], default: (p: any) => require('react').createElement(require('react-native').Text, { testID: 'sheet-stub' }, `${p.layout}|${p.basis}|${p.readOnly}`) }));
+// the grid is drawn with Skia (not in Jest): a stub that shows what the dashboard hands it
+jest.mock('../../../kit8/pm/estimation/grid/EstimateGridPane', () => ({ __esModule: true, default: (p: any) => { ((globalThis as any).__gridProps = p); return require('react').createElement(require('react-native').Text, { testID: 'sheet-stub' }, `${p.layout}|${p.basis}|${p.readOnly}`); } }));
 jest.mock('../../../kit8/pm/estimation/ui/EstimationProjectPicker', () => ({ __esModule: true, default: (p: any) => require('react').createElement(require('react-native').Pressable, { testID: 'picker-stub', onPress: () => p.onPicked('p2') }, require('react').createElement(require('react-native').Text, null, p.onCancel ? 'can-cancel' : 'no-cancel')) }));
 // the task tree (Skia) is not drawn in Jest: the host renders only the pane that stands right of it
-jest.mock('../../../kit8/pm/view/project/tree/PMProjectTreeHost', () => ({ __esModule: true, default: (p: any) => require('react').createElement(require('react-native').View, { testID: `tree-host-${p.projectGUID}` }, p.renderRight({ width: 800, height: 600, palette: {} })) }));
+jest.mock('../../../kit8/pm/view/project/tree/PMProjectTreeHost', () => ({ __esModule: true, default: (p: any) => require('react').createElement(require('react-native').View, { testID: `tree-host-${p.projectGUID}` }, p.renderRight({ width: 800, height: 600, palette: {}, viewport: {}, toolbarHeight: 40 })) }));
 jest.mock('../../../kit8/pm/estimation/ui/NormBookPanel', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../kit8/pm/estimation/ui/ImportNormBooks', () => ({ __esModule: true, default: () => null }));
 jest.mock('../../../kit8/pm/estimation/ui/ExportNormBooks', () => ({ __esModule: true, default: () => null }));
@@ -42,6 +43,7 @@ import { newDocumentRow, newLineRow } from '../../../kit8/pm/estimation/model/es
 import { calcDocument } from '../../../kit8/pm/estimation/model/estimationCalc';
 
 const doc = () => newDocumentRow('p1', 'local', { title: 'Hall', currency: 'EUR' });
+const flush = () => act(async () => { await Promise.resolve(); await Promise.resolve(); });
 const baseData = (d: any) => ({
   loading: false, error: '', saveState: 'idle', documents: d ? [d] : [], documentGUID: d?.rowGUID ?? null, document: d, lines: [], calc: calcDocument([], d?.rowJSON),
   selectDocument: jest.fn(), changeLines: jest.fn(), changeDocument: mockChangeDocument, createDocument: jest.fn(async () => {}), createFromExample: jest.fn(async () => {}), deleteDocument: jest.fn(async () => {}), deleteLines: jest.fn(), reload: jest.fn(), flush: jest.fn(async () => {}),
@@ -57,8 +59,9 @@ beforeEach(() => {
 afterEach(() => cleanupUI());
 
 describe('EstimationDashboard', () => {
-  test('shows the six tabs, the estimate sheet and the total in the currency of the chosen basis', () => {
+  test('shows the six tabs, the estimate sheet and the total in the currency of the chosen basis', async () => {
     renderUI(<EstimationDashboard />);
+    await flush();
     for (const t of ['estimate', 'summary', 'document', 'norms', 'templates', 'export']) expect(q(`estimation-tab-${t}`)).toBeTruthy();
     // the order of the tabs: Summary right after Estimate
     const order = Array.from(document.querySelectorAll('[data-testid^="estimation-tab-"]')).map((e) => String(e.getAttribute('data-testid')).replace('estimation-tab-', ''));
@@ -107,14 +110,16 @@ describe('EstimationDashboard', () => {
     expect((globalThis as any).__segProps['estimation-layout'].style).toBeUndefined();
   });
 
-  test('the simple / advanced switch reaches the sheet', () => {
+  test('the simple / advanced switch reaches the sheet', async () => {
     renderUI(<EstimationDashboard />);
+    await flush();
     act(() => press('estimation-layout-advanced'));
     expect(textOf('sheet-stub')).toMatch(/^advanced/);
   });
 
-  test('the info gesture on a layout button (right click / double click / double touch / long press) opens the help for the CFO of THAT layout; Close closes it', () => {
+  test('the info gesture on a layout button (right click / double click / double touch / long press) opens the help for the CFO of THAT layout; Close closes it', async () => {
     renderUI(<EstimationDashboard />);
+    await flush();
     expect(q('estimation-layout-help')).toBeNull();
     act(() => press('estimation-layout-quote-info'));
     expect(textOf('estimation-layout-help-heading')).toBe('Quick quote');
@@ -127,9 +132,10 @@ describe('EstimationDashboard', () => {
     expect(textOf('estimation-layout-help-heading')).toBe('Trade breakdown');
   });
 
-  test('a user without permissionEstimationManager gets a read-only sheet', () => {
+  test('a user without permissionEstimationManager gets a read-only sheet', async () => {
     mockPerms = { ...mockPerms, canManageEstimation: false };
     renderUI(<EstimationDashboard />);
+    await flush();
     expect(textOf('sheet-stub')).toMatch(/true$/);
   });
 
@@ -162,7 +168,7 @@ describe('EstimationDashboard', () => {
   });
 });
 
-describe('the estimate of one task (task tree on the left)', () => {
+describe('the estimate grid right of the task tree', () => {
   const { usePMStore } = require('../../../kit8/pm/store/store_pm');
   const withTree = (selected: string | null) => usePMStore.setState({
     selectedGUID: selected,
@@ -172,78 +178,117 @@ describe('the estimate of one task (task tree on the left)', () => {
   const lineOf = (guid: string, taskGUID: string | null, qty = 1) => newLineRow('p1', 'd', 'position', 'empty', 10, { title: guid, qty, unitLabour: 100, ...(taskGUID ? { taskGUID } : {}) });
   afterEach(() => usePMStore.setState({ selectedGUID: null }));
 
-  test('the tree host stands on the estimation project and the pane is inside it', () => {
+  test('the tree host stands on the estimation project and the grid is inside it, in a pane whose bar is as high as the toolbar of the tree', async () => {
     renderUI(<EstimationDashboard />);
+    await flush();
     expect(q('tree-host-p1')).toBeTruthy();
     expect(q('sheet-stub')).toBeTruthy();
+    const bar = q('estimation-pane-bar')!;
+    expect(bar.style.height).toBe('40px');
+    // the grid gets the area below the bar and the viewport of the tree (the shared scroll)
+    expect((globalThis as any).__gridProps).toMatchObject({ width: 800, height: 560, projectGUID: 'p1', layout: 'simple', basis: 'budget' });
+    expect((globalThis as any).__gridProps.viewport).toEqual({});
   });
 
-  test('no row picked: the whole estimate; a task picked: only its lines and its total', () => {
-    const a = lineOf('a', 't1', 2), b = lineOf('b', 't2', 3), c = lineOf('c', null);
+  test('the grid gets the lines and the calculation of the WHOLE document (it has one row per tree row, so nothing is cut by the picked task); the totals of the bar are the document total', async () => {
+    const a = lineOf('a', 't1', 2), b = lineOf('b', 't2', 3);
     const d = doc();
-    mockData = { ...baseData(d), lines: [a, b, c], calc: calcDocument([a, b, c], d.rowJSON) };
-    renderUI(<EstimationDashboard />);
-    expect(textOf('estimation-pane-title')).toBe('Whole estimate');
-    const whole = textOf('estimation-total-shown');
-    cleanupUI();
+    mockData = { ...baseData(d), lines: [a, b], calc: calcDocument([a, b], d.rowJSON) };
     withTree('t1');
     renderUI(<EstimationDashboard />);
-    expect(textOf('estimation-pane-title')).toContain('Slab');
-    expect(textOf('estimation-total-shown')).not.toBe(whole);
+    await flush();
+    expect((globalThis as any).__gridProps.lines).toHaveLength(2);
+    expect((globalThis as any).__gridProps.calc).toBe(mockData.calc);
+    expect(textOf('estimation-total-shown')).toContain('500.00');
+    expect(q('estimation-stage-totals')).toBeNull();
   });
 
-  test('a stage shows the TOTALS of the tasks below it instead of the estimate', () => {
-    const a = lineOf('a', 't1', 2);
-    const d = doc();
-    mockData = { ...baseData(d), lines: [a], calc: calcDocument([a], d.rowJSON) };
-    withTree('stage');
+  test('the old "whole estimate" toggle and pane title are gone', async () => {
     renderUI(<EstimationDashboard />);
-    expect(textOf('estimation-pane-title')).toContain('Foundations');
-    expect(q('estimation-stage-totals')).toBeTruthy();
-    expect(q('sheet-stub')).toBeNull();
-    expect(q('estimation-totals')).toBeNull();
-    expect(textOf('estimation-stage-row-t1')).toContain('Slab');
-    expect(q('estimation-task-empty')).toBeNull();
+    await flush();
+    expect(q('estimation-scope-toggle')).toBeNull();
+    expect(q('estimation-pane-title')).toBeNull();
   });
 
-  test('a milestone is no task either: its totals show; a task shows the estimate; the toggle shows the whole estimate', () => {
+  test('Remove the position: the picked task loses its position; disabled without one', async () => {
+    const a = lineOf('a', 't1', 2), b = lineOf('b', 't2', 3);
+    const d = doc();
+    mockData = { ...baseData(d), lines: [a, b], calc: calcDocument([a, b], d.rowJSON) };
+    withTree('t1');
+    renderUI(<EstimationDashboard />);
+    await flush();
+    act(() => press('estimation-remove-position'));
+    const fn = mockData.changeLines.mock.calls[0][0];
+    expect(fn([a, b]).map((l: any) => l.rowJSON.title)).toEqual(['b']);
+    mockData.changeLines.mockClear();
+    cleanupUI();
+    withTree('ms');
+    renderUI(<EstimationDashboard />);
+    await flush();
+    act(() => press('estimation-remove-position'));
+    expect(mockData.changeLines).not.toHaveBeenCalled();
+  });
+
+  test('a line with no task is given to the picked task: one at a time, only to a task that has no position yet', async () => {
+    const free = lineOf('free', null), other = lineOf('free2', null), mine = lineOf('mine', 't1');
+    const d = doc();
+    mockData = { ...baseData(d), lines: [free, other, mine], calc: calcDocument([free, other, mine], d.rowJSON) };
+    withTree('t2');
+    renderUI(<EstimationDashboard />);
+    await flush();
+    act(() => press('estimation-assign-next'));
+    const out = mockData.changeLines.mock.calls[0][0]([free, other, mine]);
+    expect(out.map((l: any) => l.rowJSON.taskGUID)).toEqual(['t2', undefined, 't1']);
+    mockData.changeLines.mockClear();
+    cleanupUI();
+    withTree('t1'); // has a position: refused
+    renderUI(<EstimationDashboard />);
+    await flush();
+    act(() => press('estimation-assign-next'));
+    expect(mockData.changeLines).not.toHaveBeenCalled();
+    cleanupUI();
+    withTree('stage'); // a stage is no task: refused
+    renderUI(<EstimationDashboard />);
+    await flush();
+    act(() => press('estimation-assign-next'));
+    expect(mockData.changeLines).not.toHaveBeenCalled();
+  });
+
+  test('without lines that have no task the assign button is not shown', async () => {
     const a = lineOf('a', 't1');
     const d = doc();
     mockData = { ...baseData(d), lines: [a], calc: calcDocument([a], d.rowJSON) };
-    withTree('ms');
     renderUI(<EstimationDashboard />);
-    expect(q('estimation-stage-totals')).toBeTruthy();
-    act(() => press('estimation-scope-toggle'));
-    expect(q('estimation-stage-totals')).toBeNull();
-    expect(q('sheet-stub')).toBeTruthy();
-    cleanupUI();
-    withTree('t1');
-    renderUI(<EstimationDashboard />);
-    expect(q('estimation-stage-totals')).toBeNull();
-    expect(q('sheet-stub')).toBeTruthy();
+    await flush();
+    expect(q('estimation-assign-next')).toBeNull();
   });
 
-  test('a task with no lines says so and counts the lines that have no task; the toggle shows the whole estimate', () => {
-    const c = lineOf('c', null);
-    const d = doc();
-    mockData = { ...baseData(d), lines: [c], calc: calcDocument([c], d.rowJSON) };
-    withTree('t2');
+  test('the norm cell of a task: the grid asks, the dashboard opens the norm books (nothing is written until a norm is chosen)', async () => {
     renderUI(<EstimationDashboard />);
-    expect(textOf('estimation-task-empty')).toContain('No lines');
-    act(() => press('estimation-scope-toggle'));
-    expect(textOf('estimation-pane-title')).toBe('Whole estimate');
-    expect(q('estimation-task-empty')).toBeNull();
+    await flush();
+    expect(typeof (globalThis as any).__gridProps.onSelectNorm).toBe('function');
+    act(() => (globalThis as any).__gridProps.onSelectNorm('t1'));
+    expect(mockData.changeLines).not.toHaveBeenCalled();
+  });
+
+  test('a read-only estimate has no norm button in the grid', async () => {
+    mockPerms = { ...mockPerms, canManageEstimation: false };
+    renderUI(<EstimationDashboard />);
+    await flush();
+    expect((globalThis as any).__gridProps.onSelectNorm).toBeUndefined();
+    expect((globalThis as any).__gridProps.readOnly).toBe(true);
   });
 });
 
 describe('project picker', () => {
-  test('the project field "Create new" opens the picker; picking closes it', () => {
+  test('the project field "Create new" opens the picker; picking closes it', async () => {
     renderUI(<EstimationDashboard />);
     expect(q('picker-stub')).toBeNull();
     act(() => press('project-field-new'));
     expect(textOf('picker-stub')).toBe('can-cancel');
     act(() => press('picker-stub'));
     expect(q('picker-stub')).toBeNull();
+    await flush();
     expect(q('sheet-stub')).toBeTruthy();
   });
   test('no project at all: the picker is the body (no cancel)', () => {

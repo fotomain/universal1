@@ -200,29 +200,3 @@ export function linesFromTable(projectGUID: string, documentGUID: string, text: 
 }
 
 export { positionCost, positionInputOf };
-
-/** the rows of the table (the lines SHOWN, in the table's local rows mode) -> the lines of the document after a change of the user: a cell edited / a row moved (merged), a row ADDED by the toolbar
- *  or the row menu (add / duplicate: a position of this document, given to `taskGUID`), a row DELETED (with everything below it). Lines that were not shown (other tasks) are never touched. */
-export function applyTableRows(
-  all: readonly LineRow[],
-  shown: readonly { rowGUID: string }[],
-  next: readonly { rowGUID: string; rowParentGUID?: string; orderInList?: number; rowJSON?: any }[],
-  ctx: { projectGUID: string; documentGUID: string; taskGUID?: string | null },
-): LineRow[] {
-  const nextBy = new Map(next.map((r) => [r.rowGUID, r]));
-  const have = new Set(all.map((l) => l.rowGUID));
-  const gone = new Set<string>();
-  for (const r of shown) if (!nextBy.has(r.rowGUID)) subtreeGUIDs(all, r.rowGUID).forEach((g) => gone.add(g));
-  const kept = all.filter((l) => !gone.has(l.rowGUID)).map((l) => {
-    const e = nextBy.get(l.rowGUID);
-    return e ? { ...l, rowParentGUID: e.rowParentGUID ?? l.rowParentGUID, orderInList: e.orderInList ?? l.orderInList, rowJSON: { ...l.rowJSON, ...(e.rowJSON ?? {}) } } : l;
-  });
-  const added: LineRow[] = next.filter((r) => !have.has(r.rowGUID)).map((r) => ({
-    rowGUID: r.rowGUID,
-    rowOwnerGUID: ctx.projectGUID,
-    rowParentGUID: r.rowParentGUID && r.rowParentGUID !== 'empty' && have.has(r.rowParentGUID) ? r.rowParentGUID : 'empty',
-    orderInList: r.orderInList ?? Date.now(),
-    rowJSON: { title: '', qty: 1, unit: '', ...(r.rowJSON ?? {}), documentGUID: ctx.documentGUID, lineKind: r.rowJSON?.lineKind ?? 'position', ...(ctx.taskGUID && !r.rowJSON?.taskGUID ? { taskGUID: ctx.taskGUID } : {}) },
-  }));
-  return [...kept, ...added];
-}

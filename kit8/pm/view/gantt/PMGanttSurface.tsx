@@ -23,7 +23,7 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { DAY_MS, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_SCALE_HEIGHT, PM_SPLITTER_WIDTH, PM_TIMELINE_PAD_DAYS, PM_TOOLBAR_HEIGHT } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
 import { makePMPalette, type PMPalette } from '../theme';
-import { clampValue, maxScrollX, maxScrollY, useGanttViewport } from './useGanttViewport';
+import { clampValue, maxScrollX, maxScrollY, useGanttViewport, type PMViewport } from './useGanttViewport';
 import { mondayOnOrBefore } from './ganttGeometry';
 import { diffDaysMs, todayUTC } from '../project/scheduling';
 import { usePMCrud } from '../../crud/usePMCrud';
@@ -52,8 +52,9 @@ export interface PMGanttSurfaceProps {
   projectGUID: string;
   /** right pane: the Skia Gantt chart (default), the Kanban board (tree rows can be dragged onto it) or the project versions list */
   rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances' | 'plan' | 'reports' | 'estimation' | 'bim' | 'custom';
-  /** rightPane 'custom': what is drawn right of the tree (it gets the size of the pane and the palette) */
-  renderRight?: (area: { width: number; height: number; palette: PMPalette }) => React.ReactNode;
+  /** rightPane 'custom': what is drawn right of the tree. It gets the size of the pane, the palette, the SHARED viewport (`viewport.scrollY` = the vertical scroll of the tree: a pane that draws one row per
+   *  tree row on that value stays pixel-locked to it, like the Gantt chart) and the height of the toolbar the tree has above its canvas (a pane aligns its own header below a bar of that height) */
+  renderRight?: (area: { width: number; height: number; palette: PMPalette; viewport: PMViewport; toolbarHeight: number }) => React.ReactNode;
   readOnly?: boolean;
   hideTree?: boolean;
   /** uxui.hideGanttChartNode: only the tree (no splitter, no chart / board / versions list) */
@@ -355,7 +356,7 @@ export default function PMGanttSurface({
             </>
           )}
           {hideRight ? null : isCustom ? (
-            <View style={{ width: chartWidth, height: size.h, backgroundColor: palette.background }}>{renderRight ? renderRight({ width: chartWidth, height: size.h, palette }) : null}</View>
+            <View style={{ width: chartWidth, height: size.h, backgroundColor: palette.background }}>{renderRight ? renderRight({ width: chartWidth, height: size.h, palette, viewport, toolbarHeight: TB }) : null}</View>
           ) : isBim ? (
             <PMProjectBimView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isEstimation ? (

@@ -86,7 +86,7 @@ const GRADLE_PROPERTIES = {
   'org.gradle.jvmargs': '-Xmx4g -XX:MaxMetaspaceSize=1g -XX:+UseParallelGC',
   'org.gradle.caching': 'true',
   'kotlin.daemon.jvm.options': '-Xmx2g',
-  // (no 'android.defaults.buildfeatures.buildconfig' here: AGP 9 REFUSES that option; BuildConfig of @nozbe/watermelondb comes from patches/@nozbe+watermelondb+0.28.0.patch)
+  // (no 'android.defaults.buildfeatures.buildconfig' here: AGP 9 REFUSES that option; a library that needs BuildConfig gets `buildFeatures { buildConfig true }` from a patch in patches/)
 };
 const withFastGradle = (config) =>
   withGradleProperties(config, (cfg) => {

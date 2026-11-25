@@ -94,23 +94,3 @@ describe('a norm -> the unit costs of a position', () => {
     expect(normToUnitCosts([], new Map(), { labourRate: 0 })).toMatchObject({ unitLabour: 0, missing: [] });
   });
 });
-
-import { applyTableRows, newLineRow as nlr } from '../../../kit8/pm/estimation/model/estimationDocumentModel';
-describe('applyTableRows (the table of the sheet -> the lines of the document)', () => {
-  const ctx = { projectGUID: 'p1', documentGUID: 'd1', taskGUID: 't1' };
-  test('a deleted section takes everything below it; the lines that were not shown stay', () => {
-    const sec = nlr('p1', 'd1', 'section', 'empty', 1, { title: 'S', taskGUID: 't1' });
-    const pos = nlr('p1', 'd1', 'position', sec.rowGUID, 2, { taskGUID: 't1' });
-    const other = nlr('p1', 'd1', 'position', 'empty', 3, { taskGUID: 't2' });
-    const out = applyTableRows([sec, pos, other], [sec, pos], [], ctx);
-    expect(out.map((l) => l.rowGUID)).toEqual([other.rowGUID]);
-  });
-  test('a duplicated row keeps the copied values and its task; a new row gets the task of the tree', () => {
-    const a = nlr('p1', 'd1', 'position', 'empty', 1, { title: 'A', qty: 4, taskGUID: 't1' });
-    const out = applyTableRows([a], [a], [a, { rowGUID: 'dup', rowParentGUID: 'empty', orderInList: 2, rowJSON: { ...a.rowJSON } }, { rowGUID: 'blank', orderInList: 3, rowJSON: {} }], ctx);
-    expect(out).toHaveLength(3);
-    expect(out.find((l) => l.rowGUID === 'dup')!.rowJSON).toMatchObject({ title: 'A', qty: 4, taskGUID: 't1', lineKind: 'position', documentGUID: 'd1' });
-    expect(out.find((l) => l.rowGUID === 'blank')!.rowJSON).toMatchObject({ lineKind: 'position', taskGUID: 't1', qty: 1 });
-    expect(out.find((l) => l.rowGUID === 'blank')!.rowOwnerGUID).toBe('p1');
-  });
-});

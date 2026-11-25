@@ -2,8 +2,8 @@
 // ESTIMATION_DASHBOARD_WBS.html (+ google/). Route /pm/project/estimation/dashboard (Drawer: right under Project Dashboard). WEB FIRST.
 //   Which project: ?projectGUID=... or the project selected in the project dashboard; when that project names an ESTIMATION project (Project settings -> Estimation) this one is edited,
 //   else the project itself.
-//   Estimate tab = the Project dashboard with the estimate instead of the Gantt chart: [ task tree of the estimation project | the estimate of the PICKED task ] (view/project/tree/PMProjectTreeHost, a stage shows
-//          the lines of every task below it; a line belongs to a task by rowJSON.taskGUID; "Whole estimate" shows all lines, also the ones with no task)
+//   Estimate tab = the Project dashboard with the estimate instead of the Gantt chart: [ task tree of the estimation project | the estimate GRID ] (view/project/tree/PMProjectTreeHost). The grid is ONE
+//          Excel-like Skia sheet (grid/EstimateGridPane) with ONE row per tree row on the SAME scroll: a task row = its one position (rowJSON.taskGUID), a stage row = the sums of the tasks below it
 //   Tabs:  Estimate (the board: 4 layouts, every cell edited in place, three currencies) · Document (its settings) · Norm books (tree World Norms v2, import / export zip) · Templates (examples +
 //          input / output) · Summary (chapters 1 - 12) · Export (Excel, PDF)
 //   Rights: permissionEstimationManager (SQL PART 58: the organization administrator and a project manager automatically) writes; everybody who can read the project reads.
@@ -30,7 +30,7 @@ import { readCurrencyRate } from '../view/project/estimation/estimationApi';
 import { applyNormToLine, newLineRow, type DocumentRow } from './model/estimationDocumentModel';
 import { newDocumentRow } from './model/estimationDocumentModel';
 import { BASIS_TIPS, BASIS_TO_SUM_KEY, useGOSTInformationOf, type EstimationCurrencyBasis, type EstimationDocKind } from './model/estimationModel';
-import EstimateSheet, { ESTIMATION_LAYOUTS, type EstimationLayout } from './ui/EstimateSheet';
+import { ESTIMATION_LAYOUTS, type EstimationLayout } from './model/estimationLayouts';
 import EstimationExportPanel from './ui/EstimationExportPanel';
 import EstimationProjectPicker from './ui/EstimationProjectPicker';
 import EstimationSettingsPanel from './ui/EstimationSettingsPanel';
@@ -43,13 +43,17 @@ import SelectNormWindow from './ui/SelectNormWindow';
 import { saveLastEstimation, useLastEstimation } from './ui/lastEstimationLocal';
 import { useEstimationData } from './ui/useEstimationData';
 import { docKindTitle } from './export/estimationForms';
-import { calcDocument } from './model/estimationCalc';
-import { assignLinesToTask, canCarryEstimate, taskKindOf, linesOfScope, stageTotals, taskPaneState, unassignedLines } from './model/estimationTaskModel';
-import EstimationStageTotals from './ui/EstimationStageTotals';
+import { assignLinesToTask, canCarryEstimate, taskKindOf, unassignedLines } from './model/estimationTaskModel';
+import { positionCountOf, removePositionOf } from './model/estimateGridModel';
 import InfoModal from '../../ui/components/info/InfoModal';
 import { layoutHelp } from './model/layoutHelpModel';
 import PMProjectTreeHost from '../view/project/tree/PMProjectTreeHost';
+import type { PMViewport } from '../view/gantt/useGanttViewport';
 import type { PMPalette } from '../view/theme';
+import type { EstimateGridPaneProps } from './grid/EstimateGridPane';
+
+// the grid draws with Skia: its module is evaluated only when it is first shown (inside the Gantt surface, after CanvasKit has started on the web)
+const LazyEstimateGrid = React.lazy(() => Promise.resolve(require('./grid/EstimateGridPane'))) as React.ComponentType<EstimateGridPaneProps>;
 
 type TabId = 'estimate' | 'document' | 'norms' | 'templates' | 'summary' | 'export';
 const TABS: { id: TabId; label: string }[] = [
@@ -109,34 +113,25 @@ export default function EstimationDashboard() {
   const [normsVersion, setNormsVersion] = useState(0);
   const [summarySettings, setSummarySettings] = useState({ contingencyPct: 2, vatPct: 20, objectKind: 'nonProduction' as any });
   const [note, setNote] = useState('');
-  // the position whose norm is being selected (the norm button of the sheet opens the norm books in a window)
-  const [normLine, setNormLine] = useState<string | null>(null);
-  // the row picked in the task tree (PM store) and what it shows: its own lines, or the whole estimate
+  // the TASK whose position gets the norm being selected (the norm cell of the grid opens the norm books in a window)
+  const [normTask, setNormTask] = useState<string | null>(null);
+  // the row picked in the task tree (PM store); the grid has one row per tree row, so it needs nothing else from the tree
   const pickedRaw = usePMStore((s: any) => s.selectedGUID) as string | null;
   const pickedTask = usePMStore((s: any) => (pickedRaw && s.tasksById?.[pickedRaw] ? pickedRaw : null)) as string | null;
-  const pickedTitle = usePMStore((s: any) => (pickedRaw ? String(s.tasksById?.[pickedRaw]?.rowJSON?.taskDescription ?? '') : '')) as string;
   const childrenById = usePMStore((s: any) => s.tree?.childrenById) as Record<string, string[]> | undefined;
-  const [wholeEstimate, setWholeEstimate] = useState(false);
   const tasksById = usePMStore((s: any) => s.tasksById) as Record<string, any> | undefined;
   const pickedCanCarry = !!pickedTask && canCarryEstimate(taskKindOf(tasksById?.[pickedTask]), (childrenById?.[pickedTask]?.length ?? 0) > 0);
-  const pane = useMemo(() => taskPaneState(pickedTask, wholeEstimate, childrenById ?? {}, (g) => taskKindOf(tasksById?.[g])), [pickedTask, wholeEstimate, childrenById, tasksById]);
-  // a row that is no task (a stage) shows the TOTALS of the tasks below it instead of the estimate
-  const stageView = !!pickedTask && !wholeEstimate && pane.addBlocked;
-  const stageRows = useMemo(
-    () => (stageView && pickedTask ? stageTotals(pickedTask, childrenById ?? {}, (g) => ({ rowKind: taskKindOf(tasksById?.[g]), title: String(tasksById?.[g]?.rowJSON?.taskDescription ?? '') }), data.lines, data.document?.rowJSON) : null),
-    [stageView, pickedTask, childrenById, tasksById, data.lines, data.document],
-  );
-  const shownLines = useMemo(() => (pane.scope ? linesOfScope(data.lines, pane.scope) : data.lines), [pane.scope, data.lines]);
-  const shownCalc = useMemo(() => (pane.scope ? calcDocument(shownLines, data.document?.rowJSON) : data.calc), [pane.scope, shownLines, data.document, data.calc]);
-  const unassignedCount = useMemo(() => unassignedLines(data.lines).length, [data.lines]);
+  const pickedPositions = pickedTask ? positionCountOf(data.lines, pickedTask) : 0;
+  // an old / imported line has no task: it is given to the picked task one by one (a task carries ONE position)
+  const unassigned = useMemo(() => unassignedLines(data.lines).filter((l) => l.rowJSON.lineKind === 'position').sort((x, y) => x.orderInList - y.orderInList), [data.lines]);
 
   const currencies = useMemo(() => ({
     budget: String(projectJSON.currencyForBudget ?? ''), accounting: String(projectJSON.currencyForAccounting ?? ''), consolidation: String(organizationJSON?.currencyForConsolidation ?? ''),
   }), [projectJSON, organizationJSON]);
   const basisCurrency = currencies[basis] || '';
   const doc = data.document;
-  const totals = shownCalc.total;
-  const shownTotal = doc ? shownCalc.sums[BASIS_TO_SUM_KEY[basis]] : 0;
+  const totals = data.calc.total;
+  const shownTotal = doc ? data.calc.sums[BASIS_TO_SUM_KEY[basis]] : 0;
 
   const newDocument = useCallback(async (kind: EstimationDocKind) => {
     if (!projectGUID) return;
@@ -159,80 +154,72 @@ export default function EstimationDashboard() {
     if (!projectGUID || !doc) { setNote(pmT('Open or make an estimate first (Estimate tab).')); return; }
     const order = data.lines.reduce((m, l) => Math.max(m, l.orderInList), 0) + 10;
     data.changeLines((prev) => [...prev, newLineRow(projectGUID, doc.rowGUID, 'position', 'empty', order, {
-      ...(pane.newLineTaskGUID ? { taskGUID: pane.newLineTaskGUID } : {}),
+      ...(pickedTask && pickedCanCarry && !pickedPositions ? { taskGUID: pickedTask } : {}),
       title, normCode: norm.rowJSON.code, normGUID: norm.rowGUID, unit: norm.rowJSON.unit, qty: 1,
       unitLabour: costs.unitLabour, unitMachines: costs.unitMachines, unitOperators: costs.unitOperators, unitMaterials: costs.unitMaterials, unitOther: costs.unitOther, unitEquipment: costs.unitEquipment,
     })]);
     setNote(costs.missing.length ? pmT('The norm was added. {{n}} resource(s) have no price in the book: price them in the board.', { n: costs.missing.length }) : pmT('The norm was added to the estimate.'));
     setTab('estimate');
-  }, [data, doc, projectGUID, pane.newLineTaskGUID]);
+  }, [data, doc, projectGUID, pickedTask, pickedCanCarry, pickedPositions]);
 
-  // the norm chosen in the window goes INTO the position line that asked for it (its unit costs come from the priced resources of the book)
+  // the norm chosen in the window goes INTO the position of the task that asked for it (made when the task has none); its unit costs come from the priced resources of the book
   const selectNorm = useCallback((norm: any, costs: any, title: string) => {
-    const target = normLine;
-    setNormLine(null);
-    if (!target) return;
-    data.changeLines((prev) => prev.map((l) => (l.rowGUID === target ? applyNormToLine(l, norm, costs, title) : l)));
+    const target = normTask;
+    setNormTask(null);
+    if (!target || !projectGUID || !doc) return;
+    data.changeLines((prev) => {
+      const mine = prev.filter((l) => l.rowJSON.taskGUID === target && l.rowJSON.lineKind === 'position');
+      if (mine.length > 1) return prev; // several positions: read only
+      if (mine.length === 1) return prev.map((l) => (l.rowGUID === mine[0].rowGUID ? applyNormToLine(l, norm, costs, title) : l));
+      const order = prev.reduce((m, l) => Math.max(m, l.orderInList), 0) + 10;
+      return [...prev, applyNormToLine(newLineRow(projectGUID, doc.rowGUID, 'position', 'empty', order, { taskGUID: target }), norm, costs, title)];
+    });
     setNote(costs.missing.length ? pmT('The norm was set. {{n}} resource(s) have no price in the book: price them in the board.', { n: costs.missing.length }) : pmT('The norm was set on the position.'));
-  }, [data, normLine]);
+  }, [data, normTask, projectGUID, doc]);
 
-  const estimatePane = (_area: { width: number; height: number; palette: PMPalette }) => (
-          <View style={{ flex: 1, padding: 8 }}>
-            <View style={styles.bar}>
-              <View style={styles.docs}>
-                {data.documents.map((d) => (
-                  <Pressable key={d.rowGUID} testID={`estimation-doc-${d.rowGUID}`} onPress={() => data.selectDocument(d.rowGUID)} style={[styles.docChip, { borderColor: d.rowGUID === data.documentGUID ? c.primary : c.border, backgroundColor: d.rowGUID === data.documentGUID ? c.primary + '22' : 'transparent' }]}>
-                    <Text style={{ color: c.text, fontSize: 12 }} numberOfLines={1}>{d.rowJSON.cipher ? `${d.rowJSON.cipher} · ` : ''}{d.rowJSON.title || docKindTitle(d.rowJSON.docKind, { gost, t: pmT })}</Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-            <View style={styles.bar}>
-              <SegmentButtonsApp testID="estimation-layout" onInfo={setHelpLayout} value={layout} onValueChange={setLayout} buttons={ESTIMATION_LAYOUTS.map((l) => ({ value: l.value, label: pmT(l.label), tip: l.tip ? pmT(l.tip) : undefined, testID: `estimation-layout-${l.value}` }))} />
-              <SegmentButtonsApp
-                testID="estimation-basis"
-                // right justified in the row of the layout buttons
-                style={{ marginLeft: 'auto' }}
-                value={basis}
-                onValueChange={setBasis}
-                buttons={(['budget', 'accounting', 'consolidation'] as const).map((b) => ({ value: b, label: `${currencies[b]} ${pmT(BASIS_LABELS[b])}`.trim(), tip: `${pmT(BASIS_TIPS[b].name)}${currencies[b] ? ` (${currencies[b]})` : ''}: ${pmT(BASIS_TIPS[b].description)}` }))}
-              />
-            </View>
-            <View style={styles.bar}>
-              <Text testID="estimation-pane-title" numberOfLines={1} style={{ color: c.text, fontWeight: '700', fontSize: 14, flexShrink: 1 }}>
-                {pane.scope ? `${pmT('Task')}: ${pickedTitle || '-'}${pane.addBlocked ? ` (${pmT('stage: the totals of the tasks below it')})` : ''}` : pmT('Whole estimate')}
-              </Text>
-              {!!pickedTask && <PMDialogButton testID="estimation-scope-toggle" kind="secondary" icon={wholeEstimate ? 'account_tree' : 'select_all'} title={wholeEstimate ? pmT('Show the picked task') : pmT('Show the whole estimate')} onPress={() => setWholeEstimate((v) => !v)} />}
-            </View>
-            {!doc ? (
-              <View style={{ padding: 16, gap: 8 }}>
-                <Text style={{ color: c.text }}>{data.loading ? pmT('Reading...') : pmT('No estimate in this project yet.')}</Text>
-                <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('Make one with New estimate, or start from an example in the Templates tab.')}</Text>
-              </View>
-            ) : stageRows ? (
-              <EstimationStageTotals totals={stageRows} basis={basis} currency={basisCurrency} emptyTitle={pmT('Task')} />
-            ) : (
+  // the right pane of the tree: [ a bar as high as the toolbar of the tree | the grid (header as high as the header of the tree) ]. The grid has one row per tree row on the tree's own scroll value.
+  const estimatePane = (area: { width: number; height: number; palette: PMPalette; viewport: PMViewport; toolbarHeight: number }) => (
+    <View style={{ flex: 1 }}>
+      <View testID="estimation-pane-bar" style={[styles.paneBar, { height: area.toolbarHeight, borderBottomColor: c.border, backgroundColor: c.surface }]}>
+        {doc ? (
+          <View testID="estimation-totals" style={styles.paneTotals}>
+            {area.width >= 760 && (
               <>
-                <EstimateSheet projectGUID={projectGUID!} document={doc} lines={shownLines} calc={shownCalc} layout={layout} basis={basis} readOnly={readOnly} onChangeLines={data.changeLines} onDeleteLines={data.deleteLines}
-                  newLineTaskGUID={pane.newLineTaskGUID} addBlocked={pane.addBlocked} onSelectNorm={readOnly ? undefined : setNormLine}
-                  assignTo={wholeEstimate && pickedTask && pickedCanCarry ? { guid: pickedTask, title: pickedTitle || pmT('Task') } : null}
-                  onAssign={(guids) => { if (pickedTask && pickedCanCarry) data.changeLines((prev) => assignLinesToTask(prev, guids, pickedTask)); }} />
-                <View testID="estimation-totals" style={[styles.totals, { borderTopColor: c.border, backgroundColor: c.surface }]}>
-                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Direct costs')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.direct)}</Text></Text>
-                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Overheads')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.overheads)}</Text></Text>
-                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Profit')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.profit)}</Text></Text>
-                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Total, base prices')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.base)}</Text></Text>
-                  <Text style={{ color: c.text, fontSize: 13 }}>{pmT('Total, current prices')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.current)}</Text></Text>
-                  <Text testID="estimation-total-shown" style={{ color: c.primary, fontSize: 14, fontWeight: '800' }}>{pmT('In the view currency')} {basisCurrency}: {fmt(shownTotal)}</Text>
-                </View>
-                {!!pane.scope && !shownLines.length && (
-                  <Text testID="estimation-task-empty" style={{ color: c.text, opacity: 0.7, fontSize: 12, paddingVertical: 6 }}>
-                    {pmT('No lines for this row yet.')}{pane.addBlocked ? '' : ` ${pmT('Add a position, then select its norm from the norm book.')}`}{unassignedCount ? ` ${pmT('{{n}} line(s) of this estimate have no task: show the whole estimate to give them to a task.', { n: unassignedCount })}` : ''}
-                  </Text>
-                )}
+                <Text numberOfLines={1} style={{ color: c.text, fontSize: 12 }}>{pmT('Direct costs')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.direct)}</Text></Text>
+                <Text numberOfLines={1} style={{ color: c.text, fontSize: 12 }}>{pmT('Overheads')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.overheads)}</Text></Text>
+                <Text numberOfLines={1} style={{ color: c.text, fontSize: 12 }}>{pmT('Profit')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.profit)}</Text></Text>
+                <Text numberOfLines={1} style={{ color: c.text, fontSize: 12 }}>{pmT('Total, base prices')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.base)}</Text></Text>
+                <Text numberOfLines={1} style={{ color: c.text, fontSize: 12 }}>{pmT('Total, current prices')}: <Text style={{ fontWeight: '700' }}>{fmt(totals.current)}</Text></Text>
               </>
             )}
+            <Text testID="estimation-total-shown" numberOfLines={1} style={{ color: c.primary, fontSize: 13, fontWeight: '800' }}>{pmT('In the view currency')} {basisCurrency}: {fmt(shownTotal)}</Text>
           </View>
+        ) : <View style={{ flex: 1 }} />}
+        {/* lines of an older / imported estimate have no task: the next one is given to the picked task; the position of the picked task can be removed */}
+        {!!doc && !!unassigned.length && (
+          <PMIconButton tipScope="app" testID="estimation-assign-next" icon="assignment_ind" title={`${pmT('Give the next line without a task to the picked task')} (${unassigned.length})`} color={c.primary}
+            disabled={readOnly || !pickedCanCarry || pickedPositions > 0} onPress={() => { if (pickedTask) data.changeLines((prev) => assignLinesToTask(prev, [unassigned[0].rowGUID], pickedTask)); }} />
+        )}
+        {!!doc && (
+          <PMIconButton tipScope="app" testID="estimation-remove-position" icon="playlist_remove" title="Remove the position of the picked task" color={c.error}
+            disabled={readOnly || !pickedTask || !pickedPositions} onPress={() => { if (pickedTask) data.changeLines((prev) => removePositionOf(prev, pickedTask)); }} />
+        )}
+      </View>
+      {!doc ? (
+        <View style={{ padding: 16, gap: 8 }}>
+          <Text style={{ color: c.text }}>{data.loading ? pmT('Reading...') : pmT('No estimate in this project yet.')}</Text>
+          <Text style={{ color: c.text, opacity: 0.7, fontSize: 12 }}>{pmT('Make one with New estimate, or start from an example in the Templates tab.')}</Text>
+        </View>
+      ) : (
+        <React.Suspense fallback={null}>
+          <LazyEstimateGrid
+            width={area.width} height={Math.max(0, area.height - area.toolbarHeight)} palette={area.palette} viewport={area.viewport}
+            projectGUID={projectGUID!} documentGUID={doc.rowGUID} doc={doc.rowJSON as any} lines={data.lines} calc={data.calc}
+            layout={layout} basis={basis} currency={basisCurrency} readOnly={readOnly} onChangeLines={data.changeLines} onSelectNorm={readOnly ? undefined : setNormTask}
+          />
+        </React.Suspense>
+      )}
+    </View>
   );
 
   const ready = !!projectGUID;
@@ -275,12 +262,36 @@ export default function EstimationDashboard() {
       {!!note && <Text testID="estimation-note" style={{ color: c.text, paddingHorizontal: 12, paddingTop: 6, fontSize: 12 }}>{note}</Text>}
 
       <InfoModal testID="estimation-layout-help" content={helpLayout ? layoutHelp(helpLayout) : null} onClose={() => setHelpLayout(null)} closeLabel={pmT('Close')} />
-      <SelectNormWindow visible={!!normLine} client={client} onSelect={selectNorm} onClose={() => setNormLine(null)} />
+      <SelectNormWindow visible={!!normTask} client={client} onSelect={selectNorm} onClose={() => setNormTask(null)} />
       <View style={styles.body}>
         {!ready || pickerOpen ? (
           <EstimationProjectPicker onPicked={(g) => { setPickedGUID(g); setPickerOpen(false); setTab('estimate'); }} onCancel={ready ? () => setPickerOpen(false) : undefined} />
         ) : tab === 'estimate' ? (
-          <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" emptyText={pmT('This project has no tasks yet. The estimate is made per task: add the first stage, then its tasks.')} />
+          <View style={{ flex: 1 }}>
+            <View style={styles.bar}>
+              <View style={styles.docs}>
+                {data.documents.map((d) => (
+                  <Pressable key={d.rowGUID} testID={`estimation-doc-${d.rowGUID}`} onPress={() => data.selectDocument(d.rowGUID)} style={[styles.docChip, { borderColor: d.rowGUID === data.documentGUID ? c.primary : c.border, backgroundColor: d.rowGUID === data.documentGUID ? c.primary + '22' : 'transparent' }]}>
+                    <Text style={{ color: c.text, fontSize: 12 }} numberOfLines={1}>{d.rowJSON.cipher ? `${d.rowJSON.cipher} · ` : ''}{d.rowJSON.title || docKindTitle(d.rowJSON.docKind, { gost, t: pmT })}</Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+            <View style={styles.bar}>
+              <SegmentButtonsApp testID="estimation-layout" onInfo={setHelpLayout} value={layout} onValueChange={setLayout} buttons={ESTIMATION_LAYOUTS.map((l) => ({ value: l.value, label: pmT(l.label), tip: l.tip ? pmT(l.tip) : undefined, testID: `estimation-layout-${l.value}` }))} />
+              <SegmentButtonsApp
+                testID="estimation-basis"
+                // right justified in the row of the layout buttons
+                style={{ marginLeft: 'auto' }}
+                value={basis}
+                onValueChange={setBasis}
+                buttons={(['budget', 'accounting', 'consolidation'] as const).map((b) => ({ value: b, label: `${currencies[b]} ${pmT(BASIS_LABELS[b])}`.trim(), tip: `${pmT(BASIS_TIPS[b].name)}${currencies[b] ? ` (${currencies[b]})` : ''}: ${pmT(BASIS_TIPS[b].description)}` }))}
+              />
+            </View>
+            <View style={{ flex: 1 }}>
+              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" emptyText={pmT('This project has no tasks yet. The estimate is made per task: add the first stage, then its tasks.')} />
+            </View>
+          </View>
         ) : tab === 'document' ? (
           doc ? <EstimationSettingsPanel document={doc} layout={layout} readOnly={readOnly} currencies={currencies} gost={gost} onChange={data.changeDocument as any} onReadRates={() => { void readRates(); }} /> : <Text style={{ color: c.text, padding: 16 }}>{pmT('Open or make an estimate first (Estimate tab).')}</Text>
         ) : tab === 'norms' ? (
@@ -314,5 +325,7 @@ const styles = StyleSheet.create({
   actions: { flexDirection: 'row', alignItems: 'center', gap: 4, marginLeft: 'auto' },
   docs: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, flex: 1, minWidth: 200 },
   docChip: { borderWidth: 1, borderRadius: 16, paddingHorizontal: 10, paddingVertical: 5, maxWidth: 320 },
-  totals: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, alignItems: 'center', paddingVertical: 8, paddingHorizontal: 10, borderTopWidth: 1 },
+  // the bar above the grid is as high as the toolbar of the tree (the header of the grid then stands level with the header of the tree)
+  paneBar: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, borderBottomWidth: StyleSheet.hairlineWidth, overflow: 'hidden' },
+  paneTotals: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 14, overflow: 'hidden' },
 });

@@ -11,7 +11,7 @@ import { PMDialogButton } from '../../inner/buttons/PMDialogButton';
 import { contingencyCap } from '../model/estimationCalc';
 import type { DocumentRow } from '../model/estimationDocumentModel';
 import type { EstimationDocumentJSON, EstimationObjectKind } from '../model/estimationModel';
-import { LAYOUT_COLUMNS, type EstimationLayout } from './EstimateSheet';
+import { LAYOUT_COLUMNS, type EstimationLayout } from '../model/estimationLayouts';
 
 const numberText = (v: unknown): string => (typeof v === 'number' && Number.isFinite(v) ? String(v) : '');
 const parse = (t: string): number | undefined => { const n = Number(t.replace(',', '.')); return t.trim() !== '' && Number.isFinite(n) ? n : undefined; };
