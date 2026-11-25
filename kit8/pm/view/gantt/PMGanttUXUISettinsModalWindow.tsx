@@ -1,5 +1,5 @@
 // PMGanttUXUISettinsModalWindow: edits the signed-in user's settings of the selected project
-// (project_user_settings_table.rowJSON.uxuiSettings; switches = SwitchApp) (opened by the ⚙ button on the Gantt bar, after the task progress % button).
+// (project_dashboard_user_settings_table.rowJSON.uxuiSettings; switches = SwitchApp) (opened by the ⚙ button on the Gantt bar, after the task progress % button).
 //
 //   showCriticalPath · criticalPathTaskColor · ganttArrowsForm · showTaskProgressOnGantt ·
 //   taskProgressLinePosition · taskProgressLineColor ·

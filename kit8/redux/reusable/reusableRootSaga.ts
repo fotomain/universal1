@@ -171,13 +171,13 @@ export const reusableRootSaga = (p: any) => {
 
             // @ts-ignore
             const dbAdapters: any = yield getContext("dbAdapters")
-            const workPlaceAdapter=dbAdapters.workPlaceAdapter;
+            const userWorkPlaceAdapter=dbAdapters.userWorkPlaceAdapter;
 
             // console.log("dbAdapters00",dbAdapters)
             let newItem: any = null;
             if (entityObject?.prepareCreateApi) {
                 // @ts-ignore
-                let ret = yield entityObject.prepareCreateApi({ action, userState, workPlaceAdapter });
+                let ret = yield entityObject.prepareCreateApi({ action, userState, userWorkPlaceAdapter });
                 newItem = ret.newItem;
             } else {
                 newItem = action.payload;

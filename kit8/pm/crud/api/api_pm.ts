@@ -3,7 +3,7 @@
 //   api/projectApi.ts        project_table
 //   api/taskApi.ts           project_task_table + scheduler write-back RPC
 //   api/dependencyApi.ts     project_task_dependencies_table (+ closure reads)
-//   api/projectUserSettingsApi.ts  project_user_settings_table (per user settings of a project)
+//   api/projectUserSettingsApi.ts  project_dashboard_user_settings_table (per user settings of a project)
 //   api/kanbanApi.ts         kanban_stage_table + project_kanban_stage_table + project_task_kanban_state_table
 //
 // createPMApi() composes them into the single object the React Query hooks use. It is

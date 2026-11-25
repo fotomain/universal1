@@ -42,53 +42,53 @@ async function getOrCreateDeviceId(): Promise<string> {
 // -----------------------------
 // 🌐 CONTEXT
 // -----------------------------
-type WorkPlaceContextType = {
-    workPlaceGUID: string | null;
+type UserWorkPlaceContextType = {
+    userWorkPlaceGUID: string | null;
 };
 
-const WorkPlaceContext = createContext<WorkPlaceContextType>({
-    workPlaceGUID: null,
+const UserWorkPlaceContext = createContext<UserWorkPlaceContextType>({
+    userWorkPlaceGUID: null,
 });
 
 // -----------------------------
 // 🚀 PROVIDER
 // -----------------------------
-export const WithWorkPlace: React.FC<{ children: React.ReactNode }> = ({
+export const WithUserWorkPlace: React.FC<{ children: React.ReactNode }> = ({
                                                                            children,
                                                                        }) => {
-    const [workPlaceGUID, setWorkPlaceGUID] = useState<string | null>(null);
+    const [userWorkPlaceGUID, setUserWorkPlaceGUID] = useState<string | null>(null);
 
     useEffect(() => {
         (async () => {
             const id = await getOrCreateDeviceId();
-            setWorkPlaceGUID(id);
+            setUserWorkPlaceGUID(id);
 
-            console.log("workPlaceGUID IDENTIFIED →", {
-                workPlaceGUID: id,
+            console.log("userWorkPlaceGUID IDENTIFIED →", {
+                userWorkPlaceGUID: id,
             });
         })();
     }, []);
 
-    if(""===workPlaceGUID) return <></>
+    if(""===userWorkPlaceGUID) return <></>
 
     return (
-        <WorkPlaceContext.Provider value={{ workPlaceGUID }}>
+        <UserWorkPlaceContext.Provider value={{ userWorkPlaceGUID }}>
             {children}
-        </WorkPlaceContext.Provider>
+        </UserWorkPlaceContext.Provider>
     );
 };
 
 
-export const useWorkPlace = () => {
-    const context = useContext(WorkPlaceContext)
+export const useUserWorkPlace = () => {
+    const context = useContext(UserWorkPlaceContext)
     if (!context) {
-        throw new Error("useWorkPlace must be used within Provider")
+        throw new Error("useUserWorkPlace must be used within Provider")
     }
     return context
 }
 
 
-// const { workPlaceGUID } = useWorkPlace()
+// const { userWorkPlaceGUID } = useUserWorkPlace()
 
 
 

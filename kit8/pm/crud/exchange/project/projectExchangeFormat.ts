@@ -7,7 +7,7 @@
 //                 dependencies: project_task_dependencies_table rows
 //                 taskLines:    OPTIONAL task_line_table rows (Time / Material / ... lines of the tasks; rowOwnerGUID = the task of the file, rowParentGUID = the genus).
 //                               The importer writes them (UNPOSTED); a file without them imports as before. The export writes them since 2026-11-20 (option "task lines", default on).
-//                 uxuiSettings: the exporting user's Gantt settings of the project (project_user_settings_table) }
+//                 uxuiSettings: the exporting user's Gantt settings of the project (project_dashboard_user_settings_table) }
 // Pure (no React / Supabase) - unit-tested in __tests__/pm/crud/exchange/projectExchange.test.ts.
 
 import { PMProjectRow, PMTaskDependencyRow, PMTaskRow, PMUxUiSettings } from '../../../model/types';

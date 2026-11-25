@@ -244,7 +244,7 @@ describe('project_task_dependencies_table CRUD', () => {
 
 export type { FakeSupabase };
 
-describe('projectUserSettingsApi (project_user_settings_table)', () => {
+describe('projectUserSettingsApi (project_dashboard_user_settings_table)', () => {
   const { isMissingTableError, PMMissingTableError } = require('../../../../kit8/pm/crud/api/projectUserSettingsApi');
   const P = '00000000-0000-4000-8000-00000000000a';
   const U1 = '11111111-1111-4111-8111-111111111111';
@@ -258,27 +258,51 @@ describe('projectUserSettingsApi (project_user_settings_table)', () => {
     const b = await api.saveProjectUserSettings(P, U1, { showCriticalPath: true, ganttArrowsForm: 'squareForm' });
     expect(b.rowGUID).toBe(a.rowGUID); // same row, updated
     await api.saveProjectUserSettings(P, U2, { showTaskProgressOnGantt: true });
-    expect(db.rows('project_user_settings_table')).toHaveLength(2);
+    expect(db.rows('project_dashboard_user_settings_table')).toHaveLength(2);
     const upsert = db.calls.find((c) => c.op === 'upsert')!;
-    expect(upsert.table).toBe('project_user_settings_table');
+    expect(upsert.table).toBe('project_dashboard_user_settings_table');
     const r1 = await api.readProjectUserSettings(U1);
     expect(r1.missing).toBe(false);
     expect(r1.rows.map((r) => r.rowJSON.uxuiSettings)).toEqual([{ showCriticalPath: true, ganttArrowsForm: 'squareForm' }]);
   });
 
+  it('work places: one row per (project, user, work place); a work place without a row starts with the row of the work place "empty"', async () => {
+    const db = createFakeSupabase();
+    const api = createPMApi(db as any);
+    // a row made before work places existed (the column default)
+    db.tables.project_dashboard_user_settings_table.push({ rowGUID: 'old', rowOwnerGUID: P, rowParentGUID: U1, orderInList: 0, rowJSON: { uxuiSettings: { tasksTreeWidth: 500 } } });
+    // the new work place has no row yet: it reads the old one
+    const first = await api.readProjectUserSettings(U1, 'wp-1');
+    expect(first.rows.map((r) => r.rowJSON.uxuiSettings)).toEqual([{ tasksTreeWidth: 500 }]);
+    // saving creates ITS row (the old one stays), the upsert key has the work place
+    const saved = await api.saveProjectUserSettings(P, U1, { tasksTreeWidth: 420 }, 'wp-1');
+    expect(saved).toMatchObject({ rowOwnerGUID: P, rowParentGUID: U1, userWorkPlaceGUID: 'wp-1' });
+    expect(saved.rowGUID).not.toBe('old');
+    expect((db.calls.filter((c) => c.op === 'upsert').pop() as any).payload[0].userWorkPlaceGUID).toBe('wp-1');
+    expect(db.rows('project_dashboard_user_settings_table')).toHaveLength(2);
+    // another work place of the same user keeps its own state; this one now wins over 'empty'
+    await api.saveProjectUserSettings(P, U1, { tasksTreeWidth: 300 }, 'wp-2');
+    expect((await api.readProjectUserSettings(U1, 'wp-1')).rows.map((r) => r.rowJSON.uxuiSettings?.tasksTreeWidth)).toEqual([420]);
+    expect((await api.readProjectUserSettings(U1, 'wp-2')).rows.map((r) => r.rowJSON.uxuiSettings?.tasksTreeWidth)).toEqual([300]);
+    expect((await api.readProjectUserSettings(U1, 'wp-3')).rows.map((r) => r.rowJSON.uxuiSettings?.tasksTreeWidth)).toEqual([500]);
+    // the same work place saved again = the same row
+    const again = await api.saveProjectUserSettings(P, U1, { tasksTreeWidth: 410 }, 'wp-1');
+    expect(again.rowGUID).toBe(saved.rowGUID);
+  });
+
   it('missing table: read answers { missing }, save throws PMMissingTableError; other errors still throw', async () => {
     const db = createFakeSupabase();
-    delete (db.tables as any).project_user_settings_table;
+    delete (db.tables as any).project_dashboard_user_settings_table;
     const api = createPMApi(db as any);
     expect(await api.readProjectUserSettings(U1)).toEqual({ rows: [], missing: true });
     await expect(api.saveProjectUserSettings(P, U1, {})).rejects.toBeInstanceOf(PMMissingTableError);
     const db2 = createFakeSupabase();
-    db2.failNext('new row violates row-level security policy', { table: 'project_user_settings_table' });
+    db2.failNext('new row violates row-level security policy', { table: 'project_dashboard_user_settings_table' });
     await expect(createPMApi(db2 as any).readProjectUserSettings(U1)).rejects.toThrow(/row-level security/);
   });
 
   it('isMissingTableError recognises Postgres / PostgREST answers', () => {
-    const t = 'project_user_settings_table';
+    const t = 'project_dashboard_user_settings_table';
     expect(isMissingTableError({ code: '42P01', message: 'x' }, t)).toBe(true);
     expect(isMissingTableError({ code: 'PGRST205', message: 'x' }, t)).toBe(true);
     expect(isMissingTableError({ message: `Could not find the table 'public.${t}' in the schema cache` }, t)).toBe(true);

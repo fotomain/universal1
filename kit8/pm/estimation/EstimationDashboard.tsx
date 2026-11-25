@@ -30,7 +30,7 @@ import { pmKeys } from '../crud/shared/queryShared';
 import { usePMStore } from '../store/store_pm';
 import { estimationLinkOf } from '../view/project/estimation/estimationModel';
 import { readCurrencyRate } from '../view/project/estimation/estimationApi';
-import { applyNormToLine, estimateFromTable, exampleDocument, newLineRow, type DocumentRow, type ExampleKey } from './model/estimationDocumentModel';
+import { applyNormToLine, estimateFromTable, exampleDocument, newLineRow, nextDocumentTitle, uniqueLabels, type DocumentRow, type ExampleKey } from './model/estimationDocumentModel';
 import { newDocumentRow } from './model/estimationDocumentModel';
 import { BASIS_TIPS, BASIS_TO_SUM_KEY, useGOSTInformationOf, type EstimationCurrencyBasis, type EstimationDocKind } from './model/estimationModel';
 import { ESTIMATION_LAYOUTS, type EstimationLayout } from './model/estimationLayouts';
@@ -43,7 +43,7 @@ import ExportNormBooks from './ui/ExportNormBooks';
 import ImportNormBooks from './ui/ImportNormBooks';
 import NormBookPanel from './ui/NormBookPanel';
 import SelectNormWindow from './ui/SelectNormWindow';
-import { saveLastEstimation, useLastEstimation } from './ui/lastEstimationLocal';
+import { useEstimationDashboardSettings, useEstimationProjectSettings, useEstimationUserSettingsSession } from './settings/useEstimationUserSettings';
 import { useEstimationData } from './ui/useEstimationData';
 import { docKindTitle } from './export/estimationForms';
 import { ESTIMATION_TREE_LABELS } from '../view/tree/toolbars/treeToolbarLabels';
@@ -76,11 +76,14 @@ export default function EstimationDashboard() {
   const selected = usePMStore((s: any) => s.selectedProjectGUID) as string | null;
   const [pickedGUID, setPickedGUID] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
-  // the project asked: the one picked here, a link (?projectGUID=), the one opened LAST time (kept on this device), the one selected in the project dashboard
-  const { ready: lastReady, last } = useLastEstimation();
+  // the project asked: the one picked here, a link (?projectGUID=), the one opened LAST time (the last state of the dashboard of this user on this work place:
+  // settings/, table estimation_dashboard_user_settings_table), the one selected in the project dashboard
+  const { supabase: client } = useSupabase() as any;
+  const lastReady = useEstimationUserSettingsSession(client, ownerGUID);
+  const { dashboard: lastDashboard, save: saveDashboard } = useEstimationDashboardSettings();
   const [lastGone, setLastGone] = useState(false);
   const linkGUID = typeof params?.projectGUID === 'string' && params.projectGUID ? params.projectGUID : null;
-  const rememberedGUID = !lastGone && lastReady ? last.projectGUID : null;
+  const rememberedGUID = !lastGone && lastReady ? lastDashboard.lastProjectGUID ?? null : null;
   // the project selected in the project dashboard counts once (the tree below selects the estimation project in the same store: that must not change the project asked)
   const frozenSelected = React.useRef<string | null | undefined>(undefined);
   if (lastReady && frozenSelected.current === undefined) frozenSelected.current = selected ?? null;
@@ -90,29 +93,47 @@ export default function EstimationDashboard() {
   const projectGUID = (askedGUID && (estimationLinkOf(projectJSON) ?? askedGUID)) || null;
   const editsLinked = !!askedGUID && projectGUID !== askedGUID;
   const gost = useGOSTInformationOf(projectJSON);
-  const { supabase: client } = useSupabase() as any;
   const { organizationJSON } = useMyOrganization();
   const perms = usePermissions(projectGUID);
   const canManage = perms.canManageEstimation !== false;
   const readOnly = !canManage || perms.projectIsReadonly;
-  const data = useEstimationData(client, projectGUID, projectGUID ? last.documentByProject[projectGUID] : null);
+  const { settings: projectSettings, save: saveProjectSettings } = useEstimationProjectSettings(projectGUID);
+  const data = useEstimationData(client, projectGUID, projectGUID ? projectSettings.lastDocumentGUID ?? null : null);
 
   // remember the project once it is read, and the estimate while it is open; a remembered project that is gone (deleted, no access) is forgotten
   useEffect(() => {
     if (!askedGUID || asked.isLoading) return;
-    if (asked.data) saveLastEstimation({ projectGUID: askedGUID });
-    else if (askedGUID === rememberedGUID && !pickedGUID && !linkGUID) { saveLastEstimation({ projectGUID: null }); setLastGone(true); }
-  }, [askedGUID, asked.isLoading, asked.data, rememberedGUID, pickedGUID, linkGUID]);
+    if (asked.data) saveDashboard({ lastProjectGUID: askedGUID });
+    else if (askedGUID === rememberedGUID && !pickedGUID && !linkGUID) { saveDashboard({ lastProjectGUID: null }); setLastGone(true); }
+  }, [askedGUID, asked.isLoading, asked.data, rememberedGUID, pickedGUID, linkGUID, saveDashboard]);
   useEffect(() => {
     // only an estimate that belongs to this project (right after a project switch the old one is still selected until the new list is read)
-    if (projectGUID && data.documentGUID && data.documents.some((d) => d.rowGUID === data.documentGUID && d.rowOwnerGUID === projectGUID)) saveLastEstimation({ documentProjectGUID: projectGUID, documentGUID: data.documentGUID });
-  }, [projectGUID, data.documentGUID, data.documents]);
+    if (projectGUID && data.documentGUID && data.documents.some((d) => d.rowGUID === data.documentGUID && d.rowOwnerGUID === projectGUID)) saveProjectSettings({ lastDocumentGUID: data.documentGUID });
+  }, [projectGUID, data.documentGUID, data.documents, saveProjectSettings]);
 
   const [tab, setTab] = useState<TabId>('estimate');
   const [layout, setLayout] = useState<EstimationLayout>('simple');
   // the help for the CFO of a layout: right click / double click / double touch / long press on its button
   const [helpLayout, setHelpLayout] = useState<EstimationLayout | null>(null);
   const [basis, setBasis] = useState<EstimationCurrencyBasis>('budget');
+  // the last state of the dashboard (tab; per project: layout, currency, width of the task tree): restored ONCE, saved when it changes. The save waits for the render AFTER the restore
+  // (else the default values would overwrite the saved ones)
+  const [restoredTab, setRestoredTab] = useState(false);
+  const [restoredProject, setRestoredProject] = useState<string | null>(null);
+  useEffect(() => {
+    if (!lastReady || restoredTab) return;
+    if (lastDashboard.lastTab) setTab(lastDashboard.lastTab);
+    setRestoredTab(true);
+  }, [lastReady, restoredTab, lastDashboard.lastTab]);
+  useEffect(() => {
+    if (!lastReady || !projectGUID || restoredProject === projectGUID) return;
+    if (projectSettings.layout) setLayout(projectSettings.layout);
+    if (projectSettings.currencyBasis) setBasis(projectSettings.currencyBasis);
+    if (projectSettings.tasksTreeWidth) usePMStore.getState().setTreeWidth(projectSettings.tasksTreeWidth);
+    setRestoredProject(projectGUID);
+  }, [lastReady, projectGUID, restoredProject, projectSettings]);
+  useEffect(() => { if (restoredTab) saveDashboard({ lastTab: tab }); }, [restoredTab, tab, saveDashboard]);
+  useEffect(() => { if (projectGUID && restoredProject === projectGUID) saveProjectSettings({ layout, currencyBasis: basis }); }, [restoredProject, projectGUID, layout, basis, saveProjectSettings]);
   const [importOpen, setImportOpen] = useState(false);
   const [exportBook, setExportBook] = useState<string | null>(null);
   const [normsVersion, setNormsVersion] = useState(0);
@@ -143,11 +164,20 @@ export default function EstimationDashboard() {
   const totals = data.calc.total;
   const shownTotal = doc ? data.calc.sums[BASIS_TO_SUM_KEY[basis]] : 0;
 
+  // the chip of a document: cipher + name; two documents with the same name are numbered (2), (3) ...
+  const docLabels = useMemo(
+    () => uniqueLabels(data.documents.map((d) => `${d.rowJSON.cipher ? `${d.rowJSON.cipher} · ` : ''}${d.rowJSON.title || docKindTitle(d.rowJSON.docKind, { gost, t: pmT })}`)),
+    [data.documents, gost],
+  );
+
   const newDocument = useCallback(async (kind: EstimationDocKind) => {
     if (!projectGUID) return;
-    await data.createDocument(newDocumentRow(projectGUID, kind, { title: '', currency: currencies.budget || undefined }));
+    // a name that is free: the second new estimate is called 'Local estimate 2', not 'Local estimate' again
+    const base = docKindTitle(kind, { gost, t: pmT });
+    const taken = data.documents.map((d) => (d.rowJSON.title || docKindTitle(d.rowJSON.docKind, { gost, t: pmT })));
+    await data.createDocument(newDocumentRow(projectGUID, kind, { title: nextDocumentTitle(base, taken), currency: currencies.budget || undefined }));
     setTab('estimate');
-  }, [data, projectGUID, currencies.budget]);
+  }, [data, projectGUID, currencies.budget, gost]);
 
   const readRates = useCallback(async () => {
     if (!doc?.rowJSON.currency) return;
@@ -314,9 +344,9 @@ export default function EstimationDashboard() {
           <View style={{ flex: 1 }}>
             <View style={styles.bar}>
               <View style={styles.docs}>
-                {data.documents.map((d) => (
+                {data.documents.map((d, i) => (
                   <Pressable key={d.rowGUID} testID={`estimation-doc-${d.rowGUID}`} onPress={() => data.selectDocument(d.rowGUID)} style={[styles.docChip, { borderColor: d.rowGUID === data.documentGUID ? c.primary : c.border, backgroundColor: d.rowGUID === data.documentGUID ? c.primary + '22' : 'transparent' }]}>
-                    <Text style={{ color: c.text, fontSize: 12 }} numberOfLines={1}>{d.rowJSON.cipher ? `${d.rowJSON.cipher} · ` : ''}{d.rowJSON.title || docKindTitle(d.rowJSON.docKind, { gost, t: pmT })}</Text>
+                    <Text style={{ color: c.text, fontSize: 12 }} numberOfLines={1}>{docLabels[i]}</Text>
                   </Pressable>
                 ))}
               </View>
@@ -333,7 +363,7 @@ export default function EstimationDashboard() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" labels={ESTIMATION_TREE_LABELS} emptyText={pmT('This project has no lines yet. The estimate is made per line: add the first section, then its lines.')} />
+              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" labels={ESTIMATION_TREE_LABELS} onTreeWidthCommit={(px) => saveProjectSettings({ tasksTreeWidth: px })} emptyText={pmT('This project has no lines yet. The estimate is made per line: add the first section, then its lines.')} />
             </View>
           </View>
         ) : tab === 'document' ? (

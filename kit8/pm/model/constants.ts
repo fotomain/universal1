@@ -6,7 +6,7 @@ export const projectTaskTable = 'project_task_table';
 export const projectTaskDependenciesTable = 'project_task_dependencies_table';
 export const projectTaskDependencyClosureTable = 'project_task_dependency_closure_table';
 /** Per user settings of a project (rowOwnerGUID = project, rowParentGUID = user, rowJSON.uxuiSettings). */
-export const projectUserSettingsTable = 'project_user_settings_table';
+export const projectUserSettingsTable = 'project_dashboard_user_settings_table';
 
 // ---- Templates -------------------------------------------------------------------
 export const templatesProjectTable = 'templates_project_table';

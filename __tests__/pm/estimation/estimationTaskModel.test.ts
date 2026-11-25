@@ -74,3 +74,17 @@ describe('the task plan -> task rows of the project', () => {
     expect([...rootStagesByName(rows)]).toEqual([['Foundations', 'aaaaaaaa-0000-0000-0000-000000000001']]);
   });
 });
+
+describe('document names', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { nextDocumentTitle, uniqueLabels } = require('../../../kit8/pm/estimation/model/estimationDocumentModel');
+  test('a new document gets a free name', () => {
+    expect(nextDocumentTitle('Local estimate', [])).toBe('Local estimate');
+    expect(nextDocumentTitle('Local estimate', ['Local estimate'])).toBe('Local estimate 2');
+    expect(nextDocumentTitle('Local estimate', ['local estimate', 'Local estimate 2'])).toBe('Local estimate 3');
+    expect(nextDocumentTitle('Quotation', ['Local estimate'])).toBe('Quotation');
+  });
+  test('documents that already share a name are numbered on screen', () => {
+    expect(uniqueLabels(['Local estimate', 'Quotation', 'Local estimate', 'Quotation', 'Other'])).toEqual(['Local estimate', 'Quotation', 'Local estimate (2)', 'Quotation (2)', 'Other']);
+  });
+});

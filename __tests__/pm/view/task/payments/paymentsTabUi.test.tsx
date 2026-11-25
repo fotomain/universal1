@@ -51,6 +51,8 @@ jest.mock('react-redux', () => {
 let mockPicker: any = null;
 jest.mock('../../../../../kit8/pm/view/project/pick/pmPickerContext', () => ({ ...jest.requireActual('../../../../../kit8/pm/view/project/pick/pmPickerContext'), usePMPicker: () => mockPicker }));
 // "Vendor Invoice" of a line asks the scope, then CREATES (useStartVendorInvoice; its own tests: documents/vendor/invoice/useVendorInvoice.test.tsx)
+// the widths of the columns are saved with the dashboard settings (useDashboardTableColumns needs the Supabase / react-query providers)
+jest.mock('../../../../../kit8/pm/crud/project/useDashboardTableColumns', () => ({ useDashboardTableColumns: () => ({ columnsWidths: undefined, onColumnsWidthsChange: jest.fn() }) }));
 const mockStartVendorInvoice = jest.fn();
 jest.mock('../../../../../kit8/documents/vendor/invoice/useVendorInvoice', () => ({ useStartVendorInvoice: () => ({ start: mockStartVendorInvoice, busy: false }) }));
 // "Customer Invoice" / "Time sheet" of the Task menu items (useTaskRelatedMenu): their hooks need the Supabase provider

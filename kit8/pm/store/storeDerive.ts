@@ -1,6 +1,7 @@
 // Pure helpers of the PM store (no Zustand): derive() turns tasks + dependencies of the selected
 // project into tree + CPM schedule + visible row order; viewSettingsOf() mirrors the project's
 // rowJSON view settings into the store.
+import { PM_TREE_MAX_WIDTH, PM_TREE_MIN_WIDTH } from '../model/constants';
 import { costColumnShown, costCurrencyOf, costWithVatColumnShown } from '../cost/costTotalModel';
 import { buildTreeIndex, computeProjectProgress, flattenVisible, PMTreeIndex, ROOT_KEY, scheduleProject, todayUTC } from '../view/project/scheduling';
 import { NO_PENDING, pendingCountOf, pendingOf, PMCalcSignature, provisionalRowOf, signatureOf } from '../model/calcSignature';
@@ -83,7 +84,7 @@ export function extContextOf(s: { deps: readonly any[]; tree: { wbsById: Record<
 export const EMPTY_TREE: PMTreeIndex = { parentById: {}, childrenById: { [ROOT_KEY]: [] }, depthById: {}, wbsById: {} };
 
 /**
- * Gantt / tree view settings = the user's row in project_user_settings_table (rowJSON.uxuiSettings)
+ * Gantt / tree view settings = the user's row in project_dashboard_user_settings_table (rowJSON.uxuiSettings)
  * over the project's legacy rowJSON.uxuiSettings; the store mirrors the selected project's values.
  * Custom columns (definitions + header colors) stay project data (project_table.rowJSON.customColumns).
  */
@@ -111,6 +112,8 @@ export function viewSettingsOf(project: PMProjectRow | undefined, userSettings?:
     selectRowCheckBoxForm: u.selectRowCheckBoxForm,
     treeColumnsOrder: u.treeColumnsOrder,
     treeColumnsWidths: u.treeColumnsWidths,
+    // the saved width of the tree pane (the key is absent while nothing is saved: the store keeps its own width)
+    ...(u.tasksTreeWidth ? { treeWidth: Math.max(PM_TREE_MIN_WIDTH, Math.min(PM_TREE_MAX_WIDTH, u.tasksTreeWidth)) } : {}),
     treeColumnsFilters: u.treeColumnsFilters,
     treeColumnSort: u.treeColumnSort,
     columnFilterIconColor: u.columnFilterIconColor,

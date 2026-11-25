@@ -71,7 +71,8 @@ export function useProjectRealtime(ownerGUID: string | null | undefined, project
 
     const onChange = (table: PMRealtimeTable) => () => schedule(invalidationFor(table));
     const onDelete = (table: PMRealtimeTable) => (payload: { old?: Record<string, unknown> }) => {
-      const userSettingsRows = qc.getQueryData<{ rows: { rowGUID: string }[] }>(pmKeys.userSettings(ownerGUID));
+      // the settings are cached per work place (a key that starts with userSettings(user))
+      const userSettingsRows = { rows: qc.getQueriesData<{ rows: { rowGUID: string }[] }>({ queryKey: pmKeys.userSettings(ownerGUID) }).flatMap(([, d]) => d?.rows ?? []) };
       const cache = {
         projects: qc.getQueryData<PMProjectRow[]>(pmKeys.projects(ownerGUID)),
         projectData: projectGUID ? qc.getQueryData<PMProjectData>(pmKeys.projectData(projectGUID)) : undefined,

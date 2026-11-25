@@ -1,4 +1,4 @@
-// React Query hooks for project_user_settings_table - the Gantt / tree settings of the signed-in
+// React Query hooks for project_dashboard_user_settings_table - the Gantt / tree settings of the signed-in
 // user per project (rowOwnerGUID = project, rowParentGUID = user, rowJSON.uxuiSettings).
 //
 //   useReadProjectUserSettingsQuery(userGUID)  all rows of the user -> store.setAllProjectUserSettings
@@ -16,6 +16,7 @@ import { PMProjectUserSettingsRow, PMUxUiSettings } from '../../model/types';
 import { errorMessage } from '../api/apiUtils';
 import { PMMissingTableError } from '../api/projectUserSettingsApi';
 import { pmKeys, usePMApi } from '../shared/queryShared';
+import { usePMWorkPlaceGUID } from '../shared/useWorkPlaceGUID';
 import { useUpdateProjectMutation } from './projectQueries';
 
 type UserSettingsData = { rows: PMProjectUserSettingsRow[]; missing: boolean };
@@ -25,11 +26,12 @@ const byProjectOf = (rows: PMProjectUserSettingsRow[]): Record<string, PMUxUiSet
 
 export function useReadProjectUserSettingsQuery(userGUID: string | null | undefined) {
   const api = usePMApi();
+  const workPlaceGUID = usePMWorkPlaceGUID();
   const setAll = usePMStore((s) => s.setAllProjectUserSettings);
   const query = useQuery({
-    queryKey: pmKeys.userSettings(userGUID),
-    queryFn: () => api.readProjectUserSettings(userGUID as string),
-    enabled: !!userGUID,
+    queryKey: pmKeys.userSettingsOf(userGUID, workPlaceGUID),
+    queryFn: () => api.readProjectUserSettings(userGUID as string, workPlaceGUID as string),
+    enabled: !!userGUID && !!workPlaceGUID,
   });
   useEffect(() => {
     if (query.data) setAll(byProjectOf(query.data.rows), query.data.missing);
@@ -40,7 +42,8 @@ export function useReadProjectUserSettingsQuery(userGUID: string | null | undefi
 export function useSaveProjectUserSettings(userGUID: string | null | undefined) {
   const api = usePMApi();
   const qc = useQueryClient();
-  const key = pmKeys.userSettings(userGUID);
+  const workPlaceGUID = usePMWorkPlaceGUID();
+  const key = pmKeys.userSettingsOf(userGUID, workPlaceGUID);
   const updateProject = useUpdateProjectMutation(userGUID);
 
   /** Old storage: project_table.rowJSON.uxuiSettings (legacy top-level keys are moved into it). */
@@ -55,7 +58,7 @@ export function useSaveProjectUserSettings(userGUID: string | null | undefined) 
   );
 
   const mutation = useMutation({
-    mutationFn: (v: { projectGUID: string; settings: PMUxUiSettings }) => api.saveProjectUserSettings(v.projectGUID, userGUID as string, v.settings),
+    mutationFn: (v: { projectGUID: string; settings: PMUxUiSettings }) => api.saveProjectUserSettings(v.projectGUID, userGUID as string, v.settings, workPlaceGUID as string),
     onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: key });
       const prev = qc.getQueryData<UserSettingsData>(key);
@@ -66,6 +69,7 @@ export function useSaveProjectUserSettings(userGUID: string | null | undefined) 
           rowGUID: '',
           rowOwnerGUID: v.projectGUID,
           rowParentGUID: userGUID as string,
+          userWorkPlaceGUID: workPlaceGUID as string,
           orderInList: 0,
           rowJSON: {},
         };
@@ -93,7 +97,7 @@ export function useSaveProjectUserSettings(userGUID: string | null | undefined) 
   /** Merges `patch` into the effective settings of the project and saves the result for this user. */
   const saveUxuiSettings = useCallback(
     (projectGUID: string | null | undefined, patch: PMUxUiSettings) => {
-      if (!projectGUID || !userGUID) return;
+      if (!projectGUID || !userGUID || !workPlaceGUID) return; // the work place is known a few ms after the start: nothing is saved before it
       const s = usePMStore.getState();
       if (!s.projectsById[projectGUID]) return;
       const settings: PMUxUiSettings = { ...effectiveUxuiSettings(s, projectGUID), ...patch };
@@ -104,7 +108,7 @@ export function useSaveProjectUserSettings(userGUID: string | null | undefined) 
       }
       mutation.mutate({ projectGUID, settings });
     },
-    [mutation, saveLegacy, userGUID]
+    [mutation, saveLegacy, userGUID, workPlaceGUID]
   );
 
   return { saveUxuiSettings, isSaving: mutation.isPending };

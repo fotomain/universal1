@@ -21,6 +21,28 @@ export function newDocumentRow(projectGUID: string, docKind: EstimationDocKind =
   };
 }
 
+/** the name a NEW document gets: `base` when it is free, else `base 2`, `base 3` ... (two documents with the same name cannot be told apart in the list of documents) */
+export function nextDocumentTitle(base: string, taken: readonly string[]): string {
+  const used = new Set(taken.map((t) => t.trim().toLowerCase()));
+  if (!used.has(base.trim().toLowerCase())) return base;
+  let n = 2;
+  while (used.has(`${base} ${n}`.toLowerCase())) n += 1;
+  return `${base} ${n}`;
+}
+
+/** the names shown for the documents of a project: the second and the next document with the SAME name get ` (2)`, ` (3)` ... (documents made before the names were unique) */
+export function uniqueLabels(labels: readonly string[]): string[] {
+  const seen = new Map<string, number>();
+  const total = new Map<string, number>();
+  for (const l of labels) total.set(l, (total.get(l) ?? 0) + 1);
+  return labels.map((l) => {
+    if ((total.get(l) ?? 0) < 2) return l;
+    const n = (seen.get(l) ?? 0) + 1;
+    seen.set(l, n);
+    return n === 1 ? l : `${l} (${n})`;
+  });
+}
+
 export function newLineRow(projectGUID: string, documentGUID: string, lineKind: EstimationLineKind, parentGUID: string, orderInList: number, extra: Partial<EstimationLineJSON> = {}): LineRow {
   return { rowGUID: newGUID(), rowOwnerGUID: projectGUID, rowParentGUID: parentGUID || 'empty', orderInList, rowJSON: { documentGUID, lineKind, title: '', ...(lineKind === 'position' ? { qty: 1, unit: '' } : {}), ...extra } };
 }

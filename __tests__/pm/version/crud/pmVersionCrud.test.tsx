@@ -135,14 +135,14 @@ describe('project versions (commands)', () => {
     await h.settle();
     expect(vs().overlays[0]).toMatchObject({ versionGUID: v1, title: 'Baseline' });
     expect(Object.keys(vs().overlays[0].bars).length).toBe(8);
-    const saved = h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === h.P1 && r.rowParentGUID === h.owner);
+    const saved = h.db.rows('project_dashboard_user_settings_table').find((r) => r.rowOwnerGUID === h.P1 && r.rowParentGUID === h.owner);
     expect(saved?.rowJSON.uxuiSettings.checkedProjectVersions).toEqual([v1]);
 
     act(() => c().toggleChecked(v1));
     await h.settle();
     expect(vs().checkedGUIDs).toEqual([]);
     expect(vs().overlays).toEqual([]);
-    expect(h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === h.P1)?.rowJSON.uxuiSettings.checkedProjectVersions).toEqual([]);
+    expect(h.db.rows('project_dashboard_user_settings_table').find((r) => r.rowOwnerGUID === h.P1)?.rowJSON.uxuiSettings.checkedProjectVersions).toEqual([]);
   });
 
   it(`at most ${PM_VERSION_MAX_CHECKED} versions can be compared at once`, async () => {

@@ -73,6 +73,7 @@ import PMTaskFilesPanel from '../../../../files/common/PMTaskFilesPanel';
 import { FILES_TAB_ID, filesEnabledOfProject } from '../../../../files/common/fileModel';
 import { useOrganizationFilesProvider } from '../../../../files/common/useOrganizationFilesProvider';
 import { useFilesList } from '../../../../files/common/useFiles';
+import { useDashboardTableColumns } from '../../../crud/project/useDashboardTableColumns';
 import { taskTemplatesSubmenu } from '../../../tasktemplate/crud/useTaskTemplates';
 import { usePaymentPlanEnvironment, usePaymentPlanFollowsTask, useTaskPaymentPlanRows } from '../payments/usePaymentPlan';
 
@@ -148,6 +149,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
   // the tab picked by the user (or by the place of the last edit) may have been switched off meanwhile: the first offered tab is shown instead
   const genus = visibleGenus.some((g) => g.genus === pickedGenus) ? pickedGenus : (visibleGenus[0]?.genus ?? pickedGenus);
   const def = taskLineGenusDef(genus) ?? TASK_LINE_GENUS[0];
+  const tableWidths = useDashboardTableColumns(projectGUID, `taskLines.${genus}`); // the widths of the columns are the last state of the dashboard (per user, project and work place)
   // the Time lines ALWAYS book WORK CENTERS (2026-11-23)
   const timeWorkCenters = true;
   const timeKinds = useMemo(
@@ -352,6 +354,8 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
           selectRowCheckBoxForm={selectRowCheckBoxForm}
           dragAndDropColumns
           resizeColumnWidth
+          columnsWidths={tableWidths.columnsWidths}
+          onColumnsWidthsChange={tableWidths.onColumnsWidthsChange}
           focusRowGUID={focusLine}
           readOnly={!perm.can('task_line_table', 'U')}
           addEnabled={perm.can('task_line_table', 'C')}

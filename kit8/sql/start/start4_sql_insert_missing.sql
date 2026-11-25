@@ -6,7 +6,7 @@
 -- What is here: the rows the app starts with - countries, currencies, the ECB exchange rates, the demo persons / partners / contracts, the kanban stages, the product
 -- catalog (VAT, units, descriptors, product types, products, properties, variants, prices, barcodes), the resource roles / types / folders / rates, the management genus, distributions,
 -- budget items, person types and the person descriptors, resource contract templates, calendars (and their days), equipment, CFR types, business units, budget scenarios.
--- What is NOT here: the BACKFILLS of data that already exists in a database (userTable from auth.users, project_user_settings_table, task_line_plan_timeline, the first fill of
+-- What is NOT here: the BACKFILLS of data that already exists in a database (userTable from auth.users, project_dashboard_user_settings_table, task_line_plan_timeline, the first fill of
 -- the Monitor01 queue, the migrations of project / task / organization rows) - they stay in start1_sql_tables.sql + start2_sql_code.sql next to the table they repair.
 -- start5_sql_upsert_all.sql is the same seed data as UPSERTS (refreshes seed rows); this file only inserts what is missing.
 -- ===============================================================================================
@@ -133,6 +133,7 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('product_receipt_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
     ('projectFileManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
     ('projectMediaPostManager', ARRAY['CRUD', 'CRUD', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N', 'N']),
+    ('project_dashboard_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('project_kanban_stage_table', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('project_payment_fact_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
     ('project_payment_fact_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
@@ -158,7 +159,6 @@ SELECT 'permCrud.' || p.code || '.' || v.name, 'permissionCatalog', p.code, 0,
     ('project_timesheet_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('project_timesheet_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
     ('project_timesheet_lines_data_entered', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'CRUD', 'CRUD', 'R', 'CRUD']),
-    ('project_user_settings_table', ARRAY['own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own', 'own']),
     ('propertyValueTable', ARRAY['CRUD', 'RC', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R']),
     ('purchase_order_header', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),
     ('purchase_order_lines', ARRAY['R', 'CRUD', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'R', 'CRUD']),

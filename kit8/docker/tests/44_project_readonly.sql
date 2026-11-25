@@ -123,7 +123,7 @@ SELECT tt.eq(public.project_is_readonly('eeeeeeee-0000-0000-0000-00000000000e'),
 SELECT tt.eq((SELECT count(*) > 0 FROM public.project_task_table t WHERE t."projectGUID" = :'p1'), true, 'the tasks are read');
 SELECT tt.eq(tt.rows_of(format($q$UPDATE public.project_task_table SET "rowJSON" = "rowJSON" || '{"taskDescription": "Other"}' WHERE "rowGUID" = %L$q$, :'o1')), 1::bigint, 'a task of ANOTHER project of the user is changed as before');
 -- the personal view settings are not project data
-SELECT tt.eq(tt.rows_of(format($q$INSERT INTO public.project_user_settings_table ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (%L, '11111111-1111-1111-1111-111111111111', '{"uxuiSettings": {}}')$q$, :'p1')), 1::bigint, 'the own view settings of the user are still saved');
+SELECT tt.eq(tt.rows_of(format($q$INSERT INTO public.project_dashboard_user_settings_table ("rowOwnerGUID", "rowParentGUID", "rowJSON") VALUES (%L, '11111111-1111-1111-1111-111111111111', '{"uxuiSettings": {}}')$q$, :'p1')), 1::bigint, 'the own view settings of the user are still saved');
 
 -- 7. the SQL editor / the workers (no session) pass ---------------------------------------------------------------------------------------------------------------------
 SELECT tt.as_admin();

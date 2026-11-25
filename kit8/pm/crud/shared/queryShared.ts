@@ -23,8 +23,10 @@ export const pmKeys = {
   projectSearch: (ownerGUID: string | null | undefined, text: string) => ['pm', 'projectSearch', ownerGUID, text] as const,
   projectData: (projectGUID: string | null | undefined) => ['pm', 'projectData', projectGUID] as const,
   task: (taskGUID: string | null | undefined) => ['pm', 'task', taskGUID] as const,
-  /** project_user_settings_table rows of one user (all his projects) */
+  /** project_dashboard_user_settings_table rows of one user (all his projects) */
   userSettings: (userGUID: string | null | undefined) => ['pm', 'userSettings', userGUID] as const,
+  /** the same rows for ONE work place of the user (it starts with the key above, so invalidating `userSettings(user)` reaches it) */
+  userSettingsOf: (userGUID: string | null | undefined, workPlaceGUID: string | null | undefined) => ['pm', 'userSettings', userGUID, workPlaceGUID ?? null] as const,
   /** kanban_stage_table catalog (shared) */
   kanbanCatalog: () => ['pm', 'kanbanCatalog'] as const,
   /** project_kanban_stage_table + project_task_kanban_state_table of one project */

@@ -1033,36 +1033,51 @@ $$;
 
 GRANT EXECUTE ON FUNCTION public.pm_seed_demo(uuid, date) TO authenticated;
 
-DROP TRIGGER IF EXISTS trg_project_user_settings_touch ON public.project_user_settings_table;
+-- names before the rename of 2026-11-25 (a renamed table keeps its old trigger / policy names)
+DROP TRIGGER IF EXISTS trg_project_user_settings_touch ON public.project_dashboard_user_settings_table;
 
-CREATE TRIGGER trg_project_user_settings_touch BEFORE UPDATE ON public.project_user_settings_table
+DROP TRIGGER IF EXISTS trg_project_dashboard_user_settings_touch ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_select ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_insert ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_update ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_delete ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_perm_insert ON public.project_dashboard_user_settings_table;
+
+DROP POLICY IF EXISTS project_user_settings_perm_update ON public.project_dashboard_user_settings_table;
+
+CREATE TRIGGER trg_project_dashboard_user_settings_touch BEFORE UPDATE ON public.project_dashboard_user_settings_table
   FOR EACH ROW EXECUTE FUNCTION public.pm_touch_updated_at();
 
 
-ALTER TABLE public.project_user_settings_table ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.project_dashboard_user_settings_table ENABLE ROW LEVEL SECURITY;
 
-REVOKE ALL ON public.project_user_settings_table FROM anon, authenticated;
+REVOKE ALL ON public.project_dashboard_user_settings_table FROM anon, authenticated;
 
-GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_user_settings_table TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.project_dashboard_user_settings_table TO authenticated;
 
-DROP POLICY IF EXISTS project_user_settings_select ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_select ON public.project_dashboard_user_settings_table;
 
-DROP POLICY IF EXISTS project_user_settings_insert ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_insert ON public.project_dashboard_user_settings_table;
 
-DROP POLICY IF EXISTS project_user_settings_update ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_update ON public.project_dashboard_user_settings_table;
 
-DROP POLICY IF EXISTS project_user_settings_delete ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_delete ON public.project_dashboard_user_settings_table;
 
-CREATE POLICY project_user_settings_select ON public.project_user_settings_table FOR SELECT TO authenticated
+CREATE POLICY project_dashboard_user_settings_select ON public.project_dashboard_user_settings_table FOR SELECT TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
-CREATE POLICY project_user_settings_insert ON public.project_user_settings_table FOR INSERT TO authenticated
+CREATE POLICY project_dashboard_user_settings_insert ON public.project_dashboard_user_settings_table FOR INSERT TO authenticated
   WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
 
-CREATE POLICY project_user_settings_update ON public.project_user_settings_table FOR UPDATE TO authenticated
+CREATE POLICY project_dashboard_user_settings_update ON public.project_dashboard_user_settings_table FOR UPDATE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND public.pm_owns_project("rowOwnerGUID"));
 
-CREATE POLICY project_user_settings_delete ON public.project_user_settings_table FOR DELETE TO authenticated
+CREATE POLICY project_dashboard_user_settings_delete ON public.project_dashboard_user_settings_table FOR DELETE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid()));
 
 DROP TRIGGER IF EXISTS trg_kanban_stage_touch ON public.kanban_stage_table;
@@ -1893,11 +1908,11 @@ UPDATE public.project_table
 
 
 -- project_table.rowJSON.uxuiSettings -> settings row of the owner (update_pm_tables_userSettings.sql)
-INSERT INTO public.project_user_settings_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
+INSERT INTO public.project_dashboard_user_settings_table ("rowOwnerGUID", "rowParentGUID", "rowJSON")
 SELECT p."rowGUID", p."rowOwnerGUID", jsonb_build_object('uxuiSettings', p."rowJSON"->'uxuiSettings')
   FROM public.project_table p
  WHERE jsonb_typeof(p."rowJSON"->'uxuiSettings') = 'object'
-ON CONFLICT ("rowOwnerGUID", "rowParentGUID") DO NOTHING;
+ON CONFLICT ("rowOwnerGUID", "rowParentGUID", "userWorkPlaceGUID") DO NOTHING;
 
 
 -- ---- users: one GUID per user (userTable) -------------------------------------------------
@@ -1985,7 +2000,7 @@ DECLARE
     'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
     'personTable', 'partnerTable', 'contractTable',
     -- PM (React Query invalidation: kit8/pm/crud/realtime, kit8/pm/crud/kanban)
-    'project_table', 'project_task_table', 'project_task_dependencies_table', 'project_user_settings_table',
+    'project_table', 'project_task_table', 'project_task_dependencies_table', 'project_dashboard_user_settings_table',
     'kanban_stage_table', 'project_kanban_stage_table', 'project_task_kanban_state_table'
   ];
   v_all boolean;
@@ -17563,13 +17578,13 @@ CREATE POLICY project_table_insert ON public.project_table FOR INSERT TO authent
   WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid()) AND (SELECT public.perm_can('project_table', 'C')));
 
 -- the personal settings of a user in a project he may read (the floor asks for ownership)
-DROP POLICY IF EXISTS project_user_settings_perm_insert ON public.project_user_settings_table;
-DROP POLICY IF EXISTS project_user_settings_perm_update ON public.project_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_perm_insert ON public.project_dashboard_user_settings_table;
+DROP POLICY IF EXISTS project_dashboard_user_settings_perm_update ON public.project_dashboard_user_settings_table;
 
-CREATE POLICY project_user_settings_perm_insert ON public.project_user_settings_table FOR INSERT TO authenticated
+CREATE POLICY project_dashboard_user_settings_perm_insert ON public.project_dashboard_user_settings_table FOR INSERT TO authenticated
   WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND "rowOwnerGUID" IN (SELECT public.perm_projects('project_table', 'R')));
 
-CREATE POLICY project_user_settings_perm_update ON public.project_user_settings_table FOR UPDATE TO authenticated
+CREATE POLICY project_dashboard_user_settings_perm_update ON public.project_dashboard_user_settings_table FOR UPDATE TO authenticated
   USING ("rowParentGUID" = (SELECT public.app_user_guid())) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid()) AND "rowOwnerGUID" IN (SELECT public.perm_projects('project_table', 'R')));
 
 -- ---- documents: the delete of a draft header needs D on the document (the select stays organization wide, like before) ---------------------------------------------
@@ -19269,7 +19284,7 @@ NOTIFY pgrst, 'reload schema';
 -- trigger) and aa_project_readonly on project_table (aa_ = FIRST: it compares what the client sent). It looks at auth.uid(): a request of a signed-in user is refused, also inside a
 -- SECURITY DEFINER RPC; the SQL editor, the service key and the pg_cron workers (no session) pass. The derived tables (plan movements, register, turnover, Monitor01, cost total,
 -- ROI, the RACI-derived task_user_permission_table and chat members) have no guard: nothing feeds them while the sources are closed. NOT guarded: the personal things of a user
--- (project_user_settings_table, the read mark of a chat = chat_mark_read) and the templates saved FROM the project.
+-- (project_dashboard_user_settings_table, the read mark of a chat = chat_mark_read) and the templates saved FROM the project.
 -- The helper project_is_readonly(project) is in PART 1 (next to pm_owns_project).
 -- ===============================================================================================
 
@@ -21391,7 +21406,7 @@ DO $$
 DECLARE
   t text;
 BEGIN
-  FOREACH t IN ARRAY ARRAY['estimation_norm_book_catalog', 'estimation_norm_catalog', 'estimation_resource_catalog', 'estimation_coefficient_catalog', 'estimation_export_template_catalog', 'estimation_index_history', 'estimation_overhead_profit_table', 'estimation_document_table', 'estimation_line_table', 'estimation_market_quote_table'] LOOP
+  FOREACH t IN ARRAY ARRAY['estimation_norm_book_catalog', 'estimation_norm_catalog', 'estimation_resource_catalog', 'estimation_coefficient_catalog', 'estimation_export_template_catalog', 'estimation_index_history', 'estimation_overhead_profit_table', 'estimation_document_table', 'estimation_line_table', 'estimation_market_quote_table', 'estimation_dashboard_user_settings_table'] LOOP
     PERFORM public.kit8_setup_def_table(t);
     EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
     EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
@@ -21407,6 +21422,12 @@ BEGIN
     EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.permission_estimation_manager()) WITH CHECK (public.permission_estimation_manager())', t || '_update', t);
     EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.permission_estimation_manager())', t || '_delete', t);
   END LOOP;
+  -- the last state of the dashboard of a user (twin of project_dashboard_user_settings_table): only the own rows; a row of a project needs the right to READ that project
+  t := 'estimation_dashboard_user_settings_table';
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ("rowParentGUID" = (SELECT public.app_user_guid())::text)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid())::text AND ("rowOwnerGUID" = ''dashboard'' OR public.estimation_project_access("rowOwnerGUID", false)))', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ("rowParentGUID" = (SELECT public.app_user_guid())::text) WITH CHECK ("rowParentGUID" = (SELECT public.app_user_guid())::text AND ("rowOwnerGUID" = ''dashboard'' OR public.estimation_project_access("rowOwnerGUID", false)))', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ("rowParentGUID" = (SELECT public.app_user_guid())::text)', t || '_delete', t);
   -- the project data: rowOwnerGUID = the project
   FOREACH t IN ARRAY ARRAY['estimation_document_table', 'estimation_line_table', 'estimation_market_quote_table'] LOOP
     EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.estimation_project_access("rowOwnerGUID", false))', t || '_select', t);
@@ -21533,6 +21554,7 @@ CREATE TRIGGER trg_estimation_line_guard BEFORE INSERT OR UPDATE ON public.estim
 CREATE OR REPLACE FUNCTION public.estimation_project_deleted() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 BEGIN
+  DELETE FROM public.estimation_dashboard_user_settings_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
   DELETE FROM public.estimation_market_quote_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
   DELETE FROM public.estimation_line_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
   DELETE FROM public.estimation_document_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;

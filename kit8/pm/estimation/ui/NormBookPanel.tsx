@@ -9,6 +9,7 @@ import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import SwitchApp from '../../../ui/components/common/SwitchApp';
 import SelectItemFromListApp from '../../../ui/components/common/SelectItemFromListApp';
 import ReusableTable from '../../../ui/components/table/reusable/ReusableTable';
+import { useEstimationTableColumns } from '../settings/useEstimationUserSettings';
 import type { ReusableTableRow, VisualColumn } from '../../../ui/components/table/reusable/reusableTableTypes';
 import { TREE_ALL_ID, type FolderTreeNode } from '../../../ui/components/tree/folderTreeModel';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
@@ -80,6 +81,7 @@ const LABOUR_RATE = 0;
 const resourcesText = (resources: any): string => (Array.isArray(resources) ? resources.map((r: any) => `${r.code}${r.qty !== undefined ? ` × ${r.qty}` : ''}`).join('; ') : '');
 
 export default function NormBookPanel({ client, canManage, onAddNorm, onImport, onExport, pickMode = false, version = 0, testID = 'estimation-norm-books' }: NormBookPanelProps) {
+  const normColumns = useEstimationTableColumns(null, pickMode ? 'normBooksPicker' : 'normBooks');
   const { themeColors: c } = useDesignSystem();
   const language = usePMLanguage();
   const [tree, setTree] = useState<NormTreeNode | null>(null);
@@ -337,6 +339,8 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
         } : undefined}
         contextMenuEnabled={false}
         resizeColumnWidth
+        // the widths of the columns are the last state of the dashboard (per user and work place; the picker window has its own set)
+        {...normColumns}
         // (uxuiFolders: the bottom offset above)
         uxuiTable={{ showFoldersTree: true, foldersTreeWidth: NORM_TREE_WIDTH, foldersTreeResizable: false, foldersTreeCollapsible: true }}
         foldersTree={{

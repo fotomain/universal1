@@ -27,6 +27,7 @@ import { clampValue, maxScrollX, maxScrollY, useGanttViewport, type PMViewport }
 import { mondayOnOrBefore } from './ganttGeometry';
 import { diffDaysMs, todayUTC } from '../project/scheduling';
 import { usePMCrud } from '../../crud/usePMCrud';
+import { useProjectViewSettings } from '../../crud/project/useProjectViewSettings';
 import PMProjectTasksTree from '../tree/PMProjectTasksTree';
 import PMProjectGanttChart from './PMProjectGanttChart';
 import { measureViewInWindow, registerDashboardPdfTarget } from '../../crud/exchange/pdf/exportDashboardToPdf';
@@ -61,6 +62,8 @@ export interface PMGanttSurfaceProps {
   hideRight?: boolean;
   /** uxui.hideGanttToolBar: no tree toolbar and no Gantt / Kanban bar (both, so the rows stay aligned) */
   hideToolbars?: boolean;
+  /** the splitter between the tree and the chart was released: the new width of the tree (px). Default: saved in the dashboard settings of the project (per user and work place). */
+  onTreeWidthCommit?: (px: number) => void;
 }
 
 const IS_COARSE =
@@ -78,7 +81,11 @@ export default function PMGanttSurface({
   hideTree: hideTreeProp = false,
   hideRight: hideRightProp = false,
   hideToolbars = false,
+  onTreeWidthCommit,
 }: PMGanttSurfaceProps) {
+  const { setTasksTreeWidth } = useProjectViewSettings(ownerGUID, projectGUID);
+  const commitTreeWidthRef = useRef<(px: number) => void>(setTasksTreeWidth);
+  commitTreeWidthRef.current = onTreeWidthCommit ?? setTasksTreeWidth;
   // never both hidden
   const hideRight = hideRightProp && !hideTreeProp;
   const hideTree = hideTreeProp;
@@ -319,7 +326,11 @@ export default function PMGanttSurface({
         if (narrowRef.current) setNarrowTreeWidth(w);
         else usePMStore.getState().setTreeWidth(w);
       })
-      .onFinalize(() => setSplitterActive(false));
+      .onFinalize(() => {
+        setSplitterActive(false);
+        // the wide layout keeps the width in the store: the last state of the dashboard (a phone keeps its own, local width)
+        if (!narrowRef.current && usePMStore.getState().treeWidth !== splitStart.current) commitTreeWidthRef.current(usePMStore.getState().treeWidth);
+      });
     if (IS_COARSE) g.activateAfterLongPress(220);
     return g;
   }, []);

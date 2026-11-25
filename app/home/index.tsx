@@ -5,7 +5,7 @@ import {useTranslation} from 'react-i18next';
 import {Text, useTheme} from 'react-native-paper';
 import {useSelector} from 'react-redux';
 import {DEFAULT_APP_NAME, getAppCustomization} from '../../apps/appCustomization';
-import {useWorkPlace} from '../../kit8/providers/WithWorkPlace';
+import {useUserWorkPlace} from '../../kit8/providers/WithUserWorkPlace';
 import {ActiveUserState} from '../../kit8/redux/activeUserSlice';
 
 import {HomeScrollContext, HomeScrollHost} from '../../kit8/ui/home/HomeScrollContext';
@@ -15,7 +15,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const theme = useTheme();
-  const { workPlaceGUID } = useWorkPlace();
+  const { userWorkPlaceGUID } = useUserWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
   // the home of the app (APP_NAME): apps/appCustomization.ts; an unknown app gets the default home
@@ -56,9 +56,9 @@ export default function HomeScreen() {
           <HomeComponent />
         </HomeScrollContext.Provider>
 
-        {workPlaceGUID && (
-          <Text style={[styles.workplaceText, { color: theme.colors.onSurfaceVariant }]}>
-            Workplace GUID: <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{workPlaceGUID}</Text>
+        {userWorkPlaceGUID && (
+          <Text style={[styles.userWorkplaceText, { color: theme.colors.onSurfaceVariant }]}>
+            User workplace GUID: <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{userWorkPlaceGUID}</Text>
           </Text>
         )}
       </ScrollView>
@@ -71,7 +71,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, alignItems: 'center', minHeight: '100%' },
-  workplaceText: {
+  userWorkplaceText: {
     marginVertical: 10,
     fontSize: 14,
     textAlign: 'center',

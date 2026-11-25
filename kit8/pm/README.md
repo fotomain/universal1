@@ -50,7 +50,7 @@ browser B edits → Supabase → Realtime channel (postgres_changes) → useProj
 
 * `useProjectRealtime(ownerGUID, projectGUID)` - mounted on the dashboard AND the task page. One channel per
   (user, project): `project_table` (filter `rowOwnerGUID`), `project_task_table` + `project_task_dependencies_table`
-  (filter `projectGUID`), `project_user_settings_table` (filter `rowParentGUID`) → projects / projectData / task /
+  (filter `projectGUID`), `project_dashboard_user_settings_table` (filter `rowParentGUID`) → projects / projectData / task /
   closure / userSettings queries.
 * DELETE events cannot be filtered by Supabase and (RLS + `REPLICA IDENTITY FULL`) carry only the primary key: they
   are matched against the cached rows (`projectRealtime.ts` `isDeleteRelevant`, pure).
@@ -123,7 +123,7 @@ Task page: any way back (in-page arrow, header arrow, Android back, browser back
 activates the task in the tree (parents expanded, row selected + scrolled into view: `store.requestFocus`).
 
 **Last task of the dashboard** (`view/project/useLastTask.ts`): the task the user clicked last is saved per user AND project in
-`project_user_settings_table.rowJSON.uxuiSettings.lastTaskGUID` (next to the main view Gantt / Edit / ..., `ganttVsNetworkView`), 0.8 s
+`project_dashboard_user_settings_table.rowJSON.uxuiSettings.lastTaskGUID` (next to the main view Gantt / Edit / ..., `ganttVsNetworkView`), 0.8 s
 after the click. When the project opens again (after its rows and saved view settings are in) the task is focused with `store.requestFocus`
 (parents expanded, selected, scrolled). Not restored: in a picker, with a deep link (`?projectGUID&taskGUID`), when the user already
 selected a task, when the task no longer exists. Test `__tests__/pm/view/project/useLastTask.test.tsx`.
@@ -216,7 +216,7 @@ While it is TRUE:
 
 **The database is the law** (SQL PART 51, `start2_sql_code.sql`): the BEFORE triggers `zz_project_readonly` (every table above) and `aa_project_readonly` (`project_table`) refuse a request of a SIGNED-IN user (`auth.uid()`), also inside a SECURITY DEFINER RPC, with `Read-only project "<name>": nothing can be changed (<table>) ...`. The SQL editor, the service key and the pg_cron workers (no session) pass. Helper `project_is_readonly(project)` (PART 1). The automatic writes of an open dashboard are QUIET (no error, nothing written): `pm_apply_schedule`, `pm_set_task_last_edit_place`, `pm_kanban_ensure_project_stages`; the origin task of a read-only project does not follow its subproject (`subproject_sync_origin_task`).
 
-NOT closed: the personal things of a user (the view settings `project_user_settings_table`, the read mark of a chat `chat_mark_read`), templates saved FROM the project, files of the scope `document` / `organization` (they have no project), the derived tables (register, Monitor01, cost total, ROI, the RACI-derived permission and chat member rows - nothing feeds them).
+NOT closed: the personal things of a user (the view settings `project_dashboard_user_settings_table`, the read mark of a chat `chat_mark_read`), templates saved FROM the project, files of the scope `document` / `organization` (they have no project), the derived tables (register, Monitor01, cost total, ROI, the RACI-derived permission and chat member rows - nothing feeds them).
 
 Interface (it only says it earlier):
 - `model/projectReadonly.ts` - `projectIsReadonly(rowJSON)`, the message, `readonlyAllows`;
@@ -248,7 +248,7 @@ Key: `undoGanttAction-<userGUID>-<projectGUID>`, last 100 actions kept. Button: 
 (task / stage / milestone, dependency, project) and before Undo: `await approvePM({ title, message, yesLabel,
 destructive })`. One window is mounted per screen (dashboard, task page).
 
-## Gantt UX/UI settings — `project_user_settings_table` (per project AND user)
+## Gantt UX/UI settings — `project_dashboard_user_settings_table` (per project, user AND work place)
 
 Each user has his own settings per project (`kit8/sql/defTable.md` pattern, RN `projectUserSettingsTable`):
 
@@ -257,9 +257,10 @@ Each user has his own settings per project (`kit8/sql/defTable.md` pattern, RN `
 | `rowGUID` | uuid of the row |
 | `rowOwnerGUID` | `project_table.rowGUID` (the project; the row is deleted with it) |
 | `rowParentGUID` | the user = Supabase auth uid (the PM owner id, `usePMOwnerGUID`) |
+| `userWorkPlaceGUID` | the work place of the user = the id of this device / browser (`kit8/providers/WithUserWorkPlace`); `'empty'` = a row made before work places existed |
 | `rowJSON` | `{ uxuiSettings: { …keys below… } }` - user specified data for visualisations |
 
-One row per (project, user) - `UNIQUE (rowOwnerGUID, rowParentGUID)`, saved with an upsert; RLS: own rows only.
+One row per (project, user, work place) - `UNIQUE (rowOwnerGUID, rowParentGUID, userWorkPlaceGUID)`, saved with an upsert on that triple; RLS: own rows only. The table was `project_user_settings_table` until 2026-11-25 (start1 renames it in place, the old rows keep the work place `'empty'` and are the starting values of a work place without a row: `pickWorkPlaceRows`). It is the LAST STATE of the dashboard: besides the view switches below it holds `lastTaskGUID`, `tasksTreeWidth` (px of the task tree, saved when the splitter is released), `tableColumnsWidth` (`{ [tableKey]: { [column]: px } }`, `useDashboardTableColumns`) and `treeColumnsWidths`. The fast state is the zustand store (`userSettingsByProject`); reading / saving waits for the work place (`usePMWorkPlaceGUID`).
 Read: `useReadProjectUserSettingsQuery(user)` (all rows of the user, dashboard + task page) → `store.userSettingsByProject`.
 Effective value = the user's row over the project's old `project_table.rowJSON.uxuiSettings` (still read as a fallback,
 e.g. after `update_pm_tables_userSettings.sql` for other users) over legacy top-level keys over defaults

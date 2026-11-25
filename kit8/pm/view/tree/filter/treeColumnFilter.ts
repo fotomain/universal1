@@ -2,7 +2,7 @@
 // model/types -> safe to use from there) - used by the store (visible rows), the Skia header
 // (icons), the "Filter & sort" popup and the unit tests (__tests__/pm/view/tree/filter).
 //
-// Saved per project AND user in project_user_settings_table.rowJSON.uxuiSettings:
+// Saved per project AND user in project_dashboard_user_settings_table.rowJSON.uxuiSettings:
 //   treeColumnsFilters     { [columnKey]: { filterVariantForColumn, value?, value2? } }   (all filters AND-ed)
 //   treeColumnSort         { key, direction: 'asc' | 'desc' } | null                     (one column at a time)
 //   columnFilterIconColor  '#RRGGBB' - filter icon of a filtered column header (default light vibrant red)

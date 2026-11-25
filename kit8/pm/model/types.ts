@@ -300,20 +300,22 @@ export interface PMRowJSON {
  * scheduler so SQL (reports, the project_task_schedule_view) can query real dates.
  */
 /**
- * Row of project_user_settings_table (kit8/sql/defTable.md pattern): the settings ONE user chose for ONE project.
+ * Row of project_dashboard_user_settings_table (kit8/sql/defTable.md pattern): the settings ONE user chose for ONE project.
  *   rowOwnerGUID = project_table.rowGUID · rowParentGUID = the user (Supabase auth uid)
  */
 export interface PMProjectUserSettingsRow {
   rowGUID: string;
   rowOwnerGUID: string;
   rowParentGUID: string;
+  /** the work place of the user (kit8/providers/WithUserWorkPlace); 'empty' = a row made before work places existed */
+  userWorkPlaceGUID?: string;
   orderInList: number;
   rowJSON: PMProjectUserSettingsJSON;
   created_at?: string;
   updated_at?: string;
 }
 
-/** project_user_settings_table.rowJSON - user specified data for visualisations. */
+/** project_dashboard_user_settings_table.rowJSON - user specified data for visualisations. */
 export interface PMProjectUserSettingsJSON {
   uxuiSettings?: PMUxUiSettings;
 }
@@ -452,8 +454,12 @@ export interface PMUxUiSettings {
   showTreeHierarchyNumbers?: boolean;
   /** Tree: column order, changed by dragging the column headers (default "#" first - see tree/columns). */
   treeColumnsOrder?: PMTreeColumnKey[];
-  /** Tree: widths of resized columns (drag a header separator), e.g. { name: 260 }. No Task name width = it fills the pane. */
+  /** Tree: widths of resized columns (drag a header separator), e.g. { name: 260 }. No Task name width = it fills the pane. (the "tasksTreeColumnsWidth" of the dashboard settings) */
   treeColumnsWidths?: Record<string, number>;
+  /** Width of the task tree pane in px (the splitter between the tree and the chart), saved per user, project AND work place. null = the default width. */
+  tasksTreeWidth?: number | null;
+  /** Widths of the columns of the tables of the dashboard (task lines, plan, payments ...): { [tableKey]: { [columnKey]: px } } (useDashboardTableColumns). */
+  tableColumnsWidth?: Record<string, Record<string, number>>;
   /** Tree: drag & drop of tasks (reorder / re-parent): a drag column (grip) after the row-select column + the # / Task name columns + the hover panel handle. false = no task dragging at all (default true). */
   dragAndDropTaskInTree?: boolean;
   /** Tree: row commands in a hover panel (default) or in a right-click / long-press menu. */
@@ -534,8 +540,21 @@ export type PMNetworkDiagramVariant = 'cpmNodes' | 'compactNodes';
 export type PMNetworkScheduleVariant = 'eventCircles' | 'timeScaled';
 
 
+/** { [tableKey]: { [columnKey]: px } } - anything that is not a positive finite number is dropped (a saved value comes from the database). */
+export function normalizeTableColumnsWidth(v: unknown): Record<string, Record<string, number>> {
+  const out: Record<string, Record<string, number>> = {};
+  if (!v || typeof v !== 'object') return out;
+  for (const [table, cols] of Object.entries(v as Record<string, unknown>)) {
+    if (!cols || typeof cols !== 'object') continue;
+    const o: Record<string, number> = {};
+    for (const [k, w] of Object.entries(cols as Record<string, unknown>)) if (typeof w === 'number' && Number.isFinite(w) && w > 0) o[k] = Math.round(w);
+    if (Object.keys(o).length) out[table] = o;
+  }
+  return out;
+}
+
 /**
- * Effective settings = the user's own row (project_user_settings_table.rowJSON.uxuiSettings)
+ * Effective settings = the user's own row (project_dashboard_user_settings_table.rowJSON.uxuiSettings)
  * over the project's legacy rowJSON.uxuiSettings, then legacy top-level keys, then defaults.
  */
 export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSettings?: PMUxUiSettings | null): Required<PMUxUiSettings> {
@@ -563,6 +582,8 @@ export function uxuiSettingsOf(json: PMRowJSONCommon | undefined | null, userSet
     // the Gantt Extended columns (cc_ext_*) are virtual (not in project.customColumns) but the user can place them: keep them in the saved order
     treeColumnsOrder: normalizeTreeColumnsOrder(u.treeColumnsOrder, projectCustomColumnsOf(json).columns.map((c) => c.key), true),
     treeColumnsWidths: normalizeTreeColumnsWidths(u.treeColumnsWidths),
+    tasksTreeWidth: typeof u.tasksTreeWidth === 'number' && Number.isFinite(u.tasksTreeWidth) && u.tasksTreeWidth > 0 ? Math.round(u.tasksTreeWidth) : null,
+    tableColumnsWidth: normalizeTableColumnsWidth(u.tableColumnsWidth),
     projectTreeContextCommandsMode: contextCommandsModeOf(u.projectTreeContextCommandsMode),
     projectGanttChartContextCommandsMode: contextCommandsModeOf(u.projectGanttChartContextCommandsMode),
     selectRowCheckBoxForm: selectRowCheckBoxFormOf(u.selectRowCheckBoxForm),

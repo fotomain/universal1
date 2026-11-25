@@ -93,6 +93,8 @@ DROP TABLE IF EXISTS public.estimation_line_table CASCADE;
 
 DROP TABLE IF EXISTS public.estimation_market_quote_table CASCADE;
 
+DROP TABLE IF EXISTS public.estimation_dashboard_user_settings_table CASCADE;
+
 DROP FUNCTION IF EXISTS public.estimation_project_row_guard();
 
 DROP FUNCTION IF EXISTS public.estimation_book_row_guard();
@@ -394,7 +396,7 @@ DO $$
 DECLARE
   r record;
 BEGIN
-  FOR r IN SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND (policyname LIKE '%\_perm\_%' ESCAPE '\' OR policyname = 'project_user_settings_perm_insert' OR policyname = 'project_user_settings_perm_update') LOOP
+  FOR r IN SELECT schemaname, tablename, policyname FROM pg_policies WHERE schemaname = 'public' AND (policyname LIKE '%\_perm\_%' ESCAPE '\' OR policyname = 'project_dashboard_user_settings_perm_insert' OR policyname = 'project_dashboard_user_settings_perm_update') LOOP
     EXECUTE format('DROP POLICY IF EXISTS %I ON %I.%I', r.policyname, r.schemaname, r.tablename);
   END LOOP;
 END $$;
@@ -1527,7 +1529,7 @@ BEGIN
            'countryTable', 'currencyTable', 'currencyExchangeRateTable', 'organizationTable',
            'departamentTable', 'personTable', 'partnerTable', 'contractTable', 'roleTable', 'userRoleTable',
            'project_table', 'project_task_table', 'project_task_dependencies_table',
-           'project_task_dependency_closure_table', 'project_user_settings_table',
+           'project_task_dependency_closure_table', 'project_dashboard_user_settings_table',
            'kanban_stage_table', 'project_kanban_stage_table', 'project_task_kanban_state_table',
            'templates_project_table', 'templates_project_task_table', 'templates_project_task_dependencies_table',
            'templates_project_task_dependency_closure_table', 'templates_project_kanban_stage_table',
@@ -1561,7 +1563,8 @@ DROP TABLE IF EXISTS public.templates_project_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_kanban_state_table CASCADE;
 DROP TABLE IF EXISTS public.project_kanban_stage_table CASCADE;
 DROP TABLE IF EXISTS public.kanban_stage_table CASCADE;
-DROP TABLE IF EXISTS public.project_user_settings_table CASCADE;
+DROP TABLE IF EXISTS public.project_dashboard_user_settings_table CASCADE;
+DROP TABLE IF EXISTS public.project_user_settings_table CASCADE;   -- the name before 2026-11-25 (an install that was never upgraded)
 DROP TABLE IF EXISTS public.project_task_dependency_closure_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_dependencies_table CASCADE;
 DROP TABLE IF EXISTS public.project_task_table CASCADE;

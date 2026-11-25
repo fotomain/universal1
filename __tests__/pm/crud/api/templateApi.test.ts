@@ -27,7 +27,7 @@ function setup() {
       rowJSON: { stageName: 'To Do' },
     },
   ]);
-  db.seed('project_user_settings_table', [
+  db.seed('project_dashboard_user_settings_table', [
     {
       rowGUID: 'settings-1',
       rowOwnerGUID: demo.projects[0].rowGUID,
@@ -120,8 +120,8 @@ describe('templateApi (templates_project_* CRUD & copy operations)', () => {
     const newStages = db.rows('project_kanban_stage_table').filter((s) => s.rowOwnerGUID === newProject.rowGUID);
     expect(newStages).toHaveLength(1);
 
-    // Verify settings copied to project_user_settings_table
-    const newSettings = db.rows('project_user_settings_table').filter((s) => s.rowOwnerGUID === newProject.rowGUID);
+    // Verify settings copied to project_dashboard_user_settings_table
+    const newSettings = db.rows('project_dashboard_user_settings_table').filter((s) => s.rowOwnerGUID === newProject.rowGUID);
     expect(newSettings).toHaveLength(1);
   });
 

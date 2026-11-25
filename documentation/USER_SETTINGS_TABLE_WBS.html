@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>User settings table - WBS</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  pre { font: 12.5px/1.5 var(--mono); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; padding: 12px 14px; overflow-x: auto; margin: 8px 0; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; margin-top: 12px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .pill.no { background: var(--rose-soft); color: var(--rose); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.todo { background: var(--amber-soft); color: var(--amber); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { border-left: 4px solid var(--amber); background: var(--amber-soft); padding: 10px 14px; border-radius: 8px; margin: 12px 0; }
+  .note.red { border-color: var(--rose); background: var(--rose-soft); }
+  .note.green { border-color: var(--emerald); background: var(--emerald-soft); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">User settings table</div>
+  <nav><ul>
+    <li><a href="#goal">Goal</a></li><li><a href="#today">Today</a></li><li><a href="#wbs">WBS</a></li><li><a href="#table">Table</a></li>
+    <li><a href="#json">rowJSON</a></li><li><a href="#device">Device key</a></li><li><a href="#defaults">Defaults</a></li><li><a href="#fonts">Fonts</a></li>
+    <li><a href="#sizes">Sizes</a></li><li><a href="#redux">Redux</a></li><li><a href="#cleanup">Clean-up</a></li><li><a href="#ui">UI</a></li>
+    <li><a href="#tests">Tests</a></li><li><a href="#open">Decisions</a></li><li><a href="#install">Install</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+  <section id="goal">
+    <h1>User settings table</h1>
+    <p class="lead">One table, <code>userSettingsTable</code>, keeps how the interface looks for ONE user on ONE kind of device: the design system, the fonts of the inputs and of the dashboards, the colors of the cells. It is a redux entity of <code>SystemMetaData</code> that refreshes by itself on every login of the user. The app looks like the operating system before anybody signs in.</p>
+    <p class="sub">PLAN ONLY (2026-11-25) - no code, no SQL; only the font files are downloaded (section 4 of "Fonts"). Source: the owner's Google Doc "RUN_NOW" (1qIC8GCT0XB77a7uAZBezwi_Zd2xVHYz07vVkGNYXcMU).</p>
+    <div class="card">
+      <h3 style="margin-top:0">The request, in the owner's order</h3>
+      <ol class="steps">
+        <li><b>Rule 1.</b> The app just opened, signed in or not: the default look is as native as possible. <b>Not Apple devices: react-native-paper</b> (system style). <b>Apple devices: the Expo UI theme, built on <code>@expo/ui</code></b>.</li>
+        <li><code>userSettingsTable</code> is a <code>SystemMetaData</code> entity with auto refresh for all logins of the user.</li>
+        <li>It is COMMON for all <code>userWorkPlaceGUID</code> of the user and holds the settings of the input visualisation: the MOST NATIVE font for each OS, plus the choice <b>System</b> (native font of the device or browser) · <b>Roboto</b> · <b>Inter</b> · <b>Selawik</b>.</li>
+        <li>Size <b>small · medium · large</b>, values from Google's recommendations for Angular (Angular Material 3 type scale); the settings the Google Material 3 typefaces need and allow; font files go to <code>assets/fonts</code>.</li>
+        <li>Columns: <code>rowOwnerGUID</code> = user · <code>rowParentGUID</code> = device type (desktop, phone, tablet) · <code>rowFolderGUID</code> = OS (macOS, Windows, Android ...). Unique key = the three. A new device gets default settings.</li>
+        <li><code>rowJSON</code>: <code>lastUsedAt</code> (time stamp of the last upsert; older than 1 month = the row is deleted by the redux background saga <code>deleteNotUsedUserSettings</code>) and <code>uxuiState</code> with <code>themeSettings</code> (no <code>themeStoreTable</code>; the changeable font settings of the theme elements) and <code>extendedSettings</code> (fonts + cell background of the Estimation dashboard and of the Project dashboard; cell background transparent by default).</li>
+        <li>The redux <code>uxuiState</code> holds the data of <code>userSettingsTable.rowJSON.uxuiState</code>.</li>
+      </ol>
+    </div>
+    
+  </section>
+
+  <section id="today">
+    <h1 style="font-size:23px">What the code does today (checked in the repository)</h1>
+    <div class="card scroll"><table>
+      <tr><th>Fact</th><th>Where</th><th>Meaning for the plan</th></tr>
+      <tr><td><code>uxuiState</code> is a plain redux slice, persisted in AsyncStorage by redux-persist (key <code>root + ver-14</code>); first value <code>activeDesignSystem = 'paper'</code>, <code>darkMode = false</code>, for EVERY platform</td><td><code>kit8/redux/uxuiSlice.ts</code>, <code>storePrepared.ts</code></td><td>Rule 1 is not built: an iPhone starts in Paper. A stored choice of an old user must stay (see Q6).</td></tr>
+      <tr><td>Design systems: <code>tamagui · paper · ant · native · expo · googlemd3web · applemacui</code>. <code>'expo'</code> is today a hand-made look (TouchableOpacity, radius 24); NO file imports <code>@expo/ui</code>, although <code>@expo/ui ~58.0.29</code> is installed</td><td><code>uxuiSlice.ts</code>, <code>ButtonApp.tsx</code> (case 'expo'), <code>package.json</code></td><td>"Expo UI theme based on @expo/ui" = new work (WP U11), not a switch of an existing one. The installed package has the entry points <code>universal</code> (Button, Text, TextInput, Switch, Picker, List ...), <code>swift-ui</code>, <code>jetpack-compose</code>, a <code>web</code> folder.</td></tr>
+      <tr><td><code>applemacui</code> = a hand-made iOS look with its own palette (<code>kit8/ui/applemacui</code>)</td><td><code>WithDesignSystem.tsx</code></td><td>Stays; the natural fallback for Apple WEB where native SwiftUI views do not exist (Q2).</td></tr>
+      <tr><td>The theme is <code>userTheme</code> (Paper MD3 colors, light / dark), persisted locally; <code>applyThemeFromSupabase</code> is a leftover of a "themeStore" idea that never got a table</td><td><code>kit8/redux/userThemeSlice.ts</code></td><td>The request says: no <code>themeStoreTable</code>. <code>themeSettings</code> of the new row replaces that idea; <code>applyThemeFromSupabase</code> becomes the reducer that applies it (or is removed).</td></tr>
+      <tr><td>NO font is configured in the theme (no <code>fontFamily</code>, no <code>configureFonts</code>); Skia surfaces draw Space Grotesk (tree, Gantt) and Roboto as a fallback (estimate grid) from <code>/fonts/*.ttf</code>; <code>assets/fonts</code> exists and is EMPTY, <code>public/fonts</code> holds SpaceGrotesk 400 / 700</td><td><code>kit8/pm/skia/usePMFonts.ts</code>, <code>kit8/pm/estimation/grid/useGridFonts.ts</code></td><td>Two kinds of text: normal React Native <code>Text</code> (takes <code>fontFamily</code>) and Skia canvases (take FONT FILES; CanvasKit on web has no system fonts). Both must follow the choice (WP U8).</td></tr>
+      <tr><td>A device is already identified: <code>userWorkPlaceGUID</code> (a random id kept in AsyncStorage), used by <code>project_dashboard_user_settings_table</code> (per user + project + work place)</td><td><code>kit8/providers/WithUserWorkPlace.tsx</code></td><td>The new table is deliberately NOT per work place (the request says common for all): it is per device TYPE + OS. The dashboard table stays as it is (column widths, last task).</td></tr>
+      <tr><td>The universal table schema has <code>rowOwnerGUID</code>, <code>rowParentGUID</code>, <code>orderInList</code>, <code>rowJSON</code> - there is NO <code>rowFolderGUID</code> anywhere in the code or SQL</td><td>KNOW_HOW 2.3</td><td>New column for this table (Q1).</td></tr>
+      <tr><td>A redux entity is a metadata file spread into <code>SystemMetaData</code> (<code>...routeVisitSystemMetaData()</code>); <code>createSupabaseTableChannel</code> gives Realtime, scoped by <code>readParams.match</code> (exchange rates use it)</td><td><code>kit8/redux/SystemMetaData.ts</code>, <code>kit8/catalog/user/visit/routeVisitMetaData.ts</code>, <code>kit8/redux/reusable/*</code></td><td>The pattern to copy: one metadata file, one model file, <code>readParams.match = { rowOwnerGUID: user }</code>.</td></tr>
+      <tr><td>Packages already installed: <code>expo-device</code>, <code>expo-font</code>, <code>expo-localization</code>, <code>expo-system-ui</code>, <code>@expo-google-fonts/*</code> (material-symbols, space-grotesk)</td><td><code>package.json</code></td><td>Device type + OS detection and font loading need no new native module. The Roboto / Inter font packages would be new (or plain .ttf files).</td></tr>
+      <tr><td>Last SQL part is PART 58, last Docker SQL test 110</td><td><code>start2_sql_code.sql</code></td><td>This feature = PART 59, test 111 (numbers to be re-checked on the day).</td></tr>
+    </table></div>
+  </section>
+
+  <section id="wbs">
+    <h1 style="font-size:23px">WBS</h1>
+    <p class="sub">Work packages in the order to build them. Nothing is built yet.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Work package</th><th>Where</th><th>Test</th><th>State</th></tr>
+      <tr><td>U1</td><td>Owner answers to Q1-Q13 (section "Decisions"; every question has a recommended default)</td><td>this page</td><td>-</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U2</td><td>SQL tables: <code>userSettingsTable</code> with <code>rowFolderGUID</code>, unique key, CHECKs on device type / OS values, indexes</td><td><code>start1_sql_tables.sql</code> PART 59</td><td>Docker 111</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U3</td><td>SQL code: <code>kit8_setup_def_table</code>, RLS = own rows only (<code>rowOwnerGUID = app_user_guid()</code>), Realtime publication, a normalising trigger for <code>rowJSON</code> (<code>lastUsedAt</code> always present), RPC <code>user_settings_upsert</code> (one call: insert or update, returns the row), delete of the file part in <code>delete_sql_structure.sql</code></td><td><code>start2_sql_code.sql</code> PART 59, <code>delete_sql_structure.sql</code></td><td>Docker 111 (RLS: user A never reads user B; unique key; upsert twice = one row)</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U4</td><td>Device key: <code>deviceTypeOf()</code> (desktop | phone | tablet) and <code>deviceOSOf()</code> (macos | windows | android | ios | ipados | linux | other), pure functions + a hook</td><td><code>kit8/ui/settings/deviceKey.ts</code></td><td>Jest (table of user agents, <code>Platform</code>, <code>expo-device</code> mocks)</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U5</td><td>Defaults: <code>platformDefaults(deviceKey)</code> = design system, font name, sizes, dark mode follows the OS; the JSON model + <code>normalizeUserSettings</code> (unknown keys kept, wrong values replaced)</td><td><code>kit8/catalog/user/settings/userSettingsModel.ts</code></td><td>Jest</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U6</td><td>Entity: metadata + <code>SystemMetaData</code> entry <code>userSetting</code>, Realtime scoped to the user, read on SIGNED_IN, create the default row when there is none</td><td><code>kit8/catalog/user/settings/userSettingsMetaData.ts</code>, <code>kit8/redux/SystemMetaData.ts</code></td><td>Jest (saga with the fake Supabase)</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U7</td><td>Two-way sync: row.<code>rowJSON.uxuiState</code> to redux <code>uxuiState</code> (hydrate), redux change to the row (debounced upsert, no echo loop); <code>lastUsedAt</code> touch rule (Q3)</td><td><code>kit8/redux/userSettingsSync.ts</code> (saga), <code>uxuiSlice.ts</code> (<code>applyUserSettings</code>)</td><td>Jest</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U8</td><td>Fonts: download the files into <code>assets/fonts</code> (and the web copy in <code>public/fonts</code>), the font registry (<code>fontCatalog.ts</code>) and the CSS stacks (<code>fontStacks.ts</code>, section 1c), loaders for native / web / Skia, theme integration (Paper <code>configureFonts</code>, the Expo UI theme, the Skia hooks)</td><td><code>assets/fonts</code>, <code>kit8/ui/fonts/*</code>, <code>kit8/pm/skia/usePMFonts.ts</code>, <code>useGridFonts.ts</code></td><td>Jest (registry, size table), a check that every file of the registry exists</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U8b</td><td>OPTIONAL spike "native text rendering": the browser's 2D canvas draws the text with <code>system-ui</code>, Skia shows the cached bitmap; measure the speed of scrolling the estimate grid with 1000 rows first, then decide (section 1d, way B)</td><td><code>kit8/pm/skia/nativeTextBitmap.ts</code> (web only)</td><td>Jest (cache key, pixel ratio) + a look in Safari / Chrome</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U8c</td><td>"Open source licenses" screen: Roboto, Inter, Selawik with the license texts of <code>assets/fonts</code></td><td>route under Settings</td><td>Jest UI</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U9</td><td>Saga <code>deleteNotUsedUserSettings</code>: rows of this user with <code>lastUsedAt</code> older than one month, run at start and then every 24 h while the app is open; never the row of the current device</td><td><code>kit8/redux/deleteNotUsedUserSettings.ts</code></td><td>Jest (fake clock)</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U10</td><td>Settings screen "Appearance": design system, font name, size, preview, per-dashboard font + cell background, "Reset to the defaults of this device"</td><td>new route under System settings / Settings (Q9)</td><td>Jest UI</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U11</td><td>Expo UI theme on <code>@expo/ui</code>: spike first (which of Button, Text, TextInput, Switch, Picker, List of <code>@expo/ui</code> work on iOS, on web, on macOS), then the theme wrapper behind the existing component layer (<code>ButtonApp</code>, <code>TextInputApp</code> ...) for the case <code>expo</code>; Rule 1 picks it on Apple</td><td><code>kit8/ui/components/common/*</code>, <code>kit8/ui/expoui/*</code></td><td>Jest + a look at the iOS simulator</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U12</td><td>Dashboards use the fonts and the cell background: Estimation dashboard (grid header + data cells), Project dashboard (task tree + task lines tables)</td><td><code>kit8/pm/estimation/grid</code>, <code>kit8/pm/view/project/tree</code>, <code>PMProjectTaskInputCRUD</code></td><td>Jest</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U13</td><td>First login of an existing user: the local <code>uxuiState</code> (redux-persist) is uploaded into the new row when there is none</td><td>U7</td><td>Jest</td><td><span class="pill todo">to do</span></td></tr>
+      <tr><td>U14</td><td>README of <code>kit8/catalog/user/settings</code>, the row in KNOW_HOW section 6, this page marked built</td><td>-</td><td>-</td><td><span class="pill todo">to do</span></td></tr>
+    </table></div>
+    <p class="sub" style="margin-top:10px">Order: U1 first. U2-U3 (SQL) and U4-U5 (pure code) are independent; U6-U7 need both; U8 can run beside them; U10-U12 last; U11 is the biggest risk and starts with its spike.</p>
+  </section>
+
+  <section id="table">
+    <h1 style="font-size:23px">The table</h1>
+    <p class="sub">Name as the owner wrote it (<code>userSettingsTable</code>); the owner's own names win over the snake_case rule of section 2.2.</p>
+    <div class="card scroll"><table>
+      <tr><th>Column</th><th>Type</th><th>Content</th></tr>
+      <tr><td><code>rowGUID</code></td><td>TEXT PK</td><td>generated, as every generic table</td></tr>
+      <tr><td><code>rowOwnerGUID</code></td><td>TEXT NOT NULL</td><td>the user (<code>app_user_guid()</code>, the same value every owner policy compares)</td></tr>
+      <tr><td><code>rowParentGUID</code></td><td>TEXT NOT NULL</td><td>device type: <code>desktop</code> | <code>phone</code> | <code>tablet</code> (CHECK)</td></tr>
+      <tr><td><code>rowFolderGUID</code> <span class="pill key">new column</span></td><td>TEXT NOT NULL DEFAULT 'empty'</td><td>OS: <code>macos</code> | <code>windows</code> | <code>android</code> | <code>ios</code> | <code>ipados</code> | <code>linux</code> | <code>other</code> (CHECK); lower case, no spaces</td></tr>
+      <tr><td><code>orderInList</code></td><td>NUMERIC</td><td>not used (0)</td></tr>
+      <tr><td><code>rowJSON</code></td><td>JSONB</td><td>section "rowJSON"</td></tr>
+      <tr><td><code>created_at</code>, <code>updated_at</code></td><td>TIMESTAMPTZ</td><td>by the touch trigger of <code>kit8_setup_def_table</code></td></tr>
+    </table></div>
+    <div class="card">
+      <b>Unique key:</b> <code>UNIQUE (rowOwnerGUID, rowParentGUID, rowFolderGUID)</code> - one row per user, device type and OS. The save is an upsert on that triple (<code>onConflict</code>), like <code>project_dashboard_user_settings_table</code>.<br>
+      <b>Why not per <code>userWorkPlaceGUID</code>:</b> the request says the settings are common for all work places. Two Chrome profiles on the same Mac are two work places and ONE row (<code>desktop</code> + <code>macos</code>): they look the same on purpose.<br>
+      <b>RLS:</b> a user selects, inserts, updates and deletes only his own rows; no administrator exception (it is a personal look). The matrix of permissions (<code>permission_matrix.py</code>) needs the table: owner-only, CRUD for the user himself.<br>
+      <b>Realtime:</b> in the publication; the entity listens with <code>match = { rowOwnerGUID: user }</code>.
+    </div>
+  </section>
+
+  <section id="json">
+    <h1 style="font-size:23px">rowJSON</h1>
+<pre>{
+  "lastUsedAt": "2026-11-25T09:30:00.000Z",
+  "uxuiState": {
+    "activeDesignSystem": "expo",                 // paper | expo | applemacui | ... (Rule 1 picks the first value)
+    "darkMode": false,                            // optional: absent = follow the OS
+    "themeSettings": {
+      "fontName": "system",                       // system | roboto | inter | selawik
+      "fontSize": "medium",                       // small | medium | large  (section "Sizes")
+      "elements": {                               // changeable font settings per theme element
+        "input":   { "fontName": "system", "fontSize": "medium" },
+        "label":   { "fontName": "system", "fontSize": "small"  },
+        "button":  { "fontName": "system", "fontSize": "medium", "fontWeight": 500 },
+        "title":   { "fontName": "system", "fontSize": "large"  }
+      }
+    },
+    "extendedSettings": {
+      "estimationDashboard": {
+        "fontForEstimationDashboardHeader":   { "fontName": "system", "fontSize": "medium", "fontWeight": 500 },
+        "fontForEstimationDashboardDataCell": { "fontName": "system", "fontSize": "medium" },
+        "estimationDashboardTable": { "cellBackground": "transparent" }
+      },
+      "projectDashboard": {
+        "fontForProjectDashboardHeader":   { "fontName": "system", "fontSize": "medium", "fontWeight": 500 },
+        "fontForProjectDashboardDataCell": { "fontName": "system", "fontSize": "medium" },
+        "projectDashboardTable": { "cellBackground": "transparent" }
+      }
+    }
+  }
+}</pre>
+    <ul class="steps">
+      <li>A missing key means "the default of this device" (U5 fills it when the row is read), so an old row never breaks a newer app and a newer row never breaks an older one (<code>normalizeUserSettings</code> keeps unknown keys, as <code>normalizeOrganization</code> must).</li>
+      <li>A font setting is <code>{ fontName, fontSize, fontWeight? }</code> - the SAME small object for every place that has a font, so the settings screen draws them all with one component. <code>fontName</code> <code>system</code> is a value, not an absence.</li>
+      <li><code>cellBackground</code> is a color string; <code>transparent</code> is the default so the surface of the theme (light / dark) shows through.</li>
+      <li><code>uxuiState</code> carries only the PREFERENCES of the redux slice (see "Redux"). The rest of the slice (snackbar, <code>currentJSON</code>, <code>intentInfo</code>, <code>refreshProjectData</code>) is never saved.</li>
+    </ul>
+  </section>
+
+  <section id="device">
+    <h1 style="font-size:23px">Which row is mine: the device key</h1>
+    <div class="card scroll"><table>
+      <tr><th>Platform</th><th><code>rowFolderGUID</code> (OS)</th><th><code>rowParentGUID</code> (type)</th></tr>
+      <tr><td>iOS app</td><td><code>ios</code> (an iPad: <code>ipados</code>)</td><td><code>expo-device</code> <code>deviceType</code>: PHONE | TABLET</td></tr>
+      <tr><td>Android app</td><td><code>android</code></td><td><code>expo-device</code> <code>deviceType</code>: PHONE | TABLET</td></tr>
+      <tr><td>Web in a browser</td><td>from the user agent: <code>macos</code>, <code>windows</code>, <code>linux</code>, <code>android</code>, <code>ios</code>; an iPad in "desktop site" mode says Macintosh - told apart by <code>navigator.maxTouchPoints &gt; 1</code> (then <code>ipados</code>)</td><td>phone / tablet / desktop from the user agent (mobile flag) + the shorter screen side (phone below 600 px, tablet 600-1024 px with touch)</td></tr>
+      <tr><td>Anything else</td><td><code>other</code></td><td><code>desktop</code></td></tr>
+    </table></div>
+    <p>A key that cannot be told gets <code>other</code> / <code>desktop</code>, never an error. The key is computed once at the start and kept in memory; a window that is resized later does not change it.</p>
+  </section>
+
+  <section id="defaults">
+    <h1 style="font-size:23px">Rule 1: the default look, before and after sign in</h1>
+    <div class="card scroll"><table>
+      <tr><th>Device</th><th>Design system</th><th>Font name</th><th>Dark mode</th></tr>
+      <tr><td>Android, Windows, Linux, other (app or web)</td><td><code>paper</code> with the MD3 theme of the system: Roboto on Android, the system font elsewhere</td><td><code>system</code></td><td>follows the OS</td></tr>
+      <tr><td>iOS, iPadOS, macOS - the APP</td><td><code>expo</code> = the Expo UI theme on <code>@expo/ui</code> (SwiftUI views, San Francisco)</td><td><code>system</code></td><td>follows the OS</td></tr>
+      <tr><td>macOS / iOS / iPadOS - the WEB (Safari, Chrome on a Mac)</td><td><code>expo</code> when the spike (U11) shows that <code>@expo/ui</code> draws it on web, else <code>applemacui</code> (the hand-made iOS look that exists today) - Q2</td><td><code>system</code> (the browser's <code>-apple-system</code>)</td><td>follows the OS</td></tr>
+    </table></div>
+    <ol class="steps" style="margin-top:12px">
+      <li><b>Not signed in.</b> There is no row (no user to own it). The defaults above come from <code>platformDefaults(deviceKey)</code>; the user may change them and the change stays in the local redux-persist copy only.</li>
+      <li><b>Signed in, a row exists.</b> It is read and applied; Realtime keeps it fresh.</li>
+      <li><b>Signed in, no row for this triple (a new device).</b> A row with the defaults of the platform is created at once (Q4: not copied from another device, because the fonts differ per OS). The local choices the user made before signing in are uploaded into it (U13).</li>
+      <li><b>A design system the user already chose by hand stays.</b> The default applies only when the state has no choice yet: a flag <code>designSystemChosenByUser</code> (or the absence of the persisted key) tells; otherwise every update of the app would throw users out of the look they picked (Q6).</li>
+      <li><b>Sign out / another user signs in on the same device.</b> The redux copy is replaced by the platform defaults at SIGNED_OUT, then by the row of the new user (Q8) - user A's look must not carry over to user B.</li>
+    </ol>
+  </section>
+
+  <section id="fonts">
+    <h1 style="font-size:23px">Fonts</h1>
+    <h3>1. The most native font of each OS (the value <code>system</code>)</h3>
+    <div class="card scroll"><table>
+      <tr><th>OS</th><th>Native font</th><th>How the app asks for it</th></tr>
+      <tr><td>iOS, iPadOS</td><td>San Francisco (SF Pro; SF Compact on Apple Watch). <b>Not a file we may ship</b> - see 1b</td><td>React Native: no <code>fontFamily</code> (the system font). Web: <code>system-ui</code>, <code>-apple-system</code></td></tr>
+      <tr><td>macOS</td><td>San Francisco (SF Pro). Not a file we may ship - see 1b</td><td>Web: <code>-apple-system</code>, <code>BlinkMacSystemFont</code>, <code>system-ui</code></td></tr>
+      <tr><td>Android</td><td>Roboto (Google Sans / the vendor font on some phones - what <code>sans-serif</code> gives)</td><td>React Native: <code>sans-serif</code> (or no <code>fontFamily</code>). Web: <code>system-ui</code>, <code>Roboto</code></td></tr>
+      <tr><td>Windows</td><td>Segoe UI Variable (Windows 11), Segoe UI (Windows 10)</td><td>Web: <code>'Segoe UI Variable Text'</code>, <code>'Segoe UI'</code>, <code>system-ui</code></td></tr>
+      <tr><td>Linux, other</td><td>what the desktop uses (Cantarell, Ubuntu, Noto Sans ...)</td><td>Web: <code>system-ui</code>, <code>'Noto Sans'</code>, <code>sans-serif</code></td></tr>
+    </table></div>
+    <h3>1b. Apple fonts: what is free (checked against the owner's question, 2026-11-25)</h3>
+    <div class="card">
+      <ul class="steps">
+        <li><b>None of Apple's system fonts may be bundled or self-hosted:</b> San Francisco (SF Pro, SF Compact, SF Mono) and New York are licensed by Apple for designing and developing apps FOR APPLE PLATFORMS. The license does not allow hosting the files on our own server, and it is not a general web-embedding license. So there will never be an <code>SF_Pro.ttf</code> in <code>assets/fonts</code> or <code>public/fonts</code>.</li>
+        <li><b>What is free: asking the device for it.</b> In normal web text the value <code>system</code> costs no file and shows SF Pro on every Mac and iPhone by itself. In the native iOS app the system font is the platform's own - using it is exactly what the license is for.</li>
+        <li><b>Three roles, three keywords:</b> sans = <code>system-ui</code> (older Safari / Chrome: <code>-apple-system</code>, <code>BlinkMacSystemFont</code>), serif = <code>ui-serif</code> (New York on Apple), mono = <code>ui-monospace</code> (SF Mono on Apple). Other platforms answer with their own font (Segoe UI, Roboto, Cascadia / Consolas ...). Only the sans role is a user choice in this round; the mono role is used for GUID / code cells and the serif role is kept in the registry for later.</li>
+        <li><b>If the SAME look is needed on every device, use an open lookalike we may self-host (SIL OFL):</b> <b>Inter</b> is the closest match to SF Pro and the most popular choice - already in the list. Others are Public Sans (neutral, similar proportions), Geist and IBM Plex Sans (slightly different character); for SF Mono: JetBrains Mono, Fira Code. Not added now (Q12).</li>
+        <li><b>Inter plus the system stack as the fallback</b> gives SF-like text everywhere with no license risk - this is the rule for every non-system choice below.</li>
+      </ul>
+    </div>
+    <h3>1c. The CSS stack each choice produces (web and Skia-free text) - one table in <code>kit8/ui/fonts/fontStacks.ts</code></h3>
+    <div class="card scroll"><table>
+      <tr><th><code>fontName</code></th><th>sans <code>font-family</code></th></tr>
+      <tr><td><code>system</code></td><td><code>system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI Variable Text', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif</code> (one stack for all OS: each device takes the first font it has; the per-OS table above says what that is)</td></tr>
+      <tr><td><code>roboto</code></td><td><code>Roboto, </code> + the system stack</td></tr>
+      <tr><td><code>inter</code></td><td><code>Inter, </code> + the system stack</td></tr>
+      <tr><td><code>selawik</code></td><td><code>Selawik, </code> + the system stack</td></tr>
+      <tr><td>serif role (later)</td><td><code>ui-serif, 'New York', Georgia, serif</code></td></tr>
+      <tr><td>mono role</td><td><code>ui-monospace, SFMono-Regular, Menlo, 'Cascadia Mono', Consolas, monospace</code></td></tr>
+    </table></div>
+    <p class="sub">A chosen font that has not arrived yet (or failed to load) shows the system stack, never a blank text. React Native (phone) takes only ONE family name: the registry returns the name of the loaded file for a bundled font and no <code>fontFamily</code> (= the system font) for <code>system</code>.</p>
+    <h3>1d. Text in the Skia canvases (Gantt, task tree, estimate grid) and what is legal</h3>
+    <p>A Skia canvas draws text from font DATA. For the value <code>system</code> there are three ways to get it; only the first two are planned.</p>
+    <div class="card scroll"><table>
+      <tr><th>Way</th><th>How</th><th>Legal?</th><th>State</th></tr>
+      <tr><td><b>A. A bundled open font that looks like the system font</b></td><td>Selawik on Windows (metrically compatible with Segoe UI), Roboto on Android and Linux, Inter on Apple (the closest open match to SF Pro). On a phone, Skia asks the system font by name and gets the real one. The files are the ones in section 4.</td><td><span class="pill yes">yes</span> Roboto = Apache 2.0, Inter and Selawik = SIL OFL 1.1: bundling and redistribution in apps and web sites, also commercial, are allowed. Keep the license files next to the fonts (done).</td><td>planned, default (U8)</td></tr>
+      <tr><td><b>B. The browser draws the text, Skia shows the bitmap</b> ("native text rendering")</td><td>A 2D canvas or <code>OffscreenCanvas</code> draws the text with <code>font = "14px system-ui"</code> and gets the real SF Pro / Segoe UI / Roboto of the device with no file and no permission, in every browser. The bitmap is cached per text, size and pixel ratio and drawn into Skia as an image.</td><td><span class="pill yes">very likely yes</span> it is the browser drawing its own font, as for any text on a page; the font file is never copied.</td><td>optional, later (U8b, Q13)</td></tr>
+      <tr><td><b>C. Copy the system font into the app</b></td><td><code>navigator.queryLocalFonts()</code> + <code>blob()</code>, keep the bytes in IndexedDB or SQLite / OPFS, hand them to CanvasKit (<code>MakeFreeTypeFaceFromData</code>, the same call as <code>createTypefaceFromBytes</code>).</td><td><span class="pill no">do not</span> Apple's license covers designing and developing apps for Apple platforms, not embedding the font in a web app or copying it elsewhere; Segoe UI is Microsoft's proprietary font with limits on embedding. Our code would make the copy, so the risk is ours even though it runs on the user's machine.</td><td>NOT planned</td></tr>
+    </table></div>
+    <ul class="steps">
+      <li><b>Why C is also weak technically:</b> the Local Font Access API exists in Chrome and Edge on desktop only, needs a click and a permission prompt, and Safari (Mac and iPhone) and Firefox do not have it. I expect the hidden system UI font (<code>.SF NS</code>) is not in its list at all. Browser storage would hold the bytes in IndexedDB or OPFS - <code>localStorage</code> is strings only, about 5 MB.</li>
+      <li><b>Way B costs:</b> the text is a bitmap, so it is redrawn at the device pixel ratio and on zoom; the grid and the Gantt need a cache of rendered words so scrolling stays fast; text cannot be selected (it cannot in a Skia canvas today either). The sizes and line heights come from the same size table as everything else.</li>
+      <li><b>On an Apple browser</b> way A gives Inter inside a canvas and the real SF in normal text beside it; way B would give the real SF in the canvas too.</li>
+      <li><b>Open-source licenses screen:</b> list the three fonts with their licenses in the app (U8c) - not required for fonts by the licenses beyond keeping the license text with the files, but it is good practice and cheap.</li>
+      <li><b>Not legal advice.</b> The table is a risk assessment; the license texts of Apple (San Francisco) and Microsoft (Segoe UI) were not read in this session. If the app is for a company, have the Apple SF license checked before way B or any use of SF beyond <code>system-ui</code>.</li>
+    </ul>
+
+
+    <h3>2. The four names of the choice</h3>
+    <div class="card scroll"><table>
+      <tr><th><code>fontName</code></th><th>What</th><th>Weights to ship</th><th>License / source</th></tr>
+      <tr><td><code>system</code></td><td>the native font of the device or the browser (table above); no file</td><td>-</td><td>-</td></tr>
+      <tr><td><code>roboto</code></td><td>Roboto - the default typeface of Material 3 (brand and plain). Latin, Cyrillic, Greek</td><td>400, 500, 700 (+ italic 400)</td><td>Apache 2.0; npm <code>@expo-google-fonts/roboto</code> or Google Fonts</td></tr>
+      <tr><td><code>inter</code></td><td>Inter - the closest free match to SF Pro (the lookalike to use where SF cannot be shipped); variable font with the axes weight and optical size</td><td>400, 500, 600, 700 (static) or the variable file</td><td>SIL OFL 1.1; npm <code>@expo-google-fonts/inter</code> or rsms.me/inter</td></tr>
+      <tr><td><code>selawik</code></td><td>Selawik - Microsoft's open font, a drop-in for Segoe UI where Segoe UI cannot be shipped</td><td>Light, Semilight, Regular, Semibold, Bold</td><td>SIL OFL 1.1; github.com/microsoft/Selawik (Microsoft's release)</td></tr>
+    </table></div>
+    <p class="sub">Files go to <code>assets/fonts</code> (the folder asked for; filled 2026-11-25, section 4). The web build also needs the same .ttf under <code>public/fonts</code>, because the Skia loaders fetch <code>/fonts/*.ttf</code> (that is where Space Grotesk lives today); a small copy script in <code>package.json</code> keeps the two folders equal. Native builds load the files with the <code>expo-font</code> config plugin (embedded at build time - a new dev build is needed once) or with <code>useFonts</code> at run time.</p>
+
+    <h3>3. Google Material 3 typefaces: what is needed and possible</h3>
+    <ul class="steps">
+      <li><b>Material 3 uses two typeface slots</b>: <i>brand</i> (display, headline, title) and <i>plain</i> (body, label). Both default to Roboto. The user setting is one name, applied to both slots; a later step may let the two differ (not planned now).</li>
+      <li><b>Weights M3 uses:</b> 400 (body, display), 500 (title, label, buttons), 700 (strong). A name that lacks a weight (Selawik has no 500) maps to the nearest one (Semilight / Semibold) in the registry, so the interface never falls back to a fake bold.</li>
+      <li><b>Variable axes:</b> Roboto Flex (wght, wdth, opsz, GRAD ...) and Inter (wght, opsz) allow fine settings. Possible but NOT offered in this round: one weight + size per element is enough; axes need variable font support in Skia and React Native that is uneven. Written down as a later option.</li>
+      <li><b>Letter spacing and line height</b> come with the size table below (the M3 values), they are not separate user settings.</li>
+      <li><b>Paper</b> reads the font from <code>configureFonts</code> of the MD3 theme: the registry builds that object from the chosen name and size. <b>Expo UI</b> (SwiftUI) takes the system font by default; a choice other than <code>system</code> is passed with the <code>font</code> modifier / <code>fontFamily</code> of the view when it supports it (the spike U11 finds out which components do).</li>
+    </ul>
+
+    <h3>4. The files (U8) - DOWNLOADED 2026-11-25</h3>
+    <div class="card scroll"><table>
+      <tr><th>Family</th><th>Files in <code>assets/fonts</code> (and the same .ttf in <code>public/fonts</code>)</th><th>Source</th><th>License</th></tr>
+      <tr><td>Roboto</td><td><code>Roboto_400Regular</code>, <code>Roboto_400Regular_Italic</code>, <code>Roboto_500Medium</code>, <code>Roboto_700Bold</code></td><td>npm <code>@expo-google-fonts/roboto@0.4.1</code></td><td>Apache 2.0 (<code>LICENSE_Roboto_LICENSE_FONT.txt</code>)</td></tr>
+      <tr><td>Inter</td><td><code>Inter_400Regular</code>, <code>_500Medium</code>, <code>_600SemiBold</code>, <code>_700Bold</code></td><td>npm <code>@expo-google-fonts/inter@0.4.2</code></td><td>SIL OFL 1.1 (<code>LICENSE_Inter_LICENSE_FONT.txt</code>)</td></tr>
+      <tr><td>Selawik</td><td><code>Selawik_300Light</code>, <code>_350Semilight</code>, <code>_400Regular</code>, <code>_600SemiBold</code>, <code>_700Bold</code></td><td>github.com/microsoft/Selawik, release 1.01 (<code>Selawik_Release.zip</code>)</td><td>SIL OFL 1.1 (<code>LICENSE_Selawik_OFL.txt</code>)</td></tr>
+    </table></div>
+    <p class="sub">14 files, 2.1 MB; every file starts with a real TrueType header. Selawik ships no Medium (500): the registry maps 500 to Semilight or Semibold (see the weights note above). The download script <code>kit8/ui/fonts/download_fonts.py</code> and the copy script for <code>public/fonts</code> are still to be written (U8); today the two folders were filled by hand with the same files. A side effect: the estimate grid already asks for <code>/fonts/Roboto_400Regular.ttf</code> and <code>Roboto_700Bold.ttf</code> - the 700 file is here now, the 400 file too, so its fallback no longer needs the CDN.</p>
+  </section>
+
+  <section id="sizes">
+    <h1 style="font-size:23px">Sizes: small, medium, large</h1>
+    <p>The values are the Angular Material 3 type scale (the Google recommendation for Angular, the same as Material 3): body-small 12 / 16, body-medium 14 / 20, body-large 16 / 24, label and title in the same three steps. The three names pick one STEP of that scale for the three roles that matter in this app:</p>
+    <div class="card scroll"><table>
+      <tr><th>Role</th><th>small</th><th>medium (default)</th><th>large</th></tr>
+      <tr><td>Data cell / input text (body)</td><td>12 px / 16 line, tracking 0.4 (body-small)</td><td>14 px / 20, tracking 0.25 (body-medium)</td><td>16 px / 24, tracking 0.5 (body-large)</td></tr>
+      <tr><td>Header of a table (title / label, weight 500)</td><td>12 / 16, 0.5 (label-medium)</td><td>14 / 20, 0.1 (title-small)</td><td>16 / 24, 0.15 (title-medium)</td></tr>
+      <tr><td>Label above an input</td><td>11 / 16 (label-small)</td><td>12 / 16 (label-medium)</td><td>14 / 20 (label-large)</td></tr>
+      <tr><td>Title of a screen / card</td><td>16 / 24 (title-medium)</td><td>22 / 28 (title-large)</td><td>24 / 32 (headline-small)</td></tr>
+    </table></div>
+    <ul class="steps">
+      <li>The numbers are px on web; on a phone they are the same dp / pt and scale with the system font size of the user (<code>allowFontScaling</code> stays on - accessibility first).</li>
+      <li>Row heights of the tables follow the line height of the size (a table with large data cells has taller rows); the Skia grids (estimate, Gantt tree) take both numbers from the same table, so the canvas and the React Native tables agree.</li>
+      <li>Not Google-recommended = not offered: no free pixel field. Three sizes keep the screens testable.</li>
+    </ul>
+  </section>
+
+  <section id="redux">
+    <h1 style="font-size:23px">Redux: the entity, the two copies, the sync</h1>
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin-top:0">The entity</h3>
+        <p><code>userSetting</code> in <code>SystemMetaData</code> through <code>...userSettingsSystemMetaData()</code> (the pattern of <code>routeVisitMetaData.ts</code>): table name, <code>defaultData</code> = <code>platformDefaults</code>, create / read APIs, Realtime by the entity channel with <code>match = { rowOwnerGUID: user }</code>. "Auto refresh for all logins": a change saved on the phone arrives by Realtime on the Mac of the same user; the screen of the Mac repaints with no reload.</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">Two copies, one truth</h3>
+        <p>The slice <code>uxuiState</code> stays persisted locally (it makes the first paint instant and works with no network and for a guest). When the user is signed in, the ROW is the truth: SIGNED_IN reads it and applies it to the slice with a new reducer <code>applyUserSettings</code>; a change of the slice is written back to the row after a short pause (debounced, one upsert for a burst).</p>
+      </div>
+      <div class="card">
+        <h3 style="margin-top:0">No echo</h3>
+        <p>The upsert of this device comes back through Realtime. The saga compares the incoming <code>rowJSON.uxuiState</code> with the slice and dispatches nothing when equal; an incoming row from ANOTHER device with the same key (another browser on the same Mac) is applied.</p>
+      </div>
+    </div>
+    <div class="card scroll"><table>
+      <tr><th>Key of the redux slice <code>uxuiState</code></th><th>Goes to <code>rowJSON.uxuiState</code>?</th></tr>
+      <tr><td><code>activeDesignSystem</code>, <code>iconsVariant</code>, <code>darkMode</code>, <code>fabAnimationVariant</code>, <code>bottomTabsAreVisible</code>, <code>askBeforeDeletePost</code></td><td>yes - preferences</td></tr>
+      <tr><td><code>PlayVideoSettings</code>, <code>RecordVideoSettings</code></td><td>yes (second step; they already have their own normalizers) - Q10</td></tr>
+      <tr><td>NEW <code>themeSettings</code>, <code>extendedSettings</code></td><td>yes - the point of the table</td></tr>
+      <tr><td><code>hideProjectToolBar</code>, <code>hideGanttToolBar</code>, <code>hideGanttChartNode</code>, <code>hideTreeNode</code>, <code>hideTreeSelectColumn</code></td><td>no, they belong to the project dashboard table (per project and work place)</td></tr>
+      <tr><td><code>snackbar</code>, <code>currentJSON</code>, <code>intentInfo</code>, <code>refreshProjectData</code></td><td>never (transient)</td></tr>
+    </table></div>
+    <p><b>Read rule for components:</b> they never read the row. They read <code>uxuiState.themeSettings</code> through selectors (<code>selectFontOf('input')</code>, <code>selectDashboardFont('estimation', 'header')</code>) that return a STORED reference (zustand / redux lesson of PART 53: a selector that builds a new object per call loops).</p>
+  </section>
+
+  <section id="cleanup">
+    <h1 style="font-size:23px">Clean-up: <code>deleteNotUsedUserSettings</code></h1>
+    <ol class="steps">
+      <li>A redux-saga background task, started with the other sagas of the store; it runs after sign in and then every 24 hours while the app is open.</li>
+      <li>It reads the rows of the signed-in user (RLS shows only his), and deletes every row whose <code>rowJSON.lastUsedAt</code> is older than one month - EXCEPT the row of this very device (it was just touched).</li>
+      <li><b>The time stamp must really mean "last used".</b> The request says "last upsert". A device that is opened every day but changes no setting would never upsert, and after a month its row would be deleted although it is in use. So the touch rule (Q3): <code>lastUsedAt</code> is upserted when a setting changes AND once per start of the app (at most once per 24 hours). Cost: one small write a day per device.</li>
+      <li>Time comes from the device clock; a skew of hours does not matter against a month. A row without <code>lastUsedAt</code> (hand-made) is treated as just used, never deleted.</li>
+      <li>The deleted device just gets the platform defaults again at its next start (a new row).</li>
+    </ol>
+  </section>
+
+  <section id="ui">
+    <h1 style="font-size:23px">User interface</h1>
+    <ul class="steps">
+      <li><b>"Appearance"</b> (route e.g. <code>/user/appearance</code>, Drawer: Settings): a radio of the design system (only the values that exist on this device), the font name (System · Roboto · Inter · Selawik), the size (Small · Medium · Large), a live preview line (input, header, data cell), and a block per dashboard with the two fonts and the cell background. The font radios use <code>RadioSetApp</code>, the size <code>SegmentButtonsApp</code>.</li>
+      <li>Every font name is shown in its own font (the user sees what he picks); <code>System</code> says which font it is on this device ("System - Segoe UI Variable").</li>
+      <li>Button "Reset to the defaults of this device" writes <code>platformDefaults</code> into the row. A line says which row is edited: "Settings of desktop · Windows (shared by all your browsers on this kind of device)".</li>
+      <li>Texts in the 15 languages of <code>kit8/i18n/i18n.ts</code> (a new menu row also needs its <code>drawer.*</code> key in all 15; the screen is declared as a <code>Drawer.Screen</code>, see the pitfall about undeclared routes).</li>
+    </ul>
+  </section>
+
+  <section id="tests">
+    <h1 style="font-size:23px">Tests</h1>
+    <div class="card scroll"><table>
+      <tr><th>Layer</th><th>What is proved</th></tr>
+      <tr><td>Docker <code>tests/111_user_settings.sql</code></td><td>unique key (a second upsert = the same row); CHECK refuses an unknown device type / OS; RLS: user A reads / writes / deletes only his rows, never B's; Realtime publication contains the table; install twice = no change; the delete file removes it; a seed-free install adds 0 rows</td></tr>
+      <tr><td><code>__tests__/sql/userSettingsSql.test.ts</code></td><td>PART 59 is in start1 and start2 with the same title; the delete file has it; no <code>-- PART</code> pattern in a comment</td></tr>
+      <tr><td><code>__tests__/catalog/user/settings</code></td><td><code>deviceKey</code> on a table of user agents (Mac, iPad desktop mode, Windows, Android phone / tablet, Linux); <code>platformDefaults</code> per key (Rule 1); <code>normalizeUserSettings</code> keeps unknown keys, fixes wrong values</td></tr>
+      <tr><td>saga tests (fake Supabase)</td><td>SIGNED_IN reads / creates the row; a change is written once per burst; no echo loop; SIGNED_OUT resets; <code>deleteNotUsedUserSettings</code> with a fake clock (31 days gone, 29 days kept, the own row kept, no stamp kept); the touch rule</td></tr>
+      <tr><td>fonts</td><td>every file named by the registry exists in <code>assets/fonts</code> and in <code>public/fonts</code>; no file named SF / San Francisco / New York is in either folder; every non-system stack ends with the system stack; the size table has the three sizes for every role; weights map to a shipped file</td></tr>
+      <tr><td>UI</td><td>the Appearance screen changes the slice; the Estimation dashboard header / cell take the chosen font and a transparent background by default</td></tr>
+      <tr><td>By eye (not testable here)</td><td>the Expo UI theme on a real iPhone / the simulator; the fonts on Windows, Android and Safari; the Skia fonts on web - I cannot see your devices or your Supabase</td></tr>
+    </table></div>
+  </section>
+
+  <section id="open">
+    <h1 style="font-size:23px">Decisions and limits</h1>
+    <p class="sub">Each question has a default that I will build unless you say otherwise.</p>
+    <div class="card scroll"><table>
+      <tr><th>#</th><th>Question</th><th>Recommended default</th></tr>
+      <tr><td>Q1</td><td><code>rowFolderGUID</code> does not exist in the universal schema. Add it to this table only?</td><td>Yes: <code>TEXT NOT NULL DEFAULT 'empty'</code> on <code>userSettingsTable</code> only; the other tables stay unchanged. Values lower case (<code>macos</code>, not "Mac OS").</td></tr>
+      <tr><td>Q2</td><td>"Apple devices": does the web in Safari on a Mac count? <code>@expo/ui</code> draws SwiftUI views, which exist in an iOS / macOS APP only; its universal and web entry points are to be tried.</td><td>App on Apple = <code>expo</code> (@expo/ui). Web on Apple = <code>expo</code> only if the spike shows a good result, else <code>applemacui</code> (the iOS look that exists today).</td></tr>
+      <tr><td>Q3</td><td>"lastUsedAt = the last upsert" would delete a device that is used but never changed.</td><td>Upsert on a change AND once per day at the app start (see "Clean-up").</td></tr>
+      <tr><td>Q4</td><td>A new device: platform defaults, or a copy of the user's other device of the same type?</td><td>Platform defaults (fonts differ per OS). The user can press "Copy from my other device" later (not built now).</td></tr>
+      <tr><td>Q5</td><td>San Francisco may not be shipped as a file (Apple license, section 1b); Skia on web needs files.</td><td><code>system</code> in normal text = the real SF through <code>system-ui</code>; in a Skia canvas on an Apple browser = Inter. Never a copied SF file.</td></tr>
+      <tr><td>Q6</td><td>Users who already chose a design system keep it?</td><td>Yes. Rule 1 applies only to a state with no choice yet; a first row uploads the existing local choice.</td></tr>
+      <tr><td>Q7</td><td>Selawik is not on Google Fonts (Microsoft's own release, SIL OFL).</td><td>Take it from Microsoft's repository, save the license file next to the font.</td></tr>
+      <tr><td>Q8</td><td>Another user signs in on the same device.</td><td>Reset to platform defaults at sign out, then apply the new user's row.</td></tr>
+      <tr><td>Q9</td><td>Where does the Appearance screen live?</td><td>A new Drawer row "Appearance" in the pinned Settings area (<code>HamburgerMenuUnmovable</code>), route <code>/user/appearance</code>.</td></tr>
+      <tr><td>Q10</td><td>Do <code>PlayVideoSettings</code> / <code>RecordVideoSettings</code> move into the row now?</td><td>Not in the first slice: themeSettings, extendedSettings and the six small preferences first; the media settings in a second step.</td></tr>
+      <tr><td>Q11</td><td>"projectDashboardTable": the task TREE (Skia) and the task lines tables (ReusableTable) are two different things.</td><td>One setting for both (header font, data-cell font, cell background) applied to the tree and to the tables of the Finances view; the Gantt chart's own labels are not touched.</td></tr>
+      <tr><td>Q12</td><td>Offer more open lookalikes (Public Sans, Geist, IBM Plex Sans) or mono fonts (JetBrains Mono, Fira Code) beside the four names?</td><td>No: four names keep the screens testable. The registry (<code>fontCatalog.ts</code>) is data, so a name is one more entry plus its files, later.</td></tr>
+      <tr><td>Q13</td><td>Build way B (the browser draws the text, Skia shows the bitmap) so a canvas on an Apple browser shows the real SF?</td><td>Not now. Way A (Inter) first; U8b is a spike with a speed measurement, decided on the numbers.</td></tr>
+    </table></div>
+    <h3>Limits of this plan</h3>
+    <ul class="steps">
+      <li>Nothing here was run: no SQL, no Docker, no Jest, no device. The facts of the "Today" section come from reading the repository on 2026-11-25.</li>
+      <li>The @expo/ui part is the least known: the package is installed but unused by the app, so which of its components render on web and macOS is an open question until the spike (U11).</li>
+      <li>Font facts (which system font each OS uses) are general knowledge. The legal column of section 1d is a risk assessment, not legal advice; the Apple and Microsoft license texts were not read.</li>
+      <li>Not planned: user-chosen colors of the whole theme (the table is only the place for them; <code>userTheme</code> still keeps the palette), the two typeface slots of M3 chosen separately, variable-font axes, a copy of settings between devices.</li>
+    </ul>
+  </section>
+
+  <section id="install">
+    <h1 style="font-size:23px">Install (when it is built)</h1>
+    <ol class="steps">
+      <li>Supabase SQL Editor: <code>start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> (PART 59). <code>start3</code> and <code>start4</code> are NOT needed (no pg_cron job, no seed rows).</li>
+      <li>Fonts: after your yes, the download script fills <code>assets/fonts</code> and <code>public/fonts</code>; a native build is needed once (the font config plugin).</li>
+      <li><code>.env</code>: nothing.</li>
+      <li>Verify: sign in on two browsers of the same OS, change the font size in one, the other repaints; sign in on a phone: a second row appears with the defaults of the phone.</li>
+    </ol>
+  </section>
+
+</main>
+</body>
+</html>

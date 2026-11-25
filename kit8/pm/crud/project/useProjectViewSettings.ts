@@ -1,4 +1,4 @@
-// Gantt UX/UI settings saved per project AND user in project_user_settings_table.rowJSON.uxuiSettings
+// Gantt UX/UI settings saved per project AND user in project_dashboard_user_settings_table.rowJSON.uxuiSettings
 // (projectUserSettingsQueries.ts; legacy project_table.rowJSON.uxuiSettings is read as a fallback):
 //   showCriticalPath, ganttArrowsForm, showTaskProgressOnGantt,
 //   taskProgressLinePosition, projectProgressLinePosition,
@@ -8,6 +8,7 @@
 
 import { useMemo } from 'react';
 import { usePMStore } from '../../store/store_pm';
+import { effectiveUxuiSettings } from '../../store/storeDerive';
 import { PMGanttVsNetworkView, PMNetworkDiagramVariant, PMNetworkScheduleVariant, PMNetworkViewMode, PMProgressLinePosition, PMTreeColumnKey, PMUxUiSettings } from '../../model/types';
 import { useSaveProjectUserSettings } from './projectUserSettingsQueries';
 import { clampTreeColumnWidth } from '../../view/tree/columns/treeColumns';
@@ -64,6 +65,16 @@ export function useProjectViewSettings(ownerGUID: string, projectGUID: string | 
         const treeColumnsWidths = key ? Object.fromEntries(Object.entries(cur).filter(([k]) => k !== key)) : {};
         usePMStore.getState().setTreeColumnsSettings({ treeColumnsWidths });
         save({ treeColumnsWidths });
+      },
+      /** The splitter between the tree and the chart was dropped: the width of the tree pane (px) is saved per project, user and work place. */
+      setTasksTreeWidth: (px: number) => {
+        const w = Math.round(px);
+        if (Number.isFinite(w) && w > 0) save({ tasksTreeWidth: w });
+      },
+      /** Widths of the columns of ONE table of the dashboard (useDashboardTableColumns): the other tables keep theirs. */
+      setTableColumnsWidth: (tableKey: string, widths: Record<string, number>) => {
+        const cur = effectiveUxuiSettings(usePMStore.getState(), projectGUID).tableColumnsWidth;
+        save({ tableColumnsWidth: { ...cur, [tableKey]: widths } });
       },
       setShowTreeHierarchyNumbers: (v: boolean) => {
         usePMStore.getState().setTreeColumnsSettings({ showTreeHierarchyNumbers: v });

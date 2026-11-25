@@ -1,5 +1,5 @@
 // Critical path task color (uxuiSettings.criticalPathTaskColor, saved per project and user in
-// project_user_settings_table). Chosen with ColorPickerApp (Gantt settings -> Task tab): any '#RRGGBB'.
+// project_dashboard_user_settings_table). Chosen with ColorPickerApp (Gantt settings -> Task tab): any '#RRGGBB'.
 // No imports -> safe to use from model/types.ts and view/theme.ts.
 
 /** Quick swatches offered by the picker: 9 colors + black. Any other '#RRGGBB' is allowed too (Custom). */

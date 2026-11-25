@@ -35,7 +35,7 @@ describe('the structure file has no seed rows', () => {
     const targets = structureStatements.filter((s) => kindOf(s) === 'INSERT').map((s) => /INSERT\s+INTO\s+public\.("?\w+"?)/i.exec(s)![1].replace(/"/g, ''));
     // (the backfill of userTable from auth.users is inside a DO block: a database that has the organization rule needs organization_ensure_user for it)
     // (monitor01_dirty seven times - the last one queues the tasks that have VAT after the VAT basis columns -, project_cost_dirty once (the cost totals gained the with-VAT pair); monitor01_dirty: the first fill of the Monitor01 queue and the upgrade steps that queue the tasks that have fact documents / a plan that is not in the register yet / posted vendor invoices / posted purchase orders / posted product receipts)
-    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_user_settings_table', 'task_line_plan_timeline']);
+    expect(targets.sort()).toEqual(['monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'monitor01_dirty', 'project_cost_dirty', 'project_dashboard_user_settings_table', 'task_line_plan_timeline']);
   });
   it('says where the seeds are', () => {
     expect(structure).toContain('start4_sql_insert_missing.sql');

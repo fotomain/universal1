@@ -52,7 +52,7 @@ export class FakeSupabase {
     project_task_dependencies_table: [],
     project_task_dependency_closure_table: [],
     task_line_table: [],
-    project_user_settings_table: [],
+    project_dashboard_user_settings_table: [],
     templates_project_table: [],
     templates_project_task_table: [],
     templates_project_task_dependencies_table: [],
@@ -198,6 +198,10 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
     this.filters.push(['eq', col, value]);
     return this;
   }
+  in(col: string, values: any[]) {
+    this.filters.push(['in', col, values]);
+    return this;
+  }
   ilike(col: string, pattern: string) {
     this.filters.push(['ilike', col, pattern]);
     return this;
@@ -226,7 +230,9 @@ class FakeQuery implements PromiseLike<{ data: any; error: any }> {
   }
 
   private matches(row: Row) {
-    return this.filters.every(([kind, col, v]) => (kind === 'eq' ? get(row, col) === v : likeToRegExp(v).test(String(get(row, col) ?? ''))));
+    // a row without the column "userWorkPlaceGUID" has the default of the table: 'empty'
+    const cell = (col: string) => (col === 'userWorkPlaceGUID' ? get(row, col) ?? 'empty' : get(row, col));
+    return this.filters.every(([kind, col, v]) => (kind === 'eq' ? cell(col) === v : kind === 'in' ? (v as any[]).includes(cell(col)) : likeToRegExp(v).test(String(cell(col) ?? ''))));
   }
 
   private shape(rows: Row[]) {

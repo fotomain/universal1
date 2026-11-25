@@ -362,7 +362,7 @@ BEGIN
   DELETE FROM public.project_task_dependencies_table WHERE "projectGUID" = v_project;
   DELETE FROM public.project_task_kanban_state_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_task_table WHERE "projectGUID" = v_project;
-  DELETE FROM public.project_user_settings_table WHERE "rowOwnerGUID" = v_project;
+  DELETE FROM public.project_dashboard_user_settings_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_table WHERE "rowGUID" = v_project;
 
@@ -437,7 +437,7 @@ BEGIN
   IF to_regprocedure('public.pm_kanban_ensure_project_stages(uuid)') IS NOT NULL THEN
     PERFORM public.pm_kanban_ensure_project_stages(v_project);
   END IF;
-  INSERT INTO public.project_user_settings_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  INSERT INTO public.project_dashboard_user_settings_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
   VALUES (md5('BUDGET1:settings')::uuid, v_project, v_owner, 1024,
           jsonb_build_object('uxuiSettings', jsonb_build_object(
             'projectTreeContextCommandsMode', 'onRightClickMenuMode', 'projectGanttChartContextCommandsMode', 'onRightClickMenuMode',

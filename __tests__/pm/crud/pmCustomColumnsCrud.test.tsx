@@ -1,7 +1,7 @@
 /** @jest-environment jsdom */
 // AddCustomProjectTaskColumn + columnResizeWidth end-to-end: usePMCrud -> React Query -> in-memory
 // Supabase -> Zustand. Definitions / header colors in project.rowJSON.customColumns, values in
-// task.rowJSON.customColumns, order / widths in the user's project_user_settings_table row (rowJSON.uxuiSettings).
+// task.rowJSON.customColumns, order / widths in the user's project_dashboard_user_settings_table row (rowJSON.uxuiSettings).
 import { mockApprove, mountPM, PMHarness, unmountPM } from './pmCrudHarnessTestKit';
 import { act } from 'react';
 
@@ -16,8 +16,8 @@ const run = async (fn: () => unknown) => {
 };
 const g = (name: string) => h.byName(name).rowGUID as string;
 const projectJSON = () => h.db.rows('project_table').find((p) => p.rowGUID === h.P1)!.rowJSON;
-/** this user's settings row of Project 1 (project_user_settings_table.rowJSON.uxuiSettings) */
-const userUxui = () => h.db.rows('project_user_settings_table').find((r) => r.rowOwnerGUID === h.P1 && r.rowParentGUID === h.owner)!.rowJSON.uxuiSettings;
+/** this user's settings row of Project 1 (project_dashboard_user_settings_table.rowJSON.uxuiSettings) */
+const userUxui = () => h.db.rows('project_dashboard_user_settings_table').find((r) => r.rowOwnerGUID === h.P1 && r.rowParentGUID === h.owner)!.rowJSON.uxuiSettings;
 
 beforeEach(async () => {
   mockApprove.mockReset();

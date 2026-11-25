@@ -7,7 +7,7 @@ import { PersistGate } from 'redux-persist/integration/react';
 
 import { useSQLNative } from "../providers/WithSQLiteNative";
 import { useSupabase } from "../providers/WithSupabase";
-import { useWorkPlace } from "../providers/WithWorkPlace";
+import { useUserWorkPlace } from "../providers/WithUserWorkPlace";
 import { storePrepared } from "./storePrepared";
 import { setAppStore } from "./storeRef";
 
@@ -20,13 +20,13 @@ const WithState = (props: any) => {
     }
 
     const supabaseAdapter = useSupabase();
-    const workPlaceAdapter = useWorkPlace();
+    const userWorkPlaceAdapter = useUserWorkPlace();
 
-    if (!workPlaceAdapter || workPlaceAdapter.workPlaceGUID === null) {
+    if (!userWorkPlaceAdapter || userWorkPlaceAdapter.userWorkPlaceGUID === null) {
         return <></>;
     }
 
-    const dbAdapters = { workPlaceAdapter, router, supabaseAdapter, sqLiteAdapter };
+    const dbAdapters = { userWorkPlaceAdapter, router, supabaseAdapter, sqLiteAdapter };
     // console.log("██████████ dbAdapters0", dbAdapters);
 
     const storeReady: any = storePrepared({ dbAdapters });

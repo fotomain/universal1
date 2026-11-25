@@ -441,7 +441,13 @@ export function createTemplateApi(sb: SupabaseClient) {
     }
 
     // 7. Copy user settings
-    const templateSettings = sourceSettings.map((s) => ({
+    // a user has one row PER WORK PLACE in the project table, the template table keeps one per user: the one changed last
+    const lastPerUser = new Map<string, any>();
+    for (const s of sourceSettings) {
+      const cur = lastPerUser.get(s.rowParentGUID);
+      if (!cur || String(s.updated_at ?? '') > String(cur.updated_at ?? '')) lastPerUser.set(s.rowParentGUID, s);
+    }
+    const templateSettings = [...lastPerUser.values()].map((s) => ({
       rowGUID: newGUID(),
       rowOwnerGUID: templateGUID,
       rowParentGUID: s.rowParentGUID,

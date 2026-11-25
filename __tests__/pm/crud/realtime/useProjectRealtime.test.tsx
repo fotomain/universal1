@@ -83,7 +83,7 @@ it('subscribes INSERT / UPDATE with server filters and DELETE unfiltered on the 
   expect(byTable('project_table')).toEqual([`INSERT:rowOwnerGUID=eq.${OWNER}`, `UPDATE:rowOwnerGUID=eq.${OWNER}`, 'DELETE:-']);
   expect(byTable('project_task_table')).toEqual([`INSERT:projectGUID=eq.${P1}`, `UPDATE:projectGUID=eq.${P1}`, 'DELETE:-']);
   expect(byTable('project_task_dependencies_table')).toEqual([`INSERT:projectGUID=eq.${P1}`, `UPDATE:projectGUID=eq.${P1}`, 'DELETE:-']);
-  expect(byTable('project_user_settings_table')).toEqual([`INSERT:rowParentGUID=eq.${OWNER}`, `UPDATE:rowParentGUID=eq.${OWNER}`, 'DELETE:-']);
+  expect(byTable('project_dashboard_user_settings_table')).toEqual([`INSERT:rowParentGUID=eq.${OWNER}`, `UPDATE:rowParentGUID=eq.${OWNER}`, 'DELETE:-']);
 });
 
 it('a task edit in another browser refetches project data, projects and closure (debounced, once)', async () => {
@@ -101,7 +101,7 @@ it('a task edit in another browser refetches project data, projects and closure 
 });
 
 it('a settings change refetches only the user settings', async () => {
-  fire('project_user_settings_table', 'UPDATE');
+  fire('project_dashboard_user_settings_table', 'UPDATE');
   await tick(400);
   expect(invalidated()).toEqual([JSON.stringify(pmKeys.userSettings(OWNER))]);
 });

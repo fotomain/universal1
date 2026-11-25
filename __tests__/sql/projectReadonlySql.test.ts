@@ -32,7 +32,7 @@ describe('PART 51: read-only project', () => {
     }
     expect(part).toContain("CREATE TRIGGER zz_project_readonly BEFORE INSERT OR UPDATE OR DELETE ON public.%I");
     // the personal view settings are NOT project data
-    expect(part).not.toMatch(/\('project_user_settings_table'/);
+    expect(part).not.toMatch(/\('project_dashboard_user_settings_table'/);
   });
   it('the project row: only the switch may change, the project is not deleted', () => {
     expect(part).toContain(`(NEW."rowJSON" - 'projectIsReadonly') IS DISTINCT FROM (OLD."rowJSON" - 'projectIsReadonly')`);

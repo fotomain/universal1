@@ -134,6 +134,11 @@ export default function ReusableTable(props: ReusableTableProps) {
   // ---- columns: the user's order (drag a header) and widths (drag a header separator) ----
   const [columnsOrder, setColumnsOrder] = useState<string[]>(props.columnsOrder ?? []);
   const [columnsWidths, setColumnsWidths] = useState<Record<string, number>>(props.columnsWidths ?? {});
+  // saved widths that arrive AFTER the first render (settings read from the database): take them over (a drag in progress is local until it ends)
+  const widthsProp = props.columnsWidths;
+  useEffect(() => {
+    if (widthsProp) setColumnsWidths((cur) => (JSON.stringify(cur) === JSON.stringify(widthsProp) ? cur : widthsProp));
+  }, [widthsProp]);
   // ---- look: uxuiTable ----
   const delimiters = uxuiTable?.verticalDelimitersForCells !== false;
   const headerDelimiters = uxuiTable?.verticalDelimitersForColumnNames !== false;

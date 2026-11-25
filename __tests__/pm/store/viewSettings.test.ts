@@ -115,7 +115,7 @@ describe('context commands mode (uxuiSettings.projectTreeContextCommandsMode / p
   });
 });
 
-describe('per user settings (project_user_settings_table) over the project settings', () => {
+describe('per user settings (project_dashboard_user_settings_table) over the project settings', () => {
   it('uxuiSettingsOf: user row wins over project rowJSON.uxuiSettings and legacy keys', () => {
     const json = { rowKind: 'project', name: 'x', showCriticalPath: false, uxuiSettings: { ganttArrowsForm: 'squareForm', showTaskProgressOnGantt: true } } as any;
     const u = uxuiSettingsOf(json, { showTaskProgressOnGantt: false, taskProgressLineColor: '#4455FF' });

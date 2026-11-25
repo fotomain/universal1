@@ -1,4 +1,4 @@
-// useLastTask - the dashboard remembers the task the user clicked last, per user AND project (project_user_settings_table.rowJSON.uxuiSettings.lastTaskGUID,
+// useLastTask - the dashboard remembers the task the user clicked last, per user AND project (project_dashboard_user_settings_table.rowJSON.uxuiSettings.lastTaskGUID,
 // next to the main view Gantt | Edit | ... = ganttVsNetworkView), and scrolls to it when the project is opened again.
 //   save:    every change of store.selectedGUID (a click in the tree / on a bar, the task window, a new task ...) is saved after LAST_TASK_SAVE_DELAY_MS;
 //            only a task of the loaded project, and only while it differs from the saved one (a project switch / a reload that clears the selection saves nothing)

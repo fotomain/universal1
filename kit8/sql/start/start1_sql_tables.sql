@@ -98,7 +98,7 @@
 --        personTable, partnerTable, contractTable
 --   3. PM Gantt (UUID ids, ltree tree, DAG + closure, owner RLS)
 --        project_table, project_task_table, project_task_dependencies_table,
---        project_task_dependency_closure_table, project_user_settings_table
+--        project_task_dependency_closure_table, project_dashboard_user_settings_table
 --        + project_task_schedule_view and the RPCs pm_apply_schedule,
 --          pm_dependency_creates_cycle, pm_recalc_project_progress, pm_task_upstream,
 --          pm_task_downstream, pm_owns_project, pm_seed_demo
@@ -459,23 +459,52 @@ CREATE INDEX IF NOT EXISTS idx_task_dep_closure_project ON public.project_task_d
 
 
 -- -------------------------------------------------------------------------------------
--- project_user_settings_table - Gantt / tree settings of ONE user for ONE project
---   rowOwnerGUID = project, rowParentGUID = user (auth.uid()), rowJSON = { uxuiSettings }
---   one row per (project, user): the client upserts on ("rowOwnerGUID","rowParentGUID")
+-- project_dashboard_user_settings_table - the LAST STATE of the project dashboard of ONE user on ONE work place (device / browser)
+--   (named project_user_settings_table until 2026-11-25)
+--   rowOwnerGUID = project, rowParentGUID = user (auth.uid()), "userWorkPlaceGUID" = the work place of the user (kit8/providers/WithUserWorkPlace),
+--   rowJSON = { uxuiSettings } (lastTaskGUID, tasksTreeWidth, tableColumnsWidth, treeColumnsWidths, the views, the filters ...)
+--   one row per (project, user, work place): the client upserts on ("rowOwnerGUID","rowParentGUID","userWorkPlaceGUID").
+--   The rows of a database made before the work place existed keep the work place 'empty'; the client uses them as the starting values of a work place that has no row yet.
 -- -------------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.project_user_settings_table (
-  "rowGUID"       UUID        NOT NULL DEFAULT gen_random_uuid(),
-  "rowOwnerGUID"  UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
-  "rowParentGUID" UUID        NOT NULL,
-  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
-  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
-  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+DO $$
+BEGIN
+  IF to_regclass('public.project_user_settings_table') IS NOT NULL AND to_regclass('public.project_dashboard_user_settings_table') IS NULL THEN
+    ALTER TABLE public.project_user_settings_table RENAME TO project_dashboard_user_settings_table;
+    ALTER INDEX IF EXISTS public.idx_project_user_settings_user RENAME TO idx_project_dashboard_user_settings_user;
+    ALTER INDEX IF EXISTS public.project_user_settings_table_pkey RENAME TO project_dashboard_user_settings_table_pkey;
+    ALTER TABLE public.project_dashboard_user_settings_table RENAME CONSTRAINT project_user_settings_unique TO project_dashboard_user_settings_unique;
+    IF EXISTS (SELECT 1 FROM pg_constraint WHERE conrelid = 'public.project_dashboard_user_settings_table'::regclass AND conname = 'project_user_settings_table_rowOwnerGUID_fkey') THEN
+      ALTER TABLE public.project_dashboard_user_settings_table RENAME CONSTRAINT "project_user_settings_table_rowOwnerGUID_fkey" TO "project_dashboard_user_settings_table_rowOwnerGUID_fkey";
+    END IF;
+  END IF;
+END $$;
+
+CREATE TABLE IF NOT EXISTS public.project_dashboard_user_settings_table (
+  "rowGUID"           UUID        NOT NULL DEFAULT gen_random_uuid(),
+  "rowOwnerGUID"      UUID        NOT NULL REFERENCES public.project_table("rowGUID") ON DELETE CASCADE,
+  "rowParentGUID"     UUID        NOT NULL,
+  "userWorkPlaceGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "orderInList"       NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"           JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID"),
-  CONSTRAINT project_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID")
+  CONSTRAINT project_dashboard_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID", "userWorkPlaceGUID")
 );
 
-CREATE INDEX IF NOT EXISTS idx_project_user_settings_user ON public.project_user_settings_table ("rowParentGUID");
+ALTER TABLE public.project_dashboard_user_settings_table ADD COLUMN IF NOT EXISTS "userWorkPlaceGUID" TEXT NOT NULL DEFAULT 'empty';
+
+-- the unique key of an older database had two columns (project, user): it becomes (project, user, work place)
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_constraint
+              WHERE conrelid = 'public.project_dashboard_user_settings_table'::regclass AND conname = 'project_dashboard_user_settings_unique' AND cardinality(conkey) = 2) THEN
+    ALTER TABLE public.project_dashboard_user_settings_table DROP CONSTRAINT project_dashboard_user_settings_unique;
+    ALTER TABLE public.project_dashboard_user_settings_table ADD CONSTRAINT project_dashboard_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID", "userWorkPlaceGUID");
+  END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_project_dashboard_user_settings_user ON public.project_dashboard_user_settings_table ("rowParentGUID", "userWorkPlaceGUID");
 
 
 -- =====================================================================================
@@ -692,7 +721,7 @@ CREATE INDEX IF NOT EXISTS idx_templates_project_user_settings_user ON public.te
 --      version_project_kanban_stage_table       its Kanban columns
 --      version_project_task_kanban_state_table  its Kanban cards
 --    Not stored: the dependency closure, project_task_schedule_view (derived),
---    project_user_settings_table (per user view settings), kanban_stage_table (catalog).
+--    project_dashboard_user_settings_table (per user view settings), kanban_stage_table (catalog).
 --    No tree / DAG / progress triggers here: the rows are written ONLY by the RPCs
 --      pm_version_save(project, title)   -> new rowVersionGUID
 --      pm_version_restore(version, backupTitle) -> rowVersionGUID of the automatic backup
@@ -4393,6 +4422,26 @@ CREATE TABLE IF NOT EXISTS public.estimation_market_quote_table (
   "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   PRIMARY KEY ("rowGUID")
 );
+
+-- estimation_dashboard_user_settings_table - the LAST STATE of the estimation dashboard of ONE user on ONE work place (twin of project_dashboard_user_settings_table)
+--   rowOwnerGUID = the project of the estimate (project_table.rowGUID as text) OR the word 'dashboard' = the row of the whole dashboard (the project opened last),
+--   rowParentGUID = the user (app_user_guid() as text), "userWorkPlaceGUID" = the work place (kit8/providers/WithUserWorkPlace),
+--   rowJSON = { estimationSettings } (lastDocumentGUID, tasksTreeWidth, tableColumnsWidth, layout, currency ...). No foreign key (the row 'dashboard' has no project):
+--   the rows of a deleted project go with it (estimation_project_deleted, start2).
+CREATE TABLE IF NOT EXISTS public.estimation_dashboard_user_settings_table (
+  "rowGUID"           TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"      TEXT        NOT NULL DEFAULT 'dashboard',
+  "rowParentGUID"     TEXT        NOT NULL DEFAULT 'empty',
+  "userWorkPlaceGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"           JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"       NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT estimation_dashboard_user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID", "userWorkPlaceGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_estimation_dashboard_user_settings_user ON public.estimation_dashboard_user_settings_table ("rowParentGUID", "userWorkPlaceGUID");
 
 CREATE INDEX IF NOT EXISTS idx_estimation_norm_book_parent ON public.estimation_norm_book_catalog ("rowParentGUID");
 CREATE INDEX IF NOT EXISTS idx_estimation_norm_tree ON public.estimation_norm_catalog ("rowOwnerGUID", "rowParentGUID");

@@ -11,7 +11,7 @@ Source: the sheet "W1 TASK LINES". SQL: `kit8/sql/init/create_pm_task_line_table
 | Task page (`/pm/project/task`) → section **Finances** | the same lines (`PMProjectTaskInputCRUD`) |
 | Task window (`PMTaskEditModal`) | **no lines** (it has Save / Cancel; lines are saved row by row) |
 
-The view is remembered per user AND project (`uxuiSettings.ganttVsNetworkView` in `project_user_settings_table`, saved in the database).
+The view is remembered per user AND project (`uxuiSettings.ganttVsNetworkView` in `project_dashboard_user_settings_table`, saved in the database).
 
 ## The table
 

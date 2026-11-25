@@ -17,7 +17,7 @@ describe('PART 58: estimation dashboard', () => {
   });
   it('every table has the generic shape rowGUID / rowOwnerGUID / rowParentGUID / rowJSON / orderInList', () => {
     const tables = part1.split('CREATE TABLE IF NOT EXISTS').slice(1);
-    expect(tables.length).toBe(10);
+    expect(tables.length).toBe(11); // the 10 estimate tables + estimation_dashboard_user_settings_table (the last state per user and work place)
     for (const t of tables) for (const col of ['"rowGUID"', '"rowOwnerGUID"', '"rowParentGUID"', '"rowJSON"', '"orderInList"']) expect(t).toContain(col);
   });
   it('all tables go through kit8_setup_def_table; the catalogs are read by everybody and written by the managers, the project data by project access', () => {

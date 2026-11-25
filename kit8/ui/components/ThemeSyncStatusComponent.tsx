@@ -3,16 +3,16 @@ import { View, StyleSheet } from 'react-native';
 import { Card, Text, useTheme, Chip } from 'react-native-paper';
 import { ButtonPrimaryApp } from './common';
 import { useDispatch, useSelector } from 'react-redux';
-import { useWorkPlace } from '../../providers/WithWorkPlace';
+import { useUserWorkPlace } from '../../providers/WithUserWorkPlace';
 import { SystemMetaData } from '../../redux/SystemMetaData';
 import { toggleThemeMode } from '../../redux/userThemeSlice';
 import DarkThemeSwitchComponent from './DarkThemeSwitchComponent';
 
-// themeStore-ticket-step5: Component for theme synchronization status & testing across workplaces
+// themeStore-ticket-step5: Component for theme synchronization status & testing across user workplaces
 export default function ThemeSyncStatusComponent() {
   const dispatch = useDispatch();
   const theme = useTheme();
-  const { workPlaceGUID } = useWorkPlace();
+  const { userWorkPlaceGUID } = useUserWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState);
   const userTheme = useSelector((state: any) => state.userTheme);
   const themeStoreState = useSelector((state: any) => state.themeStore);
@@ -25,7 +25,7 @@ export default function ThemeSyncStatusComponent() {
       dispatch(
         SystemMetaData.themeStore.actions.readOne({
           rowOwnerGUID: userGUID,
-          rowGUID: workPlaceGUID,
+          rowGUID: userWorkPlaceGUID,
         })
       );
     }
@@ -37,7 +37,7 @@ export default function ThemeSyncStatusComponent() {
       dispatch(
         SystemMetaData.themeStore.actions.upsertOne({
           rowOwnerGUID: userGUID,
-          rowGUID: workPlaceGUID,
+          rowGUID: userWorkPlaceGUID,
           orderInList: Date.now(),
           rowJSON: userTheme,
         })
@@ -47,7 +47,7 @@ export default function ThemeSyncStatusComponent() {
 
   return (
     <Card style={styles.card}>
-      <Card.Title title="🎨 Theme Synchronization across Workplaces" />
+      <Card.Title title="🎨 Theme Synchronization across User Workplaces" />
       <Card.Content>
         <View style={styles.row}>
           <Text variant="labelLarge">Active User GUID:</Text>
@@ -55,8 +55,8 @@ export default function ThemeSyncStatusComponent() {
         </View>
 
         <View style={styles.row}>
-          <Text variant="labelLarge">Workplace GUID:</Text>
-          <Chip compact style={styles.chip}>{workPlaceGUID || 'N/A'}</Chip>
+          <Text variant="labelLarge">User workplace GUID:</Text>
+          <Chip compact style={styles.chip}>{userWorkPlaceGUID || 'N/A'}</Chip>
         </View>
 
         <View style={styles.row}>

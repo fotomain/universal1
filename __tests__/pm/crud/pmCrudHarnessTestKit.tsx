@@ -15,6 +15,10 @@ export const mockRouter = { push: jest.fn(), navigate: jest.fn(), replace: jest.
 jest.mock('../../../kit8/providers/WithSupabase', () => ({
   useSupabase: () => ({ supabase: require('./pmCrudHarnessTestKit').mockDb.current }),
 }));
+// the work place of the user (the dashboard settings are saved per user, project AND work place)
+jest.mock('../../../kit8/providers/WithUserWorkPlace', () => ({
+  useUserWorkPlace: () => ({ userWorkPlaceGUID: 'test-work-place' }),
+}));
 jest.mock('../../../kit8/pm/inner/PMApproveYesNoCancelModalWindow', () => ({
   approvePM: (req: any) => require('./pmCrudHarnessTestKit').mockApprove(req),
   askPMApprove: async (req: any) => ((await require('./pmCrudHarnessTestKit').mockApprove(req)) ? 'yes' : 'no'),

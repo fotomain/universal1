@@ -2,7 +2,7 @@
 //   exportProject(projectGUID, options?) -> project_data_<rowGUID>.json (tasks, links, task lines) or, with the BIM model, project_package_<rowGUID>.zip (package/)
 //   importProject(projectGUID, files)   -> asks before deleting existing data, then refreshes the caches
 //                                          (tree + Gantt repaint) and applies the file's Gantt settings
-//                                          to THIS user (project_user_settings_table)
+//                                          to THIS user (project_dashboard_user_settings_table)
 
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';

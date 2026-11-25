@@ -17,7 +17,7 @@ import CustomDrawerContent from '../kit8/ui/components/CustomDrawerContent';
 import WithSQLiteNative from '../kit8/providers/WithSQLiteNative';
 import WithSupabase, {useSupabase} from '../kit8/providers/WithSupabase';
 import { useAuthRedirectHandler } from '../kit8/auth/session/useAuthRedirectHandler';
-import {useWorkPlace, WithWorkPlace} from '../kit8/providers/WithWorkPlace';
+import {useUserWorkPlace, WithUserWorkPlace} from '../kit8/providers/WithUserWorkPlace';
 import WithState from '../kit8/redux/WithState';
 import BusyConflictsWindow from '../kit8/pm/view/task/plan/BusyConflictsWindow';
 import {clearActiveUser, formatTo32CharGUID, selectIsLoggedIn, setActiveUser, UserOrganization} from '../kit8/redux/activeUserSlice';
@@ -62,7 +62,7 @@ function ThemeStoreSyncManager() {
 
   const dispatch = useDispatch();
   const { supabase } = useSupabase();
-  const { workPlaceGUID } = useWorkPlace();
+  const { userWorkPlaceGUID } = useUserWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState);
   const userTheme = useSelector((state: any) => state.userTheme);
   const userGUID = activeUserState?.activeUserGUID;
@@ -71,16 +71,16 @@ function ThemeStoreSyncManager() {
 
   // themeStore-ticket-step4: on user sign in - themeStore readOne-must be called to read to store theme in supabase
   useEffect(() => {
-    if (!userGUID || !workPlaceGUID) return;
+    if (!userGUID || !userWorkPlaceGUID) return;
 
     const syncThemeOnLogin = async () => {
       try {
-        console.log("themeStore-ticket-step4: Calling themeStore readOne for user:", userGUID, "workplace:", workPlaceGUID);
+        console.log("themeStore-ticket-step4: Calling themeStore readOne for user:", userGUID, "user workplace:", userWorkPlaceGUID);
 
         if (SystemMetaData?.themeStore?.actions?.readOne) {
           dispatch(SystemMetaData.themeStore.actions.readOne({
             rowOwnerGUID: userGUID,
-            rowGUID: workPlaceGUID,
+            rowGUID: userWorkPlaceGUID,
           }));
         }
 
@@ -89,7 +89,7 @@ function ThemeStoreSyncManager() {
           .from(tableName)
           .select("*")
           .eq("rowOwnerGUID", userGUID)
-          .eq("rowGUID", workPlaceGUID)
+          .eq("rowGUID", userWorkPlaceGUID)
           .maybeSingle();
 
         if (data && data.rowJSON) {
@@ -104,7 +104,7 @@ function ThemeStoreSyncManager() {
           if (SystemMetaData?.themeStore?.actions?.createOne) {
             dispatch(SystemMetaData.themeStore.actions.createOne({
               rowOwnerGUID: userGUID,
-              rowGUID: workPlaceGUID,
+              rowGUID: userWorkPlaceGUID,
               orderInList: Date.now(),
               rowJSON: userTheme,
             }));
@@ -116,7 +116,7 @@ function ThemeStoreSyncManager() {
     };
 
     syncThemeOnLogin();
-  }, [userGUID, workPlaceGUID, supabase, dispatch]);
+  }, [userGUID, userWorkPlaceGUID, supabase, dispatch]);
 
   // themeStore-ticket-step3: If themeState changed: themeStore record must be updated
   useEffect(() => {
@@ -124,7 +124,7 @@ function ThemeStoreSyncManager() {
       isInitialMount.current = false;
       return;
     }
-    if (!userGUID || !workPlaceGUID) return;
+    if (!userGUID || !userWorkPlaceGUID) return;
 
     const snapshot = JSON.stringify(userTheme);
     if (snapshot === lastSyncedThemeRef.current) {
@@ -136,12 +136,12 @@ function ThemeStoreSyncManager() {
       lastSyncedThemeRef.current = snapshot;
       dispatch(SystemMetaData.themeStore.actions.upsertOne({
         rowOwnerGUID: userGUID,
-        rowGUID: workPlaceGUID,
+        rowGUID: userWorkPlaceGUID,
         orderInList: Date.now(),
         rowJSON: userTheme,
       }));
     }
-  }, [userTheme, userGUID, workPlaceGUID, dispatch]);
+  }, [userTheme, userGUID, userWorkPlaceGUID, dispatch]);
 
   // themeStore-ticket-step2: Listen for realtime updates from supabaseOnUpdateTrigger.
   // Ignore echo updates whose payload already matches the current local state to avoid a nonstop loop
@@ -168,7 +168,7 @@ function ThemeStoreSyncManager() {
       }
 
       lastSyncedThemeRef.current = incomingThemeSnapshot;
-      console.log("themeStore-ticket-step2-222: Realtime theme update received from workplace:", updatedRow);
+      console.log("themeStore-ticket-step2-222: Realtime theme update received from user workplace:", updatedRow);
       dispatch(applyThemeFromSupabase(updatedRow.rowJSON));
     };
 
@@ -538,7 +538,7 @@ export default function RootLayout() {
 
   return (
     <AppCustomizationProvider value={getAppCustomization()}>
-    <WithWorkPlace>
+    <WithUserWorkPlace>
       <WithSupabase initialConfig={initialSupabaseConfig}>
         <WithSQLiteNative>
           <WithState>
@@ -551,7 +551,7 @@ export default function RootLayout() {
           </WithState>
         </WithSQLiteNative>
       </WithSupabase>
-    </WithWorkPlace>
+    </WithUserWorkPlace>
     </AppCustomizationProvider>
   );
 }

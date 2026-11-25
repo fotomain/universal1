@@ -197,9 +197,9 @@ export interface PMStoreState {
   projectGanttChartContextCommandsMode: PMContextCommandsMode;
   /** rowJSON.uxuiSettings.selectRowCheckBoxForm - "select row" check boxes: round (default) or square. */
   selectRowCheckBoxForm: PMSelectRowCheckBoxForm;
-  /** project_user_settings_table rows of the signed-in user: projectGUID -> rowJSON.uxuiSettings. */
+  /** project_dashboard_user_settings_table rows of the signed-in user: projectGUID -> rowJSON.uxuiSettings. */
   userSettingsByProject: Record<string, PMUxUiSettings>;
-  /** project_user_settings_table does not exist yet (SQL upgrade not run) -> saves go to project_table.rowJSON. */
+  /** project_dashboard_user_settings_table does not exist yet (SQL upgrade not run) -> saves go to project_table.rowJSON. */
   userSettingsTableMissing: boolean;
   /** Set when the user switched from one project to another: the Gantt | Network mode then follows him. */
   keepWorkspaceMode: boolean;

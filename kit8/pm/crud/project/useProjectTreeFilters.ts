@@ -1,5 +1,5 @@
 // Filter & sort of the task tree columns (view/tree/filter) - saved per project AND user in
-// project_user_settings_table.rowJSON.uxuiSettings:
+// project_dashboard_user_settings_table.rowJSON.uxuiSettings:
 //   treeColumnsFilters { [columnKey]: { filterVariantForColumn, value, value2 } } · treeColumnSort { key, direction } | null
 //   columnFilterIconColor (settings window, Tree tab)
 //

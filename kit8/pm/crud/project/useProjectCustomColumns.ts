@@ -44,7 +44,7 @@ export function useProjectCustomColumns(ownerGUID: string, projectGUID: string |
 
     /**
      * customColumns = project data (project_table.rowJSON); the column order / widths patch = the user's
-     * settings (project_user_settings_table). The store switches first (no flicker).
+     * settings (project_dashboard_user_settings_table). The store switches first (no flicker).
      */
     const saveProject = (customColumns: ReturnType<typeof withCustomColumnAdded>, uxui: PMUxUiSettings) => {
       const p = project();

@@ -44,6 +44,8 @@ export interface PMProjectTreeHostProps {
   hideToolbars?: boolean;
   /** the words of the "+ Stage" / "+ Task" buttons (default Stage / Task; the Estimation dashboard: Section / Line) */
   labels?: PMTreeLabels;
+  /** the splitter between the tree and the pane was released: the width of the tree (px). Default: saved in the dashboard settings of the project; the Estimation dashboard saves its own. */
+  onTreeWidthCommit?: (px: number) => void;
 }
 
 export default function PMProjectTreeHost(props: PMProjectTreeHostProps) {
@@ -54,7 +56,7 @@ export default function PMProjectTreeHost(props: PMProjectTreeHostProps) {
   );
 }
 
-function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, rightPane, fabId = 'pm-project-tree', scope, emptyText, hideRight, hideToolbars, labels = DEFAULT_PM_TREE_LABELS }: PMProjectTreeHostProps) {
+function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, rightPane, fabId = 'pm-project-tree', scope, emptyText, hideRight, hideToolbars, labels = DEFAULT_PM_TREE_LABELS, onTreeWidthCommit }: PMProjectTreeHostProps) {
   const { themeColors } = useDesignSystem();
   const ownerGUID = usePMOwnerGUID();
   const loadedProjectGUID = usePMStore((s) => s.loadedProjectGUID);
@@ -103,6 +105,7 @@ function PMProjectTreeHostInner({ projectGUID, readOnly = false, renderRight, ri
           readOnly={readOnly}
           hideRight={hideRight}
           hideToolbars={hideToolbars}
+          onTreeWidthCommit={onTreeWidthCommit}
         />
       )}
       <PMTreeWindows ownerGUID={ownerGUID ?? ''} projectGUID={projectGUID} crud={crud} kanban={kanban} />

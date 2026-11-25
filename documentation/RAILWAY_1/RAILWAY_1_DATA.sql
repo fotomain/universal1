@@ -416,7 +416,7 @@ BEGIN
   DELETE FROM public.project_task_dependencies_table WHERE "projectGUID" = v_project;
   DELETE FROM public.project_task_kanban_state_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_task_table WHERE "projectGUID" = v_project;
-  DELETE FROM public.project_user_settings_table WHERE "rowOwnerGUID" = v_project;
+  DELETE FROM public.project_dashboard_user_settings_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_kanban_stage_table WHERE "rowOwnerGUID" = v_project;
   DELETE FROM public.project_table WHERE "rowGUID" = v_project;
 
@@ -545,7 +545,7 @@ BEGIN
   END IF;
 
   -- Project User Settings (allows immediate loading of Gantt, Tree, and Ribbon for user)
-  INSERT INTO public.project_user_settings_table (
+  INSERT INTO public.project_dashboard_user_settings_table (
     "rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON"
   ) VALUES (
     'a4000000-0000-4000-8000-000000000001'::uuid,

@@ -1,4 +1,4 @@
-// Post button color (uxuiSettings.postButtonBackgroundColor, saved per project and user in project_user_settings_table): the background of the
+// Post button color (uxuiSettings.postButtonBackgroundColor, saved per project and user in project_dashboard_user_settings_table): the background of the
 // Post button of the task line table (ReusableTable postDataNeeded). Chosen with ColorPickerApp (Gantt settings -> Task tab): any '#RRGGBB'.
 // No imports -> safe to use from model/types.ts.
 

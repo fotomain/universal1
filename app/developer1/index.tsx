@@ -10,7 +10,7 @@ import HomeAppPostsPage from '../../apps/appPosts/HomeAppPostsPage';
 import HomeAppCC1 from '../../apps/appCC1/HomeAppCC1';
 import HomeAppOnTrend from '../../apps/appOnTrend/HomeAppOnTrend';
 import HomeAppClothes1 from '../../apps/appClothes1/HomeAppClothes1';
-import { useWorkPlace } from '../../kit8/providers/WithWorkPlace';
+import { useUserWorkPlace } from '../../kit8/providers/WithUserWorkPlace';
 import { ActiveUserState } from '../../kit8/redux/activeUserSlice';
 
 const homeComponentsMap = {
@@ -23,7 +23,7 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const theme = useTheme();
-  const { workPlaceGUID } = useWorkPlace();
+  const { userWorkPlaceGUID } = useUserWorkPlace();
   const activeUserState = useSelector((state: any) => state.activeUserState as ActiveUserState);
 
   const configurationName = (Constants.expoConfig?.extra?.configurationName as keyof typeof homeComponentsMap) || 'appClothes1';
@@ -33,9 +33,9 @@ export default function HomeScreen() {
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}>
       <HomeComponent />
 
-      {workPlaceGUID && (
-        <Text style={[styles.workplaceText, { color: theme.colors.onSurfaceVariant }]}>
-          Workplace GUID: <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{workPlaceGUID}</Text>
+      {userWorkPlaceGUID && (
+        <Text style={[styles.userWorkplaceText, { color: theme.colors.onSurfaceVariant }]}>
+          User workplace GUID: <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>{userWorkPlaceGUID}</Text>
         </Text>
       )}
 
@@ -102,7 +102,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: 16, alignItems: 'center', minHeight: '100%' },
-  workplaceText: {
+  userWorkplaceText: {
     marginVertical: 10,
     fontSize: 14,
     textAlign: 'center',
