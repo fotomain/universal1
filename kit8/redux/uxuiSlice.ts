@@ -1,6 +1,22 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
+import { getDeviceKey } from "../catalog/user/settings/deviceKey";
 import { normalizePlayVideoSettings, PLAY_VIDEO_DEFAULTS, PlayVideoSettings } from "./playVideoSettings";
 import { normalizeRecordVideoSettings, RECORD_VIDEO_DEFAULTS, RecordVideoSettings } from "./recordVideoSettings";
+import {
+  defaultExtendedSettings,
+  defaultThemeSettings,
+  DashboardFontSettings,
+  ExtendedSettings,
+  FontSetting,
+  normalizeExtendedSettings,
+  normalizeFontSetting,
+  normalizeThemeSettings,
+  ThemeElement,
+  ThemeSettings,
+  UxuiSettingsJSON,
+  extendedSettingsToJSON,
+  defaultDesignSystemFor,
+} from "../catalog/user/settings/userSettingsModel";
 
 export type FABAnimationVariant = 'defaultFABAnimation' | 'reanimatedBasicFABAnimation';
 export type DesignSystemType = 'tamagui' | 'paper' | 'ant' | 'native' | 'expo' | 'googlemd3web' | 'applemacui';
@@ -43,6 +59,10 @@ export interface UxuiState {
   PlayVideoSettings: PlayVideoSettings;
   /** Video recorder: the date and time over the video + its corner. Read it with selectRecordVideoSettings (documentation/CAMERA_DATE_TIME.html). */
   RecordVideoSettings: RecordVideoSettings;
+  /** Fonts and colors the user chose (userSettingsTable.rowJSON.uxuiState.themeSettings). A persisted state of an older version has none: read it with selectThemeSettings. */
+  themeSettings: ThemeSettings;
+  /** Fonts + cell background of the Estimation / Project dashboard (rowJSON.uxuiState.extendedSettings, in the owner's key names). Read it with selectExtendedSettings. */
+  extendedSettings: Record<string, any>;
 }
 
 /** uxui.intentInfo: what was received + what the user decided to add from it. */
@@ -89,7 +109,7 @@ export interface UxuiCurrentJSON {
 const uxuiInitialState: UxuiState = {
   darkMode: false, // uxuiState:darkMode = false at first login
   fabAnimationVariant: 'defaultFABAnimation',
-  activeDesignSystem: 'paper',
+  activeDesignSystem: defaultDesignSystemFor(getDeviceKey().os), // Rule 1: the most native look - Expo UI on Apple, Paper elsewhere (a persisted choice of an older state wins)
   iconsVariant: 'materialIconsOnly',
   bottomTabsAreVisible: false,
   askBeforeDeletePost: true,
@@ -103,6 +123,8 @@ const uxuiInitialState: UxuiState = {
   intentInfo: null,
   PlayVideoSettings: { ...PLAY_VIDEO_DEFAULTS },
   RecordVideoSettings: { ...RECORD_VIDEO_DEFAULTS },
+  themeSettings: defaultThemeSettings(),
+  extendedSettings: extendedSettingsToJSON(defaultExtendedSettings()),
   snackbar: {
     visible: false,
     message: '',
@@ -177,6 +199,50 @@ const uxuiSlice = createSlice({
     },
     resetRecordVideoSettings: (state) => {
       state.RecordVideoSettings = { ...RECORD_VIDEO_DEFAULTS };
+    },
+    // ===== userSettingsTable: fonts, colors, dashboards (kit8/catalog/user/settings)
+    /** the font name / size of the theme and the colors: only the given fields change, everything is kept valid */
+    setThemeSettings: (state, action: PayloadAction<Partial<ThemeSettings>>) => {
+      state.themeSettings = normalizeThemeSettings({ ...normalizeThemeSettings(state.themeSettings), ...action.payload });
+    },
+    /** the font of ONE theme element (input, label, button, title); null = follows the theme font again */
+    setThemeElementFont: (state, action: PayloadAction<{ element: ThemeElement; font: FontSetting | null }>) => {
+      const cur = normalizeThemeSettings(state.themeSettings);
+      const elements = { ...cur.elements };
+      if (action.payload.font) elements[action.payload.element] = normalizeFontSetting(action.payload.font, cur);
+      else delete elements[action.payload.element];
+      state.themeSettings = { ...cur, elements };
+    },
+    /** one color of the theme (an MD3 color name); null = back to the palette */
+    setThemeColor: (state, action: PayloadAction<{ key: string; value: string | null }>) => {
+      const cur = normalizeThemeSettings(state.themeSettings);
+      const colors = { ...cur.colors };
+      if (action.payload.value) colors[action.payload.key] = action.payload.value;
+      else delete colors[action.payload.key];
+      state.themeSettings = normalizeThemeSettings({ ...cur, colors });
+    },
+    resetThemeColors: (state) => {
+      state.themeSettings = { ...normalizeThemeSettings(state.themeSettings), colors: {}, fabColor: null };
+    },
+    /** the fonts / cell background of ONE dashboard */
+    setDashboardSettings: (state, action: PayloadAction<{ dashboard: keyof ExtendedSettings; patch: Partial<DashboardFontSettings> }>) => {
+      const cur = normalizeExtendedSettings(state.extendedSettings);
+      const next: ExtendedSettings = { ...cur, [action.payload.dashboard]: { ...cur[action.payload.dashboard], ...action.payload.patch } };
+      state.extendedSettings = extendedSettingsToJSON(normalizeExtendedSettings(extendedSettingsToJSON(next)));
+    },
+    /** the row of userSettingsTable of this device arrived (or Copy from my other device): its preferences become the state */
+    applyUserSettings: (state, action: PayloadAction<UxuiSettingsJSON>) => {
+      const p: any = action.payload || {};
+      if (p.activeDesignSystem) state.activeDesignSystem = p.activeDesignSystem;
+      if (p.iconsVariant) state.iconsVariant = p.iconsVariant;
+      if (typeof p.darkMode === 'boolean') state.darkMode = p.darkMode;
+      if (p.fabAnimationVariant) state.fabAnimationVariant = p.fabAnimationVariant;
+      if (typeof p.bottomTabsAreVisible === 'boolean') state.bottomTabsAreVisible = p.bottomTabsAreVisible;
+      if (typeof p.askBeforeDeletePost === 'boolean') state.askBeforeDeletePost = p.askBeforeDeletePost;
+      if (p.PlayVideoSettings) state.PlayVideoSettings = normalizePlayVideoSettings(p.PlayVideoSettings);
+      if (p.RecordVideoSettings) state.RecordVideoSettings = normalizeRecordVideoSettings(p.RecordVideoSettings);
+      state.themeSettings = normalizeThemeSettings(p.themeSettings);
+      state.extendedSettings = extendedSettingsToJSON(normalizeExtendedSettings(p.extendedSettings));
     },
     /** a new share arrived (null = forget it) */
     setIntentInfo: (state, action: PayloadAction<UxuiIntentInfo | null>) => {
@@ -263,9 +329,35 @@ export const {
   resetPlayVideoSettings,
   setRecordVideoSettings,
   resetRecordVideoSettings,
+  setThemeSettings,
+  setThemeElementFont,
+  setThemeColor,
+  resetThemeColors,
+  setDashboardSettings,
+  applyUserSettings,
   showSnackbar,
   hideSnackbar,
   toggleSnackbar,
 } = uxuiSlice.actions;
 
 export default uxuiSlice.reducer;
+
+// ---- selectors of the settings of userSettingsTable: they return a STORED reference while the slice is unchanged (a selector that builds a new object per call loops)
+const themeCache = new WeakMap<object, ThemeSettings>();
+export function selectThemeSettings(state: any): ThemeSettings {
+  const raw = state?.uxuiState?.themeSettings;
+  if (!raw || typeof raw !== 'object') return DEFAULT_THEME_SETTINGS;
+  let v = themeCache.get(raw);
+  if (!v) { v = normalizeThemeSettings(raw); themeCache.set(raw, v); }
+  return v;
+}
+const extendedCache = new WeakMap<object, ExtendedSettings>();
+export function selectExtendedSettings(state: any): ExtendedSettings {
+  const raw = state?.uxuiState?.extendedSettings;
+  if (!raw || typeof raw !== 'object') return DEFAULT_EXTENDED_SETTINGS;
+  let v = extendedCache.get(raw);
+  if (!v) { v = normalizeExtendedSettings(raw); extendedCache.set(raw, v); }
+  return v;
+}
+const DEFAULT_THEME_SETTINGS = defaultThemeSettings();
+const DEFAULT_EXTENDED_SETTINGS = defaultExtendedSettings();

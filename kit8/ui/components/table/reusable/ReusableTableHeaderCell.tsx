@@ -2,6 +2,7 @@
 // resizeColumnWidth: drag the separator at its right edge to change the width. Mouse and touch (PanResponder).
 import React, { useMemo, useRef, useState } from 'react';
 import { Animated, PanResponder, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTableStyle } from './tableStyleContext';
 
 export interface ReusableTableHeaderCellProps {
   columnKey: string;
@@ -35,6 +36,7 @@ const GRIP_W = 10;
 export const HEADER_DOUBLE_TAP_MS = 400;
 
 export default function ReusableTableHeaderCell({ columnKey, title, width, justify, colors, draggable, resizable, onDragEnd, onResize, onResizeEnd, onMenu, onContextMenu, sortDirection, filtered, delimiter, testID }: ReusableTableHeaderCellProps) {
+  const tableStyle = useTableStyle();
   const dragX = useRef(new Animated.Value(0)).current;
   const [dragging, setDragging] = useState(false);
   const [resizing, setResizing] = useState(false);
@@ -91,7 +93,7 @@ export default function ReusableTableHeaderCell({ columnKey, title, width, justi
         onLongPress={onContextMenu ? (e: any) => onContextMenu(columnKey, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0) : undefined}
         style={[styles.label, { justifyContent: justify }, Platform.OS === 'web' && draggable ? ({ cursor: dragging ? 'grabbing' : 'grab', userSelect: 'none' } as any) : null]}
       >
-        <Text numberOfLines={1} selectable={false} style={[styles.text, { color: colors.text }]}>{title}</Text>
+        <Text numberOfLines={1} selectable={false} style={[styles.text, { color: colors.text }, tableStyle.header]}>{title}</Text>
       </Pressable>
       {!!onMenu && (
         <Pressable

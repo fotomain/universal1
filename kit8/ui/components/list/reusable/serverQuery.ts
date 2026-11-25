@@ -4,7 +4,7 @@
 //   text compare / sort   rowJSON->>field   (text)
 //   number compare / sort rowJSON->field    (jsonb: numbers compare as numbers)
 import type { ReusableTableRow, VisualColumn } from '../../table/reusable/reusableTableTypes';
-import { ColumnFilter, ColumnSort, ColumnFilters, filterNeedsValue, isActiveFilter } from '../../table/reusable/tableFilter';
+import { ColumnFilter, ColumnSort, ColumnFilters, filterKindOf, filterOperands, isActiveFilter } from '../../table/reusable/tableFilter';
 import { fieldOf, targetOf } from '../../table/reusable/tableRows';
 
 const isNumeric = (col: VisualColumn) => col.type === 'integer' || col.type === 'number';
@@ -43,13 +43,31 @@ export interface ServerPageRequest {
 function applyFilter(q: any, col: VisualColumn, f: ColumnFilter): any {
   const path = serverColumnPath(col);
   const raw = String(f.value ?? '').trim();
+  const kind = filterKindOf(col);
+  // number / date operands; an operand that is no number / date is not sent (the database would refuse the whole query)
+  const { a, b, list } = filterOperands(kind, f);
   switch (f.op) {
     case 'empty': return q.is(path, null);
     case 'notEmpty': return q.not(path, 'is', null);
     case 'contains': return q.ilike(path, `%${safeSearchText(raw)}%`);
-    case 'eq': return isNumeric(col) ? q.eq(path, Number(raw.replace(',', '.'))) : q.eq(path, raw);
-    case 'gte': return q.gte(path, Number(raw.replace(',', '.')));
-    case 'lte': return q.lte(path, Number(raw.replace(',', '.')));
+    case 'startsWith': return q.ilike(path, `${safeSearchText(raw)}%`);
+    case 'endsWith': return q.ilike(path, `%${safeSearchText(raw)}`);
+    // an empty cell is "not equal" / "does not contain" (the same as the in-memory filter), so the NULL rows stay: or(is.null, not ...)
+    case 'neq':
+      if (kind === 'text') return q.or(`${path}.is.null,${path}.neq."${raw.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`);
+      return a === null ? q : q.or(`${path}.is.null,${path}.neq.${a}`);
+    case 'notContains': return q.or(`${path}.is.null,${path}.not.ilike.*${safeSearchText(raw)}*`);
+    case 'eq': return kind === 'text' ? q.eq(path, raw) : a === null ? q : q.eq(path, a);
+    case 'gt': return a === null ? q : q.gt(path, a);
+    case 'gte': return a === null ? q : q.gte(path, a);
+    case 'lt': return a === null ? q : q.lt(path, a);
+    case 'lte': return a === null ? q : q.lte(path, a);
+    case 'between': {
+      if (a === null || b === null) return q;
+      const [lo, hi] = (a as any) <= (b as any) ? [a, b] : [b, a];
+      return q.gte(path, lo).lte(path, hi);
+    }
+    case 'oneOf': return list.length === 0 ? q : q.in(path, list);
     default: return q;
   }
 }
@@ -63,8 +81,6 @@ export function applyServerQuery(builder: any, req: ServerPageRequest): any {
   for (const col of req.columns) {
     const f = req.filters[col.key];
     if (!isActiveFilter(f)) continue;
-    // a number filter with a value that is no number is not sent (the database would refuse the whole query)
-    if (isNumeric(col) && filterNeedsValue(f.op) && !Number.isFinite(Number(String(f.value).replace(',', '.')))) continue;
     q = applyFilter(q, col, f);
   }
   const sortCol = req.sort && req.columns.find((c) => c.key === req.sort!.key);

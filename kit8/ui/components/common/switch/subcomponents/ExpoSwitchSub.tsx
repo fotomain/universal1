@@ -1,6 +1,8 @@
 import React from 'react';
 import { View, Text, Switch as RNSwitch } from 'react-native';
 import { SwitchAppProps } from '../../SwitchApp';
+import { ExpoUISwitch } from '../../../../expoui/ExpoUI';
+import { useThemeFont } from '../../../../fonts/useThemeFont';
 
 let useDesignSystem: any;
 try {
@@ -24,7 +26,8 @@ export const ExpoSwitchSub: React.FC<SwitchAppProps> = ({
 
   const { themeColors, isDark } = designSystem;
 
-  return (
+  const labelFont = useThemeFont('label');
+  const legacy = (
     <View
       style={[
         {
@@ -39,7 +42,7 @@ export const ExpoSwitchSub: React.FC<SwitchAppProps> = ({
         style,
       ]}
     >
-      {label && <Text style={{ fontSize: 15, fontWeight: '700', color: themeColors.text }}>{label}</Text>}
+      {label && <Text style={{ fontFamily: labelFont.fontFamily, fontSize: 15, fontWeight: '700', color: themeColors.text }}>{label}</Text>}
       <RNSwitch
         testID={testID}
         value={value}
@@ -50,6 +53,8 @@ export const ExpoSwitchSub: React.FC<SwitchAppProps> = ({
       />
     </View>
   );
+  // the native Switch of @expo/ui (SwiftUI / Compose); the hand-made one above is the fallback
+  return <ExpoUISwitch testID={testID} value={value} onValueChange={onValueChange} label={label} disabled={disabled} fallback={legacy} />;
 };
 
 export default ExpoSwitchSub;

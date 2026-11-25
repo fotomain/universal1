@@ -22,8 +22,8 @@ describe('grid column values and operators', () => {
     expect(gridColumnValue(col('qty'), byGuid.a, ctx)).toBe(5);
     expect(gridColumnValue(col('qty'), byGuid.c, ctx)).toBeNull();
     expect(gridColumnValue(col('title'), byGuid.b, ctx)).toBe('Brick wall');
-    expect(gridFilterOps(col('qty'))).toEqual(['eq', 'gte', 'lte', 'empty', 'notEmpty']);
-    expect(gridFilterOps(col('title'))).toEqual(['contains', 'empty', 'notEmpty']);
+    expect(gridFilterOps(col('qty'))).toEqual(['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'between', 'oneOf', 'empty', 'notEmpty']);
+    expect(gridFilterOps(col('title'))).toEqual(['eq', 'neq', 'contains', 'notContains', 'startsWith', 'endsWith', 'empty', 'notEmpty']);
   });
 });
 

@@ -6,6 +6,7 @@ import ActivityIndicatorCircleApp from '../activityindicator/ActivityIndicatorCi
 import IconApp from './IconApp';
 import GoogleMD3WebButton from './googlemd3web/GoogleMD3WebButton';
 import { AppleButton } from '../../applemacui/components/AppleButton';
+import { ExpoUIButton } from '../../expoui/ExpoUI';
 
 export interface ButtonAppProps {
   title?: string;
@@ -389,7 +390,7 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
     }
 
     case 'expo': {
-      return (
+      const legacyExpo = (
         <TouchableOpacity
           {...common}
           onPress={onPress}
@@ -435,8 +436,11 @@ export const ButtonApp = React.forwardRef<View, ButtonAppProps>(function ButtonA
           )}
         </TouchableOpacity>
       );
+      // a plain button (text label only, a normal variant, no fixed size) is the NATIVE Button of @expo/ui; the hand-made look is the fallback and serves the other buttons
+      const plainNative = !icon && !loading && !!buttonText && typeof buttonText === 'string' && (variant === 'contained' || variant === 'outlined' || variant === 'text') && !width && !minWidth && !height && !danger && !color && !style;
+      if (!plainNative) return legacyExpo;
+      return <ExpoUIButton testID={testID} label={buttonText as string} variant={variant as any} onPress={onPress} disabled={disabled} fallback={legacyExpo} />;
     }
-
     case 'googlemd3web': {
       return (
         <GoogleMD3WebButton

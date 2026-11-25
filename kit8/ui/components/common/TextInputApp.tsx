@@ -7,6 +7,8 @@ import GoogleMD3WebTextInput from './googlemd3web/GoogleMD3WebTextInput';
 import TamaguiTextInputSub from './tamagui/TamaguiTextInputSub';
 import { AppleTextField } from '../../applemacui/components/AppleTextField';
 import { installNoAutofillHighlight } from '../../../lib/webAutofillStyle';
+import { useThemeFont } from '../../fonts/useThemeFont';
+import { ExpoUITextInput } from '../../expoui/ExpoUI';
 
 // web: no light-blue browser autofill background on any app input
 installNoAutofillHighlight();
@@ -98,6 +100,10 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   const { activeSystem, themeColors, isDark } = useDesignSystem();
   const [isFocused, setIsFocused] = useState(false);
   const flat = mode === 'flat';
+  // the font of the INPUT element (userSettingsTable: themeSettings.elements.input, else the font of the interface)
+  const inputFont = useThemeFont('input');
+  const labelFont = useThemeFont('label');
+  const fontStyle = { fontFamily: inputFont.fontFamily, fontSize: inputFont.fontSize, letterSpacing: inputFont.letterSpacing } as any;
 
   const currentValue = typeof value === 'string' ? value : '';
   const checkResult = errorCheck ? errorCheck(currentValue) : null;
@@ -221,7 +227,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
             outlineColor={themeColors.border}
             activeOutlineColor={themeColors.primary}
             {...(flat ? { underlineColor: 'transparent', activeUnderlineColor: 'transparent' } : null)}
-            style={{ backgroundColor: flat ? 'transparent' : themeColors.surface, ...(inputHeight ? { height: inputHeight } : null) }}
+            style={{ backgroundColor: flat ? 'transparent' : themeColors.surface, ...fontStyle, ...(inputHeight ? { height: inputHeight } : null) }}
             {...(props as any)}
           />
           {(hasError || helperText) && (
@@ -329,7 +335,9 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
 
     case 'expo': {
-      return (
+      // a plain field (no icons / adornments) is the NATIVE field of @expo/ui (SwiftUI / Compose); the hand-made look below is the fallback and serves the fields with icons
+      const plainNative = left === undefined && !leftIcon && !leftIcons?.length && !rightIcon && right === undefined;
+      const legacyExpo = (
         <View style={[{ marginBottom: flat ? 0 : 14, width: '100%' }, style]}>
           {label && (
             <Text style={{ fontSize: 14, fontWeight: '700', color: themeColors.primary, marginBottom: 4 }}>
@@ -365,7 +373,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               onBlur={() => setIsFocused(false)}
               style={{
                 flex: 1,
-                fontSize: 15,
+                ...fontStyle,
                 color: themeColors.text,
                 outlineStyle: 'none',
                 borderWidth: 0,
@@ -377,6 +385,35 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               <IconApp testID="d91fe023-6cea-1d23-5bg7-890123456f18" name="close" size={18} color="#64748b" onPress={handleClear} />
             )}
           </View>
+          {(hasError || helperText) && (
+            <Text style={{ fontSize: 12, color: hasError ? themeColors.error : '#64748b', marginTop: 4, marginLeft: 8 }}>
+              {hasError ? computedErrorMessage : helperText}
+            </Text>
+          )}
+        </View>
+      );
+      if (!plainNative) return legacyExpo;
+      return (
+        <View style={[{ marginBottom: flat ? 0 : 14, width: '100%' }, style]}>
+          {label && (
+            <Text style={{ fontFamily: labelFont.fontFamily, fontSize: labelFont.fontSize, fontWeight: '700', color: themeColors.primary, marginBottom: 4 }}>
+              {label}
+            </Text>
+          )}
+          <ExpoUITextInput
+            testID={(props as any).testID}
+            value={currentValue}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            secureTextEntry={secureTextEntry}
+            multiline={multiline}
+            numberOfLines={numberOfLines}
+            keyboardType={keyboardType}
+            autoCapitalize={autoCapitalize}
+            editable={!disabled}
+            accessibilityLabel={label}
+            fallback={legacyExpo}
+          />
           {(hasError || helperText) && (
             <Text style={{ fontSize: 12, color: hasError ? themeColors.error : '#64748b', marginTop: 4, marginLeft: 8 }}>
               {hasError ? computedErrorMessage : helperText}
@@ -452,7 +489,7 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               style={{
                 flex: 1,
                 color: themeColors.text,
-                fontSize: 15,
+                ...fontStyle,
                 opacity: disabled ? 0.6 : 1,
                 outlineStyle: 'none',
                 borderWidth: 0,

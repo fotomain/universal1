@@ -1,6 +1,6 @@
 // ReusableTable pure helpers: order, dependent columns, number input, search text.
 import { fitColumnWidths, MIN_COLUMN_WIDTH, MAX_COLUMN_WIDTH, colorToHex, moveSelectedRows, stretchColumns, widthOf, arrangeColumns, clampColumnWidth, columnDropIndex, moveColumn, dependentColumns, emptyRowJSON, insertRow, moveRow, parseNumberInput, patchForCell, rowSearchText, sanitizeNumberText, sortRows } from '../../../kit8/ui/components/table/reusable/tableRows';
-import { filterRows, isSortFilterColumn, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
+import { defaultFilterOpOf, filterKindOf, filterOpsOf, filterRows, isActiveFilter, isSortFilterColumn, matchesFilter, sortRowsByColumn } from '../../../kit8/ui/components/table/reusable/tableFilter';
 import { buildTableExport, exportFileName, exportToCSV, exportToJSON } from '../../../kit8/ui/components/table/reusable/tableExport';
 import { buildTextTablePdf, layoutTablePdf, approxMeasure, pdfString } from '../../../kit8/ui/components/table/reusable/tablePdf';
 import { addToSearchHistory } from '../../../kit8/ui/components/table/reusable/useSearchHistory';
@@ -103,6 +103,95 @@ describe('column sort + filter', () => {
     expect(ids(filterRows(data, cols, { person: { op: 'notEmpty' }, hours: { op: 'lte', value: '8' } }, title))).toBe('1');
     expect(filterRows(data, cols, { person: { op: 'contains', value: ' ' } }, title)).toBe(data);
     expect(matchesFilter(5, { op: 'eq', value: '5,0' })).toBe(true);
+  });
+});
+
+describe('text filter operators (the select list of a text column)', () => {
+  const m = (value: string | null, op: any, text?: string) => matchesFilter(value, { op, value: text });
+  it('equal / not equal compare the whole text, case does not matter; an empty cell is not equal to anything', () => {
+    expect(m('Foundation', 'eq', 'foundation')).toBe(true);
+    expect(m('Foundation', 'eq', 'found')).toBe(false);
+    expect(m(null, 'eq', 'x')).toBe(false);
+    expect(m('Foundation', 'neq', 'found')).toBe(true);
+    expect(m('Foundation', 'neq', 'FOUNDATION')).toBe(false);
+    expect(m(null, 'neq', 'x')).toBe(true);
+  });
+  it('contains / does not contain; an empty cell does not contain anything', () => {
+    expect(m('Reinforced slab', 'contains', 'FORCED')).toBe(true);
+    expect(m('Reinforced slab', 'notContains', 'forced')).toBe(false);
+    expect(m('Reinforced slab', 'notContains', 'wall')).toBe(true);
+    expect(m(null, 'contains', 'x')).toBe(false);
+    expect(m(null, 'notContains', 'x')).toBe(true);
+  });
+  it('starts with / ends with', () => {
+    expect(m('Reinforced slab', 'startsWith', 'rein')).toBe(true);
+    expect(m('Reinforced slab', 'startsWith', 'slab')).toBe(false);
+    expect(m('Reinforced slab', 'endsWith', 'SLAB')).toBe(true);
+    expect(m('Reinforced slab', 'endsWith', 'rein')).toBe(false);
+    expect(m(null, 'startsWith', 'a')).toBe(false);
+    expect(m(null, 'endsWith', 'a')).toBe(false);
+  });
+  it('no text typed = no filter; empty / not empty need none; a number column still compares numbers', () => {
+    ['eq', 'neq', 'contains', 'notContains', 'startsWith', 'endsWith'].forEach((op) => expect(m('abc', op, '  ')).toBe(true));
+    expect(m(null, 'empty')).toBe(true);
+    expect(m('a', 'notEmpty')).toBe(true);
+    expect(matchesFilter(5, { op: 'eq', value: '5' })).toBe(true);
+    expect(matchesFilter(5, { op: 'eq', value: '6' })).toBe(false);
+  });
+  it('text columns offer the 8 operators in the order of the list; the start is contains / =', () => {
+    const text = { key: 't', title: 'T', type: 'text' } as any;
+    const num = { key: 'n', title: 'N', type: 'number' } as any;
+    expect(filterOpsOf(text)).toEqual(['eq', 'neq', 'contains', 'notContains', 'startsWith', 'endsWith', 'empty', 'notEmpty']);
+    expect(defaultFilterOpOf(text)).toBe('contains');
+    expect(defaultFilterOpOf(num)).toBe('eq');
+    const rows = [{ rowGUID: '1', rowJSON: { t: 'Wall A' } }, { rowGUID: '2', rowJSON: {} }, { rowGUID: '3', rowJSON: { t: 'Slab' } }] as any[];
+    const ids = (f: any) => filterRows(rows, [text], { t: f }, () => '').map((r) => r.rowGUID).join('');
+    expect(ids({ op: 'notContains', value: 'wall' })).toBe('23');
+    expect(ids({ op: 'neq', value: 'slab' })).toBe('12');
+    expect(ids({ op: 'startsWith', value: 'wa' })).toBe('1');
+    expect(ids({ op: 'endsWith', value: 'b' })).toBe('3');
+  });
+});
+
+describe('number and date filter operators (is exactly ... is one of)', () => {
+  const m = (value: string | number | null, op: any, v?: string, v2?: string) => matchesFilter(value, { op, value: v, value2: v2 });
+  it('numbers: = != > >= < <=; a comma may be the decimal sign; an empty cell is only "not" equal', () => {
+    expect(m(5, 'eq', '5,0')).toBe(true);
+    expect(m(5, 'neq', '5')).toBe(false);
+    expect(m(5, 'neq', '6')).toBe(true);
+    expect(m(null, 'neq', '6')).toBe(true);
+    expect(m(null, 'eq', '6')).toBe(false);
+    expect([m(5, 'gt', '5'), m(5, 'gte', '5'), m(5, 'lt', '5'), m(5, 'lte', '5'), m(5, 'gt', '4.5'), m(5, 'lt', '5.5')]).toEqual([false, true, false, true, true, true]);
+    expect([m(null, 'gt', '1'), m(null, 'lte', '1')]).toEqual([false, false]);
+    expect(m(5, 'gt', 'abc')).toBe(true);                            // no number typed = no filter
+  });
+  it('numbers: between is inclusive and works when From > To; one of takes a comma separated list', () => {
+    expect([m(5, 'between', '5', '10'), m(10, 'between', '5', '10'), m(11, 'between', '5', '10'), m(4.9, 'between', '5', '10'), m(7, 'between', '10', '5'), m(null, 'between', '5', '10')]).toEqual([true, true, false, false, true, false]);
+    expect(m(5, 'between', '5', '')).toBe(true);                     // To not typed yet = no filter
+    expect([m(2, 'oneOf', '1, 2,3'), m(4, 'oneOf', '1, 2,3'), m(2, 'oneOf', '1;2'), m(null, 'oneOf', '1,2'), m(4, 'oneOf', 'x, 4'), m(4, 'oneOf', 'x')]).toEqual([true, false, true, false, true, true]);
+  });
+  it('days: the typed form does not matter (2026-01-05, 05.01.2026, 20260105); a stored timestamp counts as its day', () => {
+    expect([m('2026-01-05', 'eq', '05.01.2026'), m('2026-01-05', 'eq', '20260105'), m('2026-01-05T00:00:00+00:00', 'eq', '2026-01-05'), m('2026-01-06', 'eq', '2026-01-05')]).toEqual([true, true, true, false]);
+    expect([m('2026-01-06', 'neq', '2026-01-05'), m('2026-01-05', 'neq', '2026-01-05'), m(null, 'neq', '2026-01-05')]).toEqual([true, false, true]);
+    expect([m('2026-01-06', 'gt', '2026-01-05'), m('2026-01-05', 'gt', '2026-01-05'), m('2026-01-05', 'gte', '2026-01-05'), m('2025-12-31', 'lt', '2026-01-01'), m('2026-01-01', 'lte', '2026-01-01')]).toEqual([true, false, true, true, true]);
+    expect([m('2026-01-05', 'between', '2026-01-01', '2026-01-05'), m('2026-01-06', 'between', '2026-01-01', '2026-01-05'), m('2026-01-03', 'between', '2026-01-05', '2026-01-01')]).toEqual([true, false, true]);
+    expect([m('2026-01-05', 'oneOf', '2026-01-05, 2026-02-01'), m('2026-02-01', 'oneOf', '20260205, 01.02.2026'), m('2026-03-01', 'oneOf', '2026-01-05, 2026-02-01')]).toEqual([true, true, false]);
+  });
+  it('the operators of a number / date column, the kind of a column, between needs both values', () => {
+    const num = { key: 'n', title: 'N', type: 'number' } as any;
+    const day = { key: 'd', title: 'D', type: 'date' } as any;
+    const all = ['eq', 'neq', 'gt', 'gte', 'lt', 'lte', 'between', 'oneOf', 'empty', 'notEmpty'];
+    expect(filterOpsOf(num)).toEqual(all);
+    expect(filterOpsOf(day)).toEqual(all);
+    expect(defaultFilterOpOf(day)).toBe('eq');
+    expect([filterKindOf(num), filterKindOf(day), filterKindOf({ key: 't', title: 'T', type: 'text' } as any)]).toEqual(['number', 'date', 'text']);
+    expect(isActiveFilter({ op: 'between', value: '1' })).toBe(false);
+    expect(isActiveFilter({ op: 'between', value: '1', value2: '2' })).toBe(true);
+    const rows = [{ rowGUID: '1', rowJSON: { d: '2026-01-05' } }, { rowGUID: '2', rowJSON: {} }, { rowGUID: '3', rowJSON: { d: '2026-03-01' } }] as any[];
+    const ids = (f: any) => filterRows(rows, [day], { d: f }, () => '').map((r) => r.rowGUID).join('');
+    expect(ids({ op: 'gte', value: '2026-02-01' })).toBe('3');
+    expect(ids({ op: 'neq', value: '2026-01-05' })).toBe('23');
+    expect(ids({ op: 'between', value: '2026-01-01', value2: '2026-01-31' })).toBe('1');
   });
 });
 

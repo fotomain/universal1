@@ -1,4 +1,5 @@
 // ReusableTable - one cell: shows the value of a visualColumn and lets the user change it in place.
+import { useTableStyle } from './tableStyleContext';
 import React, { useEffect, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
@@ -159,6 +160,7 @@ function OptionCell({ testID, title, shown, dot, placeholder, editable, h, radiu
   testID: string; title: string; shown: string; dot?: string; placeholder: string; editable: boolean; h: number; radius: number; border: number;
   options: import('./reusableTableTypes').SelectOption[]; multi: boolean; selected: string[]; allowEmpty: boolean; onCommit: (values: string[]) => void;
 }) {
+  const ts = useTableStyle();
   const { themeColors: c } = useDesignSystem();
   const [open, setOpen] = useState(false);
   return (
@@ -166,7 +168,7 @@ function OptionCell({ testID, title, shown, dot, placeholder, editable, h, radiu
       <Pressable testID={testID} disabled={!editable} onPress={() => setOpen(true)} accessibilityRole="button" accessibilityLabel={`${title}: ${shown || placeholder}`}
         style={[styles.optionTrigger, { height: h, borderRadius: radius, borderWidth: border, borderColor: c.border }]}>
         {dot ? <View style={[styles.dot, { backgroundColor: dot, borderColor: c.border }]} /> : null}
-        <Text numberOfLines={1} style={{ flex: 1, color: c.text, opacity: shown ? 1 : 0.45, fontSize: 14 }}>{shown || placeholder}</Text>
+        <Text numberOfLines={1} style={[{ flex: 1, color: c.text, opacity: shown ? 1 : 0.45, fontSize: 14 }, ts.cell]}>{shown || placeholder}</Text>
         {editable ? <IconApp name="expand_more" size={16} color={c.text} /> : null}
       </Pressable>
       {open && (
@@ -215,6 +217,7 @@ function JsonCell({ testID, title, value, editable, h, onCommit }: { testID: str
 
 /** number input: free typing, saved on blur / Enter (only when the value really changed) */
 export function NumberCell({ radius, border, h, value, editable, integer, min, max, stepper, step, placeholder, align, onCommit, testID, dataSet, calculator = false }: { calculator?: boolean; radius: number; border: number; h: number; value: any; editable: boolean; integer: boolean; min?: number; max?: number; stepper: boolean; step?: number; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (n: number | null) => void; testID: string; dataSet?: Record<string, string> }) {
+  const ts = useTableStyle();
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(shown);
@@ -225,7 +228,7 @@ export function NumberCell({ radius, border, h, value, editable, integer, min, m
     setDraft(n === null ? '' : String(n));
     if ((n ?? null) !== (value ?? null)) onCommit(n);
   };
-  if (!editable) return <Text testID={testID} style={{ color: c.text, flex: 1, textAlign: align, fontSize: 14 }}>{shown}</Text>;
+  if (!editable) return <Text testID={testID} style={[{ color: c.text, flex: 1, textAlign: align, fontSize: 14 }, ts.cell]}>{shown}</Text>;
   const input = (
     <TextInput
       testID={testID}
@@ -313,6 +316,7 @@ function DatePickerCell({ testID, value, placeholder, onCommit }: { testID: stri
 }
 
 export function TextCell({ radius, border, h, value, editable, placeholder, align, onCommit, testID }: { radius: number; border: number; h: number; value: any; editable: boolean; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (t: string) => void; testID: string }) {
+  const ts = useTableStyle();
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(shown);
@@ -323,12 +327,12 @@ export function TextCell({ radius, border, h, value, editable, placeholder, alig
   const commit = () => { if (draft !== shown) onCommit(draft); };
   // the close icon at the right of the field deletes the text (the icon stays 200 ms after the blur, so a press that blurs the field first is not lost); the field keeps the focus
   const clear = () => { setDraft(''); if (shown !== '') onCommit(''); setTimeout(() => inputRef.current?.focus(), 0); };
-  if (!editable) return <Text testID={testID} numberOfLines={1} style={{ color: c.text, flex: 1, textAlign: align, fontSize: 14 }}>{shown}</Text>;
+  if (!editable) return <Text testID={testID} numberOfLines={1} style={[{ color: c.text, flex: 1, textAlign: align, fontSize: 14 }, ts.cell]}>{shown}</Text>;
   const showClear = (focused || hovered) && draft !== '';
   return (
     <View style={styles.textCell} {...({ onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false) } as any)}>
       <TextInput ref={inputRef} testID={testID} value={draft} onChangeText={setDraft} onFocus={() => setFocused(true)} onBlur={() => { commit(); setTimeout(() => setFocused(false), 200); }} onSubmitEditing={commit} placeholder={placeholder} placeholderTextColor={c.text + '60'}
-        style={[styles.input, { borderRadius: radius, borderWidth: border, height: h, color: c.text, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent', textAlign: align }, showClear && { paddingRight: 30 }]} />
+        style={[styles.input, { borderRadius: radius, borderWidth: border, height: h, color: c.text, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent', textAlign: align }, ts.cell, showClear && { paddingRight: 30 }]} />
       {showClear && (
         <Pressable testID={`${testID}-clear`} accessibilityLabel={pmT('Clear')} onPress={clear} hitSlop={6} style={styles.textClear}>
           <IconApp name="close" size={16} color={c.text + '99'} />

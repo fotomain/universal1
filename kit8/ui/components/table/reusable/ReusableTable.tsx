@@ -23,6 +23,7 @@ import PMContextMenu from '../../../../pm/inner/menu/PMContextMenu';
 import type { PMMenuItemProps } from '../../../../pm/inner/menu/PMMenuItem';
 import { showSnackbar } from '../../../../redux/uxuiSlice';
 import { useSearchHistory } from './useSearchHistory';
+import { TableStyleContext, useDashboardTableStyle, useTableStyle } from './tableStyleContext';
 import { buildTableFile, exportTableFile, shareTableFile, TABLE_EXPORT_FORMATS, TableExportFormat, tableFileResultMessage } from './tableExportActions';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../common/IconApp';
@@ -85,7 +86,18 @@ const HANDLE_W = 28;
 const CHECK_W = 40;
 const MENU_W = 36;
 
+/** A table of a dashboard (`dashboard` prop) takes the fonts of its header / data cells and the cell background the user chose (userSettingsTable, extendedSettings). */
 export default function ReusableTable(props: ReusableTableProps) {
+  const style = useDashboardTableStyle(props.dashboard);
+  return (
+    <TableStyleContext.Provider value={style}>
+      <ReusableTableInner {...props} />
+    </TableStyleContext.Provider>
+  );
+}
+
+function ReusableTableInner(props: ReusableTableProps) {
+  const tableStyle = useTableStyle();
   const {
     entityName, crudListTitle = 'Table', listOwnerGUID, itemLabel = 'Row', reorderEnabled = true, visualColumns: columnsProp,
     selectRowCheckBoxForm = 'formRound', dragAndDropColumns = false, resizeColumnWidth = false, onColumnsOrderChange, onColumnsWidthsChange, columnSortAndFilter = true, crudPanelEnabled = true, addEnabled = true, onAdd, onRowOpen, openLabel, uxuiTable,
@@ -425,7 +437,7 @@ export default function ReusableTable(props: ReusableTableProps) {
     const isSelected = selectedHere.includes(row.rowGUID);
     const isFocus = row.rowGUID === focusRowGUID;
     const nativeDragging = rowDrag?.guid === row.rowGUID;
-    const bg = opts.isDragging || nativeDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : index % 2 === 1 ? c.background : c.surface;
+    const bg = opts.isDragging || nativeDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : tableStyle.cellBackground ?? (index % 2 === 1 ? c.background : c.surface);
     return (
       <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} aria-current={isFocus ? 'true' : undefined} {...(opts.ghost ? {} : rowTapProps(row))}
         onLayout={Platform.OS === 'web' ? undefined : (e) => { rowHeights.current[row.rowGUID] = e.nativeEvent.layout.height; }}

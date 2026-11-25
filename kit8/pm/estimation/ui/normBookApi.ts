@@ -53,6 +53,35 @@ export async function searchNorms(client: any, bookGUID: string | null, text: st
   return [...(data ?? [])].sort((a: NormRow, b: NormRow) => String(a.rowJSON.code ?? '').localeCompare(String(b.rowJSON.code ?? ''), undefined, { numeric: true }));
 }
 
+/** where a norm stands: the norm itself and the sections above it (the top one first), so the picker can open the book at that place. Found by its GUID, else by its code (the first book that has it). null = not found */
+export interface NormLocation { norm: NormRow; sections: NormRow[] }
+export async function readNormLocation(client: any, ref: { normGUID?: string | null; code?: string | null }): Promise<NormLocation | null> {
+  const table = ESTIMATION_TABLES.norm.table;
+  let norm: NormRow | null = null;
+  if (ref.normGUID) {
+    const { data, error } = await client.from(table).select('*').eq('rowGUID', ref.normGUID).limit(1);
+    if (error) throw fail(error);
+    norm = data?.[0] ?? null;
+  }
+  if (!norm && ref.code) {
+    const { data, error } = await client.from(table).select('*').eq('rowJSON->>nodeKind', 'norm').eq('rowJSON->>code', ref.code).limit(1);
+    if (error) throw fail(error);
+    norm = data?.[0] ?? null;
+  }
+  if (!norm) return null;
+  const sections: NormRow[] = [];
+  let parent = String(norm.rowParentGUID ?? 'empty');
+  for (let depth = 0; parent !== 'empty' && depth < 16; depth++) {
+    const { data, error } = await client.from(table).select('*').eq('rowGUID', parent).limit(1);
+    if (error) throw fail(error);
+    const sec: NormRow | undefined = data?.[0];
+    if (!sec) break;
+    sections.unshift(sec);
+    parent = String(sec.rowParentGUID ?? 'empty');
+  }
+  return { norm, sections };
+}
+
 /** the priced resources of a book by code (what a norm needs) */
 export async function readPricedResources(client: any, bookGUID: string, codes: readonly string[]): Promise<Map<string, PricedResource>> {
   const out = new Map<string, PricedResource>();

@@ -383,6 +383,8 @@ export interface ReusableTableFoldersTree {
 }
 
 export interface ReusableTableProps {
+  /** the table belongs to a dashboard: it takes the fonts of the header / data cells and the cell background of that dashboard (settings of the user, userSettingsTable) */
+  dashboard?: 'estimationDashboard' | 'projectDashboard';
   // ---- the same parameters as ListWebCardsComponent ----
   /** SystemMetaData key (redux entity + Supabase table). With `localRows` it is only the name of the table (search history, the dev menu) - no redux entity is needed */
   entityName: string;

@@ -18,6 +18,7 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDime
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../../../ui/components/common/IconApp';
 import TextInputApp from '../../../../ui/components/common/TextInputApp';
+import { autoFormatTypedDay } from '../../../../ui/components/common/date_input/dateInputFormat';
 import SelectItemFromListApp, { SelectItemFromListItem } from '../../../../ui/components/common/SelectItemFromListApp';
 import { usePMStore } from '../../../store/store_pm';
 import { PMCrud } from '../../../crud/usePMCrud';
@@ -25,6 +26,7 @@ import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { treeColumnTitle } from '../columns/treeColumns';
 import {
   compileTreeColumnFilter,
+  DATE_FILTER_HINT,
   defaultFilterVariant,
   filterAndSortTreeRows,
   filterInputPlaceholder,
@@ -160,8 +162,10 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
   const left = Math.max(8, Math.min(popup.x, win.width - width - 8));
   const top = Math.max(8, Math.min(popup.y, win.height - EST_HEIGHT - 8));
   const filtered = !!saved;
+  // a date field: the letter t turns into today's date, (day(-1)) / (day(7)) into yesterday / a week from today, and eight digits (20261130, 30112026) into 2026-11-30 at once; lists ("is one of") and "matches" patterns are left as typed
+  const autoDate = type === 'date' && variant !== 'isOneOf' && variant !== 'matches';
   const onEdit = (fn: (t: string) => void) => (t: string) => {
-    fn(t);
+    fn(autoDate ? autoFormatTypedDay(t) : t);
     setError(null);
   };
   const inputProps = (testID: string, v: string, set: (t: string) => void, autoFocus: boolean) => ({
@@ -173,6 +177,7 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
     onSubmitEditing: apply,
     style: { marginBottom: 0 },
     error: !!error,
+    iconsNotTabbable: true, // Tab goes from field to field, not to the clear (✕) icon inside it
   });
 
   return (
@@ -272,6 +277,11 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
             </View>
           ) : null}
 
+          {type === 'date' && inputs >= 1 && variant !== 'matches' && (
+            <Text testID="pm-tree-filter-date-hint" style={[styles.hint, { color: c.text }]}>
+              {pmT(DATE_FILTER_HINT)}
+            </Text>
+          )}
           {variant === 'isOneOf' && <Text style={[styles.hint, { color: c.text }]}>{pmT('Separate the values with commas.')}</Text>}
           {variant === 'matches' && (
             <View testID="pm-tree-filter-matches-help" style={[styles.help, { borderColor: c.border }]}>

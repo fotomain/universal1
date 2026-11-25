@@ -1,6 +1,6 @@
 import '../kit8/lib/setup-console';
 import '../kit8/lib/blurPressedButtonOnWeb'; // web: no "Blocked aria-hidden ... retained focus" warning on navigation
-import React, {useEffect} from 'react';
+import React, {useEffect, useMemo} from 'react';
 import {ColorValue, Platform} from 'react-native';
 
 import {Drawer} from 'expo-router/drawer';
@@ -45,6 +45,10 @@ import RouteVisitTracker from '../kit8/catalog/user/visit/RouteVisitTracker';
 import NfcBackgroundHandler from '../kit8/ui/components/media/nfc/NfcBackgroundHandler';
 import PM80FaviconByTheme from '../apps/appPM80/home/pm80Favicon';
 import { AppCustomizationProvider } from '../kit8/providers/AppCustomizationProvider';
+import UserSettingsHost from '../kit8/catalog/user/settings/UserSettingsHost';
+import { selectThemeSettings } from '../kit8/redux/uxuiSlice';
+import { applyFontsToPaperTheme } from '../kit8/ui/fonts/paperFonts';
+import { useAppFonts } from '../kit8/ui/fonts/useAppFonts';
 import { getAppCustomization } from '../apps/appCustomization';
 import OrganizationTextsHost from '../kit8/catalog/organization/texts/OrganizationTextsHost';
 import CatalogTranslationsHost from '../kit8/catalog/translation/CatalogTranslationsHost';
@@ -312,7 +316,14 @@ function RootLayoutContent() {
   const userTheme = useSelector((state: any) => state.userTheme);
 
   // Use userTheme if available, otherwise fallback to darkMode
-  const paperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
+  const basePaperTheme = userTheme?.theme || (darkMode ? CustomDarkTheme : CustomLightTheme);
+  // the font the user chose (userSettingsTable): drawn once its files are loaded, until then the system font
+  const themeSettings = useSelector(selectThemeSettings);
+  const fontReady = useAppFonts(themeSettings.fontName);
+  const paperTheme = useMemo(
+    () => applyFontsToPaperTheme(basePaperTheme, fontReady ? themeSettings.fontName : 'system', themeSettings.fontSize, Platform.OS === 'web'),
+    [basePaperTheme, fontReady, themeSettings.fontName, themeSettings.fontSize],
+  );
 
   // the drawer passes { color: ColorValue, size, focused }; IconApp takes a string color
   const renderHomeDrawerIcon = ({ size, color }: { size: number; color: ColorValue; focused?: boolean }) => (
@@ -370,6 +381,7 @@ function RootLayoutContent() {
           <WithAppleMacUI theme={appleMacUITheme}>
           <FABProvider>
             <SupabaseAuthSync />
+            <UserSettingsHost />
             <ThemeStoreSyncManager />
 
             <Drawer

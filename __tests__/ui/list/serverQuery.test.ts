@@ -67,6 +67,47 @@ describe('applyServerQuery', () => {
     expect(calls).toContainEqual(['is', 'rowJSON->>mediaPostDescription', null]);
     expect(calls).toContainEqual(['not', 'rowOwnerGUID', 'is', null]);
   });
+  it('filters: starts with / ends with / not equal / does not contain (an empty cell passes the last two)', () => {
+    const { b, calls } = fake();
+    applyServerQuery(b, { ...base, filters: {
+      title: { op: 'startsWith', value: 'moon' }, desc: { op: 'endsWith', value: 'sun' }, kind: { op: 'neq', value: 'vi"deo' }, owner: { op: 'notContains', value: 'a,b' },
+    } });
+    expect(calls).toContainEqual(['ilike', 'rowJSON->>mediaPostTitle', 'moon%']);
+    expect(calls).toContainEqual(['ilike', 'rowJSON->>mediaPostDescription', '%sun']);
+    expect(calls).toContainEqual(['or', 'rowJSON->>mediaKind.is.null,rowJSON->>mediaKind.neq."vi\\"deo"']);
+    expect(calls).toContainEqual(['or', 'rowOwnerGUID.is.null,rowOwnerGUID.not.ilike.*a b*']);
+  });
+  it('filters of a number column: > < between (From > To is turned round) one of, not equal; invalid operands are not sent', () => {
+    const { b, calls } = fake();
+    applyServerQuery(b, { ...base, filters: { sec: { op: 'between', value: '20', value2: '10,5' } } });
+    expect(calls).toContainEqual(['gte', 'rowJSON->mediaDurationSec', 10.5]);
+    expect(calls).toContainEqual(['lte', 'rowJSON->mediaDurationSec', 20]);
+    const o = fake();
+    applyServerQuery(o.b, { ...base, filters: { sec: { op: 'oneOf', value: '1, 2 ; x, 3' } } });
+    expect(o.calls).toContainEqual(['in', 'rowJSON->mediaDurationSec', [1, 2, 3]]);
+    const g = fake();
+    applyServerQuery(g.b, { ...base, filters: { sec: { op: 'gt', value: '5' } } });
+    expect(g.calls).toContainEqual(['gt', 'rowJSON->mediaDurationSec', 5]);
+    const l = fake();
+    applyServerQuery(l.b, { ...base, filters: { sec: { op: 'lt', value: '5' } } });
+    expect(l.calls).toContainEqual(['lt', 'rowJSON->mediaDurationSec', 5]);
+    const n = fake();
+    applyServerQuery(n.b, { ...base, filters: { sec: { op: 'neq', value: '5' } } });
+    expect(n.calls).toContainEqual(['or', 'rowJSON->mediaDurationSec.is.null,rowJSON->mediaDurationSec.neq.5']);
+    const bad = fake();
+    applyServerQuery(bad.b, { ...base, filters: { sec: { op: 'between', value: '1', value2: 'x' } } });
+    expect(names(bad.calls)).not.toContain('gte');
+    expect(names(bad.calls)).not.toContain('lte');
+  });
+  it('filters of a date column: the typed form is turned into YYYY-MM-DD, text compare', () => {
+    const dcols: VisualColumn[] = [{ key: 'due', title: 'Due', type: 'date', field: 'due' }];
+    const run = (f: any) => { const x = fake(); applyServerQuery(x.b, { ...base, columns: dcols, filters: { due: f } }); return x.calls; };
+    expect(run({ op: 'eq', value: '05.01.2026' })).toContainEqual(['eq', 'rowJSON->>due', '2026-01-05']);
+    expect(run({ op: 'gte', value: '20260105' })).toContainEqual(['gte', 'rowJSON->>due', '2026-01-05']);
+    expect(run({ op: 'between', value: '2026-01-31', value2: '2026-01-01' })).toEqual(expect.arrayContaining([['gte', 'rowJSON->>due', '2026-01-01'], ['lte', 'rowJSON->>due', '2026-01-31']]));
+    expect(run({ op: 'oneOf', value: '2026-01-05,06.01.2026' })).toContainEqual(['in', 'rowJSON->>due', ['2026-01-05', '2026-01-06']]);
+    expect(names(run({ op: 'gt', value: 'soon' }))).not.toContain('gt');
+  });
   it('a number filter with a value that is no number is not sent; a filter without a value is not sent', () => {
     const { b, calls } = fake();
     applyServerQuery(b, { ...base, filters: { sec: { op: 'eq', value: 'abc' }, title: { op: 'contains', value: '  ' } } });

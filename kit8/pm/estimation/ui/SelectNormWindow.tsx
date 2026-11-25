@@ -13,11 +13,13 @@ export interface SelectNormWindowProps {
   visible: boolean;
   client: any;
   onSelect: (norm: NormRow, costs: NormUnitCosts, title: string) => void;
+  /** the norm the position has now: the window starts at it (its book, its section, its row marked) */
+  startAt?: { normGUID?: string | null; code?: string | null } | null;
   onClose: () => void;
   testID?: string;
 }
 
-export default function SelectNormWindow({ visible, client, onSelect, onClose, testID = 'estimation-select-norm' }: SelectNormWindowProps) {
+export default function SelectNormWindow({ visible, client, onSelect, startAt = null, onClose, testID = 'estimation-select-norm' }: SelectNormWindowProps) {
   const { themeColors: c } = useDesignSystem();
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -25,7 +27,7 @@ export default function SelectNormWindow({ visible, client, onSelect, onClose, t
         <View testID={testID} style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}>
           <Text style={[styles.title, { color: c.text }]}>{pmT('Select the norm of the position')}</Text>
           <View style={{ flex: 1, minHeight: 320 }}>
-            {visible && <NormBookPanel client={client} canManage={false} pickMode onAddNorm={onSelect} onImport={() => undefined} onExport={() => undefined} testID={`${testID}-books`} />}
+            {visible && <NormBookPanel client={client} canManage={false} pickMode startAt={startAt} onAddNorm={onSelect} onImport={() => undefined} onExport={() => undefined} testID={`${testID}-books`} />}
           </View>
           <View style={styles.row}>
             <PMDialogButton testID={`${testID}-close`} kind="secondary" title={pmT('Close')} onPress={onClose} />

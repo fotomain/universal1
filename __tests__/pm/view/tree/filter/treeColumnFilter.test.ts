@@ -137,6 +137,9 @@ describe('number / date / boolean filters', () => {
     expect(parseFilterDate('2018-04-27')).toBe(d);
     expect(parseFilterDate('27.4.2018')).toBe(d);
     expect(parseFilterDate('4/27/2018')).toBe(d);
+    expect(parseFilterDate('20180427')).toBe(d);                       // YYYYMMDD
+    expect(parseFilterDate('27042018')).toBe(d);                       // DDMMYYYY
+    expect(parseFilterDate('20181340')).toBeNull();
     expect(parseFilterDate('t', T0)).toBe(T0);
     expect(parseFilterDate('(day(-1))', T0)).toBe(T0 - 86_400_000);
     expect(parseFilterDate('2018-02-30')).toBeNull();

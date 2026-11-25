@@ -220,6 +220,7 @@ it('column menu: sort by hours, filter hours >= 5, clear', () => {
   press(`${T}-column-menu-sort-desc`);
   expect(q(`${T}-cell-r2-tableRowNumber`)!.textContent).toBe('1'); // 8 hours first, the empty row last
   press(`${T}-column-menu-button-hours`);
+  press(`${T}-column-menu-op-select`);
   press(`${T}-column-menu-op-notEmpty`);
   press(`${T}-column-menu-apply`);
   expect(q(`${T}-row-r1`)).toBeNull();
@@ -237,12 +238,39 @@ it('column menu: the cursor is in the filter text field at once, and again after
   await act(async () => { await new Promise((r) => setTimeout(r, 120)); });
   expect(document.activeElement).toBe(input);
   // "Not empty" needs no text: the field is gone; "Contains" brings it back WITH the cursor
+  press(`${T}-column-menu-op-select`);
   press(`${T}-column-menu-op-notEmpty`);
   expect(q(`${T}-column-menu-value`)).toBeNull();
+  press(`${T}-column-menu-op-select`);
   press(`${T}-column-menu-op-gte`);
   const again = q(`${T}-column-menu-value`) as HTMLInputElement | null;
   expect(again).not.toBeNull();
   expect(document.activeElement).toBe(again);
+});
+
+it('column menu of a NUMBER column: a select list of the 10 operators, between has From + To, a value that is no number is refused, between filters the rows', () => {
+  mount(seed());
+  press(`${T}-column-menu-button-hours`);
+  expect(q(`${T}-column-menu-op-selected`)!.textContent).toBe('is exactly (=)');
+  press(`${T}-column-menu-op-select`);
+  const ops: Record<string, string> = {
+    eq: 'is exactly (=)', neq: 'is not (!=)', gt: 'is greater than (>)', gte: 'is greater than or equal to (>=)', lt: 'is less than (<)', lte: 'is less than or equal to (<=)',
+    between: 'is between (..)', oneOf: 'is one of (,)', empty: 'is empty', notEmpty: 'is not empty',
+  };
+  Object.keys(ops).forEach((o) => expect(q(`${T}-column-menu-op-${o}`)!.textContent).toBe(ops[o]));
+  press(`${T}-column-menu-op-between`);
+  expect(q(`${T}-column-menu-value`)).not.toBeNull();
+  expect(q(`${T}-column-menu-value2`)).not.toBeNull();
+  typeIn(`${T}-column-menu-value`, 'abc');
+  typeIn(`${T}-column-menu-value2`, '10');
+  press(`${T}-column-menu-apply`);
+  expect(q(`${T}-column-menu-invalid`)).not.toBeNull();             // the popup stays open, nothing is filtered
+  expect(q(`${T}-clear-filters`)).toBeNull();
+  typeIn(`${T}-column-menu-value`, '5');
+  press(`${T}-column-menu-apply`);
+  expect(q(`${T}-column-menu-card`)).toBeNull();
+  expect(q(`${T}-row-r1`)).toBeNull();                              // the empty row is not between 5 and 10
+  expect(q(`${T}-row-r2`)).not.toBeNull();                          // 8 is
 });
 
 it('header check box: − when some rows are selected, ✓ when all, empty when none', () => {

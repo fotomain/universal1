@@ -21,7 +21,7 @@ import PMContextMenu from '../../inner/menu/PMContextMenu';
 import { useSearchHistory } from '../../../ui/components/table/reusable/useSearchHistory';
 import { normToUnitCosts, type PricedResource } from '../model/normCosting';
 import { buildNormTree, nodePath, type NormTreeNode } from '../model/normBookModel';
-import { DEFAULT_NORM_SEARCH_MODE, NormSearchTimeoutError, NORM_SEARCH_MIN_CHARS, readNormBookTree, readNormChildren, readNormTitles, readPricedResources, searchNorms, type NormRow, type NormSearchMode } from './normBookApi';
+import { DEFAULT_NORM_SEARCH_MODE, NormSearchTimeoutError, NORM_SEARCH_MIN_CHARS, readNormBookTree, readNormChildren, readNormLocation, readNormTitles, readPricedResources, searchNorms, type NormRow, type NormSearchMode } from './normBookApi';
 
 /** the money fields of a norm (per unit of work) the two borders can filter; Direct cost is the default */
 export type NormFilterField = 'unitDirect' | 'unitLabour' | 'unitMachines' | 'unitOperators' | 'unitMaterials' | 'unitEquipment';
@@ -58,6 +58,8 @@ export interface NormBookPanelProps {
   onExport: (bookGUID: string) => void;
   /** the picker of a position (SelectNormWindow): no import / export buttons and the row button reads "Select" */
   pickMode?: boolean;
+  /** the picker of a position that already has a norm: the window STARTS at that norm (its book, its section opened, its row marked); a norm that cannot be found = the usual start */
+  startAt?: { normGUID?: string | null; code?: string | null } | null;
   /** bump to read the tree again (after an import) */
   version?: number;
   testID?: string;
@@ -80,7 +82,7 @@ function treeNodes(tree: NormTreeNode | null): FolderTreeNode[] {
 const LABOUR_RATE = 0;
 const resourcesText = (resources: any): string => (Array.isArray(resources) ? resources.map((r: any) => `${r.code}${r.qty !== undefined ? ` × ${r.qty}` : ''}`).join('; ') : '');
 
-export default function NormBookPanel({ client, canManage, onAddNorm, onImport, onExport, pickMode = false, version = 0, testID = 'estimation-norm-books' }: NormBookPanelProps) {
+export default function NormBookPanel({ client, canManage, onAddNorm, onImport, onExport, pickMode = false, startAt = null, version = 0, testID = 'estimation-norm-books' }: NormBookPanelProps) {
   const normColumns = useEstimationTableColumns(null, pickMode ? 'normBooksPicker' : 'normBooks');
   const { themeColors: c } = useDesignSystem();
   const language = usePMLanguage();
@@ -148,7 +150,28 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
 
   // a folder above the books (world, continent, country) shows no rows
   const pickedIsBookFolder = bookGUIDs.has(picked) || sectionIds.has(picked);
-  useEffect(() => { setSections([]); }, [bookGUID]);
+  // the sections of the book the picker was told to start in are waiting here for the change of the book (which empties the list of sections)
+  const pendingSections = useRef<NormRow[] | null>(null);
+  useEffect(() => { setSections(pendingSections.current ?? []); pendingSections.current = null; }, [bookGUID]);
+  // the norm the window started at: its row is marked and scrolled into view
+  const [startNorm, setStartNorm] = useState<NormRow | null>(null);
+  const startKey = startAt ? `${startAt.normGUID ?? ''}|${startAt.code ?? ''}` : '';
+  useEffect(() => {
+    if (!startAt || (!startAt.normGUID && !startAt.code)) return;
+    let alive = true;
+    readNormLocation(client, startAt).then((loc) => {
+      if (!alive || !loc) return;
+      const { norm, sections: above } = loc;
+      const inBook = norm.rowOwnerGUID;
+      setQuery('');
+      setStartNorm(norm);
+      if (inBook === bookGUID) setSections((prev) => { const have = new Set(prev.map((x) => x.rowGUID)); return [...prev, ...above.filter((x) => !have.has(x.rowGUID))]; });
+      else { pendingSections.current = above; setBookGUID(inBook); }
+      setPicked(above.length ? above[above.length - 1].rowGUID : inBook);
+    }).catch(() => undefined); // not found / not readable: the window simply starts as usual
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [client, startKey]);
 
   const book = useMemo(() => rowsAll.find((r) => r.rowGUID === bookGUID) ?? null, [rowsAll, bookGUID]);
   const parentGUID = bookGUID && picked === bookGUID ? 'empty' : picked;
@@ -160,7 +183,9 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
     setLoading(true);
     setError('');
     try {
-      const rows = searching ? await searchNorms(client, globalSearch ? null : bookGUID, query, 60, searchMode) : await readNormChildren(client, bookGUID!, parentGUID);
+      let rows = searching ? await searchNorms(client, globalSearch ? null : bookGUID, query, 60, searchMode) : await readNormChildren(client, bookGUID!, parentGUID);
+      // the norm the window started at must be among the rows of its own folder, also when the folder has more rows than one page
+      if (!searching && startNorm && startNorm.rowOwnerGUID === bookGUID && (startNorm.rowParentGUID === 'empty' ? 'empty' : startNorm.rowParentGUID) === parentGUID && !rows.some((r) => r.rowGUID === startNorm.rowGUID)) rows = [...rows, startNorm];
       setItems(rows);
       if (!searching) {
         const found = rows.filter((r) => r.rowJSON.nodeKind === 'section');
@@ -169,7 +194,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
       setTitles(await readNormTitles(client, rows.map((r) => r.rowGUID), language));
     } catch (e: any) { setError(e instanceof NormSearchTimeoutError ? pmT(e.message) : String(e?.message ?? e)); setItems([]); }
     setLoading(false);
-  }, [client, bookGUID, parentGUID, query, searchMode, searching, globalSearch, language, pickedIsBookFolder]);
+  }, [client, bookGUID, parentGUID, query, searchMode, searching, globalSearch, language, pickedIsBookFolder, startNorm]);
   useEffect(() => { const t = setTimeout(() => { void load(); }, query ? 350 : 0); return () => clearTimeout(t); }, [load, query]);
 
   useEffect(() => {
@@ -252,11 +277,11 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
       cols.sort((a, b) => { const ia = lead.indexOf(a.key as string); const ib = lead.indexOf(b.key as string); return (ia < 0 ? lead.length : ia) - (ib < 0 ? lead.length : ib); });
     }
     // the action column is a LINK column (hypertext, no buttons): the picker says Select, the norm books screen says "+ Add" (to the estimate), a section says Open.
-    // It is as wide as its longest word (the "+ Add" has its icon: 14 px + 6 px gap) + 6 px at the left and the right (+ the 1 px delimiter), the word centred
+    // It is as wide as its longest word (the "+ Add" has its icon: 14 px + 6 px gap) + 8 px at the left and the right (+ the 1 px delimiter), the word centred
     const actionWord = pickMode ? pmT('Select') : pmT('Add');
-    const actionW = Math.max(textWidthPx(actionWord, LINK_FONT_SIZE) + (pickMode ? 0 : 14 + 6), textWidthPx(pmT('Open'), LINK_FONT_SIZE)) + 12 + 1;
+    const actionW = Math.max(textWidthPx(actionWord, LINK_FONT_SIZE) + (pickMode ? 0 : 14 + 6), textWidthPx(pmT('Open'), LINK_FONT_SIZE)) + 16 + 1;
     cols.unshift({
-      key: 'rowAction', title: '', type: 'custom', width: actionW, cellPaddingX: 6, align: 'center', editable: false, pinFirst: true, searchText: () => '',
+      key: 'rowAction', title: '', type: 'custom', width: actionW, cellPaddingX: 8, align: 'center', editable: false, pinFirst: true, searchText: () => '',
       renderCell: (row: any) => (row.rowJSON?.nodeKind === 'section'
         ? <IconLinkAction testID={`${testID}-open-${row.rowGUID}`} title={pmT('Open')} label={pmT('Open section')} onPress={() => setPicked(row.rowGUID)} />
         : row.rowJSON?.nodeKind === 'norm' && onAddNorm
@@ -315,6 +340,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
       {/* the table space (measured: the table ends where it ends); the spinner is the table's own `busy` overlay */}
       <View ref={spaceRef} collapsable={false} onLayout={measureSpace} style={styles.tableSpace}>
       <ReusableTable
+        dashboard="estimationDashboard" // the fonts and the cell background of the Estimation dashboard (userSettingsTable)
         testID={`${testID}-table`}
         entityName="estimationNormBrowser"
         crudListTitle={pmT('Norms')}
@@ -331,6 +357,8 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
         reorderEnabled={false}
         readOnly
         busy={loading}
+        // the norm the picker started at (the position already has it): marked and scrolled into view
+        focusRowGUID={startNorm?.rowGUID ?? null}
         // the picker: a double click on a row = Select (a section = open it)
         onRowDoubleClick={pickMode ? (row) => {
           if (row.rowJSON?.nodeKind === 'section') { setPicked(row.rowGUID); return; }
@@ -345,7 +373,7 @@ export default function NormBookPanel({ client, canManage, onAddNorm, onImport, 
         uxuiTable={{ showFoldersTree: true, foldersTreeWidth: NORM_TREE_WIDTH, foldersTreeResizable: false, foldersTreeCollapsible: true }}
         foldersTree={{
           nodes, folderOfRow, includeSubfolders: false, rowsDraggable: !pickMode, selectedFolderId: picked, onSelectedFolderChange: setPicked,
-          tree: { readOnly: true, title: pmT('World Norms'), allLabel: pmT('All norm books') },
+          tree: { readOnly: true, title: pmT('World Norms'), allLabel: pmT('All norm books'), revealSelected: true }, // the picker starts at a section: the tree opens the way to it
           uxuiFolders: { fullHeightBottomOffset: bottomOffset },
         }}
       />

@@ -18,6 +18,7 @@
 //   after (greater than) · before (less than) · lessThanOrEqual · greaterThanOrEqual · between (A and B) ·
 //   matches (old AX / D365 query syntax, see compileMatches) · isEmpty · isNotEmpty (custom columns only)
 
+import { parseCompactDateDigits } from '../../../../ui/components/common/date_input/dateInputFormat';
 import { customCellValue, PMExtColumnContext } from '../../../extended/extendedColumns';
 import type { PMScheduledRow, PMTaskRow } from '../../../model/types';
 import type { PMProjectKanbanStageRow, PMTaskKanbanStateRow } from '../../../model/kanbanTypes';
@@ -232,11 +233,14 @@ export function sortLabels(type: PMTreeColumnDataType): { asc: string; desc: str
   }
 }
 
+/** The line under the date fields: what can be typed besides a full date (the placeholder only has room for the first shortcut). */
+export const DATE_FILTER_HINT = 'Press t for today\'s date. Type (day(-1)) for yesterday or (day(7)) for a week from today: the date appears as soon as you close the brackets. Eight digits work too: 20261130.';
+
 /** Input placeholder per type / variant. */
 export function filterInputPlaceholder(type: PMTreeColumnDataType, v: PMFilterVariantForColumn): string {
   if (v === 'isOneOf') return type === 'date' ? '2026-01-05, 2026-02-01' : type === 'number' ? '1, 5, 10' : 'Design, Build';
   if (v === 'matches') return type === 'text' ? 'G*V, !Gustav' : type === 'date' ? '2026-01-01..2026-03-31' : '10..20, !15';
-  if (type === 'date') return 'YYYY-MM-DD · t = today';
+  if (type === 'date') return 'YYYY-MM-DD, or press t for today';
   if (type === 'number') return 'Number';
   if (type === 'boolean') return 'Yes / No';
   return 'Text';
@@ -372,7 +376,7 @@ export function compareFilterValues(a: Value, b: Value, type: PMTreeColumnDataTy
 }
 
 /**
- * Date operand: YYYY-MM-DD · D.M.YYYY · M/D/YYYY · t / today · (day(n)) = today + n days (D365).
+ * Date operand: YYYY-MM-DD · D.M.YYYY · M/D/YYYY · 20261130 (YYYYMMDD) / 30112026 (DDMMYYYY) · t / today · (day(n)) = today + n days (D365).
  * Returns UTC-midnight ms or null.
  */
 export function parseFilterDate(text: string, today: number = todayUTC()): number | null {
@@ -387,6 +391,7 @@ export function parseFilterDate(text: string, today: number = todayUTC()): numbe
   if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s))) [y, mo, d] = [+m[1], +m[2], +m[3]];
   else if ((m = /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/.exec(s))) [d, mo, y] = [+m[1], +m[2], +m[3]];
   else if ((m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s))) [mo, d, y] = [+m[1], +m[2], +m[3]];
+  else if ((m = /^\d{8}$/.exec(s)) && parseCompactDateDigits(s)) ({ y, m: mo, d } = parseCompactDateDigits(s)!);
   else return null;
   const ms = Date.UTC(y, mo - 1, d);
   const back = new Date(ms);

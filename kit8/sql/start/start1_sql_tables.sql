@@ -64,6 +64,7 @@
 --   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: language_catalog (the languages, rowGUID = the language code) + catalogTranslationTable (one row = ONE field of ONE catalog item in ONE language); the code is in start2_sql_code.sql
 --   57. create_project_estimation.sql - PROJECT ESTIMATION: no table (the link is the key projectEstimationGUID of project_table.rowJSON); the code is in start2_sql_code.sql
 --   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: the estimation_ tables (norm book tree, norms, resources, coefficients, export templates, indices, overhead / profit norms + the estimate documents, lines and supplier quotes of a project); the code is in start2_sql_code.sql
+--   59. create_user_settings.sql - USER SETTINGS: userSettingsTable (the look of the interface per user + device type + OS, common for all work places) and the column rowFolderGUID of the universal schema
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -4462,6 +4463,50 @@ CREATE INDEX IF NOT EXISTS idx_estimation_document_project ON public.estimation_
 CREATE INDEX IF NOT EXISTS idx_estimation_line_project ON public.estimation_line_table ("rowOwnerGUID", "rowParentGUID");
 CREATE INDEX IF NOT EXISTS idx_estimation_line_document ON public.estimation_line_table (("rowJSON"->>'documentGUID'));
 CREATE INDEX IF NOT EXISTS idx_estimation_quote_line ON public.estimation_market_quote_table ("rowOwnerGUID", "rowParentGUID");
+
+-- ===============================================================================================
+-- PART 59: create_user_settings.sql
+-- USER SETTINGS (documentation/USER_SETTINGS_TABLE_WBS.html). userSettingsTable = how the interface looks for ONE user on ONE kind of device, COMMON for all his work places:
+--   rowOwnerGUID = the user (app_user_guid()) · rowParentGUID = the device type: desktop | phone | tablet · rowFolderGUID = the operating system: macos | windows | android | ios | ipados | linux | other
+--   unique key (rowOwnerGUID, rowParentGUID, rowFolderGUID); rowJSON = { lastUsedAt, uxuiState: { themeSettings, extendedSettings, ... } }.
+-- A row that was not used for a month is deleted by the redux saga deleteNotUsedUserSettings (the app), not by the database.
+-- The column rowFolderGUID is now part of the UNIVERSAL schema: the block at the end of this PART adds it (TEXT NOT NULL DEFAULT 'empty') to every table that has the generic shape.
+-- ===============================================================================================
+CREATE TABLE IF NOT EXISTS public."userSettingsTable" (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'desktop',
+  "rowFolderGUID" TEXT        NOT NULL DEFAULT 'other',
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID"),
+  CONSTRAINT user_settings_unique UNIQUE ("rowOwnerGUID", "rowParentGUID", "rowFolderGUID"),
+  CONSTRAINT user_settings_device_chk CHECK ("rowParentGUID" IN ('desktop', 'phone', 'tablet')),
+  CONSTRAINT user_settings_os_chk CHECK ("rowFolderGUID" IN ('macos', 'windows', 'android', 'ios', 'ipados', 'linux', 'other'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_user_settings_owner ON public."userSettingsTable" ("rowOwnerGUID");
+
+-- rowFolderGUID in the universal schema: every table with the five generic columns gets it (idempotent; a table that has it, a partition and a view are skipped)
+DO $$
+DECLARE
+  r record;
+BEGIN
+  FOR r IN
+    SELECT c.relname
+      FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND NOT c.relispartition
+       AND (SELECT count(*) FROM pg_attribute a
+             WHERE a.attrelid = c.oid AND a.attnum > 0 AND NOT a.attisdropped
+               AND a.attname IN ('rowGUID', 'rowOwnerGUID', 'rowParentGUID', 'orderInList', 'rowJSON')) = 5
+       AND NOT EXISTS (SELECT 1 FROM pg_attribute a WHERE a.attrelid = c.oid AND a.attname = 'rowFolderGUID' AND NOT a.attisdropped)
+  LOOP
+    EXECUTE format('ALTER TABLE public.%I ADD COLUMN IF NOT EXISTS "rowFolderGUID" TEXT NOT NULL DEFAULT ''empty''', r.relname);
+  END LOOP;
+END $$;
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

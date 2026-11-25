@@ -161,6 +161,44 @@ describe('PMTreeColumnFilterPopup', () => {
     expect(q('pm-tree-filter-variant-item-isEmpty')).not.toBeNull();
   });
 
+  it('date column: eight digits turn into YYYY-MM-DD while typing (not in a list); the clear icons of the inputs are skipped by Tab', () => {
+    const crud = fakeCrud();
+    setStore({ treeColumnFilterPopup: { key: 'start', x: 10, y: 10 } });
+    renderUI(<PMTreeColumnFilterPopup crud={crud} />);
+    const input = () => mustGet('pm-tree-filter-value') as HTMLInputElement;
+    expect(textOf('pm-tree-filter-date-hint')).toContain('Press t');   // the instruction under the date fields
+    expect(input().getAttribute('data-icons-not-tabbable')).toBe('true');
+    typeInto('pm-tree-filter-value', 't');                              // t = today (the local day)
+    const d = new Date();
+    expect(input().value).toBe(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+    typeInto('pm-tree-filter-value', '(day(-1');
+    expect(input().value).toBe('(day(-1');                              // half typed: untouched
+    typeInto('pm-tree-filter-value', '(day(-1))');                      // closed: yesterday as a real date
+    const y = new Date(d.getFullYear(), d.getMonth(), d.getDate() - 1);
+    expect(input().value).toBe(`${y.getFullYear()}-${String(y.getMonth() + 1).padStart(2, '0')}-${String(y.getDate()).padStart(2, '0')}`);
+    typeInto('pm-tree-filter-value', '2026113');
+    expect(input().value).toBe('2026113');                             // half typed: untouched
+    typeInto('pm-tree-filter-value', '20261130');
+    expect(input().value).toBe('2026-11-30');
+    typeInto('pm-tree-filter-value', '30112026');                       // DDMMYYYY
+    expect(input().value).toBe('2026-11-30');
+    typeInto('pm-tree-filter-value', '20261340');                       // not a date: untouched, Apply says so
+    expect(input().value).toBe('20261340');
+    typeInto('pm-tree-filter-value', '20261130');
+    press('pm-tree-filter-variant-trigger');
+    press('pm-tree-filter-variant-item-between');
+    expect((mustGet('pm-tree-filter-value2') as HTMLInputElement).getAttribute('data-icons-not-tabbable')).toBe('true');
+    typeInto('pm-tree-filter-value2', '31122026');
+    expect((mustGet('pm-tree-filter-value2') as HTMLInputElement).value).toBe('2026-12-31');
+    press('pm-tree-filter-apply');
+    expect(crud.setTreeColumnFilter).toHaveBeenCalledWith('start', { filterVariantForColumn: 'between', value: '2026-11-30', value2: '2026-12-31' });
+    // a list of days is left as typed
+    press('pm-tree-filter-variant-trigger');
+    press('pm-tree-filter-variant-item-isOneOf');
+    typeInto('pm-tree-filter-value', '20261130');
+    expect(input().value).toBe('20261130');
+  });
+
   it('opens with the saved filter; Clear removes it (disabled without a filter)', () => {
     const crud = fakeCrud();
     setStore({ treeColumnFilterPopup: { key: 'name', x: 0, y: 0 }, treeColumnsFilters: { name: { filterVariantForColumn: 'contains', value: 'uil' } } });

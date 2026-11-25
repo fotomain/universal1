@@ -63,6 +63,7 @@
 --   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: RLS + policies of language_catalog / catalogTranslationTable, permission_translate_catalog() (= permissionTranslateCatalog), the guard trigger; perm_my_matrix answers canTranslateCatalog
 --   57. create_project_estimation.sql - PROJECT ESTIMATION (documentation/ESTIMATION/PROJECT_ESTIMATION.html): no table; project_estimation_summary (the sums of the task lines of the estimation project per budget item + counts of the project it fills), project_delete_task_roots (delete top-level rows with their subtrees in bulk), the guard trigger of the key projectEstimationGUID of project_table
 --   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: RLS + policies of the estimation_ tables, permission_estimation_manager() (= permissionEstimationManager), estimation_project_access, the guard triggers; perm_my_matrix answers canManageEstimation
+--   59. create_user_settings.sql - USER SETTINGS: RLS + policies of userSettingsTable (own rows only), the guard, user_settings_upsert / _touch / _copy_from, realtime
 -- ===============================================================================================
 
 DO $$
@@ -21582,6 +21583,128 @@ BEGIN
         EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
       END IF;
     END LOOP;
+  END IF;
+END $$;
+
+-- ===============================================================================================
+-- PART 59: create_user_settings.sql
+-- USER SETTINGS (tables in start1 PART 59, documentation/USER_SETTINGS_TABLE_WBS.html). A user reads, writes and deletes only his own rows (rowOwnerGUID = app_user_guid()); no administrator exception.
+-- The app writes through the RPCs: user_settings_upsert (one row per user + device type + OS), user_settings_touch (lastUsedAt only, once a day), user_settings_copy_from ("Copy from my other device").
+-- ===============================================================================================
+DO $$
+BEGIN
+  IF to_regclass('public."userSettingsTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 59 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+DO $$
+DECLARE
+  t text := 'userSettingsTable';
+BEGIN
+  PERFORM public.kit8_setup_def_table(t);
+  EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+  EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+  EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING ("rowOwnerGUID" = (SELECT public.app_user_guid())::text)', t || '_select', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid())::text)', t || '_insert', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING ("rowOwnerGUID" = (SELECT public.app_user_guid())::text) WITH CHECK ("rowOwnerGUID" = (SELECT public.app_user_guid())::text)', t || '_update', t);
+  EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING ("rowOwnerGUID" = (SELECT public.app_user_guid())::text)', t || '_delete', t);
+END $$;
+
+-- the row JSON is an object that carries lastUsedAt (an ISO time stamp, text, so it compares as text) and a uxuiState object
+CREATE OR REPLACE FUNCTION public.user_settings_guard() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+  IF jsonb_typeof(NEW."rowJSON") IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'userSettingsTable: rowJSON must be a JSON object' USING ERRCODE = '23514';
+  END IF;
+  IF NEW."rowJSON" ? 'uxuiState' AND jsonb_typeof(NEW."rowJSON"->'uxuiState') IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'userSettingsTable: uxuiState must be a JSON object' USING ERRCODE = '23514';
+  END IF;
+  IF NOT (NEW."rowJSON" ? 'lastUsedAt') THEN
+    NEW."rowJSON" := NEW."rowJSON" || jsonb_build_object('lastUsedAt', to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'));
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS aa_user_settings_guard ON public."userSettingsTable";
+
+CREATE TRIGGER aa_user_settings_guard BEFORE INSERT OR UPDATE ON public."userSettingsTable"
+  FOR EACH ROW EXECUTE FUNCTION public.user_settings_guard();
+
+-- one row per user + device type + OS: insert or update; the unknown keys of an older row stay (the new JSON is merged over it)
+CREATE OR REPLACE FUNCTION public.user_settings_upsert(p_device text, p_os text, p_uxui jsonb)
+RETURNS public."userSettingsTable"
+LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE
+  v_row public."userSettingsTable";
+  v_now text := to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"');
+BEGIN
+  INSERT INTO public."userSettingsTable" ("rowOwnerGUID", "rowParentGUID", "rowFolderGUID", "rowJSON")
+  VALUES ((SELECT public.app_user_guid())::text, p_device, p_os, jsonb_build_object('lastUsedAt', v_now, 'uxuiState', COALESCE(p_uxui, '{}'::jsonb)))
+  ON CONFLICT ON CONSTRAINT user_settings_unique
+  DO UPDATE SET "rowJSON" = public."userSettingsTable"."rowJSON" || EXCLUDED."rowJSON"
+  RETURNING * INTO v_row;
+  RETURN v_row;
+END;
+$$;
+
+-- only the time stamp (the app calls it once a day at the start): a device that is used but never changed must not look unused
+CREATE OR REPLACE FUNCTION public.user_settings_touch(p_device text, p_os text) RETURNS void
+LANGUAGE plpgsql SET search_path = public AS $$
+BEGIN
+  UPDATE public."userSettingsTable"
+     SET "rowJSON" = jsonb_set("rowJSON", '{lastUsedAt}', to_jsonb(to_char(clock_timestamp() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')), true)
+   WHERE "rowOwnerGUID" = (SELECT public.app_user_guid())::text AND "rowParentGUID" = p_device AND "rowFolderGUID" = p_os;
+END;
+$$;
+
+-- "Copy from my other device": the uxuiState of the source row becomes the uxuiState of the target row (made when missing)
+CREATE OR REPLACE FUNCTION public.user_settings_copy_from(p_from_device text, p_from_os text, p_device text, p_os text)
+RETURNS public."userSettingsTable"
+LANGUAGE plpgsql SET search_path = public AS $$
+DECLARE
+  v_ui jsonb;
+  v_row public."userSettingsTable";
+BEGIN
+  IF p_from_device = p_device AND p_from_os = p_os THEN
+    RAISE EXCEPTION 'user_settings_copy_from: the source and the target are the same device' USING ERRCODE = '22023';
+  END IF;
+  SELECT "rowJSON"->'uxuiState' INTO v_ui FROM public."userSettingsTable"
+   WHERE "rowOwnerGUID" = (SELECT public.app_user_guid())::text AND "rowParentGUID" = p_from_device AND "rowFolderGUID" = p_from_os;
+  IF v_ui IS NULL THEN
+    RAISE EXCEPTION 'user_settings_copy_from: there are no settings on % / %', p_from_device, p_from_os USING ERRCODE = 'P0002';
+  END IF;
+  SELECT * INTO v_row FROM public.user_settings_upsert(p_device, p_os, v_ui);
+  RETURN v_row;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.user_settings_upsert(text, text, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.user_settings_touch(text, text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.user_settings_copy_from(text, text, text, text) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.user_settings_upsert(text, text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_settings_touch(text, text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.user_settings_copy_from(text, text, text, text) TO authenticated;
+
+-- realtime: a change on one device reaches the other devices of the same user
+DO $$
+DECLARE
+  v_all boolean;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = 'userSettingsTable') THEN
+      ALTER PUBLICATION supabase_realtime ADD TABLE public."userSettingsTable";
+    END IF;
   END IF;
 END $$;
 

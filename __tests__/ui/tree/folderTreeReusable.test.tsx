@@ -85,6 +85,16 @@ describe('rows', () => {
     press(`${T}-row-A-toggle`);
     expect(ids()).not.toContain('A1');
   });
+  it('revealSelected: the way to the selected folder is opened, also when the folder arrives later', () => {
+    const render = mount({ initialExpandDepth: 0, nodes: [n('A', null), n('B', null)], selectedId: 'A1a', revealSelected: true });
+    expect(ids()).toEqual(['A', 'B']);
+    render({ initialExpandDepth: 0, nodes: sample, selectedId: 'A1a', revealSelected: true });
+    expect(ids()).toEqual(expect.arrayContaining(['A', 'A1', 'A1a']));
+  });
+  it('without revealSelected the tree stays as it is', () => {
+    mount({ initialExpandDepth: 0, selectedId: 'A1a' });
+    expect(ids()).toEqual(['A', 'B']);
+  });
   it('selecting reports the id; All items / No folder are pinned', () => {
     const onSelect = jest.fn();
     mount({ onSelect });

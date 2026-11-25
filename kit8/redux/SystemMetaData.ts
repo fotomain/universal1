@@ -25,6 +25,7 @@ import {budgetScenarioSystemMetaData} from "../catalog/budget/scenario/budgetSce
 import {legalEntitySystemMetaData} from "../catalog/legal_entity/legalEntityMetaData";
 import {moneyAccountSystemMetaData} from "../catalog/money_account/moneyAccountMetaData";
 import {routeVisitSystemMetaData} from "../catalog/user/visit/routeVisitMetaData";
+import {userSettingsSystemMetaData} from "../catalog/user/settings/userSettingsMetaData";
 import {chatSystemMetaData} from "../chat/chatMetaData";
 import {paymentFactSystemMetaData} from "../documents/payment/fact/paymentFactMetaData";
 import {vendorInvoiceSystemMetaData} from "../documents/vendor/invoice/vendorInvoiceMetaData";
@@ -137,6 +138,8 @@ const SystemMetaData:any = {
     ...paymentFactSystemMetaData(),
     // Route visits (kit8/catalog/user/visit): app_route_visits_turnover, one row per user and route (rowParentGUID) with rowJSON.number_of_route_visits. SQL PART 41
     ...routeVisitSystemMetaData(),
+    // User settings (kit8/catalog/user/settings): userSettingsTable = the look of the interface per user + device type + OS, common for all work places (SQL PART 59). Realtime: a change on one device reaches the others.
+    ...userSettingsSystemMetaData(),
     ...chatSystemMetaData(),
     ...vendorInvoiceSystemMetaData(),
     ...customerInvoiceSystemMetaData(),

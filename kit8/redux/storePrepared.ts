@@ -8,6 +8,7 @@ import activeUserReducer from "./activeUserSlice";
 import uxuiReducer from "./uxuiSlice";
 import userThemeReducer from "./userThemeSlice";
 import onTrendReducer from "./onTrendSlice";
+import { deleteNotUsedUserSettingsSaga } from "./deleteNotUsedUserSettings";
 
 const storePrepared: any = (params: any) => {
   const sagaDbAdapters = createSagaMiddleware({
@@ -53,6 +54,8 @@ const storePrepared: any = (params: any) => {
   sagas.forEach((sagaFn: any) => {
     sagaDbAdapters.run(sagaFn);
   });
+  // background: a row of userSettingsTable that was not used for a month is deleted (started by UserSettingsHost)
+  sagaDbAdapters.run(deleteNotUsedUserSettingsSaga);
 
   return { storeLocal, persistor };
 };

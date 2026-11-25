@@ -21,6 +21,7 @@ jest.mock('../../../kit8/pm/estimation/ui/normBookApi', () => ({
   __mockSearchFail: { on: false },
   readNormBookTree: async () => [world, europe, ru, bk],
   readNormChildren: async (_c: any, _b: string, parent: string) => parent === 'sec1' ? [norm] : parent === 'empty' ? [sec] : [],
+  readNormLocation: async (_c: any, ref: any) => (ref.normGUID === 'n1' || ref.code === '01-01-001' ? { norm, sections: [sec] } : null),
   readNormTitles: async () => new Map(),
   readPricedResources: async () => new Map([['A', { code: 'A', price: 10, resourceKind: 'material' }], ['B', { code: 'B', price: 100, resourceKind: 'material' }]]),
   searchNorms: async (_c: any, book: string | null, _t: string, _l: number, mode: string) => { if (require('../../../kit8/pm/estimation/ui/normBookApi').__mockSearchFail.on) { const E = require('../../../kit8/pm/estimation/ui/normBookApi').NormSearchTimeoutError; throw new E(); } mockSearchCalls.push(book); mockSearchModes.push(mode); return [norm]; },
@@ -168,7 +169,7 @@ test('in the picker Select is a LINK (text only, narrow), on the norm books scre
   const col = mockTableProps.visualColumns[0];
   // as wide as the word + 2 px each side + the delimiter (a few tens of px), the word centred
   expect(col.width).toBeLessThanOrEqual(80);
-  expect(col).toMatchObject({ cellPaddingX: 6, align: 'center' });
+  expect(col).toMatchObject({ cellPaddingX: 8, align: 'center' });
   // Direct cost: 40 % narrower than the 150 px of the norm books screen
   expect(mockTableProps.visualColumns.find((c: any) => c.key === 'unitDirect').width).toBe(90);
   const cell = renderUI(col.renderCell({ rowGUID: 'n1', rowJSON: { nodeKind: 'norm' } }));
@@ -320,7 +321,7 @@ test('the norm books screen: the action column is a narrow LINK column - "+ Add"
   renderUI(<NormBookPanel client={{}} canManage onAddNorm={onAddNorm} onImport={() => {}} onExport={() => {}} />);
   await wait(30); await wait(30);
   const col = mockTableProps.visualColumns[0];
-  expect(col).toMatchObject({ key: 'rowAction', cellPaddingX: 6, align: 'center' });
+  expect(col).toMatchObject({ key: 'rowAction', cellPaddingX: 8, align: 'center' });
   expect(col.width).toBeLessThanOrEqual(90);
   renderUI(col.renderCell({ rowGUID: 'n1', rowJSON: { nodeKind: 'norm' } }));
   const add = q('estimation-norm-books-add-n1')!;
@@ -332,4 +333,24 @@ test('the norm books screen: the action column is a narrow LINK column - "+ Add"
   const open = q('estimation-norm-books-open-s1')!;
   expect(open.getAttribute('role')).toBe('link');
   expect(open.textContent).toBe('Open');
+});
+
+test('the picker starts at the norm the position already has: its book, its section, its row marked', async () => {
+  renderUI(<NormBookPanel client={{}} canManage={false} pickMode onAddNorm={jest.fn()} onImport={() => {}} onExport={() => {}} startAt={{ normGUID: 'n1', code: '01-01-001' }} />);
+  await wait(30); await wait(30); await wait(80);
+  expect(mockTableProps.foldersTree.selectedFolderId).toBe('sec1');
+  expect(mockTableProps.foldersTree.nodes.find((n: any) => n.id === 'sec1')).toMatchObject({ parentId: 'book1' });
+  expect(mockTableProps.localRows.map((r: any) => r.rowGUID)).toEqual(['n1']);
+  expect(mockTableProps.focusRowGUID).toBe('n1');
+});
+
+test('a norm known only by its code is found by the code; an unknown norm = the usual start', async () => {
+  renderUI(<NormBookPanel client={{}} canManage={false} pickMode onAddNorm={jest.fn()} onImport={() => {}} onExport={() => {}} startAt={{ normGUID: null, code: '01-01-001' }} />);
+  await wait(30); await wait(30); await wait(80);
+  expect(mockTableProps.foldersTree.selectedFolderId).toBe('sec1');
+  cleanupUI(); mockTableProps = null;
+  renderUI(<NormBookPanel client={{}} canManage={false} pickMode onAddNorm={jest.fn()} onImport={() => {}} onExport={() => {}} startAt={{ normGUID: 'gone', code: null }} />);
+  await wait(30); await wait(30); await wait(80);
+  expect(mockTableProps.focusRowGUID).toBeNull();
+  expect(mockTableProps.foldersTree.selectedFolderId).not.toBe('sec1');
 });

@@ -1,8 +1,8 @@
 // Estimation dashboard - sort, filter and FIND of the ESTIMATE GRID columns (pure: no React, no Skia). The grid stands beside the task tree, ONE grid row per tree row, so a filter or a sort of
 // the grid has to reorder / hide the TREE rows too: `buildExternalView` makes the `PMTreeExternalView` the PM store hands to the tree (tree/filter/treeColumnFilter.ts) - the rows that
 // match (their ancestors stay as context rows) and the order of the siblings of every parent (a stage keeps its tasks). The operators and the way a value is compared are the ones of the
-// ReusableTable (`kit8/ui/components/table/reusable/tableFilter.ts`): text = Contains / Empty / Not empty, numbers = = / ≥ / ≤ / Empty / Not empty; empty cells last in both sort directions.
-import { matchesFilter, type ColumnFilter, type ColumnFilterOp, type ColumnFilters, type ColumnSort } from '../../../ui/components/table/reusable/tableFilter';
+// ReusableTable (`kit8/ui/components/table/reusable/tableFilter.ts`): text = equal / not equal / contains / does not contain / starts with / ends with / empty / not empty (a select list), numbers = is exactly / is not / > / ≥ / < / ≤ / between / one of / empty / not empty; empty cells last in both sort directions.
+import { isActiveFilter as columnFilterActive, matchesFilter, ORDERED_FILTER_OPS, TEXT_FILTER_OPS, type ColumnFilter, type ColumnFilterOp, type ColumnFilters, type ColumnSort } from '../../../ui/components/table/reusable/tableFilter';
 import type { PMTreeExternalView } from '../../view/tree/filter/treeColumnFilter';
 import { cellText, type CellContext, type GridColumn, type GridRow } from './estimateGridModel';
 
@@ -30,7 +30,7 @@ export function gridColumnValue(col: GridColumn, row: GridRow, ctx: CellContext)
 }
 
 /** the operators of the filter popup of a column */
-export const gridFilterOps = (col: GridColumn): ColumnFilterOp[] => (gridColumnIsNumeric(col) ? ['eq', 'gte', 'lte', 'empty', 'notEmpty'] : ['contains', 'empty', 'notEmpty']);
+export const gridFilterOps = (col: GridColumn): ColumnFilterOp[] => (gridColumnIsNumeric(col) ? ORDERED_FILTER_OPS : TEXT_FILTER_OPS);
 
 export interface ExternalViewInput {
   /** the key of the root of the tree (the parent of the top rows) */
@@ -54,7 +54,7 @@ export function allTreeGUIDs(rootKey: string, childrenById: Record<string, reado
 }
 
 /** a filter that really filters: an operator with a value, or Empty / Not empty */
-export const isFilterActive = (f?: ColumnFilter | null): boolean => !!f && (f.op === 'empty' || f.op === 'notEmpty' || String(f.value ?? '').trim() !== '');
+export const isFilterActive = (f?: ColumnFilter | null): boolean => columnFilterActive(f);
 
 /** the filter + sort of the grid as the tree needs it; null when there is neither */
 export function buildExternalView(input: ExternalViewInput): PMTreeExternalView | null {

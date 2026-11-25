@@ -202,6 +202,14 @@ export default function EstimationDashboard() {
     setTab('estimate');
   }, [data, doc, projectGUID, pickedTask, pickedCanCarry, pickedPositions]);
 
+  // the norm the position of that task has now: the window opens AT it (pressing the hyperlink of a norm starts the selection from that norm)
+  const normStart = useMemo(() => {
+    if (!normTask) return null;
+    const mine = data.lines.filter((l) => l.rowJSON.taskGUID === normTask && l.rowJSON.lineKind === 'position');
+    const j = mine.length === 1 ? mine[0].rowJSON : null;
+    return j && (j.normGUID || j.normCode) ? { normGUID: j.normGUID ?? null, code: j.normCode ?? null } : null;
+  }, [normTask, data.lines]);
+
   // the norm chosen in the window goes INTO the position of the task that asked for it (made when the task has none); its unit costs come from the priced resources of the book
   const selectNorm = useCallback((norm: any, costs: any, title: string) => {
     const target = normTask;
@@ -336,7 +344,7 @@ export default function EstimationDashboard() {
       {!!note && <Text testID="estimation-note" style={{ color: c.text, paddingHorizontal: 12, paddingTop: 6, fontSize: 12 }}>{note}</Text>}
 
       <InfoModal testID="estimation-layout-help" content={helpLayout ? layoutHelp(helpLayout) : null} onClose={() => setHelpLayout(null)} closeLabel={pmT('Close')} />
-      <SelectNormWindow visible={!!normTask} client={client} onSelect={selectNorm} onClose={() => setNormTask(null)} />
+      <SelectNormWindow visible={!!normTask} client={client} startAt={normStart} onSelect={selectNorm} onClose={() => setNormTask(null)} />
       <View style={styles.body}>
         {!ready || pickerOpen ? (
           <EstimationProjectPicker onPicked={(g) => { setPickedGUID(g); setPickerOpen(false); setTab('estimate'); }} onCancel={ready ? () => setPickerOpen(false) : undefined} />

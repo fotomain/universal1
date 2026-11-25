@@ -49,6 +49,12 @@ export const userThemeSlice = createSlice({
       state.theme = state.isDark ? CustomDarkTheme : CustomLightTheme;
       state.fabColor = undefined;
     },
+    /** The colors the user chose (uxuiState.themeSettings.colors / fabColor, saved in userSettingsTable) on top of the palette of the current mode. Idempotent. */
+    applyThemeColors: (state, action: PayloadAction<{ colors: Record<string, string>; fabColor: string | null }>) => {
+      const base = state.isDark ? CustomDarkTheme : CustomLightTheme;
+      state.theme = { ...base, colors: { ...base.colors, ...(action.payload.colors || {}) } } as MD3Theme;
+      state.fabColor = action.payload.fabColor || undefined;
+    },
     // themeStore-ticket-step3: Apply theme JSON loaded from Supabase themeStore
     applyThemeFromSupabase: (state, action: PayloadAction<any>) => {
       const payload = action.payload || {};
@@ -82,6 +88,7 @@ export const {
   setFabColor,
   resetTheme,
   applyThemeFromSupabase,
+  applyThemeColors,
 } = userThemeSlice.actions;
 
 export default userThemeSlice.reducer;

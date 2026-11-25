@@ -336,6 +336,7 @@ export default function PMProjectTaskInputCRUD({ projectGUID, taskGUID, initialP
         <View style={styles.tableBox}>
         <ReusableTable
           key={def.genus}
+          dashboard="projectDashboard" // the fonts and the cell background of the Project dashboard (userSettingsTable)
           testID={`${testID}-table`}
           entityName={TASK_LINE_ENTITY}
           // three dots menu of the table: the task as a template / a template into the task (kit8/pm/tasktemplate; the windows are mounted by the screen)

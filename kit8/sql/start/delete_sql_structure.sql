@@ -5,6 +5,7 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-00000000000000000000000000. delete_user_settings.sql - PART 59: drops userSettingsTable (data included: the interface settings of ALL users) and the user_settings_ functions; the column rowFolderGUID of the other tables stays (inert, empty by default; runs very first: it is the newest)
 --  1a-0000000000000000000000000. delete_estimation_dashboard.sql - PART 58: drops the estimation_ tables (data included: ALL norm books, norms, resources, coefficients, templates, indices and the estimate documents / lines / quotes of ALL projects), their guards, permission_estimation_manager and estimation_project_access (runs very first: it is the newest)
 --  1a-000000000000000000000000. delete_project_estimation.sql - PART 57: drops the guard trigger of the key projectEstimationGUID on project_table and the project_estimation_* / project_delete_task_roots functions (no table, no data; the key stays in the project rows as inert JSON; runs very first: it is the newest)
 --  1a-00000000000000000000000. delete_catalog_translation.sql - PART 56: drops catalogTranslationTable (data included: ALL translations of catalog items) and language_catalog, permission_translate_catalog / catalog_translation_guard, and gives perm_my_matrix its old answer back at the next start2 (runs very first: it is the newest)
@@ -50,6 +51,20 @@
 --   16. delete_budget_scenario_table.sql - drops budgetScenarioTable
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
+
+
+-- =====================================================================================
+-- PART 1a-00000000000000000000000000: delete_user_settings.sql  (PART 59 of the structure file: the USER SETTINGS table - runs before everything else, it is the newest)
+-- =====================================================================================
+DROP FUNCTION IF EXISTS public.user_settings_copy_from(text, text, text, text);
+
+DROP FUNCTION IF EXISTS public.user_settings_touch(text, text);
+
+DROP FUNCTION IF EXISTS public.user_settings_upsert(text, text, jsonb);
+
+DROP TABLE IF EXISTS public."userSettingsTable" CASCADE;
+
+DROP FUNCTION IF EXISTS public.user_settings_guard();
 
 
 

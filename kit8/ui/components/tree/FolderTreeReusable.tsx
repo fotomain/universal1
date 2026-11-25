@@ -112,6 +112,8 @@ export interface FolderTreeReusableProps {
   defaultExpandedIds?: string[];
   /** open the first N levels at the start (default 1 = the top level folders are open) */
   initialExpandDepth?: number;
+  /** the SELECTED folder is always shown: its ancestors open and the tree scrolls to it - also when the folder (or its ancestors) arrives later in `nodes` (a picker that starts at a given folder). A search in progress is left alone */
+  revealSelected?: boolean;
 
   // ---- counts ----
   /** items directly in a folder, by folder id */
@@ -320,6 +322,15 @@ const FolderTreeReusable = forwardRef<FolderTreeHandle, FolderTreeReusableProps>
     if (p.select) select(p.id);
     if (p.edit) setEditingId(p.id);
   }, [index, flat, expanded, search, pendingTick, expandIds, rowOf, scrollToRow, select]);
+
+  // revealSelected: open the way to the selected folder once it is in the tree (again when the selection changes)
+  const revealedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!props.revealSelected || !selectedId) return;
+    if (revealedFor.current === selectedId || index.idToIdx.get(selectedId) === undefined || live.current.search) return;
+    revealedFor.current = selectedId;
+    reveal(selectedId, { select: false });
+  }, [props.revealSelected, selectedId, index, reveal]);
 
   // ---------------- CRUD ----------------
   const createFolder = useCallback((parentId: string | null, afterId?: string) => {

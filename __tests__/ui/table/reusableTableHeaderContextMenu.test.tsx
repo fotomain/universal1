@@ -190,6 +190,7 @@ describe('ReusableTable column header context menu', () => {
     expect(isDisabled()).toBe(true);
     // set a filter through Filter & Sort (Empty: 0 of the 2 rows have an empty title), the toolbar shows its own clear icon
     press(`${T}-header-menu-filter-sort`);
+    press(`${T}-column-menu-op-select`);                          // a text column picks its operator from a select list
     press(`${T}-column-menu-op-empty`);
     press(`${T}-column-menu-apply`);
     expect(q(`${T}-clear-filters`)).not.toBeNull();
@@ -199,6 +200,25 @@ describe('ReusableTable column header context menu', () => {
     press(`${T}-header-menu-clear-filter`);
     expect(q(`${T}-header-context-menu`)).toBeNull();
     expect(q(`${T}-clear-filters`)).toBeNull();
+  });
+
+  it('Filter & Sort of a TEXT column: the operator is chosen from a select list (equal ... not empty), contains is the start, the list closes after a pick', () => {
+    mount();
+    act(() => { q(`${T}-header-title`)!.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true, clientX: 100, clientY: 50 })); });
+    press(`${T}-header-menu-filter-sort`);
+    expect(q(`${T}-column-menu-op-selected`)!.textContent).toBe('contains');
+    expect(q(`${T}-column-menu-op-list`)).toBeNull();
+    press(`${T}-column-menu-op-select`);
+    const items = ['eq', 'neq', 'contains', 'notContains', 'startsWith', 'endsWith', 'empty', 'notEmpty'];
+    const labels = ['equal', 'not equal', 'contains', 'does not contain', 'starts with', 'ends with', 'empty', 'not empty'];
+    items.forEach((o, i) => expect(q(`${T}-column-menu-op-${o}`)!.textContent).toBe(labels[i]));
+    press(`${T}-column-menu-op-startsWith`);
+    expect(q(`${T}-column-menu-op-list`)).toBeNull();
+    expect(q(`${T}-column-menu-op-selected`)!.textContent).toBe('starts with');
+    expect(q(`${T}-column-menu-value`)).not.toBeNull();            // starts with needs a text
+    press(`${T}-column-menu-op-select`);
+    press(`${T}-column-menu-op-notEmpty`);
+    expect(q(`${T}-column-menu-value`)).toBeNull();                // not empty needs none
   });
 
   it('opens fill modal on pressing "Fill all lines", and fills all lines with entered value', () => {

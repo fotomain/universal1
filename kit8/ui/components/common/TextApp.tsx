@@ -2,6 +2,7 @@ import React from 'react';
 import { Text as RNText, TextStyle } from 'react-native';
 import { Text as PaperText } from 'react-native-paper';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
+import { ExpoUIText } from '../../expoui/ExpoUI';
 
 export interface TextAppProps {
   children: React.ReactNode;
@@ -134,7 +135,7 @@ export const TextApp: React.FC<TextAppProps> = ({
     }
 
     case 'expo': {
-      return (
+      const legacyExpo = (
         <RNText
           testID={testID}
           numberOfLines={numberOfLines}
@@ -150,8 +151,14 @@ export const TextApp: React.FC<TextAppProps> = ({
           {children}
         </RNText>
       );
+      // a plain text is the NATIVE Text of @expo/ui; the react-native Text above is the fallback (styled text, nested elements)
+      if (typeof children !== 'string' || style) return legacyExpo;
+      return (
+        <ExpoUIText testID={testID} numberOfLines={numberOfLines} role={variant === 'heading' || variant === 'title' ? 'title' : variant === 'caption' ? 'label' : 'body'} color={variant === 'heading' ? themeColors.primary : themeColors.text} fallback={legacyExpo}>
+          {children}
+        </ExpoUIText>
+      );
     }
-
     case 'googlemd3web': {
       return (
         <RNText

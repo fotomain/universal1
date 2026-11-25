@@ -5,6 +5,7 @@ import { ButtonPrimaryApp } from '../common';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useDispatch, useSelector } from 'react-redux';
 import { setFabColor } from '../../../redux/userThemeSlice';
+import { setThemeSettings } from '../../../redux/uxuiSlice';
 import { CustomLightTheme } from '../../theme/palettes';
 import { FAB_DEFAULT_BG, FAB_DEFAULT_ICON } from './fabColors';
 import FABApp from '../common/FABApp';
@@ -37,17 +38,20 @@ export const FABColorSelectorComponent: React.FC = () => {
 
   const handleSelectPreset = (hex?: string) => {
     dispatch(setFabColor(hex));
+    dispatch(setThemeSettings({ fabColor: hex || null })); // saved in userSettingsTable (themeSettings.fabColor)
   };
 
   const handleSaveCustom = () => {
     if (customHex && customHex.startsWith('#')) {
       dispatch(setFabColor(customHex));
+      dispatch(setThemeSettings({ fabColor: customHex }));
     }
     setDialogVisible(false);
   };
 
   const handleReset = () => {
     dispatch(setFabColor(undefined));
+    dispatch(setThemeSettings({ fabColor: null }));
   };
 
   const activeColor = currentFabColor || FAB_DEFAULT_BG;

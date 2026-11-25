@@ -32,6 +32,29 @@ export function defaultParseDateInput(text: string): Date | null {
   return null;
 }
 
+/**
+ * Live typing helper: exactly eight digits that make a date (20261130 = YYYYMMDD, 30112026 = DDMMYYYY) become 'YYYY-MM-DD' at once (2026-11-30); any other text is returned unchanged,
+ * so a half-typed date is never touched.
+ */
+export function autoFormatCompactDate(text: string): string {
+  const c = parseCompactDateDigits(text);
+  return c ? `${c.y}-${pad2(c.m)}-${pad2(c.d)}` : text;
+}
+
+/**
+ * Live typing of a day in a FILTER field (the local calendar day of `now`):
+ *   t              -> today                       2026-11-25
+ *   (day(-1))      -> today - 1 day (yesterday)   (day(7)) -> today + 7 days; replaced as soon as the closing "))" is typed
+ *   20261130       -> 2026-11-30                  (eight digits, `autoFormatCompactDate`)
+ * any other text is returned unchanged (a half typed "(day(-1" stays as typed).
+ */
+export function autoFormatTypedDay(text: string, now: Date = new Date()): string {
+  if (/^\s*t\s*$/i.test(text)) return defaultFormatDateInput(now);
+  const m = /^\s*\(\s*day\(\s*([-+]?\d{1,5})\s*\)\s*\)\s*$/i.exec(text);
+  if (m) return defaultFormatDateInput(new Date(now.getFullYear(), now.getMonth(), now.getDate() + Number(m[1])));
+  return autoFormatCompactDate(text);
+}
+
 /** local Date -> YYYY-MM-DD */
 export function defaultFormatDateInput(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;
