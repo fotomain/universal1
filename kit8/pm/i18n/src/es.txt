@@ -1199,3 +1199,308 @@
 1199|Se necesitan {{hours}} h de {{resource}} el {{day}}, pero el calendario del recurso permite {{capacity}} h ese día. ¿Se puede mover la tarea o cambiar el calendario?
 1200|{{resource}}: el calendario no tiene el día {{day}} (no rellenado para ese año), por lo que no se pueden comprobar las {{hours}} h
 1201|{{update}} pago(s) cambiarán y {{remove}} se eliminarán. Lo que escribió en un pago (fechas, partida presupuestaria, beneficiario ...) se conserva.
+1202|Elija primero el proyecto de estimación.
+1203|Leyendo la estimación...
+1204|El proyecto de estimación no se encuentra o no tiene permiso para leerlo.
+1205|El proyecto de estimación no tiene tareas: nada que copiar.
+1206|Guarde primero el proyecto (botón Guardar): luego se podrá copiar la estimación en él.
+1207|El proyecto de estimación se cambió en esta ventana: guarde primero la configuración.
+1208|Proyecto de solo lectura: no se puede cambiar nada.
+1209|No puede crear tareas en este proyecto.
+1210|Se copiarán {{tasks}} tareas, {{links}} vínculos y {{lines}} líneas de tarea. Las líneas no se contabilizan.
+1211|Rellenar el proyecto desde la estimación
+1212|¿Recalcular ahora las líneas de tarea?
+1213|Las monedas de la estimación ({{from}}) difieren de las de este proyecto ({{to}}): las líneas copiadas aún no tienen importes en {{to}}. ¿Recalcularlas ahora con los tipos de cambio?
+1214|Sí
+1215|{{tasks}} tareas y {{lines}} líneas de tarea copiadas. Pulse Contabilizar tareas no contabilizadas para contabilizarlas.
+1216|Cancelado. No se cambió nada.
+1217|Reemplazar
+1218|Añadir
+1219|Proyecto vacío
+1220|Se copiarán {{tasks}} tareas y etapas, {{links}} vínculos y {{lines}} líneas de tarea de "{{from}}" en "{{to}}". Las líneas no se contabilizan.
+1221|Ya rellenado el {{date}} ({{mode}}, {{n}} tareas). Rellenar de nuevo añade las filas otra vez, salvo que elija Reemplazar.
+1222|El proyecto ya tiene {{n}} filas propias de nivel superior. ¿Qué debe pasar con ellas?
+1223|Añadir después de las filas existentes
+1224|No se toca nada del proyecto.
+1225|Reemplazar las filas existentes
+1226|No es posible: {{n}} tareas del proyecto están contabilizadas.
+1227|No es posible: el proyecto tiene documentos (facturas, pedidos, hechos ...).
+1228|Las {{n}} filas de nivel superior existentes con todo lo que contienen se eliminan cuando la copia termine bien.
+1229|Elija una opción para continuar.
+1230|Las monedas difieren ({{from}} -> {{to}}): se quitan los importes de las líneas copiadas y se le preguntará si desea recalcularlos ahora.
+1231|Hecho: {{tasks}} tareas, {{links}} vínculos y {{lines}} líneas de tarea copiadas.
+1232|(sin partida presupuestaria)
+1233|Ingresos
+1234|Estimación
+1235|Proyecto ahora
+1236|Estimación - ahora
+1237|La estimación no tiene líneas de tarea.
+1238|{{n}} líneas no tienen importe de presupuesto (sin moneda de presupuesto o sin tipo de cambio): cuentan como 0.
+1239|{{n}} líneas no tienen partida presupuestaria.
+1240|La moneda de presupuesto de la estimación es {{from}}, la de este proyecto {{to}}: no hay tipo de cambio para hoy.
+1241|La moneda de presupuesto de la estimación es {{from}}, la de este proyecto {{to}}: la columna convertida usa el tipo de hoy y es solo orientativa.
+1242|Estimación
+1243|Beneficio
+1244|Último relleno: {{date}} - {{n}} tareas, {{lines}} líneas de tarea.
+1245|Leyendo la estimación
+1246|Escribiendo {{n}} tareas
+1247|Escribiendo {{n}} vínculos
+1248|Escribiendo {{n}} líneas de tarea
+1249|Eliminando las filas antiguas
+1250|Guardando la nota del relleno
+1251|Proyecto de estimación
+1252|Buscar el proyecto de estimación…
+1253|Proyecto de solo lectura: el proyecto de estimación no se puede cambiar.
+1254|Sin proyecto de estimación. Haga la estimación como proyecto aparte y elíjalo aquí.
+1255|No se encontró ningún proyecto
+1256|Reintentar
+1257|Cancelar el relleno
+1258|Compartir captura de pantalla + JSON
+1259|Estimación: las sumas del proyecto de estimación de este proyecto, por partida presupuestaria
+1260|No hay proyecto de estimación. Elíjalo en la configuración del proyecto, pestaña Estimación.
+1261|No hay tipo de cambio en el libro de tipos para: {{c}}. Escriba el tipo a mano.
+1262|Se leyeron los tipos del libro de tipos.
+1263|Abra o cree primero un presupuesto (pestaña Presupuesto).
+1264|Se añadió la norma. {{n}} recurso(s) no tienen precio en el libro: póngalos en el tablero.
+1265|La norma se añadió al presupuesto.
+1266|No guardado
+1267|Panel de presupuestos
+1268|se edita su proyecto de presupuesto
+1269|Abra primero un proyecto (Panel de proyectos) o use el botón de Ajustes del proyecto -> Presupuesto.
+1270|proyecto de solo lectura
+1271|puede leer, no cambiar (permissionEstimationManager)
+1272|Recargar
+1273|(Ejecute start1 + start2 + start4: SQL PART 58.)
+1274|Sin proyecto.
+1275|Nuevo presupuesto
+1276|Nueva cotización
+1277|Eliminar presupuesto
+1278|Consolidación
+1279|Leyendo...
+1280|Este proyecto aún no tiene presupuesto.
+1281|Cree uno con Nuevo presupuesto o empiece con un ejemplo en la pestaña Plantillas.
+1282|Costes directos
+1283|Gastos generales
+1284|Total a precios base
+1285|Total a precios corrientes
+1286|En la moneda de la vista
+1287|Ajustes del documento
+1288|Libros de normas
+1289|Plantillas
+1290|Resumen
+1291|Documento
+1292|Precios base e índice
+1293|Comercial
+1294|Recursos e índice (más adelante)
+1295|Recursos (más adelante)
+1296|Normas, índice e impuestos
+1297|No productivo
+1298|Productivo
+1299|Lineal
+1300|Único / peligroso
+1301|La reserva para imprevistos no suele superar el {{cap}} % en este tipo de obra.
+1302|Monedas: cada importe se guarda en las tres
+1303|Tipo a la moneda del presupuesto
+1304|Tipo a la moneda contable
+1305|Tipo a la moneda de consolidación
+1306|Leer los tipos
+1307|Presupuesto resumen
+1308|Construcción
+1309|Instalación
+1310|Otros costes
+1311|Encabezado y firmas
+1312|En los documentos se usa la redacción de la Metodología (Ajustes del proyecto -> Presupuesto).
+1313|Redacción neutra: sin texto específico de un país ni número de formulario (Ajustes del proyecto -> Presupuesto).
+1314|Columnas de este diseño
+1315|Los presupuestos locales y de costes separados van a su capítulo (se fija en los ajustes de cada documento). Importes en miles, moneda {{c}}.
+1316|Imprevistos, %
+1317|IVA, %
+1318|Capítulos, obras, trabajos y costes
+1319|Total, capítulos 1 - 7
+1320|Total, capítulos 1 - 8
+1321|Total, capítulos 1 - 9
+1322|Total, capítulos 1 - 12
+1323|Imprevistos, {{p}} %
+1324|IVA, {{p}} %
+1325|TOTAL CON IVA
+1326|Leyendo los archivos
+1327|Cancelado.
+1328|Hecho: {{n}} filas escritas.
+1329|Hecho: {{norms}} normas, {{sections}} secciones, {{resources}} recursos.
+1330|Archivos omitidos: {{n}}.
+1331|Importar libros de normas
+1332|Archivos: un .zip o .xml de un libro de normas (normas y recursos con precio) o un .zip de la exportación ({{f}}).
+1333|Elegir archivos
+1334|Ningún archivo elegido
+1335|Dónde va el libro en el árbol
+1336|Código de país (ISO)
+1337|País desconocido
+1338|Textos
+1339|Traducir al inglés con Google AI (el texto en inglés será el principal)
+1340|Conservar los textos originales como traducciones (traducciones del catálogo)
+1341|La traducción necesita una clave de Google AI en los ajustes de la aplicación (GOOGLE_AI_API_KEY).
+1342|Cancelar importación
+1343|Aún no hay libros de normas. Ejecute el SQL de PART 58 e importe un libro.
+1344|Elija un libro de normas a la izquierda.
+1345|Buscar por código o título
+1346|Tarifa de mano de obra por hora
+1347|Inicio del libro
+1348|Añadir al presupuesto
+1349|No hay nada aquí.
+1350|Estructura
+1351|Sección
+1352|Partida
+1353|(nivel superior)
+1354|Norma / justificación
+1355|Ref. medición
+1356|Moneda del presupuesto
+1357|Moneda contable
+1358|Moneda de consolidación
+1359|Categoría
+1360|Completo
+1361|Oficio / descripción
+1362|Por m2
+1363|Nuevo oficio
+1364|Nueva sección
+1365|+ Oficio
+1366|+ Sección
+1367|+ Partida
+1368|Todo lo que hay bajo una sección se elimina con ella.
+1369|Hoja de presupuesto
+1370|Avanzado (matriz de recursos)
+1371|Cotización rápida
+1372|Desglose por oficios
+1373|Leyendo el presupuesto
+1374|No se eligió nada para exportar.
+1375|Hecho: {{n}} documento(s) exportado(s).
+1376|Documentos
+1377|Aún no hay presupuesto: cree uno en la pestaña Presupuesto o desde un ejemplo en Plantillas.
+1378|Sin título
+1379|Añadir la hoja de recursos de cada presupuesto
+1380|Añadir el presupuesto resumen (capítulos 1 - 12)
+1381|Formato
+1382|Excel (.xlsx, los totales son fórmulas)
+1383|PDF (un archivo por documento)
+1384|Se usa la redacción de la Metodología (Ajustes del proyecto -> Presupuesto).
+1385|Redacción neutra: sin texto específico de un país ni número de formulario.
+1386|Los importes se muestran en: {{b}}.
+1387|Leyendo el libro de normas
+1388|Creando el zip
+1389|Hecho: {{n}} filas en {{kb}} KB.
+1390|Exportar un libro de normas
+1391|El zip contiene manifest.json, json/ (los datos, para importar) y csv/ (las mismas filas para abrir en Excel).
+1392|Exportar zip
+1393|Se exportó el ejemplo.
+1394|No se encontraron líneas: la primera fila debe tener los nombres de columna de la plantilla de entrada.
+1395|Se añadieron {{n}} líneas.
+1396|Empezar con un ejemplo (entrada)
+1397|Crear este presupuesto
+1398|Los números de los ejemplos son de muestra: cámbielos, no son datos de un libro de precios.
+1399|Entrada desde una tabla
+1400|Descargar la plantilla de entrada (CSV)
+1401|Pegue aquí una tabla (CSV o copiada de Excel); la primera fila = los nombres de columna de la plantilla
+1402|Añadir las líneas al presupuesto abierto
+1403|Ejemplos de salida
+1404|Presupuesto local, cotización y presupuesto resumen hechos con los ejemplos de arriba, para ver los documentos antes de hacer los suyos.
+1405|Ejemplo de salida: Excel
+1406|Ejemplo de salida: PDF
+1407|Secciones y partidas con normas, unidades, cantidades, coeficientes, costes unitarios de mano de obra, máquinas y materiales, gastos generales, beneficio e índice a precios corrientes.
+1408|Una línea por trabajo: categoría, descripción, unidad, cantidad, coste unitario, margen, precio y estado. Rápido para trabajos pequeños y cotizaciones.
+1409|Una sección por oficio con mano de obra y materiales, coste por m2 y porcentaje: para presupuestos de concepto.
+1410|Preparación del terreno de obra
+1411|Obras principales de construcción
+1412|Obras auxiliares y de servicio
+1413|Instalaciones energéticas
+1414|Instalaciones de transporte y comunicaciones
+1415|Redes e instalaciones exteriores: agua, saneamiento, calefacción, gas
+1416|Paisajismo y mejora del terreno
+1417|Edificios y estructuras provisionales
+1418|Otros trabajos y costes
+1419|Formación del personal de explotación
+1420|Proyecto, estudios, revisión pericial, dirección facultativa
+1421|Presupuesto local (formulario de la Metodología, anexo 2)
+1422|Presupuesto local
+1423|Presupuesto de obra (formulario de la Metodología, anexo 5)
+1424|Presupuesto de obra
+1425|Presupuesto resumen del coste de construcción (formulario de la Metodología, anexo 6)
+1426|Presupuesto resumen del coste de construcción
+1427|Presupuesto de costes separados
+1428|Cotización
+1429|Código
+1430|Cliente
+1431|Base
+1432|Método
+1433|precios base e índice
+1434|Nivel de precios
+1435|Justificación
+1436|Descripción de trabajos y costes
+1437|Cantidad
+1438|Coeficiente
+1439|Coste unitario, precios base
+1440|Índice
+1441|Total de costes directos
+1442|Salarios (obreros y operadores de máquinas)
+1443|Beneficio estimado
+1444|TOTAL
+1445|Total en la moneda de la vista
+1446|Elaborado por
+1447|Aprobado por
+1448|Mano de obra
+1449|Máquinas
+1450|de los cuales operadores
+1451|Materiales
+1452|Hoja de recursos
+1453|Coste por unidad
+1454|Margen, %
+1455|Capítulo
+1456|Nombre de capítulos, obras, trabajos y costes
+1457|Obras de construcción
+1458|Trabajos de instalación
+1459|Usar la información normativa (la Metodología de un país) en los documentos
+1460|Desactivado (por defecto): no se muestra texto específico de un país, número de formulario ni autoridad en el panel ni en los documentos exportados.
+1461|Coef.
+1462|Mano de obra / unidad
+1463|Máquinas / unidad
+1464|Materiales / unidad
+1465|Gastos generales, %
+1466|Beneficio, %
+1467|Operadores
+1468|Salarios
+1469|Otros / unidad
+1470|Equipos / unidad
+1471|moneda del presupuesto
+1472|moneda contable
+1473|moneda de consolidación
+1474|comercial
+1475|en miles
+1476|normas
+1477|recursos
+1478|Elija un proyecto abajo o cree uno nuevo para el presupuesto.
+1479|Cambiar proyecto
+1480|Escriba un nombre para el proyecto.
+1481|Nuevo proyecto para el presupuesto
+1482|Los presupuestos se guardan en un proyecto. Cree uno nuevo aquí o elija uno de sus proyectos abajo.
+1483|Crear proyecto
+1484|No puede crear proyectos en esta organización. Elija uno de sus proyectos abajo.
+1485|Sus proyectos
+1486|Aún no hay proyectos.
+1487|Elegir norma
+1488|Elegir
+1489|Elija la norma de la partida
+1490|Añada una partida y luego elija su norma del libro de normas.
+1491|La norma se aplicó a la partida.
+1492|La norma se aplicó. {{n}} recurso(s) no tienen precio en el libro: indique los precios en la tabla.
+1493|Libro de normas
+1494|Buscar en todos los libros de normas
+1495|Mano de obra / unidad desde
+1496|Mano de obra / unidad hasta
+1497|Contiene
+1498|Final
+1499|Modo de búsqueda
+1500|Copiar celda
+1501|Pegar celda
+1502|La búsqueda tardó demasiado. Escriba más letras para acotarla.
+1503|Coste directo / unidad
+1504|Filtrar por
+1505|Desde
+1506|Hasta

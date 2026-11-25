@@ -43,6 +43,8 @@ interface ColumnBase {
   fromStored?: (stored: any, row: ReusableTableRow) => any;
   /** true = the column is always FIRST (right after the drag / select-row columns), even when the user has moved the others and the column appears later */
   pinFirst?: boolean;
+  /** px of room at the left AND the right of the cell content (default 6): a column of one short word / icon (a link) can be as narrow as its content + this */
+  cellPaddingX?: number;
   /** ReusableList only (kit8/ui/components/list/reusable): which part of a list item this column fills. Default: the first text column = title, the next = subtitle, the next two = meta */
   listRole?: 'title' | 'subtitle' | 'meta' | 'badge' | 'hidden';
   /**
@@ -364,6 +366,8 @@ export interface ReusableTableFoldersTree {
   newRowDefaultsOf?: (folderId: string) => ({ rowJSON?: Record<string, any> } & Record<string, any>) | null | undefined;
   /** picking a folder also shows the rows of its subfolders (default true) */
   includeSubfolders?: boolean;
+  /** false = the rows cannot be dragged onto a folder: no ⠿ grip column (a picker that only chooses a row). Default true */
+  rowsDraggable?: boolean;
   /** the picked folder: FolderTreeReusable's TREE_ALL_ID (default) | TREE_NONE_ID | a folder id (controlled) */
   selectedFolderId?: string;
   onSelectedFolderChange?: (folderId: string) => void;
@@ -493,6 +497,10 @@ export interface ReusableTableProps {
   onRowOpen?: (row: ReusableTableRow) => void;
   /** text of the row menu command that opens the row (default "Edit <item label>") */
   openLabel?: string;
+  /** the screen is reading rows for this table (local rows mode): a spinner is drawn over the middle of the table card (default false) */
+  busy?: boolean;
+  /** a double click (web) / double tap (phone) on a row, in any cell: the screen acts on the row (a picker selects it). Two taps on the same row within 400 ms */
+  onRowDoubleClick?: (row: ReusableTableRow) => void;
   /** search box (default true) */
   searchEnabled?: boolean;
   /** right-click / long-press / ⋮ row menu (default true) */

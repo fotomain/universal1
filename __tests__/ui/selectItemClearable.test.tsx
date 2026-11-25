@@ -30,3 +30,22 @@ it('not clearable by default; not when disabled; a custom clearValue', () => {
   press('s-clear');
   expect(onSelect).toHaveBeenCalledWith('a');
 });
+
+it("trigger 'textInput': the field is a read only TextInputApp with the selected label; a press on it opens the list and a pick selects", async () => {
+  const onSelect = jest.fn();
+  renderUI(<SelectItemFromListApp testID="s" trigger="textInput" label="Mode" items={items} value="a" onSelect={onSelect} />);
+  expect(q('s-input')).not.toBeNull();
+  press('s-trigger');
+  expect(q('s-list')).not.toBeNull();
+  press('s-item-b');
+  expect(onSelect).toHaveBeenCalledWith('b');
+});
+
+it("trigger 'textInput' with inputLeftIcons: the icons go INTO the field, and the list opens from the rest of the field (not from the icon)", () => {
+  const onIcon = jest.fn();
+  renderUI(<SelectItemFromListApp testID="s" trigger="textInput" label="Mode" items={items} value="a" onSelect={jest.fn()} inputLeftIcons={[{ icon: 'history', testID: 's-hist', onPress: onIcon }]} />);
+  expect(q('s-input')).not.toBeNull();
+  const trigger = q('s-trigger')!;
+  // the opening area starts right of the icon (a plain pressable over the whole field would swallow the icon press)
+  expect(trigger.style.left).toBe('48px');
+});

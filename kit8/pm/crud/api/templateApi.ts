@@ -332,7 +332,8 @@ export function createTemplateApi(sb: SupabaseClient) {
       rowProgress: sourceProject.rowProgress || 0,
       orderInList: sourceProject.orderInList || 0,
       rowJSON: {
-        ...sourceProject.rowJSON,
+        // the estimation of a project belongs to THAT project (view/project/estimation): a template never carries it
+        ...(({ projectEstimationGUID: _est, projectEstimationLastFill: _estFill, ...rest }) => rest)(sourceProject.rowJSON as any),
         name: templateName,
         notes: templateDescription || sourceProject.rowJSON?.notes || '',
       },

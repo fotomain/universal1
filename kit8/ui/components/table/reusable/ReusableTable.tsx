@@ -159,7 +159,7 @@ export default function ReusableTable(props: ReusableTableProps) {
   /** the vertical scrollbar for the mouse beside the wide horizontal scroll (a table of a fixed height only) */
   const vScroll = useTableVScroll();
   /** the ⠿ column: reorder (web) and / or drag onto a folder of the tree (every platform) */
-  const folderDragOn = showTree && !treeHidden;
+  const folderDragOn = showTree && !treeHidden && foldersTree?.rowsDraggable !== false;
   // the ⠿ column: web = drag and drop (BodyWeb); iOS / Android = the grip below drags the row up / down (a folders tree beside the table keeps its own grip)
   const showHandle = reorderEnabled || folderDragOn;
   const fixedColsWidth = (showHandle ? HANDLE_W : 0) + (selectionEnabled ? CHECK_W : 0) + (contextMenuEnabled ? MENU_W : 0);
@@ -404,13 +404,25 @@ export default function ReusableTable(props: ReusableTableProps) {
     </Pressable>
   );
 
+  // double click / double tap on a row (onRowDoubleClick): two taps on the SAME row within 400 ms; the web counts the clicks that bubble up from the cells, a phone the touch ends
+  const lastRowTap = useRef<{ guid: string; at: number } | null>(null);
+  const rowTapProps = (row: ReusableTableRow): Record<string, any> => {
+    if (!props.onRowDoubleClick) return {};
+    const tap = () => {
+      const now = Date.now();
+      const prev = lastRowTap.current;
+      if (prev && prev.guid === row.rowGUID && now - prev.at < 400) { lastRowTap.current = null; props.onRowDoubleClick!(row); return; }
+      lastRowTap.current = { guid: row.rowGUID, at: now };
+    };
+    return Platform.OS === 'web' ? { onClick: tap } : { onTouchEnd: tap };
+  };
   const renderRow = (row: ReusableTableRow, index: number, opts: { dragHandle: React.ReactNode; isDragging: boolean; ghost: boolean }) => {
     const isSelected = selectedHere.includes(row.rowGUID);
     const isFocus = row.rowGUID === focusRowGUID;
     const nativeDragging = rowDrag?.guid === row.rowGUID;
     const bg = opts.isDragging || nativeDragging ? c.surface : isSelected ? c.primary + '18' : isFocus ? c.primary + '10' : index % 2 === 1 ? c.background : c.surface;
     return (
-      <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} aria-current={isFocus ? 'true' : undefined}
+      <View testID={opts.ghost ? undefined : `${testID}-row-${row.rowGUID}`} aria-current={isFocus ? 'true' : undefined} {...(opts.ghost ? {} : rowTapProps(row))}
         onLayout={Platform.OS === 'web' ? undefined : (e) => { rowHeights.current[row.rowGUID] = e.nativeEvent.layout.height; }}
         style={[styles.row, { minHeight: rowHeight, backgroundColor: bg, borderBottomColor: c.border, minWidth: totalWidth },
           nativeDragging ? { transform: [{ translateY: rowDrag!.dy }], zIndex: 20, elevation: 8, shadowColor: '#000', shadowOpacity: 0.25, shadowRadius: 6, shadowOffset: { width: 0, height: 2 } } : null]}>
@@ -420,7 +432,7 @@ export default function ReusableTable(props: ReusableTableProps) {
           ? <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: CHECK_W }]}>{checkbox(isSelected, () => toggle(row.rowGUID), `${testID}-select-${row.rowGUID}`)}</View>
           : <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: HANDLE_W }]}>{opts.dragHandle}</View>))}
         {visualColumns.map((col) => {
-          const cellStyle = [styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }];
+          const cellStyle = [styles.cell, minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: justify(col) }, col.cellPaddingX !== undefined ? { paddingHorizontal: col.cellPaddingX } : null];
           const cell = (
             <ReusableTableCell dense={minimumRows} col={col} columns={visualColumns} row={row} rowIndex={index} readOnly={opts.ghost || !inlineEdit || !!props.readOnly} rounded={roundedCells} bordered={borderedCells} onOpenDetails={openDetails} testID={testID}
               onChange={(key, value) => crud.setCell(row.rowGUID, key, value)} onPatch={(patch) => crud.patchRow(row.rowGUID, patch)} />
@@ -619,7 +631,7 @@ export default function ReusableTable(props: ReusableTableProps) {
           <View testID={`${testID}-footer`} style={[styles.row, styles.headerRow, footerAsRow ? { minHeight: rowHeight } : null, { backgroundColor: c.background, borderBottomWidth: 0, borderTopWidth: 1, borderTopColor: c.border }]}>
             {serviceColumns.map((kind) => <View key={kind} style={[styles.serviceCell, delimiterStyle, { width: kind === 'select' ? CHECK_W : HANDLE_W }]} />)}
             {visualColumns.map((col, i) => (
-              <View key={col.key} style={[styles.cell, footerAsRow && minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: numericCols.includes(col) ? (uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? 'flex-end' : 'center') : 'flex-start' }]}>
+              <View key={col.key} style={[styles.cell, footerAsRow && minimumRows ? styles.cellMinimum : null, delimiterStyle, { width: widthOf(col), justifyContent: numericCols.includes(col) ? (uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? 'flex-end' : 'center') : 'flex-start' }, col.cellPaddingX !== undefined ? { paddingHorizontal: col.cellPaddingX } : null]}>
                 {numericCols.includes(col) ? (
                   <Text testID={`${testID}-total-${col.key}`} style={[styles.headerText, { color: c.text }, uxuiTable?.justifyTotalsOfFieldsMode === 'justifyTextRight' ? { paddingRight: 10 } : null]}>{(() => { const t = footerTotal(col); return t.kind === 'sum' ? `${t.value}${t.suffix ? ` ${t.suffix}` : ''}` : t.kind === 'mixed' ? '—' : ''; })()}</Text>
                 ) : i === (visualColumns[0]?.type === 'rowNumber' ? 1 : 0) ? (
@@ -762,6 +774,8 @@ export default function ReusableTable(props: ReusableTableProps) {
           ]} />
       )}
       <AskBeforeDeletePostComponent visible={!!pendingDelete} onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) doDelete(pendingDelete); setPendingDelete(null); }} />
+      {/* `busy`: the screen is reading something for this table (a search, a folder): the spinner is over the MIDDLE OF THIS TABLE (not of the window, not of the folders tree beside it) */}
+      {props.busy && <View pointerEvents="none" testID={`${testID}-busy`} style={[StyleSheet.absoluteFill, { alignItems: 'center', justifyContent: 'center' }]}><ActivityIndicatorCircleApp /></View>}
     </View>
   );
   // a fixed px width may be wider than the screen: the whole table scrolls horizontally

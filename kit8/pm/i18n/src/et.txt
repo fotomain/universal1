@@ -1199,3 +1199,308 @@
 1199|{{resource}} on vaja {{hours}} h päeval {{day}}, kuid ressursi kalender lubab sel päeval {{capacity}} h. Kas ülesannet saab liigutada või kalendrit muuta?
 1200|{{resource}}: kalendris pole päeva {{day}} (selle aasta jaoks täitmata), seega ei saa {{hours}} h kontrollida
 1201|Muutub makseid: {{update}}, eemaldatakse: {{remove}}. Mis te makse juures sisestasite (kuupäevad, eelarverida, saaja ...), jääb alles.
+1202|Valige kõigepealt hinnangu projekt.
+1203|Hinnangut loetakse...
+1204|Hinnangu projekti ei leitud või teil pole õigust seda lugeda.
+1205|Hinnangu projektis pole ülesandeid: pole mida kopeerida.
+1206|Salvestage kõigepealt projekt (nupp Salvesta): siis saab hinnangu sinna kopeerida.
+1207|Hinnangu projekti muudeti selles aknas: salvestage kõigepealt seaded.
+1208|Kirjutuskaitstud projekt: midagi ei saa muuta.
+1209|Teil pole õigust selles projektis ülesandeid luua.
+1210|Kopeeritakse {{tasks}} ülesannet, {{links}} seost ja {{lines}} ülesanderead. Read pole kantud.
+1211|Täida projekt hinnangust
+1212|Kas arvutada ülesanderead nüüd uuesti?
+1213|Hinnangu valuutad ({{from}}) erinevad selle projekti valuutadest ({{to}}): kopeeritud ridadel pole veel summasid valuutas {{to}}. Kas arvutada need nüüd valuutakursside järgi uuesti?
+1214|Jah
+1215|Kopeeriti {{tasks}} ülesannet ja {{lines}} ülesanderida. Vajutage Kanna kandmata ülesanded, et need kanda.
+1216|Tühistatud. Midagi ei muudetud.
+1217|Asenda
+1218|Lisa
+1219|Tühi projekt
+1220|Projektist „{{from}}“ kopeeritakse projekti „{{to}}“ {{tasks}} ülesannet ja etappi, {{links}} seost ja {{lines}} ülesanderida. Read pole kantud.
+1221|Juba täidetud {{date}} ({{mode}}, {{n}} ülesannet). Uuesti täitmine lisab read uuesti, kui te ei vali Asenda.
+1222|Projektil on juba {{n}} oma ülemise taseme rida. Mis neist saab?
+1223|Lisa olemasolevate ridade järele
+1224|Projektist ei puudutata midagi.
+1225|Asenda olemasolevad read
+1226|Pole võimalik: {{n}} projekti ülesannet on kantud.
+1227|Pole võimalik: projektil on dokumente (arved, tellimused, faktid ...).
+1228|Olemasolevad {{n}} ülemise taseme rida koos kõigega nende all kustutatakse pärast kopeerimise õnnestumist.
+1229|Jätkamiseks valige üks.
+1230|Valuutad erinevad ({{from}} -> {{to}}): kopeeritud ridade summad eemaldatakse ja teilt küsitakse, kas need nüüd uuesti arvutada.
+1231|Valmis: kopeeriti {{tasks}} ülesannet, {{links}} seost ja {{lines}} ülesanderida.
+1232|(eelarvereata pole)
+1233|Tulu
+1234|Hinnang
+1235|Projekt praegu
+1236|Hinnang - praegu
+1237|Hinnangul pole ülesanderidu.
+1238|{{n}} real pole eelarve summat (pole eelarvevaluutat või vahetuskurssi): need loetakse 0-ks.
+1239|{{n}} real pole eelarvereat.
+1240|Hinnangu eelarvevaluuta on {{from}}, selle projekti oma {{to}}: tänaseks pole vahetuskurssi.
+1241|Hinnangu eelarvevaluuta on {{from}}, selle projekti oma {{to}}: ümberarvutatud veerg kasutab tänast kurssi ja on vaid suunav.
+1242|Hinnang
+1243|Kasum
+1244|Viimane täitmine: {{date}} - {{n}} ülesannet, {{lines}} ülesanderida.
+1245|Hinnangut loetakse
+1246|Kirjutatakse {{n}} ülesannet
+1247|Kirjutatakse {{n}} seost
+1248|Kirjutatakse {{n}} ülesanderida
+1249|Vanu ridu eemaldatakse
+1250|Täitmise märkust salvestatakse
+1251|Hinnangu projekt
+1252|Otsi hinnangu projekti…
+1253|Kirjutuskaitstud projekt: hinnangu projekti ei saa muuta.
+1254|Hinnangu projekti pole. Tehke hinnang eraldi projektina ja valige see siin.
+1255|Projekti ei leitud
+1256|Proovi uuesti
+1257|Tühista täitmine
+1258|Jaga ekraanipilti + JSON
+1259|Hinnang: selle projekti hinnangu projekti summad eelarveartiklite kaupa
+1260|Hinnangu projekti pole valitud. Valige see projekti seadetes, vahekaardil Hinnang.
+1261|Kursiraamatus pole kurssi: {{c}}. Sisesta kurss käsitsi.
+1262|Kursid loeti kursiraamatust.
+1263|Avage või koostage kõigepealt eelarve (vahekaart Eelarve).
+1264|Norm lisati. {{n}} ressursil pole raamatus hinda: pane hinnad tabelis.
+1265|Norm lisati eelarvesse.
+1266|Salvestamata
+1267|Eelarvestamise armatuurlaud
+1268|selle eelarveprojekti redigeeritakse
+1269|Avage kõigepealt projekt (projektide armatuurlaud) või kasutage nuppu Projekti seaded -> Eelarve.
+1270|kirjutuskaitstud projekt
+1271|võite lugeda, mitte muuta (permissionEstimationManager)
+1272|Laadi uuesti
+1273|(Käivitage start1 + start2 + start4: SQL PART 58.)
+1274|Projekti pole.
+1275|Uus eelarve
+1276|Uus pakkumine
+1277|Kustuta eelarve
+1278|Konsolideerimine
+1279|Loen...
+1280|Selles projektis pole veel eelarvet.
+1281|Looge uus nupuga Uus eelarve või alustage näitest vahekaardil Mallid.
+1282|Otsesed kulud
+1283|Üldkulud
+1284|Kokku baashindades
+1285|Kokku jooksevhindades
+1286|Vaate vääringus
+1287|Dokumendi seaded
+1288|Normiraamatud
+1289|Mallid
+1290|Kokkuvõte
+1291|Dokument
+1292|Baashinnad ja indeks
+1293|Kommertslik
+1294|Ressursid ja indeks (hiljem)
+1295|Ressursid (hiljem)
+1296|Normid, indeks ja maksud
+1297|Mittetootmine
+1298|Tootmine
+1299|Lineaarne
+1300|Ainulaadne / ohtlik
+1301|Reserv ei ületa selle objektiliigi puhul tavaliselt {{cap}} %.
+1302|Valuutad: iga summa salvestatakse kõigis kolmes
+1303|Kurss eelarve vääringusse
+1304|Kurss raamatupidamisvääringusse
+1305|Kurss konsolideerimisvääringusse
+1306|Loe kursid
+1307|Kokkuvõtlik eelarve
+1308|Ehitus
+1309|Paigaldus
+1310|Muud kulud
+1311|Päis ja allkirjad
+1312|Dokumentides kasutatakse metoodika sõnastust (Projekti seaded -> Eelarve).
+1313|Neutraalne sõnastus: riigipõhist teksti ega vormi numbrit pole (Projekti seaded -> Eelarve).
+1314|Selle paigutuse veerud
+1315|Kohalikud eelarved ja eraldi kulude eelarved lähevad oma peatükki (määratakse iga dokumendi seadetes). Summad tuhandetes, valuuta {{c}}.
+1316|Reserv, %
+1317|KM, %
+1318|Peatükid, objektid, tööd ja kulud
+1319|Kokku, peatükid 1 - 7
+1320|Kokku, peatükid 1 - 8
+1321|Kokku, peatükid 1 - 9
+1322|Kokku, peatükid 1 - 12
+1323|Reserv, {{p}} %
+1324|KM, {{p}} %
+1325|KOKKU KM-GA
+1326|Failide lugemine
+1327|Tühistatud.
+1328|Valmis: kirjutati {{n}} rida.
+1329|Valmis: {{norms}} normi, {{sections}} jaotist, {{resources}} ressurssi.
+1330|Vahele jäetud faile: {{n}}.
+1331|Impordi normiraamatud
+1332|Failid: normiraamatu .zip või .xml (normid ja hinnastatud ressursid) või ekspordi .zip ({{f}}).
+1333|Vali failid
+1334|Faili pole valitud
+1335|Kus raamat puus asub
+1336|Riigikood (ISO)
+1337|Tundmatu riik
+1338|Tekstid
+1339|Tõlgi Google AI-ga inglise keelde (ingliskeelne tekst on põhitekst)
+1340|Säilita algtekstid tõlgetena (kataloogi tõlked)
+1341|Tõlkimiseks on vaja Google AI võtit rakenduse seadetes (GOOGLE_AI_API_KEY).
+1342|Tühista import
+1343|Normiraamatuid veel pole. Käivitage PART 58 SQL ja importige raamat.
+1344|Valige vasakult normiraamat.
+1345|Otsi koodi või pealkirja järgi
+1346|Tööjõu tunnihind
+1347|Raamatu algus
+1348|Lisa eelarvesse
+1349|Siin pole midagi.
+1350|Struktuur
+1351|Jaotis
+1352|Positsioon
+1353|(ülataseme)
+1354|Norm / põhjendus
+1355|Mahu viide
+1356|Eelarve valuuta
+1357|Raamatupidamisvaluuta
+1358|Konsolideerimisvaluuta
+1359|Kategooria
+1360|Valmis
+1361|Eriala / kirjeldus
+1362|m2 kohta
+1363|Uus eriala
+1364|Uus jaotis
+1365|+ Eriala
+1366|+ Jaotis
+1367|+ Positsioon
+1368|Kõik jaotise all kustutatakse koos sellega.
+1369|Eelarvelehed
+1370|Täpsem (ressursimaatriks)
+1371|Kiirpakkumine
+1372|Erialade jaotus
+1373|Eelarve lugemine
+1374|Eksportimiseks pole midagi valitud.
+1375|Valmis: eksporditi {{n}} dokumenti.
+1376|Dokumendid
+1377|Eelarvet veel pole: koostage see vahekaardil Eelarve või näitest vahekaardil Mallid.
+1378|Pealkirjata
+1379|Lisa iga eelarve ressursileht
+1380|Lisa kokkuvõtlik eelarve (peatükid 1 - 12)
+1381|Vorming
+1382|Excel (.xlsx, summad on valemid)
+1383|PDF (üks fail dokumendi kohta)
+1384|Kasutatakse metoodika sõnastust (Projekti seaded -> Eelarve).
+1385|Neutraalne sõnastus: riigipõhist teksti ega vormi numbrit pole.
+1386|Summad on näidatud: {{b}}.
+1387|Normiraamatu lugemine
+1388|Zipi koostamine
+1389|Valmis: {{n}} rida, {{kb}} KB.
+1390|Ekspordi normiraamat
+1391|Zip sisaldab manifest.json, json/ (andmed importimiseks) ja csv/ (samad read Excelis avamiseks).
+1392|Ekspordi zip
+1393|Näide eksporditi.
+1394|Ridu ei leitud: esimeses reas peavad olema sisendmalli veergude nimed.
+1395|Lisati {{n}} rida.
+1396|Alusta näitest (sisend)
+1397|Loo see eelarve
+1398|Näidete arvud on näidised: muutke neid, need pole hinnaraamatu andmed.
+1399|Sisestus tabelist
+1400|Laadi alla sisendmall (CSV)
+1401|Kleebi siia tabel (CSV või Excelist kopeeritud); esimene rida = malli veergude nimed
+1402|Lisa read avatud eelarvesse
+1403|Väljundi näited
+1404|Kohalik eelarve, pakkumine ja kokkuvõtlik eelarve ülaltoodud näidetest - dokumentide nägemiseks enne oma loomist.
+1405|Väljundi näide: Excel
+1406|Väljundi näide: PDF
+1407|Jaotised ja positsioonid normide, ühikute, koguste, koefitsientide, tööjõu, masinate ja materjalide ühikuhindade, üldkulude, kasumi ja jooksevhindade indeksiga.
+1408|Üks rida töö kohta: kategooria, kirjeldus, ühik, kogus, ühiku kulu, juurdehindlus, hind ja olek. Kiire väikeste tööde ja pakkumiste jaoks.
+1409|Üks jaotis eriala kohta tööjõu ja materjaliga, hind m2 kohta ja osakaal: kontseptsioonieelarvete jaoks.
+1410|Ehitusplatsi ettevalmistus
+1411|Peamised ehitusobjektid
+1412|Abi- ja teenindusobjektid
+1413|Energiaobjektid
+1414|Transpordi- ja sideobjektid
+1415|Välisvõrgud ja rajatised: vesi, kanalisatsioon, soojus, gaas
+1416|Haljastus ja territooriumi korrastus
+1417|Ajutised hooned ja rajatised
+1418|Muud tööd ja kulud
+1419|Käitajate koolitus
+1420|Projekteerimine, uuringud, ekspertiis, autorijärelevalve
+1421|Kohalik eelarve (metoodika vorm, lisa 2)
+1422|Kohalik eelarve
+1423|Objekti eelarve (metoodika vorm, lisa 5)
+1424|Objekti eelarve
+1425|Ehitusmaksumuse kokkuvõtlik eelarve (metoodika vorm, lisa 6)
+1426|Ehitusmaksumuse kokkuvõtlik eelarve
+1427|Eraldi kulude eelarve
+1428|Pakkumine
+1429|Tähis
+1430|Tellija
+1431|Alus
+1432|Meetod
+1433|baashinnad ja indeks
+1434|Hinnatase
+1435|Põhjendus
+1436|Tööde ja kulude kirjeldus
+1437|Kogus
+1438|Koefitsient
+1439|Ühiku kulu, baashinnad
+1440|Indeks
+1441|Otseste kulude kokku
+1442|Palk (töölised ja masinajuhid)
+1443|Hinnanguline kasum
+1444|KOKKU
+1445|Kokku vaate vääringus
+1446|Koostaja
+1447|Kinnitaja
+1448|Tööjõud
+1449|Masinad
+1450|sh operaatorid
+1451|Materjalid
+1452|Ressursileht
+1453|Kulu ühiku kohta
+1454|Juurdehindlus, %
+1455|Peatükk
+1456|Peatükkide, objektide, tööde ja kulude nimetus
+1457|Ehitustööd
+1458|Paigaldustööd
+1459|Kasuta dokumentides regulatsiooni teavet (riigi metoodikat)
+1460|Väljas (vaikimisi): armatuurlaual ja eksporditud dokumentides ei näidata riigipõhist teksti, vormi numbrit ega asutust.
+1461|Koef.
+1462|Tööjõud / ühik
+1463|Masinad / ühik
+1464|Materjalid / ühik
+1465|Üldkulud, %
+1466|Kasum, %
+1467|Operaatorid
+1468|Palk
+1469|Muu / ühik
+1470|Seadmed / ühik
+1471|eelarve valuuta
+1472|raamatupidamisvaluuta
+1473|konsolideerimisvaluuta
+1474|kommertslik
+1475|tuhandetes
+1476|normid
+1477|ressurssi
+1478|Vali allpool projekt või tee eelarve jaoks uus.
+1479|Vaheta projekti
+1480|Sisesta projekti nimi.
+1481|Uus projekt eelarve jaoks
+1482|Eelarved hoitakse projektis. Tee siin uus või vali allpool üks oma projektidest.
+1483|Loo projekt
+1484|Sul pole õigust selles organisatsioonis projekte luua. Vali allpool üks oma projektidest.
+1485|Sinu projektid
+1486|Projekte veel pole.
+1487|Vali norm
+1488|Vali
+1489|Vali positsiooni norm
+1490|Lisa positsioon ja vali siis selle norm normiraamatust.
+1491|Norm määrati positsioonile.
+1492|Norm määrati. {{n}} ressursil pole raamatus hinda: sisesta hinnad tabelisse.
+1493|Normiraamat
+1494|Otsi kõigist normiraamatutest
+1495|Tööjõud / ühik alates
+1496|Tööjõud / ühik kuni
+1497|Sisaldab
+1498|Lõpp
+1499|Otsingurežiim
+1500|Kopeeri lahter
+1501|Kleebi lahter
+1502|Otsing võttis liiga kaua aega. Kitsendamiseks sisestage rohkem tähti.
+1503|Otsekulu / ühik
+1504|Filtreeri välja järgi
+1505|Alates
+1506|Kuni

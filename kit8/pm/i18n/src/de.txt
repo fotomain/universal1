@@ -1199,3 +1199,308 @@
 1199|{{resource}} wird am {{day}} {{hours}} h benötigt, aber der Kalender der Ressource erlaubt an diesem Tag {{capacity}} h. Kann die Aufgabe verschoben oder der Kalender geändert werden?
 1200|{{resource}}: Der Kalender hat keinen Tag {{day}} (für dieses Jahr nicht gefüllt), daher können die {{hours}} h nicht geprüft werden
 1201|{{update}} Zahlung(en) ändern sich und {{remove}} werden entfernt. Was Sie bei einer Zahlung eingegeben haben (Daten, Budgetposition, Zahlungsempfänger ...), bleibt erhalten.
+1202|Wählen Sie zuerst das Kalkulationsprojekt.
+1203|Kalkulation wird gelesen...
+1204|Das Kalkulationsprojekt wurde nicht gefunden oder Sie dürfen es nicht lesen.
+1205|Das Kalkulationsprojekt hat keine Aufgaben: nichts zu kopieren.
+1206|Speichern Sie zuerst das Projekt (Schaltfläche Speichern): dann kann die Kalkulation hineinkopiert werden.
+1207|Das Kalkulationsprojekt wurde in diesem Fenster geändert: speichern Sie zuerst die Einstellungen.
+1208|Schreibgeschütztes Projekt: nichts kann geändert werden.
+1209|Sie dürfen in diesem Projekt keine Aufgaben anlegen.
+1210|{{tasks}} Aufgaben, {{links}} Verknüpfungen und {{lines}} Aufgabenzeilen werden kopiert. Die Zeilen sind nicht gebucht.
+1211|Projekt aus Kalkulation füllen
+1212|Aufgabenzeilen jetzt neu berechnen?
+1213|Die Währungen der Kalkulation ({{from}}) weichen von denen dieses Projekts ({{to}}) ab: die kopierten Zeilen haben noch keine Beträge in {{to}}. Jetzt mit den Wechselkursen neu berechnen?
+1214|Ja
+1215|{{tasks}} Aufgaben und {{lines}} Aufgabenzeilen kopiert. Drücken Sie Nicht gebuchte Aufgaben buchen, um sie zu buchen.
+1216|Abgebrochen. Nichts wurde geändert.
+1217|Ersetzen
+1218|Anhängen
+1219|Leeres Projekt
+1220|{{tasks}} Aufgaben und Phasen, {{links}} Verknüpfungen und {{lines}} Aufgabenzeilen von "{{from}}" werden in "{{to}}" kopiert. Die Zeilen sind nicht gebucht.
+1221|Bereits gefüllt am {{date}} ({{mode}}, {{n}} Aufgaben). Erneutes Füllen fügt die Zeilen erneut hinzu, außer Sie wählen Ersetzen.
+1222|Das Projekt hat bereits {{n}} eigene Zeilen der obersten Ebene. Was soll damit geschehen?
+1223|Nach den vorhandenen Zeilen einfügen
+1224|Am Projekt wird nichts verändert.
+1225|Die vorhandenen Zeilen ersetzen
+1226|Nicht möglich: {{n}} Aufgaben des Projekts sind gebucht.
+1227|Nicht möglich: das Projekt hat Belege (Rechnungen, Bestellungen, Ist-Erfassungen ...).
+1228|Die {{n}} vorhandenen Zeilen der obersten Ebene werden mit allem darunter gelöscht, nachdem das Kopieren gelungen ist.
+1229|Wählen Sie eine Option, um fortzufahren.
+1230|Die Währungen unterscheiden sich ({{from}} -> {{to}}): die Beträge der kopierten Zeilen werden entfernt, und Sie werden gefragt, ob sie jetzt neu berechnet werden sollen.
+1231|Fertig: {{tasks}} Aufgaben, {{links}} Verknüpfungen und {{lines}} Aufgabenzeilen kopiert.
+1232|(kein Budgetposten)
+1233|Erlöse
+1234|Kalkulation
+1235|Projekt jetzt
+1236|Kalkulation - jetzt
+1237|Die Kalkulation hat keine Aufgabenzeilen.
+1238|{{n}} Zeilen haben keinen Budgetbetrag (keine Budgetwährung oder kein Wechselkurs): sie zählen als 0.
+1239|{{n}} Zeilen haben keinen Budgetposten.
+1240|Die Budgetwährung der Kalkulation ist {{from}}, die dieses Projekts {{to}}: für heute gibt es keinen Wechselkurs.
+1241|Die Budgetwährung der Kalkulation ist {{from}}, die dieses Projekts {{to}}: die umgerechnete Spalte nutzt den Kurs von heute und ist nur ein Anhaltspunkt.
+1242|Kalkulation
+1243|Gewinn
+1244|Letztes Füllen: {{date}} - {{n}} Aufgaben, {{lines}} Aufgabenzeilen.
+1245|Kalkulation wird gelesen
+1246|{{n}} Aufgaben werden geschrieben
+1247|{{n}} Verknüpfungen werden geschrieben
+1248|{{n}} Aufgabenzeilen werden geschrieben
+1249|Alte Zeilen werden entfernt
+1250|Vermerk zum Füllen wird gespeichert
+1251|Kalkulationsprojekt
+1252|Kalkulationsprojekt suchen…
+1253|Schreibgeschütztes Projekt: das Kalkulationsprojekt kann nicht geändert werden.
+1254|Kein Kalkulationsprojekt. Erstellen Sie die Kalkulation als eigenes Projekt und wählen Sie es hier aus.
+1255|Kein Projekt gefunden
+1256|Erneut versuchen
+1257|Füllen abbrechen
+1258|Screenshot + JSON teilen
+1259|Schätzung: die Summen des Schätzungsprojekts dieses Projekts je Budgetposition
+1260|Kein Schätzungsprojekt gewählt. Wählen Sie es in den Projekteinstellungen, Reiter Schätzung.
+1261|Kein Kurs im Kursbuch für: {{c}}. Kurs von Hand eintragen.
+1262|Die Kurse aus dem Kursbuch wurden gelesen.
+1263|Öffnen oder erstellen Sie zuerst eine Kalkulation (Reiter Kalkulation).
+1264|Die Norm wurde hinzugefügt. {{n}} Ressource(n) haben im Buch keinen Preis: in der Tafel bepreisen.
+1265|Die Norm wurde zur Kalkulation hinzugefügt.
+1266|Nicht gespeichert
+1267|Kalkulations-Dashboard
+1268|Das zugehörige Kalkulationsprojekt wird bearbeitet
+1269|Öffnen Sie zuerst ein Projekt (Projektübersicht) oder nutzen Sie die Schaltfläche in Projekteinstellungen -> Kalkulation.
+1270|schreibgeschütztes Projekt
+1271|Sie dürfen lesen, nicht ändern (permissionEstimationManager)
+1272|Neu laden
+1273|(start1 + start2 + start4 ausführen: SQL PART 58.)
+1274|Kein Projekt.
+1275|Neue Kalkulation
+1276|Neues Angebot
+1277|Kalkulation löschen
+1278|Konsolidierung
+1279|Lese...
+1280|In diesem Projekt gibt es noch keine Kalkulation.
+1281|Mit „Neue Kalkulation“ anlegen oder im Reiter Vorlagen mit einem Beispiel beginnen.
+1282|Direkte Kosten
+1283|Gemeinkosten
+1284|Summe in Basispreisen
+1285|Summe in aktuellen Preisen
+1286|In der Anzeigewährung
+1287|Dokumenteinstellungen
+1288|Normbücher
+1289|Vorlagen
+1290|Zusammenfassung
+1291|Dokument
+1292|Basispreise und ein Index
+1293|Kommerziell
+1294|Ressourcen und Index (später)
+1295|Ressourcen (später)
+1296|Normen, Index und Steuern
+1297|Nicht produktionsbezogen
+1298|Produktion
+1299|Linear
+1300|Einzigartig / gefährlich
+1301|Die Reserve liegt für diese Objektart meist nicht über {{cap}} %.
+1302|Währungen: jeder Betrag wird in allen drei gespeichert
+1303|Kurs zur Budgetwährung
+1304|Kurs zur Buchhaltungswährung
+1305|Kurs zur Konsolidierungswährung
+1306|Kurse lesen
+1307|Gesamtkalkulation
+1308|Bauarbeiten
+1309|Montage
+1310|Sonstige Kosten
+1311|Kopfzeile und Unterschriften
+1312|In den Dokumenten wird der Wortlaut der Methodik verwendet (Projekteinstellungen -> Kalkulation).
+1313|Neutraler Wortlaut: kein länderspezifischer Text, keine Formularnummer (Projekteinstellungen -> Kalkulation).
+1314|Spalten dieses Layouts
+1315|Lokale Kalkulationen und Kalkulationen gesonderter Kosten gehen in ihr Kapitel (in den Einstellungen jedes Dokuments). Beträge in Tausend, Währung {{c}}.
+1316|Reserve, %
+1317|MwSt., %
+1318|Kapitel, Objekte, Arbeiten und Kosten
+1319|Summe, Kapitel 1 - 7
+1320|Summe, Kapitel 1 - 8
+1321|Summe, Kapitel 1 - 9
+1322|Summe, Kapitel 1 - 12
+1323|Reserve, {{p}} %
+1324|MwSt., {{p}} %
+1325|GESAMT MIT MWST.
+1326|Dateien werden gelesen
+1327|Abgebrochen.
+1328|Fertig: {{n}} Zeilen geschrieben.
+1329|Fertig: {{norms}} Normen, {{sections}} Abschnitte, {{resources}} Ressourcen.
+1330|Übersprungene Dateien: {{n}}.
+1331|Normbücher importieren
+1332|Dateien: eine .zip oder .xml eines Normbuchs (Normen und bepreiste Ressourcen) oder eine .zip aus dem Export ({{f}}).
+1333|Dateien wählen
+1334|Keine Datei gewählt
+1335|Wo das Buch im Baum liegt
+1336|Ländercode (ISO)
+1337|Unbekanntes Land
+1338|Texte
+1339|Mit Google AI ins Englische übersetzen (der englische Text wird der Haupttext)
+1340|Originaltexte als Übersetzungen behalten (Katalogübersetzungen)
+1341|Die Übersetzung braucht einen Google-AI-Schlüssel in den App-Einstellungen (GOOGLE_AI_API_KEY).
+1342|Import abbrechen
+1343|Noch keine Normbücher. SQL von PART 58 ausführen und ein Normbuch importieren.
+1344|Wählen Sie links ein Normbuch.
+1345|Suche nach Code oder Titel
+1346|Lohnsatz pro Stunde
+1347|Anfang des Buchs
+1348|Zur Kalkulation hinzufügen
+1349|Hier ist nichts.
+1350|Struktur
+1351|Abschnitt
+1352|Position
+1353|(oberste Ebene)
+1354|Norm / Begründung
+1355|Mengenverweis
+1356|Budgetwährung
+1357|Buchhaltungswährung
+1358|Konsolidierungswährung
+1359|Kategorie
+1360|Abgeschlossen
+1361|Gewerk / Beschreibung
+1362|Pro m2
+1363|Neues Gewerk
+1364|Neuer Abschnitt
+1365|+ Gewerk
+1366|+ Abschnitt
+1367|+ Position
+1368|Alles unter einem Abschnitt wird mit gelöscht.
+1369|Kalkulationsblatt
+1370|Erweitert (Ressourcenmatrix)
+1371|Schnellangebot
+1372|Gewerkeaufteilung
+1373|Kalkulation wird gelesen
+1374|Zum Export wurde nichts gewählt.
+1375|Fertig: {{n}} Dokument(e) exportiert.
+1376|Dokumente
+1377|Noch keine Kalkulation: im Reiter Kalkulation oder aus einem Beispiel im Reiter Vorlagen anlegen.
+1378|Ohne Titel
+1379|Ressourcenblatt jeder Kalkulation hinzufügen
+1380|Gesamtkalkulation hinzufügen (Kapitel 1 - 12)
+1381|Format
+1382|Excel (.xlsx, Summen sind Formeln)
+1383|PDF (eine Datei je Dokument)
+1384|Der Wortlaut der Methodik wird verwendet (Projekteinstellungen -> Kalkulation).
+1385|Neutraler Wortlaut: kein länderspezifischer Text, keine Formularnummer.
+1386|Die Beträge werden angezeigt in: {{b}}.
+1387|Normbuch wird gelesen
+1388|Zip wird erstellt
+1389|Fertig: {{n}} Zeilen in {{kb}} KB.
+1390|Normbuch exportieren
+1391|Das Zip enthält manifest.json, json/ (die Daten, für den Import) und csv/ (dieselben Zeilen für Excel).
+1392|Zip exportieren
+1393|Das Beispiel wurde exportiert.
+1394|Keine Zeilen gefunden: Die erste Zeile muss die Spaltennamen der Eingabevorlage enthalten.
+1395|Es wurden {{n}} Zeilen hinzugefügt.
+1396|Mit einem Beispiel beginnen (Eingabe)
+1397|Diese Kalkulation anlegen
+1398|Die Zahlen der Beispiele sind Muster: ändern Sie sie, es sind keine Daten eines Preisbuchs.
+1399|Eingabe aus einer Tabelle
+1400|Eingabevorlage herunterladen (CSV)
+1401|Tabelle hier einfügen (CSV oder aus Excel kopiert); erste Zeile = Spaltennamen der Vorlage
+1402|Zeilen zur offenen Kalkulation hinzufügen
+1403|Beispiele für die Ausgabe
+1404|Lokale Kalkulation, Angebot und Gesamtkalkulation aus den obigen Beispielen - um die Dokumente zu sehen, bevor Sie eigene machen.
+1405|Beispielausgabe: Excel
+1406|Beispielausgabe: PDF
+1407|Abschnitte und Positionen mit Normen, Einheiten, Mengen, Koeffizienten, Einheitskosten für Arbeit, Maschinen und Material, Gemeinkosten, Gewinn und einem Index auf aktuelle Preise.
+1408|Eine Zeile je Auftrag: Kategorie, Beschreibung, Einheit, Menge, Kosten je Einheit, Aufschlag, Preis und Status. Schnell für kleine Aufträge und Angebote.
+1409|Ein Abschnitt je Gewerk mit Arbeit und Material, Kosten pro m2 und Anteil: für Konzeptkalkulationen.
+1410|Vorbereitung des Baugeländes
+1411|Hauptbauobjekte
+1412|Neben- und Dienstobjekte
+1413|Energieanlagen
+1414|Verkehrsanlagen und Kommunikation
+1415|Außennetze und -anlagen: Wasser, Abwasser, Heizung, Gas
+1416|Landschaftsgestaltung und Außenanlagen
+1417|Temporäre Gebäude und Anlagen
+1418|Sonstige Arbeiten und Kosten
+1419|Schulung des Betriebspersonals
+1420|Planung, Vermessung, Prüfung, Bauüberwachung durch den Planer
+1421|Lokale Kalkulation (Formblatt der Methodik, Anhang 2)
+1422|Lokale Kalkulation
+1423|Objektkalkulation (Formblatt der Methodik, Anhang 5)
+1424|Objektkalkulation
+1425|Gesamtkalkulation der Baukosten (Formblatt der Methodik, Anhang 6)
+1426|Gesamtkalkulation der Baukosten
+1427|Kalkulation gesonderter Kosten
+1428|Angebot
+1429|Kennzeichen
+1430|Auftraggeber
+1431|Grundlage
+1432|Methode
+1433|Basispreise und ein Index
+1434|Preisstand
+1435|Begründung
+1436|Beschreibung der Arbeiten und Kosten
+1437|Menge
+1438|Koeffizient
+1439|Einheitskosten, Basispreise
+1440|Index
+1441|Summe der direkten Kosten
+1442|Löhne (Arbeiter und Maschinenführer)
+1443|Veranschlagter Gewinn
+1444|GESAMT
+1445|Summe in der Anzeigewährung
+1446|Erstellt von
+1447|Genehmigt von
+1448|Arbeit
+1449|Maschinen
+1450|davon Maschinenführer
+1451|Material
+1452|Ressourcenblatt
+1453|Kosten je Einheit
+1454|Aufschlag, %
+1455|Kapitel
+1456|Bezeichnung der Kapitel, Objekte, Arbeiten und Kosten
+1457|Bauarbeiten
+1458|Montagearbeiten
+1459|Regelwerksangaben (Methodik eines Landes) in den Dokumenten verwenden
+1460|Aus (Standard): Im Kalkulations-Dashboard und in den exportierten Dokumenten erscheinen kein länderspezifischer Text, keine Formularnummer und keine Behörde.
+1461|Koeff.
+1462|Arbeit / Einheit
+1463|Maschinen / Einheit
+1464|Material / Einheit
+1465|Gemeinkosten, %
+1466|Gewinn, %
+1467|Maschinenführer
+1468|Löhne
+1469|Sonstiges / Einheit
+1470|Ausrüstung / Einheit
+1471|Budgetwährung
+1472|Buchhaltungswährung
+1473|Konsolidierungswährung
+1474|kommerziell
+1475|in Tausend
+1476|Normen
+1477|Ressourcen
+1478|Wählen Sie unten ein Projekt oder legen Sie ein neues für die Kalkulation an.
+1479|Projekt wechseln
+1480|Geben Sie einen Namen für das Projekt ein.
+1481|Neues Projekt für die Kalkulation
+1482|Die Kalkulationen liegen in einem Projekt. Legen Sie hier ein neues an oder wählen Sie unten eines Ihrer Projekte.
+1483|Projekt anlegen
+1484|Sie dürfen in dieser Organisation keine Projekte anlegen. Wählen Sie unten eines Ihrer Projekte.
+1485|Ihre Projekte
+1486|Noch keine Projekte.
+1487|Norm wählen
+1488|Wählen
+1489|Norm der Position wählen
+1490|Position hinzufügen und dann ihre Norm aus dem Normenbuch wählen.
+1491|Die Norm wurde der Position zugewiesen.
+1492|Die Norm wurde zugewiesen. {{n}} Ressource(n) haben im Buch keinen Preis: Preise in der Tabelle eintragen.
+1493|Normenbuch
+1494|In allen Normenbüchern suchen
+1495|Arbeit / Einheit von
+1496|Arbeit / Einheit bis
+1497|Enthält
+1498|Ende
+1499|Suchmodus
+1500|Zelle kopieren
+1501|Zelle einfügen
+1502|Die Suche dauerte zu lange. Geben Sie mehr Buchstaben ein, um sie einzugrenzen.
+1503|Direkte Kosten / Einheit
+1504|Filtern nach
+1505|Von
+1506|Bis

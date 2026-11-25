@@ -1199,3 +1199,308 @@
 1199|{{resource}} vajadzīgs {{hours}} h {{day}}, bet resursa kalendārs šajā dienā atļauj {{capacity}} h. Vai uzdevumu var pārvietot vai mainīt kalendāru?
 1200|{{resource}}: kalendārā nav dienas {{day}} (šim gadam nav aizpildīts), tāpēc {{hours}} h nevar pārbaudīt
 1201|Mainīsies maksājumi: {{update}}, tiks noņemti: {{remove}}. Tas, ko ievadījāt maksājumā (datumi, budžeta postenis, saņēmējs ...), tiek saglabāts.
+1202|Vispirms izvēlieties tāmes projektu.
+1203|Tāme tiek lasīta...
+1204|Tāmes projekts nav atrasts, vai jums nav tiesību to lasīt.
+1205|Tāmes projektā nav uzdevumu: nav ko kopēt.
+1206|Vispirms saglabājiet projektu (poga Saglabāt): tad tajā var iekopēt tāmi.
+1207|Tāmes projekts šajā logā ir mainīts: vispirms saglabājiet iestatījumus.
+1208|Projekts tikai lasīšanai: neko nevar mainīt.
+1209|Jums nav atļauts veidot uzdevumus šajā projektā.
+1210|Tiks nokopēti {{tasks}} uzdevumi, {{links}} saites un {{lines}} uzdevumu rindas. Rindas nav grāmatotas.
+1211|Aizpildīt projektu no tāmes
+1212|Vai pārrēķināt uzdevumu rindas tagad?
+1213|Tāmes valūtas ({{from}}) atšķiras no šī projekta valūtām ({{to}}): nokopētajām rindām vēl nav summu valūtā {{to}}. Vai pārrēķināt tās tagad pēc valūtu kursiem?
+1214|Jā
+1215|Nokopēti {{tasks}} uzdevumi un {{lines}} uzdevumu rindas. Nospiediet Grāmatot negrāmatotos uzdevumus, lai tos grāmatotu.
+1216|Atcelts. Nekas netika mainīts.
+1217|Aizstāt
+1218|Pievienot
+1219|Tukšs projekts
+1220|No "{{from}}" uz "{{to}}" tiks nokopēti {{tasks}} uzdevumi un posmi, {{links}} saites un {{lines}} uzdevumu rindas. Rindas nav grāmatotas.
+1221|Jau aizpildīts {{date}} ({{mode}}, {{n}} uzdevumi). Atkārtota aizpilde rindas pievienos vēlreiz, ja neizvēlēsieties Aizstāt.
+1222|Projektam jau ir {{n}} savas augšējā līmeņa rindas. Kas ar tām jādara?
+1223|Pievienot aiz esošajām rindām
+1224|Projektā nekas netiek aiztikts.
+1225|Aizstāt esošās rindas
+1226|Nav iespējams: {{n}} projekta uzdevumi ir grāmatoti.
+1227|Nav iespējams: projektam ir dokumenti (rēķini, pasūtījumi, fakti ...).
+1228|Esošās {{n}} augšējā līmeņa rindas kopā ar visu zem tām tiek dzēstas pēc veiksmīgas kopēšanas.
+1229|Izvēlieties vienu, lai turpinātu.
+1230|Valūtas atšķiras ({{from}} -> {{to}}): nokopēto rindu summas tiek noņemtas, un jums vaicās, vai pārrēķināt tās tagad.
+1231|Gatavs: nokopēti {{tasks}} uzdevumi, {{links}} saites un {{lines}} uzdevumu rindas.
+1232|(nav budžeta posteņa)
+1233|Ieņēmumi
+1234|Tāme
+1235|Projekts tagad
+1236|Tāme - tagad
+1237|Tāmei nav uzdevumu rindu.
+1238|{{n}} rindām nav budžeta summas (nav budžeta valūtas vai valūtas kursa): tās skaitās kā 0.
+1239|{{n}} rindām nav budžeta posteņa.
+1240|Tāmes budžeta valūta ir {{from}}, šī projekta — {{to}}: šodienai nav valūtas kursa.
+1241|Tāmes budžeta valūta ir {{from}}, šī projekta — {{to}}: pārrēķinātā kolonna izmanto šodienas kursu un ir tikai orientējoša.
+1242|Tāme
+1243|Peļņa
+1244|Pēdējā aizpilde: {{date}} - {{n}} uzdevumi, {{lines}} uzdevumu rindas.
+1245|Tāme tiek lasīta
+1246|Raksta {{n}} uzdevumus
+1247|Raksta {{n}} saites
+1248|Raksta {{n}} uzdevumu rindas
+1249|Dzēš vecās rindas
+1250|Saglabā piezīmi par aizpildi
+1251|Tāmes projekts
+1252|Meklēt tāmes projektu…
+1253|Projekts tikai lasīšanai: tāmes projektu nevar mainīt.
+1254|Nav tāmes projekta. Izveidojiet tāmi kā atsevišķu projektu un izvēlieties to šeit.
+1255|Projekts nav atrasts
+1256|Mēģināt vēlreiz
+1257|Atcelt aizpildi
+1258|Kopīgot ekrānuzņēmumu + JSON
+1259|Tāme: šī projekta tāmes projekta summas pa budžeta posteņiem
+1260|Tāmes projekts nav norādīts. Izvēlieties to projekta iestatījumos, cilnē Tāme.
+1261|Kursu grāmatā nav kursa: {{c}}. Ievadiet kursu pats.
+1262|Kursi nolasīti no kursu grāmatas.
+1263|Vispirms atveriet vai izveidojiet tāmi (cilne Tāme).
+1264|Norma pievienota. {{n}} resursiem grāmatā nav cenas: norādiet tabulā.
+1265|Norma pievienota tāmei.
+1266|Nesaglabāts
+1267|Tāmju panelis
+1268|tiek rediģēts tā tāmes projekts
+1269|Vispirms atveriet projektu (projektu panelis) vai izmantojiet pogu Projekta iestatījumi -> Tāme.
+1270|projekts tikai lasīšanai
+1271|drīkstat lasīt, nevis mainīt (permissionEstimationManager)
+1272|Ielādēt vēlreiz
+1273|(Palaidiet start1 + start2 + start4: SQL PART 58.)
+1274|Nav projekta.
+1275|Jauna tāme
+1276|Jauns piedāvājums
+1277|Dzēst tāmi
+1278|Konsolidācija
+1279|Lasa...
+1280|Šajā projektā vēl nav tāmes.
+1281|Izveidojiet ar Jauna tāme vai sāciet no piemēra cilnē Veidnes.
+1282|Tiešās izmaksas
+1283|Pieskaitāmās izmaksas
+1284|Kopā bāzes cenās
+1285|Kopā pašreizējās cenās
+1286|Skata valūtā
+1287|Dokumenta iestatījumi
+1288|Normu grāmatas
+1289|Veidnes
+1290|Kopsavilkums
+1291|Dokuments
+1292|Bāzes cenas un indekss
+1293|Komerciāls
+1294|Resursi un indekss (vēlāk)
+1295|Resursi (vēlāk)
+1296|Normas, indekss un nodokļi
+1297|Neražošanas
+1298|Ražošanas
+1299|Lineārs
+1300|Unikāls / bīstams
+1301|Šāda veida objektam rezerve parasti nepārsniedz {{cap}} %.
+1302|Valūtas: katra summa tiek glabāta visās trijās
+1303|Kurss uz budžeta valūtu
+1304|Kurss uz uzskaites valūtu
+1305|Kurss uz konsolidācijas valūtu
+1306|Nolasīt kursus
+1307|Kopsavilkuma tāme
+1308|Būvniecība
+1309|Montāža
+1310|Citas izmaksas
+1311|Galvene un paraksti
+1312|Dokumentos tiek lietots metodikas formulējums (Projekta iestatījumi -> Tāme).
+1313|Neitrāls formulējums: bez valstij specifiska teksta vai veidlapas numura (Projekta iestatījumi -> Tāme).
+1314|Šī izkārtojuma kolonnas
+1315|Vietējās tāmes un atsevišķo izmaksu tāmes nonāk savā nodaļā (iestata katra dokumenta iestatījumos). Summas tūkstošos, valūta {{c}}.
+1316|Rezerve, %
+1317|PVN, %
+1318|Nodaļas, objekti, darbi un izmaksas
+1319|Kopā, 1. - 7. nodaļa
+1320|Kopā, 1. - 8. nodaļa
+1321|Kopā, 1. - 9. nodaļa
+1322|Kopā, 1. - 12. nodaļa
+1323|Rezerve, {{p}} %
+1324|PVN, {{p}} %
+1325|KOPĀ AR PVN
+1326|Failu lasīšana
+1327|Atcelts.
+1328|Gatavs: ierakstītas {{n}} rindas.
+1329|Gatavs: {{norms}} normas, {{sections}} sadaļas, {{resources}} resursi.
+1330|Izlaisti faili: {{n}}.
+1331|Importēt normu grāmatas
+1332|Faili: normu grāmatas .zip vai .xml (normas un cenoti resursi) vai eksporta .zip ({{f}}).
+1333|Izvēlēties failus
+1334|Fails nav izvēlēts
+1335|Kur grāmata nonāk kokā
+1336|Valsts kods (ISO)
+1337|Nezināma valsts
+1338|Teksti
+1339|Tulkot angļu valodā ar Google AI (angļu teksts kļūst par galveno)
+1340|Saglabāt oriģinālos tekstus kā tulkojumus (kataloga tulkojumi)
+1341|Tulkošanai nepieciešama Google AI atslēga lietotnes iestatījumos (GOOGLE_AI_API_KEY).
+1342|Atcelt importu
+1343|Normu grāmatu vēl nav. Palaidiet PART 58 SQL un importējiet grāmatu.
+1344|Kreisajā pusē izvēlieties normu grāmatu.
+1345|Meklēt pēc koda vai nosaukuma
+1346|Darba stundas likme
+1347|Grāmatas sākums
+1348|Pievienot tāmei
+1349|Šeit nekā nav.
+1350|Struktūra
+1351|Sadaļa
+1352|Pozīcija
+1353|(augšējais līmenis)
+1354|Norma / pamatojums
+1355|Apjomu atsauce
+1356|Budžeta valūta
+1357|Uzskaites valūta
+1358|Konsolidācijas valūta
+1359|Kategorija
+1360|Pabeigts
+1361|Darbu veids / apraksts
+1362|Uz m2
+1363|Jauns darbu veids
+1364|Jauna sadaļa
+1365|+ Darbu veids
+1366|+ Sadaļa
+1367|+ Pozīcija
+1368|Viss zem sadaļas tiek dzēsts kopā ar to.
+1369|Tāmes lapa
+1370|Paplašināts (resursu matrica)
+1371|Ātrais piedāvājums
+1372|Sadalījums pa darbu veidiem
+1373|Tāmes lasīšana
+1374|Eksportam nekas nav izvēlēts.
+1375|Gatavs: eksportēti {{n}} dokumenti.
+1376|Dokumenti
+1377|Tāmes vēl nav: izveidojiet cilnē Tāme vai no piemēra cilnē Veidnes.
+1378|Bez nosaukuma
+1379|Pievienot katras tāmes resursu lapu
+1380|Pievienot kopsavilkuma tāmi (1. - 12. nodaļa)
+1381|Formāts
+1382|Excel (.xlsx, kopsummas ir formulas)
+1383|PDF (viens fails katram dokumentam)
+1384|Tiek lietots metodikas formulējums (Projekta iestatījumi -> Tāme).
+1385|Neitrāls formulējums: bez valstij specifiska teksta vai veidlapas numura.
+1386|Summas rādītas: {{b}}.
+1387|Normu grāmatas lasīšana
+1388|Veido zip
+1389|Gatavs: {{n}} rindas, {{kb}} KB.
+1390|Eksportēt normu grāmatu
+1391|Zip satur manifest.json, json/ (dati importam) un csv/ (tās pašas rindas atvēršanai Excel).
+1392|Eksportēt zip
+1393|Piemērs eksportēts.
+1394|Rindu nav: pirmajā rindā jābūt ievades veidnes kolonnu nosaukumiem.
+1395|Pievienotas {{n}} rindas.
+1396|Sākt no piemēra (ievade)
+1397|Izveidot šo tāmi
+1398|Piemēru skaitļi ir paraugi: mainiet tos, tie nav cenrāža dati.
+1399|Ievade no tabulas
+1400|Lejupielādēt ievades veidni (CSV)
+1401|Ielīmējiet tabulu (CSV vai nokopētu no Excel); pirmā rinda = veidnes kolonnu nosaukumi
+1402|Pievienot rindas atvērtajai tāmei
+1403|Izvades piemēri
+1404|Vietējā tāme, piedāvājums un kopsavilkuma tāme no iepriekšējiem piemēriem - lai redzētu dokumentus, pirms veidojat savus.
+1405|Izvades piemērs: Excel
+1406|Izvades piemērs: PDF
+1407|Sadaļas un pozīcijas ar normām, vienībām, daudzumiem, koeficientiem, darba, mašīnu un materiālu vienības izmaksām, pieskaitāmajām izmaksām, peļņu un indeksu uz pašreizējām cenām.
+1408|Viena rinda darbam: kategorija, apraksts, vienība, daudzums, vienības izmaksas, uzcenojums, cena un statuss. Ātri maziem darbiem un piedāvājumiem.
+1409|Sadaļa katram darbu veidam ar darbu un materiāliem, izmaksas uz m2 un daļa: konceptuālām tāmēm.
+1410|Būvlaukuma sagatavošana
+1411|Galvenie būvobjekti
+1412|Palīgobjekti un apkalpes objekti
+1413|Enerģētikas objekti
+1414|Transporta un sakaru objekti
+1415|Ārējie tīkli un būves: ūdens, kanalizācija, siltums, gāze
+1416|Ainava un teritorijas labiekārtošana
+1417|Pagaidu ēkas un būves
+1418|Citi darbi un izmaksas
+1419|Ekspluatācijas personāla apmācība
+1420|Projektēšana, izpēte, ekspertīze, autoruzraudzība
+1421|Vietējā tāme (metodikas veidlapa, 2. pielikums)
+1422|Vietējā tāme
+1423|Objekta tāme (metodikas veidlapa, 5. pielikums)
+1424|Objekta tāme
+1425|Būvniecības izmaksu kopsavilkuma tāme (metodikas veidlapa, 6. pielikums)
+1426|Būvniecības izmaksu kopsavilkuma tāme
+1427|Atsevišķo izmaksu tāme
+1428|Piedāvājums
+1429|Šifrs
+1430|Pasūtītājs
+1431|Pamats
+1432|Metode
+1433|bāzes cenas un indekss
+1434|Cenu līmenis
+1435|Pamatojums
+1436|Darbu un izmaksu apraksts
+1437|Daudzums
+1438|Koeficients
+1439|Vienības izmaksas, bāzes cenas
+1440|Indekss
+1441|Kopā tiešās izmaksas
+1442|Darba samaksa (strādnieki un mašīnisti)
+1443|Plānotā peļņa
+1444|KOPĀ
+1445|Kopā skata valūtā
+1446|Sastādīja
+1447|Apstiprināja
+1448|Darbs
+1449|Mašīnas
+1450|no tiem operatori
+1451|Materiāli
+1452|Resursu lapa
+1453|Izmaksas uz vienību
+1454|Uzcenojums, %
+1455|Nodaļa
+1456|Nodaļu, objektu, darbu un izmaksu nosaukums
+1457|Būvdarbi
+1458|Montāžas darbi
+1459|Dokumentos izmantot normatīvo informāciju (valsts metodiku)
+1460|Izslēgts (noklusējums): tāmju panelī un eksportētajos dokumentos netiek rādīts valstij specifisks teksts, veidlapas numurs vai iestāde.
+1461|Koef.
+1462|Darbs / vienība
+1463|Mašīnas / vienība
+1464|Materiāli / vienība
+1465|Pieskaitāmās izmaksas, %
+1466|Peļņa, %
+1467|Operatori
+1468|Darba samaksa
+1469|Cits / vienība
+1470|Iekārtas / vienība
+1471|budžeta valūta
+1472|uzskaites valūta
+1473|konsolidācijos valūta
+1474|komerciāls
+1475|tūkstošos
+1476|normas
+1477|resursi
+1478|Izvēlieties projektu zemāk vai izveidojiet jaunu tāmei.
+1479|Mainīt projektu
+1480|Ievadiet projekta nosaukumu.
+1481|Jauns projekts tāmei
+1482|Tāmes tiek glabātas projektā. Izveidojiet jaunu šeit vai izvēlieties vienu no saviem projektiem zemāk.
+1483|Izveidot projektu
+1484|Jums nav tiesību veidot projektus šajā organizācijā. Izvēlieties vienu no saviem projektiem zemāk.
+1485|Jūsu projekti
+1486|Projektu vēl nav.
+1487|Izvēlēties normu
+1488|Izvēlēties
+1489|Izvēlieties pozīcijas normu
+1490|Pievienojiet pozīciju un pēc tam izvēlieties tās normu no normatīvu grāmatas.
+1491|Norma ir piešķirta pozīcijai.
+1492|Norma ir piešķirta. {{n}} resursiem grāmatā nav cenas: norādiet cenas tabulā.
+1493|Normatīvu grāmata
+1494|Meklēt visās normatīvu grāmatās
+1495|Darbs / vienība no
+1496|Darbs / vienība līdz
+1497|Satur
+1498|Beigas
+1499|Meklēšanas režīms
+1500|Kopēt šūnu
+1501|Ielīmēt šūnu
+1502|Meklēšana aizņēma pārāk ilgu laiku. Ievadiet vairāk burtu, lai to sašaurinātu.
+1503|Tiešās izmaksas / vienība
+1504|Filtrēt pēc
+1505|No
+1506|Līdz

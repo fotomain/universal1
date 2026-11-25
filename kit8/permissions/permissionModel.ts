@@ -15,9 +15,11 @@ export interface MyMatrix {
   isApplicationAdmin: boolean;
   /** permissionTranslateCatalog (SQL PART 56): the caller may write the translations of catalog items (organization administrator, project manager, application administrator, or given by hand) */
   canTranslateCatalog: boolean;
+  /** PART 58: may write the norm books and the estimate documents (permissionEstimationManager) */
+  canManageEstimation: boolean;
 }
 
-export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false, canTranslateCatalog: false };
+export const EMPTY_MATRIX: MyMatrix = { profiles: [], crud: {}, uxui: {}, isAdmin: false, canCreateProject: false, projectIsReadonly: false, isApplicationAdmin: false, canTranslateCatalog: false, canManageEstimation: false };
 
 export const PROFILE_TITLES: Record<string, string> = {
   permissionOrganizationAdmin: 'Organization administrator',
@@ -66,6 +68,7 @@ export function matrixOf(raw: any): MyMatrix {
     projectIsReadonly: raw.projectIsReadonly === true,
     isApplicationAdmin: raw.isApplicationAdmin === true,
     canTranslateCatalog: raw.canTranslateCatalog === true,
+    canManageEstimation: raw.canManageEstimation === true,
   };
 }
 

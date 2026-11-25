@@ -1199,3 +1199,308 @@
 1199|{{resource}} is {{hours}} u nodig op {{day}}, maar de kalender van de resource staat die dag {{capacity}} u toe. Kan de taak worden verplaatst of de kalender worden gewijzigd?
 1200|{{resource}}: de kalender heeft geen dag {{day}} (niet gevuld voor dat jaar), dus de {{hours}} u kunnen niet worden gecontroleerd
 1201|{{update}} betaling(en) wijzigen en {{remove}} worden verwijderd. Wat u bij een betaling hebt ingevoerd (data, budgetpost, begunstigde ...) blijft behouden.
+1202|Kies eerst het ramingproject.
+1203|Raming wordt gelezen...
+1204|Het ramingproject is niet gevonden of u mag het niet lezen.
+1205|Het ramingproject heeft geen taken: niets om te kopiëren.
+1206|Sla eerst het project op (knop Opslaan): daarna kan de raming erin worden gekopieerd.
+1207|Het ramingproject is in dit venster gewijzigd: sla eerst de instellingen op.
+1208|Alleen-lezen project: er kan niets worden gewijzigd.
+1209|U mag in dit project geen taken maken.
+1210|{{tasks}} taken, {{links}} koppelingen en {{lines}} taakregels worden gekopieerd. De regels zijn niet geboekt.
+1211|Project vullen vanuit raming
+1212|De taakregels nu herberekenen?
+1213|De valuta's van de raming ({{from}}) verschillen van die van dit project ({{to}}): de gekopieerde regels hebben nog geen bedragen in {{to}}. Nu herberekenen met de wisselkoersen?
+1214|Ja
+1215|{{tasks}} taken en {{lines}} taakregels gekopieerd. Kies Niet-geboekte taken boeken om ze te boeken.
+1216|Geannuleerd. Er is niets gewijzigd.
+1217|Vervangen
+1218|Toevoegen
+1219|Leeg project
+1220|{{tasks}} taken en fasen, {{links}} koppelingen en {{lines}} taakregels van "{{from}}" worden naar "{{to}}" gekopieerd. De regels zijn niet geboekt.
+1221|Al gevuld op {{date}} ({{mode}}, {{n}} taken). Opnieuw vullen voegt de rijen opnieuw toe, tenzij u Vervangen kiest.
+1222|Het project heeft al {{n}} eigen rijen op het hoogste niveau. Wat moet ermee gebeuren?
+1223|Toevoegen na de bestaande rijen
+1224|Er wordt niets aan het project gewijzigd.
+1225|De bestaande rijen vervangen
+1226|Niet mogelijk: {{n}} taken van het project zijn geboekt.
+1227|Niet mogelijk: het project heeft documenten (facturen, bestellingen, werkelijke gegevens ...).
+1228|De {{n}} bestaande rijen op het hoogste niveau worden met alles eronder verwijderd nadat het kopiëren is gelukt.
+1229|Kies er een om door te gaan.
+1230|De valuta's verschillen ({{from}} -> {{to}}): de bedragen van de gekopieerde regels worden verwijderd en u wordt gevraagd of ze nu herberekend moeten worden.
+1231|Klaar: {{tasks}} taken, {{links}} koppelingen en {{lines}} taakregels gekopieerd.
+1232|(geen budgetpost)
+1233|Opbrengsten
+1234|Raming
+1235|Project nu
+1236|Raming - nu
+1237|De raming heeft geen taakregels.
+1238|{{n}} regels hebben geen budgetbedrag (geen budgetvaluta of geen wisselkoers): ze tellen als 0.
+1239|{{n}} regels hebben geen budgetpost.
+1240|De budgetvaluta van de raming is {{from}}, van dit project {{to}}: er is geen wisselkoers voor vandaag.
+1241|De budgetvaluta van de raming is {{from}}, van dit project {{to}}: de omgerekende kolom gebruikt de koers van vandaag en is slechts een richtlijn.
+1242|Raming
+1243|Winst
+1244|Laatst gevuld: {{date}} - {{n}} taken, {{lines}} taakregels.
+1245|Raming wordt gelezen
+1246|{{n}} taken worden geschreven
+1247|{{n}} koppelingen worden geschreven
+1248|{{n}} taakregels worden geschreven
+1249|Oude rijen worden verwijderd
+1250|Notitie van het vullen wordt opgeslagen
+1251|Ramingproject
+1252|Ramingproject zoeken…
+1253|Alleen-lezen project: het ramingproject kan niet worden gewijzigd.
+1254|Geen ramingproject. Maak de raming als apart project en kies het hier.
+1255|Geen project gevonden
+1256|Opnieuw proberen
+1257|Vullen annuleren
+1258|Schermafbeelding + JSON delen
+1259|Raming: de sommen van het ramingsproject van dit project, per budgetpost
+1260|Geen ramingsproject ingesteld. Kies het in de projectinstellingen, tabblad Raming.
+1261|Geen koers in het koersenboek voor: {{c}}. Typ de koers zelf in.
+1262|De koersen uit het koersenboek zijn gelezen.
+1263|Open of maak eerst een calculatie (tab Calculatie).
+1264|De norm is toegevoegd. {{n}} middel(en) hebben geen prijs in het boek: prijs ze in het bord.
+1265|De norm is aan de calculatie toegevoegd.
+1266|Niet opgeslagen
+1267|Calculatiedashboard
+1268|het bijbehorende calculatieproject wordt bewerkt
+1269|Open eerst een project (Projectoverzicht) of gebruik de knop in Projectinstellingen -> Calculatie.
+1270|alleen-lezen project
+1271|u mag lezen, niet wijzigen (permissionEstimationManager)
+1272|Opnieuw laden
+1273|(Voer start1 + start2 + start4 uit: SQL PART 58.)
+1274|Geen project.
+1275|Nieuwe calculatie
+1276|Nieuwe offerte
+1277|Calculatie verwijderen
+1278|Consolidatie
+1279|Lezen...
+1280|Dit project heeft nog geen calculatie.
+1281|Maak er een met Nieuwe calculatie of begin met een voorbeeld in de tab Sjablonen.
+1282|Directe kosten
+1283|Algemene kosten
+1284|Totaal in basisprijzen
+1285|Totaal in huidige prijzen
+1286|In de weergavevaluta
+1287|Documentinstellingen
+1288|Normboeken
+1289|Sjablonen
+1290|Samenvatting
+1291|Document
+1292|Basisprijzen en een index
+1293|Commercieel
+1294|Middelen en index (later)
+1295|Middelen (later)
+1296|Normen, index en belastingen
+1297|Niet-productie
+1298|Productie
+1299|Lineair
+1300|Uniek / gevaarlijk
+1301|De onvoorziene post is voor dit soort object meestal niet hoger dan {{cap}} %.
+1302|Valuta's: elk bedrag wordt in alle drie bewaard
+1303|Koers naar de budgetvaluta
+1304|Koers naar de boekhoudvaluta
+1305|Koers naar de consolidatievaluta
+1306|Koersen lezen
+1307|Samenvattende calculatie
+1308|Bouw
+1309|Installatie
+1310|Overige kosten
+1311|Koptekst en handtekeningen
+1312|In de documenten wordt de formulering van de Methodiek gebruikt (Projectinstellingen -> Calculatie).
+1313|Neutrale formulering: geen landspecifieke tekst of formuliernummer (Projectinstellingen -> Calculatie).
+1314|Kolommen van deze indeling
+1315|Lokale calculaties en calculaties van afzonderlijke kosten komen in hun hoofdstuk (in te stellen per document). Bedragen in duizenden, valuta {{c}}.
+1316|Onvoorzien, %
+1317|BTW, %
+1318|Hoofdstukken, objecten, werken en kosten
+1319|Totaal, hoofdstukken 1 - 7
+1320|Totaal, hoofdstukken 1 - 8
+1321|Totaal, hoofdstukken 1 - 9
+1322|Totaal, hoofdstukken 1 - 12
+1323|Onvoorzien, {{p}} %
+1324|BTW, {{p}} %
+1325|TOTAAL INCL. BTW
+1326|Bestanden lezen
+1327|Geannuleerd.
+1328|Klaar: {{n}} rijen geschreven.
+1329|Klaar: {{norms}} normen, {{sections}} secties, {{resources}} middelen.
+1330|Overgeslagen bestanden: {{n}}.
+1331|Normboeken importeren
+1332|Bestanden: een .zip of .xml van een normboek (normen en geprijsde middelen) of een .zip uit de export ({{f}}).
+1333|Bestanden kiezen
+1334|Geen bestand gekozen
+1335|Waar het boek in de boom komt
+1336|Landcode (ISO)
+1337|Onbekend land
+1338|Teksten
+1339|Met Google AI naar het Engels vertalen (de Engelse tekst wordt de hoofdtekst)
+1340|Originele teksten als vertalingen bewaren (cataloguvertalingen)
+1341|Vertalen vraagt om een Google AI-sleutel in de app-instellingen (GOOGLE_AI_API_KEY).
+1342|Import annuleren
+1343|Nog geen normboeken. Voer de SQL van PART 58 uit en importeer een normboek.
+1344|Kies links een normboek.
+1345|Zoeken op code of titel
+1346|Uurtarief arbeid
+1347|Begin van het boek
+1348|Aan de calculatie toevoegen
+1349|Hier is niets.
+1350|Structuur
+1351|Sectie
+1352|Post
+1353|(hoogste niveau)
+1354|Norm / verantwoording
+1355|Meetstaatverwijzing
+1356|Budgetvaluta
+1357|Boekhoudvaluta
+1358|Consolidatievaluta
+1359|Categorie
+1360|Voltooid
+1361|Vak / omschrijving
+1362|Per m2
+1363|Nieuw vak
+1364|Nieuwe sectie
+1365|+ Vak
+1366|+ Sectie
+1367|+ Post
+1368|Alles onder een sectie wordt mee verwijderd.
+1369|Calculatieblad
+1370|Geavanceerd (middelenmatrix)
+1371|Snelle offerte
+1372|Uitsplitsing per vak
+1373|Calculatie lezen
+1374|Er is niets gekozen om te exporteren.
+1375|Klaar: {{n}} document(en) geëxporteerd.
+1376|Documenten
+1377|Nog geen calculatie: maak er een in de tab Calculatie of vanuit een voorbeeld in Sjablonen.
+1378|Zonder titel
+1379|Middelenblad van elke calculatie toevoegen
+1380|Samenvattende calculatie toevoegen (hoofdstukken 1 - 12)
+1381|Formaat
+1382|Excel (.xlsx, totalen zijn formules)
+1383|PDF (één bestand per document)
+1384|De formulering van de Methodiek wordt gebruikt (Projectinstellingen -> Calculatie).
+1385|Neutrale formulering: geen landspecifieke tekst of formuliernummer.
+1386|De bedragen worden getoond in: {{b}}.
+1387|Normboek lezen
+1388|Zip maken
+1389|Klaar: {{n}} rijen in {{kb}} KB.
+1390|Normboek exporteren
+1391|De zip bevat manifest.json, json/ (de gegevens, voor Import) en csv/ (dezelfde rijen om in Excel te openen).
+1392|Zip exporteren
+1393|Het voorbeeld is geëxporteerd.
+1394|Geen regels gevonden: de eerste rij moet de kolomnamen van het invoersjabloon bevatten.
+1395|{{n}} regels toegevoegd.
+1396|Beginnen met een voorbeeld (invoer)
+1397|Deze calculatie maken
+1398|De cijfers van de voorbeelden zijn voorbeelden: pas ze aan, het zijn geen gegevens van een prijzenboek.
+1399|Invoer uit een tabel
+1400|Invoersjabloon downloaden (CSV)
+1401|Plak hier een tabel (CSV of uit Excel gekopieerd); eerste rij = kolomnamen van het sjabloon
+1402|Regels aan de open calculatie toevoegen
+1403|Voorbeelden van de uitvoer
+1404|Lokale calculatie, offerte en samenvattende calculatie gemaakt van de voorbeelden hierboven - om de documenten te zien voordat u uw eigen maakt.
+1405|Voorbeelduitvoer: Excel
+1406|Voorbeelduitvoer: PDF
+1407|Secties en posten met normen, eenheden, hoeveelheden, coëfficiënten, eenheidskosten van arbeid, machines en materialen, algemene kosten, winst en een index naar huidige prijzen.
+1408|Eén regel per klus: categorie, omschrijving, eenheid, hoeveelheid, kosten per eenheid, opslag, prijs en status. Snel voor kleine klussen en offertes.
+1409|Eén sectie per vak met arbeid en materiaal, kosten per m2 en aandeel: voor conceptcalculaties.
+1410|Voorbereiding van de bouwplaats
+1411|Hoofdbouwobjecten
+1412|Hulp- en dienstobjecten
+1413|Energievoorzieningen
+1414|Vervoersvoorzieningen en communicatie
+1415|Buitennetten en -werken: water, riolering, verwarming, gas
+1416|Landschapsinrichting en terreinverbetering
+1417|Tijdelijke gebouwen en constructies
+1418|Overige werken en kosten
+1419|Opleiding van bedrijfspersoneel
+1420|Ontwerp, onderzoek, toetsing, ontwerptoezicht
+1421|Lokale calculatie (formulier van de Methodiek, bijlage 2)
+1422|Lokale calculatie
+1423|Objectcalculatie (formulier van de Methodiek, bijlage 5)
+1424|Objectcalculatie
+1425|Samenvattende calculatie van de bouwkosten (formulier van de Methodiek, bijlage 6)
+1426|Samenvattende calculatie van de bouwkosten
+1427|Calculatie van afzonderlijke kosten
+1428|Offerte
+1429|Code
+1430|Opdrachtgever
+1431|Grondslag
+1432|Methode
+1433|basisprijzen en een index
+1434|Prijspeil
+1435|Verantwoording
+1436|Omschrijving van werken en kosten
+1437|Hoeveelheid
+1438|Coëfficiënt
+1439|Eenheidskosten, basisprijzen
+1440|Index
+1441|Totaal directe kosten
+1442|Loonkosten (arbeiders en machinisten)
+1443|Geraamde winst
+1444|TOTAAL
+1445|Totaal in de weergavevaluta
+1446|Opgesteld door
+1447|Goedgekeurd door
+1448|Arbeid
+1449|Machines
+1450|waarvan machinisten
+1451|Materialen
+1452|Middelenblad
+1453|Kosten per eenheid
+1454|Opslag, %
+1455|Hoofdstuk
+1456|Benaming van hoofdstukken, objecten, werken en kosten
+1457|Bouwwerkzaamheden
+1458|Installatiewerkzaamheden
+1459|Regelgevingsinformatie (de Methodiek van een land) in de documenten gebruiken
+1460|Uit (standaard): in het calculatiedashboard en de geëxporteerde documenten verschijnt geen landspecifieke tekst, formuliernummer of instantie.
+1461|Coëff.
+1462|Arbeid / eenheid
+1463|Machines / eenheid
+1464|Materialen / eenheid
+1465|Algemene kosten, %
+1466|Winst, %
+1467|Machinisten
+1468|Loonkosten
+1469|Overig / eenheid
+1470|Apparatuur / eenheid
+1471|budgetvaluta
+1472|boekhoudvaluta
+1473|consolidatievaluta
+1474|commercieel
+1475|in duizenden
+1476|normen
+1477|middelen
+1478|Kies hieronder een project of maak een nieuw project voor de calculatie.
+1479|Project wijzigen
+1480|Typ een naam voor het project.
+1481|Nieuw project voor de calculatie
+1482|De calculaties staan in een project. Maak hier een nieuw project of kies hieronder een van uw projecten.
+1483|Project maken
+1484|U mag in deze organisatie geen projecten maken. Kies hieronder een van uw projecten.
+1485|Uw projecten
+1486|Nog geen projecten.
+1487|Norm kiezen
+1488|Kiezen
+1489|Kies de norm van de post
+1490|Voeg een post toe en kies daarna de norm uit het normenboek.
+1491|De norm is op de post gezet.
+1492|De norm is ingesteld. {{n}} middel(en) hebben geen prijs in het boek: vul de prijzen in de tabel in.
+1493|Normenboek
+1494|Zoeken in alle normenboeken
+1495|Arbeid / eenheid van
+1496|Arbeid / eenheid tot
+1497|Bevat
+1498|Einde
+1499|Zoekmodus
+1500|Cel kopiëren
+1501|Cel plakken
+1502|Het zoeken duurde te lang. Typ meer letters om het te beperken.
+1503|Directe kosten / eenheid
+1504|Filteren op
+1505|Van
+1506|Tot

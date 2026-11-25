@@ -120,3 +120,45 @@ describe('the other design systems get the flat switch', () => {
     expect(appleProps.variant).not.toBe('flat');
   });
 });
+
+describe('paper: left icons inside the input', () => {
+  test('a field WITH a label and ONE left icon uses Paper\'s own left adornment (the label and the text move, the icon is centred like the clear icon); no icon laid over the input', () => {
+    mockSystem = 'paper';
+    const onPress = jest.fn();
+    render(<TextInputApp testID="f" label="Search" value="" leftIcons={[{ icon: 'history', testID: 'f-history', onPress }]} />);
+    expect(React.isValidElement(paperProps.left)).toBe(true);
+    expect((paperProps.left as any).props).toMatchObject({ icon: 'history', testID: 'f-history', onPress });
+    expect(paperProps.contentStyle).toBeUndefined();
+  });
+
+  test('without a label (a table search) the icons are laid over the input as before', () => {
+    mockSystem = 'paper';
+    render(<TextInputApp testID="f" value="" leftIcons={[{ icon: 'search', onPress: jest.fn() }, { icon: 'expand_more', onPress: jest.fn() }]} />);
+    expect(paperProps.left).toBeUndefined();
+    expect(paperProps.contentStyle).toMatchObject({ paddingLeft: 14 + 2 * 22 });
+  });
+});
+
+describe('paper: iconsNotTabbable (Tab goes from field to field, not to the icons)', () => {
+  test('the clear icon, the right icon and the left icon are taken out of the Tab order; by default they stay in it', () => {
+    mockSystem = 'paper';
+    render(<TextInputApp testID="f" label="From" value="1000" iconsNotTabbable leftIcons={[{ icon: 'history', onPress: jest.fn() }]} />);
+    expect((paperProps.right as any).props).toMatchObject({ icon: 'close', focusable: false, tabIndex: -1 });
+    expect((paperProps.left as any).props).toMatchObject({ icon: 'history', focusable: false, tabIndex: -1 });
+    act(() => root.unmount());
+    render(<TextInputApp testID="f" label="From" value="1000" />);
+    expect((paperProps.right as any).props.focusable).toBeUndefined();
+  });
+});
+
+describe('paper: iconSize (the icons and the text of a field are one size)', () => {
+  test('iconSize reaches the clear icon and the left icon of Paper; without it Paper keeps its own 24', () => {
+    mockSystem = 'paper';
+    render(<TextInputApp testID="f" label="From" value="1000" iconSize={16} leftIcons={[{ icon: 'history', onPress: jest.fn() }]} />);
+    expect((paperProps.right as any).props.size).toBe(16);
+    expect((paperProps.left as any).props.size).toBe(16);
+    act(() => root.unmount());
+    render(<TextInputApp testID="f" label="From" value="1000" />);
+    expect((paperProps.right as any).props.size).toBeUndefined();
+  });
+});

@@ -1199,3 +1199,308 @@
 1199|{{resource}} reikia {{hours}} val. {{day}}, bet išteklio kalendorius tą dieną leidžia {{capacity}} val. Ar galima perkelti užduotį arba pakeisti kalendorių?
 1200|{{resource}}: kalendoriuje nėra dienos {{day}} (tiems metams neužpildyta), todėl {{hours}} val. patikrinti negalima
 1201|Pasikeis mokėjimų: {{update}}, bus pašalinta: {{remove}}. Tai, ką įvedėte mokėjime (datos, biudžeto straipsnis, gavėjas ...), išsaugoma.
+1202|Pirmiausia pasirinkite sąmatos projektą.
+1203|Skaitoma sąmata...
+1204|Sąmatos projekto nerasta arba neturite teisės jo skaityti.
+1205|Sąmatos projekte nėra užduočių: nėra ką kopijuoti.
+1206|Pirmiausia išsaugokite projektą (mygtukas Išsaugoti): tada į jį bus galima nukopijuoti sąmatą.
+1207|Sąmatos projektas šiame lange buvo pakeistas: pirmiausia išsaugokite nustatymus.
+1208|Projektas tik skaitymui: nieko negalima keisti.
+1209|Šiame projekte negalite kurti užduočių.
+1210|Bus nukopijuota {{tasks}} užduočių, {{links}} ryšių ir {{lines}} užduočių eilučių. Eilutės nepaskelbtos.
+1211|Užpildyti projektą iš sąmatos
+1212|Ar dabar perskaičiuoti užduočių eilutes?
+1213|Sąmatos valiutos ({{from}}) skiriasi nuo šio projekto valiutų ({{to}}): nukopijuotos eilutės dar neturi sumų valiuta {{to}}. Ar perskaičiuoti jas dabar pagal valiutų kursus?
+1214|Taip
+1215|Nukopijuota {{tasks}} užduočių ir {{lines}} užduočių eilučių. Spauskite Paskelbti nepaskelbtas užduotis, kad jas paskelbtumėte.
+1216|Atšaukta. Nieko nepakeista.
+1217|Pakeisti
+1218|Pridėti
+1219|Tuščias projektas
+1220|Iš „{{from}}“ į „{{to}}“ bus nukopijuota {{tasks}} užduočių ir etapų, {{links}} ryšių ir {{lines}} užduočių eilučių. Eilutės nepaskelbtos.
+1221|Jau užpildyta {{date}} ({{mode}}, {{n}} užduočių). Užpildžius dar kartą eilutės bus pridėtos iš naujo, nebent pasirinksite Pakeisti.
+1222|Projektas jau turi {{n}} savo aukščiausio lygio eilučių. Ką su jomis daryti?
+1223|Pridėti po esamų eilučių
+1224|Projekto nieko neliečiame.
+1225|Pakeisti esamas eilutes
+1226|Neįmanoma: {{n}} projekto užduočių paskelbta.
+1227|Neįmanoma: projektas turi dokumentų (sąskaitų, užsakymų, faktų ...).
+1228|Esamos {{n}} aukščiausio lygio eilutės su viskuo, kas po jomis, ištrinamos sėkmingai nukopijavus.
+1229|Pasirinkite vieną, kad tęstumėte.
+1230|Valiutos skiriasi ({{from}} -> {{to}}): nukopijuotų eilučių sumos pašalinamos, o jūsų bus paklausta, ar perskaičiuoti jas dabar.
+1231|Baigta: nukopijuota {{tasks}} užduočių, {{links}} ryšių ir {{lines}} užduočių eilučių.
+1232|(nėra biudžeto straipsnio)
+1233|Pajamos
+1234|Sąmata
+1235|Projektas dabar
+1236|Sąmata - dabar
+1237|Sąmata neturi užduočių eilučių.
+1238|{{n}} eilučių neturi biudžeto sumos (nėra biudžeto valiutos arba valiutos kurso): jos laikomos 0.
+1239|{{n}} eilučių neturi biudžeto straipsnio.
+1240|Sąmatos biudžeto valiuta yra {{from}}, šio projekto — {{to}}: šiandienai valiutos kurso nėra.
+1241|Sąmatos biudžeto valiuta yra {{from}}, šio projekto — {{to}}: perskaičiuotas stulpelis naudoja šiandienos kursą ir yra tik orientacinis.
+1242|Sąmata
+1243|Pelnas
+1244|Paskutinis užpildymas: {{date}} - {{n}} užduočių, {{lines}} užduočių eilučių.
+1245|Skaitoma sąmata
+1246|Rašoma užduočių: {{n}}
+1247|Rašoma ryšių: {{n}}
+1248|Rašoma užduočių eilučių: {{n}}
+1249|Šalinamos senos eilutės
+1250|Saugoma užpildymo pastaba
+1251|Sąmatos projektas
+1252|Ieškoti sąmatos projekto…
+1253|Projektas tik skaitymui: sąmatos projekto keisti negalima.
+1254|Nėra sąmatos projekto. Sudarykite sąmatą kaip atskirą projektą ir pasirinkite jį čia.
+1255|Projekto nerasta
+1256|Bandyti dar kartą
+1257|Atšaukti užpildymą
+1258|Bendrinti ekrano nuotrauką + JSON
+1259|Sąmata: šio projekto sąmatos projekto sumos pagal biudžeto eilutes
+1260|Sąmatos projektas nenurodytas. Pasirinkite jį projekto nustatymuose, skirtuke Sąmata.
+1261|Kursų knygoje nėra kurso: {{c}}. Įveskite kursą rankiniu būdu.
+1262|Kursai perskaityti iš kursų knygos.
+1263|Pirmiausia atidarykite arba sukurkite sąmatą (skirtukas Sąmata).
+1264|Norma pridėta. {{n}} ištekliams knygoje nėra kainos: nustatykite lentelėje.
+1265|Norma pridėta prie sąmatos.
+1266|Neišsaugota
+1267|Sąmatų skydelis
+1268|redaguojamas jo sąmatos projektas
+1269|Pirmiausia atidarykite projektą (projektų skydelis) arba naudokite mygtuką Projekto nustatymai -> Sąmata.
+1270|projektas tik skaitymui
+1271|galite skaityti, bet ne keisti (permissionEstimationManager)
+1272|Įkelti iš naujo
+1273|(Paleiskite start1 + start2 + start4: SQL PART 58.)
+1274|Nėra projekto.
+1275|Nauja sąmata
+1276|Naujas pasiūlymas
+1277|Ištrinti sąmatą
+1278|Konsolidavimas
+1279|Skaitoma...
+1280|Šiame projekte dar nėra sąmatos.
+1281|Sukurkite naują mygtuku Nauja sąmata arba pradėkite nuo pavyzdžio skirtuke Šablonai.
+1282|Tiesioginės išlaidos
+1283|Pridėtinės išlaidos
+1284|Iš viso bazinėmis kainomis
+1285|Iš viso dabartinėmis kainomis
+1286|Rodinio valiuta
+1287|Dokumento nustatymai
+1288|Normų knygos
+1289|Šablonai
+1290|Suvestinė
+1291|Dokumentas
+1292|Bazinės kainos ir indeksas
+1293|Komercinis
+1294|Ištekliai ir indeksas (vėliau)
+1295|Ištekliai (vėliau)
+1296|Normos, indeksas ir mokesčiai
+1297|Negamybinis
+1298|Gamybinis
+1299|Linijinis
+1300|Unikalus / pavojingas
+1301|Šio tipo objektui rezervas paprastai neviršija {{cap}} %.
+1302|Valiutos: kiekviena suma saugoma visose trijose
+1303|Kursas į biudžeto valiutą
+1304|Kursas į apskaitos valiutą
+1305|Kursas į konsolidavimo valiutą
+1306|Nuskaityti kursus
+1307|Suvestinė sąmata
+1308|Statyba
+1309|Montavimas
+1310|Kitos išlaidos
+1311|Antraštė ir parašai
+1312|Dokumentuose vartojama metodikos formuluotė (Projekto nustatymai -> Sąmata).
+1313|Neutrali formuluotė: jokio šaliai specifinio teksto ar formos numerio (Projekto nustatymai -> Sąmata).
+1314|Šio maketo stulpeliai
+1315|Vietinės sąmatos ir atskirų išlaidų sąmatos patenka į savo skyrių (nustatoma kiekvieno dokumento nustatymuose). Sumos tūkstančiais, valiuta {{c}}.
+1316|Rezervas, %
+1317|PVM, %
+1318|Skyriai, objektai, darbai ir išlaidos
+1319|Iš viso, 1 - 7 skyriai
+1320|Iš viso, 1 - 8 skyriai
+1321|Iš viso, 1 - 9 skyriai
+1322|Iš viso, 1 - 12 skyriai
+1323|Rezervas, {{p}} %
+1324|PVM, {{p}} %
+1325|IŠ VISO SU PVM
+1326|Skaitomi failai
+1327|Atšaukta.
+1328|Atlikta: įrašyta eilučių – {{n}}.
+1329|Atlikta: {{norms}} normų, {{sections}} skyrių, {{resources}} išteklių.
+1330|Praleista failų: {{n}}.
+1331|Importuoti normų knygas
+1332|Failai: normų knygos .zip arba .xml (normos ir įkainoti ištekliai) arba eksporto .zip ({{f}}).
+1333|Pasirinkti failus
+1334|Failas nepasirinktas
+1335|Kur knyga patenka medyje
+1336|Šalies kodas (ISO)
+1337|Nežinoma šalis
+1338|Tekstai
+1339|Versti į anglų kalbą su Google AI (angliškas tekstas tampa pagrindiniu)
+1340|Išsaugoti originalius tekstus kaip vertimus (katalogo vertimai)
+1341|Vertimui reikia Google AI rakto programos nustatymuose (GOOGLE_AI_API_KEY).
+1342|Atšaukti importą
+1343|Normų knygų dar nėra. Paleiskite PART 58 SQL ir importuokite knygą.
+1344|Kairėje pasirinkite normų knygą.
+1345|Ieškoti pagal kodą ar pavadinimą
+1346|Darbo valandos įkainis
+1347|Knygos pradžia
+1348|Pridėti prie sąmatos
+1349|Čia nieko nėra.
+1350|Struktūra
+1351|Skyrius
+1352|Pozicija
+1353|(aukščiausias lygis)
+1354|Norma / pagrindimas
+1355|Kiekių nuoroda
+1356|Biudžeto valiuta
+1357|Apskaitos valiuta
+1358|Konsolidavimo valiuta
+1359|Kategorija
+1360|Baigta
+1361|Specialybė / aprašymas
+1362|Už m2
+1363|Nauja specialybė
+1364|Naujas skyrius
+1365|+ Specialybė
+1366|+ Skyrius
+1367|+ Pozicija
+1368|Viskas po skyriumi ištrinama kartu su juo.
+1369|Sąmatos lapas
+1370|Išplėstinis (išteklių matrica)
+1371|Greitas pasiūlymas
+1372|Skirstymas pagal specialybes
+1373|Skaitoma sąmata
+1374|Eksportuoti nieko nepasirinkta.
+1375|Atlikta: eksportuota dokumentų – {{n}}.
+1376|Dokumentai
+1377|Sąmatos dar nėra: sukurkite skirtuke Sąmata arba iš pavyzdžio skirtuke Šablonai.
+1378|Be pavadinimo
+1379|Pridėti kiekvienos sąmatos išteklių lapą
+1380|Pridėti suvestinę sąmatą (1 - 12 skyriai)
+1381|Formatas
+1382|Excel (.xlsx, sumos yra formulės)
+1383|PDF (vienas failas dokumentui)
+1384|Vartojama metodikos formuluotė (Projekto nustatymai -> Sąmata).
+1385|Neutrali formuluotė: jokio šaliai specifinio teksto ar formos numerio.
+1386|Sumos rodomos: {{b}}.
+1387|Skaitoma normų knyga
+1388|Kuriamas zip
+1389|Atlikta: {{n}} eilučių, {{kb}} KB.
+1390|Eksportuoti normų knygą
+1391|Zip faile yra manifest.json, json/ (duomenys importui) ir csv/ (tos pačios eilutės atidaryti Excel).
+1392|Eksportuoti zip
+1393|Pavyzdys eksportuotas.
+1394|Eilučių nerasta: pirmoje eilutėje turi būti įvesties šablono stulpelių pavadinimai.
+1395|Pridėta eilučių: {{n}}.
+1396|Pradėti nuo pavyzdžio (įvestis)
+1397|Sukurti šią sąmatą
+1398|Pavyzdžių skaičiai yra pavyzdiniai: keiskite juos, tai nėra kainyno duomenys.
+1399|Įvestis iš lentelės
+1400|Atsisiųsti įvesties šabloną (CSV)
+1401|Įklijuokite lentelę (CSV arba nukopijuotą iš Excel); pirma eilutė = šablono stulpelių pavadinimai
+1402|Pridėti eilutes prie atidarytos sąmatos
+1403|Išvesties pavyzdžiai
+1404|Vietinė sąmata, pasiūlymas ir suvestinė sąmata iš pirmiau pateiktų pavyzdžių - dokumentams pamatyti prieš kuriant savo.
+1405|Išvesties pavyzdys: Excel
+1406|Išvesties pavyzdys: PDF
+1407|Skyriai ir pozicijos su normomis, vienetais, kiekiais, koeficientais, darbo, mašinų ir medžiagų vieneto kaštais, pridėtinėmis išlaidomis, pelnu ir indeksu dabartinėms kainoms.
+1408|Viena eilutė darbui: kategorija, aprašymas, vienetas, kiekis, vieneto kaštai, antkainis, kaina ir būsena. Greita mažiems darbams ir pasiūlymams.
+1409|Skyrius kiekvienai specialybei su darbu ir medžiagomis, kaina už m2 ir dalis: koncepciniams skaičiavimams.
+1410|Statybvietės paruošimas
+1411|Pagrindiniai statybos objektai
+1412|Pagalbiniai ir aptarnavimo objektai
+1413|Energetikos objektai
+1414|Transporto ir ryšių objektai
+1415|Išoriniai tinklai ir statiniai: vanduo, nuotekos, šildymas, dujos
+1416|Kraštovaizdis ir teritorijos tvarkymas
+1417|Laikini pastatai ir statiniai
+1418|Kiti darbai ir išlaidos
+1419|Eksploatacijos personalo mokymas
+1420|Projektavimas, tyrimai, ekspertizė, autorinė priežiūra
+1421|Vietinė sąmata (metodikos forma, 2 priedas)
+1422|Vietinė sąmata
+1423|Objekto sąmata (metodikos forma, 5 priedas)
+1424|Objekto sąmata
+1425|Statybos kainos suvestinė sąmata (metodikos forma, 6 priedas)
+1426|Statybos kainos suvestinė sąmata
+1427|Atskirų išlaidų sąmata
+1428|Pasiūlymas
+1429|Žymuo
+1430|Užsakovas
+1431|Pagrindas
+1432|Metodas
+1433|bazinės kainos ir indeksas
+1434|Kainų lygis
+1435|Pagrindimas
+1436|Darbų ir išlaidų aprašymas
+1437|Kiekis
+1438|Koeficientas
+1439|Vieneto kaštai, bazinės kainos
+1440|Indeksas
+1441|Iš viso tiesioginių išlaidų
+1442|Darbo užmokestis (darbininkai ir mašinistai)
+1443|Numatomas pelnas
+1444|IŠ VISO
+1445|Iš viso rodinio valiuta
+1446|Sudarė
+1447|Patvirtino
+1448|Darbas
+1449|Mašinos
+1450|iš jų operatoriai
+1451|Medžiagos
+1452|Išteklių lapas
+1453|Kaštai vienetui
+1454|Antkainis, %
+1455|Skyrius
+1456|Skyrių, objektų, darbų ir išlaidų pavadinimas
+1457|Statybos darbai
+1458|Montavimo darbai
+1459|Dokumentuose naudoti reglamentų informaciją (šalies metodiką)
+1460|Išjungta (numatyta): sąmatų skydelyje ir eksportuotuose dokumentuose nerodomas šaliai specifinis tekstas, formos numeris ar institucija.
+1461|Koef.
+1462|Darbas / vienetas
+1463|Mašinos / vienetas
+1464|Medžiagos / vienetas
+1465|Pridėtinės išlaidos, %
+1466|Pelnas, %
+1467|Operatoriai
+1468|Darbo užmokestis
+1469|Kita / vienetas
+1470|Įranga / vienetas
+1471|biudžeto valiuta
+1472|apskaitos valiuta
+1473|konsolidavimo valiuta
+1474|komercinis
+1475|tūkstančiais
+1476|normų
+1477|išteklių
+1478|Pasirinkite projektą žemiau arba sukurkite naują sąmatai.
+1479|Keisti projektą
+1480|Įveskite projekto pavadinimą.
+1481|Naujas projektas sąmatai
+1482|Sąmatos laikomos projekte. Sukurkite naują čia arba pasirinkite vieną iš savo projektų žemiau.
+1483|Sukurti projektą
+1484|Šioje organizacijoje projektų kurti negalite. Pasirinkite vieną iš savo projektų žemiau.
+1485|Jūsų projektai
+1486|Projektų dar nėra.
+1487|Pasirinkti normą
+1488|Pasirinkti
+1489|Pasirinkite pozicijos normą
+1490|Pridėkite poziciją, tada pasirinkite jos normą iš normų knygos.
+1491|Norma priskirta pozicijai.
+1492|Norma priskirta. {{n}} resursų knygoje neturi kainos: nurodykite kainas lentelėje.
+1493|Normų knyga
+1494|Ieškoti visose normų knygose
+1495|Darbas / vienetas nuo
+1496|Darbas / vienetas iki
+1497|Turi
+1498|Pabaiga
+1499|Paieškos režimas
+1500|Kopijuoti langelį
+1501|Įklijuoti langelį
+1502|Paieška užtruko per ilgai. Įveskite daugiau raidžių, kad ją susiaurintumėte.
+1503|Tiesioginės išlaidos / vnt.
+1504|Filtruoti pagal
+1505|Nuo
+1506|Iki

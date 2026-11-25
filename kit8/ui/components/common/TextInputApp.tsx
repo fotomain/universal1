@@ -43,6 +43,10 @@ export interface TextInputAppProps extends Omit<RNTextInputProps & PaperTextInpu
   size?: '$2' | '$3' | '$4' | '$5' | 'small' | 'medium' | 'large';
   /** icons inside the input at the left, in this order (e.g. search = refresh · expand_more = history · close = clear) */
   leftIcons?: TextInputLeftIcon[];
+  /** true: the icons of the field (clear ✕, the left icons, the right icon) are skipped by the Tab key - Tab goes from field to field (a filter bar). They still work with the mouse / touch */
+  iconsNotTabbable?: boolean;
+  /** paper: size of the icons inside the field in px (default 24 = Paper's); 16 = the size of the text, so the icons and the text are one size */
+  iconSize?: number;
   /** lower input (tool bars, table bars): about 32 px instead of the form height (= heightVariant 'smallestHeight') */
   compact?: boolean;
   /** input height: normalHeight (form height, default) · mediumHeight · smallestHeight */
@@ -82,6 +86,8 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   hideClearIcon = false,
   size,
   compact = false,
+  iconsNotTabbable = false,
+  iconSize,
   heightVariant,
   leftIcons,
   unstyled,
@@ -117,6 +123,9 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
   };
 
+  /** props that take an icon out of the Tab order (react-native-web: focusable false = tabindex -1) */
+  const skipTab: Record<string, any> = { ...(iconsNotTabbable ? { focusable: false, tabIndex: -1 } : null), ...(iconSize ? { size: iconSize } : null) };
+
   /** 0 = normal, 1 = medium, 2 = smallest */
   const lower = heightVariant === 'smallestHeight' || (!heightVariant && compact) ? 2 : heightVariant === 'mediumHeight' ? 1 : 0;
 
@@ -124,9 +133,9 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
   const iconsRow = leftIcons && leftIcons.length > 0 && left === undefined ? (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 6, gap: 4 }}>
       {leftIcons.map((ic, i) => (
-        <TouchableOpacity key={`${ic.icon}-${i}`} testID={ic.testID} disabled={ic.disabled || !ic.onPress} onPress={ic.onPress} accessibilityRole="button" accessibilityLabel={ic.accessibilityLabel}
+        <TouchableOpacity key={`${ic.icon}-${i}`} {...(iconsNotTabbable ? ({ focusable: false, tabIndex: -1 } as any) : {})} testID={ic.testID} disabled={ic.disabled || !ic.onPress} onPress={ic.onPress} accessibilityRole="button" accessibilityLabel={ic.accessibilityLabel}
           hitSlop={{ top: 8, bottom: 8, left: 2, right: 2 }} style={{ opacity: ic.disabled ? 0.3 : 1 }}>
-          <IconApp name={ic.icon} size={18} color={themeColors.text} />
+          <IconApp name={ic.icon} size={iconSize ?? 18} color={themeColors.text} />
         </TouchableOpacity>
       ))}
     </View>
@@ -162,7 +171,14 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
     }
 
     case 'paper': {
-      const leftProp = iconsRow ? undefined : leftForPaper !== undefined
+      // a field WITH a label and ONE left icon: the icon is Paper's own left adornment (it shifts the label and the text and centres the icon vertically, like the clear icon at the right);
+      // otherwise (no label, or several icons) the icons are laid over the left part of the input
+      const PAPER_ICON: Record<string, string> = { search: 'magnify', expand_more: 'chevron-down', expand_less: 'chevron-up', history: 'history', close: 'close', refresh: 'refresh' };
+      const oneIcon = !!iconsRow && !!label && leftIcons?.length === 1 ? leftIcons[0] : null;
+      const iconsAsAdornment = !!oneIcon;
+      const leftProp = oneIcon
+        ? <PaperTextInput.Icon icon={PAPER_ICON[oneIcon.icon] ?? oneIcon.icon} testID={oneIcon.testID} disabled={oneIcon.disabled || !oneIcon.onPress} onPress={oneIcon.onPress} forceTextInputFocus={false} accessibilityLabel={oneIcon.accessibilityLabel} {...skipTab} />
+        : iconsRow ? undefined : leftForPaper !== undefined
         ? leftForPaper
         : (leftIcon ? (
             <PaperTextInput.Icon icon={leftIcon === 'search' ? 'magnify' : leftIcon} />
@@ -175,17 +191,18 @@ export const TextInputApp: React.FC<TextInputAppProps> = ({
               icon="close"
               onPress={handleClear}
               forceTextInputFocus={false}
+              {...skipTab}
             />
           ) : rightIcon ? (
-            <PaperTextInput.Icon icon={rightIcon} />
+            <PaperTextInput.Icon icon={rightIcon} {...skipTab} />
           ) : undefined);
 
       return (
         <View style={[{ marginBottom: flat ? 0 : 12, width: '100%' }, style]}>
           {/* paper takes ONE left adornment: several icons are laid over the left part of the input (inside its outline) */}
-          {iconsRow && <View style={{ position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', zIndex: 2 }}>{iconsRow}</View>}
+          {iconsRow && !iconsAsAdornment && <View style={{ position: 'absolute', left: 10, top: 0, bottom: 0, justifyContent: 'center', zIndex: 2 }}>{iconsRow}</View>}
           <PaperTextInput
-            contentStyle={iconsRow ? { paddingLeft: 14 + (leftIcons?.length ?? 0) * 22 } : flat ? { paddingHorizontal: 0 } : undefined}
+            contentStyle={iconsRow && !iconsAsAdornment ? { paddingLeft: 14 + (leftIcons?.length ?? 0) * 22 } : flat ? { paddingHorizontal: 0 } : undefined}
             mode={flat ? 'flat' : 'outlined'}
             dense={lower > 0}
             label={label}

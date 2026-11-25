@@ -141,3 +141,29 @@ it('without localRows an owner is still needed', () => {
   act(() => root.render(<ReusableTable testID={T} entityName="thing" visualColumns={columns} />));
   expect(q(`${T}-no-owner`)).not.toBeNull();
 });
+
+it('`busy` draws the spinner over the middle of the TABLE card (inside it, not over the folders tree); not busy = no spinner', () => {
+  mount(jest.fn(), { busy: true, uxuiTable: { showFoldersTree: true }, foldersTree: folders });
+  const spinner = q(`${T}-busy`)!;
+  expect(spinner).not.toBeNull();
+  expect(q(T)!.contains(spinner)).toBe(true);
+  expect(q(TREE)!.contains(spinner)).toBe(false);
+  act(() => root.unmount());
+  document.body.innerHTML = '';
+  mount(jest.fn(), { uxuiTable: { showFoldersTree: true }, foldersTree: folders });
+  expect(q(`${T}-busy`)).toBeNull();
+});
+
+it('onRowDoubleClick: two clicks on the same row within 400 ms (in any cell) call it with the row; clicks on two rows do not', () => {
+  const onRowDoubleClick = jest.fn();
+  mount(jest.fn(), { onRowDoubleClick });
+  press(`${T}-row-a`);
+  expect(onRowDoubleClick).not.toHaveBeenCalled();
+  press(`${T}-row-b`);
+  expect(onRowDoubleClick).not.toHaveBeenCalled();
+  press(`${T}-row-b`);
+  expect(onRowDoubleClick).toHaveBeenCalledTimes(1);
+  expect(onRowDoubleClick.mock.calls[0][0].rowGUID).toBe('b');
+  press(`${T}-row-b`);
+  expect(onRowDoubleClick).toHaveBeenCalledTimes(1);
+});

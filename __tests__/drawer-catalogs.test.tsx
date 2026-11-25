@@ -98,13 +98,13 @@ it('Catalogs is a closed accordion; press opens it; Currencies, Persons, Partner
   expect(q('drawer-subitem-currencies')).toBeNull(); // closed again
 });
 
-it('the order of the menu: Catalogs, Documents, Project Dashboard, Reports, Budgets (after Home, Developer 1, Media Posts, Record, Play)', () => {
+it('the order of the menu: Catalogs, Documents, Project Dashboard, Estimation dashboard, Reports, Budgets (after Home, Developer 1, Media Posts, Record, Play)', () => {
   mount('/home');
   const ids = Array.from(document.querySelectorAll('[data-testid^="drawer-item-"]')).map((e) => e.getAttribute('data-testid'));
-  const order = ['drawer-item-catalogs', 'drawer-item-documents', 'drawer-item-pm-projects', 'drawer-item-reports', 'drawer-item-budgets'];
+  const order = ['drawer-item-catalogs', 'drawer-item-documents', 'drawer-item-pm-projects', 'drawer-item-pm-estimation', 'drawer-item-reports', 'drawer-item-budgets'];
   const at = order.map((id) => ids.indexOf(id));
   expect(at.every((i) => i >= 0)).toBe(true);
-  expect(at).toEqual([at[0], at[0] + 1, at[0] + 2, at[0] + 3, at[0] + 4]);
+  expect(at).toEqual([at[0], at[0] + 1, at[0] + 2, at[0] + 3, at[0] + 4, at[0] + 5]);
   expect(ids.indexOf('drawer-item-play')).toBeLessThan(at[0]);
   // the media rows: Record, Scan, Play (owner 2026-11-23)
   expect(ids.indexOf('drawer-item-record') + 1).toBe(ids.indexOf('drawer-item-scan'));

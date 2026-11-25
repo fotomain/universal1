@@ -1,4 +1,4 @@
-// Main view switch (same look as the "Dependency arrows" selector): Gantt | Edit | Kanban | Versions | Reports | Budgets (Budgets is always the last).
+// Main view switch (same look as the "Dependency arrows" selector): Gantt | Edit | Kanban | Versions | Estimation | Reports | Budgets (Budgets is always the last).
 // Network has NO button here: it is a part of Reports - the row Costs | Revenues | Network (PMReportsSectionButtons) shows in Reports and in the network view,
 // and while the network view is open the Reports button is the active one.
 //   ganttVsNetworkView = 'showGanttChart'  -> the Gantt chart (tree + Skia chart)
@@ -7,6 +7,7 @@
 //   ganttVsNetworkView = 'showVersionsView' -> tree + PMProjectVersionsList (kit8/pm/version)
 //   ganttVsNetworkView = 'showFinancesView' -> tree + PMTaskEditView (the lines of the selected task: view/task/finances)
 //   ganttVsNetworkView = 'showPlanView' -> tree + PMTaskLinePlanView (the posted days of the lines of the selected task: view/task/plan)
+//   ganttVsNetworkView = 'showEstimationView' -> tree + PMProjectEstimationView (the estimation table of the project: view/project/estimation)
 //   ganttVsNetworkView = 'showReportsView' -> tree + PMProjectReportsView (project summary: view/reports)
 //   ganttVsNetworkView = 'showBimView' -> tree + PMProjectBimView (the 3D model of an IFC import: kit8/pm/bim); the button is the LAST one and shows only while the project is BIM based
 // Saved per project in project_table.rowJSON.uxuiSettings.ganttVsNetworkView (crud.setGanttVsNetworkView);
@@ -52,6 +53,12 @@ export const GANTT_VS_NETWORK_VIEW_OPTIONS: PMSegmentOption<PMGanttVsNetworkView
     icon: 'layers',
     label: 'Versions',
     title: 'Project versions: save, restore and check the versions to compare on the Gantt chart',
+  },
+  {
+    value: 'showEstimationView',
+    icon: 'calculate',
+    label: 'Estimation',
+    title: 'Estimation: the sums of the estimation project of this project, per budget item',
   },
   {
     value: 'showReportsView',

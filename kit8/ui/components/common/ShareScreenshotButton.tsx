@@ -5,12 +5,16 @@
 import React, { useState } from 'react';
 import { Pressable } from 'react-native';
 import IconApp from './IconApp';
+import { usePMTip, type PMTipScope } from '../../../pm/inner/tooltip/PMTooltip';
+import { pmT } from '../../../pm/i18n/pmT';
 import { shareScreenshot, shareScreenshotResultText } from '../../../lib/shareScreenshot';
 import { appDispatch, getUxuiState } from '../../../redux/storeRef';
 import { showSnackbar } from '../../../redux/uxuiSlice';
 
-export default function ShareScreenshotButton({ color, size = 20, testID = 'share-screenshot-json' }: { color: string; size?: number; testID?: string }) {
+/** tipScope: 'modal' inside a window that has its own <PMTooltipLayer scope="modal" /> (a Modal covers the layers of the screen and of the app) */
+export default function ShareScreenshotButton({ color, size = 20, testID = 'share-screenshot-json', tipScope = 'screen' }: { color: string; size?: number; testID?: string; tipScope?: PMTipScope }) {
   const [busy, setBusy] = useState(false);
+  const tip = usePMTip(pmT('Share screenshot + JSON'), tipScope);
   const onPress = async () => {
     if (busy) return;
     setBusy(true);
@@ -24,13 +28,13 @@ export default function ShareScreenshotButton({ color, size = 20, testID = 'shar
   };
   return (
     <Pressable
+      {...tip}
       testID={testID}
       accessibilityRole="button"
       accessibilityLabel="Share screenshot + JSON"
       onPress={onPress}
       hitSlop={6}
       style={{ padding: 6, opacity: busy ? 0.4 : 1 }}
-      {...({ title: 'Share screenshot + JSON' } as any)}
     >
       <IconApp testID={`${testID}-icon`} name="screenshot_monitor" size={size} color={color} />
     </Pressable>

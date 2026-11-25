@@ -61,6 +61,8 @@
 --   54. create_application_admin.sql - APPLICATION ADMINISTRATORS: permission_application_admin() (the caller holds permissionApplicationAdmin), organization_visible(org) + the SELECT policy of organizationTable (a user sees only the organizations he is a member of; an application administrator sees ALL), isApplicationAdmin in perm_my_matrix
 --   55. create_bim.sql - BIM: RLS (read by the members of the project), the bim_import_* / bim_delete_model / read RPCs, the key projectIsBIMBased (a switch of the user; the import sets it), the file queue, the Storage bucket bim + its policies (bim_storage_setup), task_template_clean_task drops the BIM keys
 --   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: RLS + policies of language_catalog / catalogTranslationTable, permission_translate_catalog() (= permissionTranslateCatalog), the guard trigger; perm_my_matrix answers canTranslateCatalog
+--   57. create_project_estimation.sql - PROJECT ESTIMATION (documentation/ESTIMATION/PROJECT_ESTIMATION.html): no table; project_estimation_summary (the sums of the task lines of the estimation project per budget item + counts of the project it fills), project_delete_task_roots (delete top-level rows with their subtrees in bulk), the guard trigger of the key projectEstimationGUID of project_table
+--   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: RLS + policies of the estimation_ tables, permission_estimation_manager() (= permissionEstimationManager), estimation_project_access, the guard triggers; perm_my_matrix answers canManageEstimation
 -- ===============================================================================================
 
 DO $$
@@ -16919,9 +16921,12 @@ BEGIN
       CROSS JOIN LATERAL regexp_split_to_table(s.st, '') AS ch
      WHERE ch IN ('C', 'R', 'U', 'D') GROUP BY s.obj) q;
   RETURN jsonb_build_object('profiles', to_jsonb(v_profiles) || CASE WHEN public.permission_application_admin() THEN '["permissionApplicationAdmin"]'::jsonb ELSE '[]'::jsonb END
-                                                            || CASE WHEN public.permission_translate_catalog() THEN '["permissionTranslateCatalog"]'::jsonb ELSE '[]'::jsonb END, 'crud', v_crud, 'uxui', v_uxui,
+                                                            || CASE WHEN public.permission_translate_catalog() THEN '["permissionTranslateCatalog"]'::jsonb ELSE '[]'::jsonb END
+                                                            || CASE WHEN public.permission_estimation_manager() THEN '["permissionEstimationManager"]'::jsonb ELSE '[]'::jsonb END, 'crud', v_crud, 'uxui', v_uxui,
                             -- PART 56: the caller may write the translations of catalog items (a Translate tab can be edited)
                             'canTranslateCatalog', public.permission_translate_catalog(),
+                            -- PART 58: the caller may write the norm books and the estimate documents
+                            'canManageEstimation', public.permission_estimation_manager(),
                             'isAdmin', 'permissionOrganizationAdmin' = ANY (v_profiles),
                             -- PART 54: the caller sees ALL organizations (application_permission_table)
                             'isApplicationAdmin', public.permission_application_admin(),
@@ -21147,6 +21152,419 @@ END $$;
 
 -- (the 15 language rows are in start4_sql_insert_missing.sql, PART 56)
 NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 57: create_project_estimation.sql
+-- PROJECT ESTIMATION (documentation/ESTIMATION/PROJECT_ESTIMATION.html; no table): a project (project1) names another, ordinary project (project2) as its ESTIMATION in
+-- project_table.rowJSON.projectEstimationGUID. Project settings -> Estimation shows the sums of the task lines of project2 per budget item and a button copies the estimation into project1.
+--   project_estimation_summary(target, source)  -> jsonb: both projects' sums per budget item + counts, and for the target: posted tasks, documents, read-only, may create tasks, its top-level rows
+--   project_delete_task_roots(project, roots)   -> integer: deletes the given TOP-LEVEL rows of a project with everything below them (the rollback of a failed fill, the old rows of a Replace)
+--   trg_project_estimation_guard                the key must name ANOTHER project of the same organization that the user can read (clearing it is always allowed)
+-- No table, so nothing in start1 / start3 / start4 / start5. Both functions are SECURITY INVOKER: the policies of the tables decide what the user sees and deletes.
+-- ===============================================================================================
+
+-- ONE project: the sums of its task lines per budget item. kind = 'revenue' | 'cost' of the genus of the budget item (the rule of create_task_line_plan: the folder of the genus of the item,
+-- else of the genus of the line). A line with no budget item is one row with budgetItemGUID null. sumForBudget / sumVATForBudget are the saved snapshot of the line (null = none -> counted in linesWithoutSum).
+CREATE OR REPLACE FUNCTION public.project_estimation_project(p_project uuid) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_items jsonb;
+  v_json  jsonb;
+BEGIN
+  SELECT COALESCE(jsonb_agg(jsonb_build_object(
+           'budgetItemGUID', y.item, 'kind', y.kind, 'lines', y.lines, 'sumForBudget', y.s, 'vatForBudget', y.v, 'linesWithoutSum', y.nos)
+           ORDER BY y.kind DESC, y.item NULLS LAST), '[]'::jsonb)
+    INTO v_items
+    FROM (
+      SELECT x.item, x.kind, sum(x.lines)::int AS lines, sum(x.s) AS s, sum(x.v) AS v, sum(x.nos)::int AS nos
+        FROM (
+          SELECT g.item, g.lines, g.s, g.v, g.nos,
+                 COALESCE(
+                   (SELECT CASE gf."rowGUID" WHEN 'revenuesGenus' THEN 'revenue' WHEN 'costsGenus' THEN 'cost' END
+                      FROM public."budgetItemTable" bi
+                      JOIN public."managementGenusTable" mg ON mg."rowGUID" = bi."rowJSON"->>'managementGenusItem'
+                      JOIN public."managementGenusTable" gf ON gf."rowGUID" = mg."rowParentGUID"
+                     WHERE bi."rowGUID" = g.item),
+                   (SELECT CASE gf."rowGUID" WHEN 'revenuesGenus' THEN 'revenue' WHEN 'costsGenus' THEN 'cost' END
+                      FROM public."managementGenusTable" mg JOIN public."managementGenusTable" gf ON gf."rowGUID" = mg."rowParentGUID"
+                     WHERE mg."rowGUID" = g.genus),
+                   CASE WHEN g.genus = 'revenueGenus' THEN 'revenue' ELSE 'cost' END) AS kind
+            FROM (
+              SELECT NULLIF(l."rowJSON"->>'budgetItemTaskLine', '') AS item, l."rowParentGUID" AS genus, count(*) AS lines,
+                     COALESCE(sum(CASE WHEN jsonb_typeof(l."rowJSON"->'sumForBudget') = 'number' THEN (l."rowJSON"->>'sumForBudget')::numeric END), 0) AS s,
+                     COALESCE(sum(CASE WHEN jsonb_typeof(l."rowJSON"->'sumVATForBudget') = 'number' THEN (l."rowJSON"->>'sumVATForBudget')::numeric END), 0) AS v,
+                     count(*) FILTER (WHERE jsonb_typeof(l."rowJSON"->'sumForBudget') IS DISTINCT FROM 'number') AS nos
+                FROM public.task_line_table l
+               WHERE l."rowProjectGUID" = p_project
+               GROUP BY 1, 2
+            ) g
+        ) x
+       GROUP BY x.item, x.kind
+    ) y;
+
+  v_json := jsonb_build_object(
+    'projectGUID', p_project,
+    'name', (SELECT p."rowJSON"->>'name' FROM public.project_table p WHERE p."rowGUID" = p_project),
+    'currencyForBudget', (SELECT p."rowJSON"->>'currencyForBudget' FROM public.project_table p WHERE p."rowGUID" = p_project),
+    'currencyForAccounting', (SELECT p."rowJSON"->>'currencyForAccounting' FROM public.project_table p WHERE p."rowGUID" = p_project),
+    'tasks', (SELECT count(*) FROM public.project_task_table t WHERE t."projectGUID" = p_project),
+    'links', (SELECT count(*) FROM public.project_task_dependencies_table d WHERE d."projectGUID" = p_project),
+    'lines', (SELECT count(*) FROM public.task_line_table l WHERE l."rowProjectGUID" = p_project),
+    'linesWithoutItem', (SELECT count(*) FROM public.task_line_table l WHERE l."rowProjectGUID" = p_project AND COALESCE(l."rowJSON"->>'budgetItemTaskLine', '') = ''),
+    'linesWithoutSum', (SELECT count(*) FROM public.task_line_table l WHERE l."rowProjectGUID" = p_project AND jsonb_typeof(l."rowJSON"->'sumForBudget') IS DISTINCT FROM 'number'),
+    'items', v_items);
+  RETURN v_json;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_estimation_project(uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_estimation_project(uuid) TO authenticated;
+
+-- the screen: the estimation (source) and the project it fills (target; NULL = a project that is not saved yet: no target part). The user must be able to READ the source.
+-- target part: postedTasks = tasks that have posted plan rows; documents = rows of the register that are not the plan + payment fact lines (a Replace needs both 0);
+-- readonly (PART 51), canCreate = may create tasks there (perm_can_in), roots = its top-level rows with their order (the Replace deletes them, an Append goes behind the last).
+CREATE OR REPLACE FUNCTION public.project_estimation_summary(p_target uuid, p_source uuid) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_source jsonb;
+  v_target jsonb;
+BEGIN
+  IF p_source IS NULL OR NOT EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = p_source) THEN
+    RAISE EXCEPTION 'No permission: the estimation project does not exist or you cannot read it' USING ERRCODE = '42501';
+  END IF;
+  v_source := public.project_estimation_project(p_source);
+  IF p_target IS NULL THEN
+    RETURN jsonb_build_object('source', v_source, 'target', NULL);
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = p_target) THEN
+    RAISE EXCEPTION 'No permission: the project does not exist or you cannot read it' USING ERRCODE = '42501';
+  END IF;
+  v_target := public.project_estimation_project(p_target) || jsonb_build_object(
+    'postedTasks', (SELECT count(DISTINCT m."rowOwnerGUID") FROM public.task_line_plan_movements m WHERE m."rowProjectGUID" = p_target),
+    'documents', (SELECT count(*) FROM public.project_status_movements s WHERE s."rowProjectGUID" = p_target AND s."rowMovementKind" <> 'plan')
+               + (SELECT count(*) FROM public.project_payment_fact_lines f WHERE f."rowProjectGUID" = p_target),
+    'readonly', COALESCE((SELECT p."rowJSON"->'projectIsReadonly' = 'true'::jsonb FROM public.project_table p WHERE p."rowGUID" = p_target), false),
+    'canCreate', public.perm_can_in('project_task_table', 'C', p_target),
+    'roots', COALESCE((SELECT jsonb_agg(jsonb_build_object('rowGUID', t."rowGUID", 'orderInList', t."orderInList") ORDER BY t."orderInList", t."rowGUID")
+                         FROM public.project_task_table t WHERE t."projectGUID" = p_target AND nlevel(t."treePath") = 2), '[]'::jsonb));
+  RETURN jsonb_build_object('source', v_source, 'target', v_target);
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_estimation_summary(uuid, uuid) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_estimation_summary(uuid, uuid) TO authenticated;
+
+-- deletes the given TOP-LEVEL rows of a project with everything below them, in one statement set (app.task_bulk = on: the per-row triggers stand aside, the calendar rows go in one
+-- statement, the progress is calculated once - like project_delete_tasks). The fill of the estimation uses it to take back the rows of a failed fill and to remove the old rows of a Replace.
+-- A row that is not a top-level row of THAT project is refused (nothing is deleted); the read-only guard of PART 51 refuses a read-only project.
+CREATE OR REPLACE FUNCTION public.project_delete_task_roots(p_project uuid, p_roots uuid[]) RETURNS integer
+LANGUAGE plpgsql SECURITY INVOKER SET search_path = public, extensions AS $$
+DECLARE
+  v_n integer;
+  v_bad integer;
+BEGIN
+  IF p_project IS NULL OR NOT EXISTS (SELECT 1 FROM public.project_table WHERE "rowGUID" = p_project) THEN
+    RAISE EXCEPTION 'project_delete_task_roots: the project does not exist or is not yours' USING ERRCODE = '42501';
+  END IF;
+  IF p_roots IS NULL OR cardinality(p_roots) = 0 THEN
+    RETURN 0;
+  END IF;
+  SELECT count(*) INTO v_bad FROM unnest(p_roots) AS r(g)
+   WHERE NOT EXISTS (SELECT 1 FROM public.project_task_table t WHERE t."rowGUID" = r.g AND t."projectGUID" = p_project AND nlevel(t."treePath") = 2);
+  IF v_bad > 0 THEN
+    RAISE EXCEPTION 'project_delete_task_roots: % of the rows are not top-level rows of this project', v_bad USING ERRCODE = '22023';
+  END IF;
+  PERFORM public.project_readonly_check(p_project, 'project_task_table');
+  PERFORM set_config('app.task_bulk', 'on', true);
+  WITH gone AS (
+    DELETE FROM public.project_task_table t
+     USING public.project_task_table r
+     WHERE r."rowGUID" = ANY (p_roots) AND t."projectGUID" = p_project AND t."treePath" <@ r."treePath"
+    RETURNING t."rowGUID"
+  ), cal AS (
+    DELETE FROM public.user_calendar_event_table e WHERE e."rowJSON"->>'projectTaskGUID' IN (SELECT g."rowGUID"::text FROM gone g) RETURNING 1
+  )
+  SELECT count(*) INTO v_n FROM gone;
+  PERFORM set_config('app.task_bulk', 'off', true);
+  PERFORM public.pm_recalc_project_progress(p_project);
+  RETURN v_n;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.project_delete_task_roots(uuid, uuid[]) FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.project_delete_task_roots(uuid, uuid[]) TO authenticated;
+
+-- the key projectEstimationGUID of a project row: only a CHANGE is checked. It must be the GUID of ANOTHER project of the SAME organization that the writer can read (RLS decides what he sees;
+-- the SQL editor / workers see everything). Clearing it (absent, null, '') is always allowed. The read-only guard (aa_project_readonly, PART 51) runs first and refuses a read-only project.
+CREATE OR REPLACE FUNCTION public.project_estimation_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_new text := NULLIF(btrim(COALESCE(NEW."rowJSON"->>'projectEstimationGUID', '')), '');
+  v_old text := CASE WHEN TG_OP = 'UPDATE' THEN NULLIF(btrim(COALESCE(OLD."rowJSON"->>'projectEstimationGUID', '')), '') END;
+  v_org text;
+BEGIN
+  IF v_new IS NULL OR v_new IS NOT DISTINCT FROM v_old THEN
+    RETURN NEW;
+  END IF;
+  IF v_new !~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN
+    RAISE EXCEPTION 'The estimation of a project must be the GUID of a project (got "%")', left(v_new, 40) USING ERRCODE = '22023';
+  END IF;
+  IF lower(v_new) = lower(NEW."rowGUID"::text) THEN
+    RAISE EXCEPTION 'A project cannot be its own estimation' USING ERRCODE = '22023';
+  END IF;
+  SELECT p."rowParentGUID" INTO v_org FROM public.project_table p WHERE p."rowGUID" = v_new::uuid;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'The estimation project does not exist or you cannot read it' USING ERRCODE = '42501';
+  END IF;
+  IF NEW."rowParentGUID" IS NOT NULL AND v_org IS NOT NULL AND v_org <> NEW."rowParentGUID" THEN
+    RAISE EXCEPTION 'The estimation project belongs to another organization' USING ERRCODE = '22023';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_estimation_guard ON public.project_table;
+
+CREATE TRIGGER trg_project_estimation_guard BEFORE INSERT OR UPDATE ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.project_estimation_guard();
+
+NOTIFY pgrst, 'reload schema';
+
+-- ===============================================================================================
+-- PART 58: create_estimation_dashboard.sql
+-- ESTIMATION DASHBOARD (tables in start1 PART 58). permissionEstimationManager = the right to write the norm books / coefficients / templates (the catalogs) and the estimate documents of the
+-- projects. Like permissionTranslateCatalog (PART 56) it is NOT one of the 11 profiles of the matrix; it is held by:
+--   * the organization administrator, a project manager (permissionProjectManager held anywhere in the active organization), an application administrator (automatic),
+--   * a user the administrator gave it to: a row of project_permission_profile_user_table with rowOwnerGUID = the organization, permissionProfileGUID = 'permissionEstimationManager'.
+-- Everybody signed in reads the catalogs (norm books are shared); the data of a project is read by who can read the project and written by its owner or by a holder of the right, never in a
+-- read-only project. perm_my_matrix answers canManageEstimation.
+-- ===============================================================================================
+
+DO $$
+BEGIN
+  IF to_regclass('public.estimation_norm_book_catalog') IS NULL OR to_regclass('public.estimation_line_table') IS NULL OR to_regclass('public."catalogTranslationTable"') IS NULL THEN
+    RAISE EXCEPTION 'start2_sql_code.sql PART 58 needs the tables: run start1_sql_tables.sql first';
+  END IF;
+END $$;
+
+CREATE OR REPLACE FUNCTION public.permission_estimation_manager() RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_me  text := public.app_user_guid()::text;
+  v_org text;
+BEGIN
+  IF v_me IS NULL THEN RETURN false; END IF;
+  IF public.permission_application_admin() THEN RETURN true; END IF;
+  v_org := public.organization_of_current_user();
+  IF v_org IS NOT NULL AND public.organization_is_admin(v_org) THEN RETURN true; END IF;
+  IF 'permissionProjectManager' = ANY (public.perm_profiles(NULL, NULL, 'estimation_line_table')) THEN RETURN true; END IF;
+  RETURN v_org IS NOT NULL AND EXISTS (SELECT 1 FROM public.project_permission_profile_user_table x
+                                        WHERE x."rowOwnerGUID" = v_org AND x."rowParentGUID" = v_me AND x."rowJSON"->>'permissionProfileGUID' = 'permissionEstimationManager');
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.permission_estimation_manager() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.permission_estimation_manager() TO authenticated;
+
+-- may the caller read / write the estimate data of this project (the project GUID as text; a text that is no uuid = no)
+CREATE OR REPLACE FUNCTION public.estimation_project_access(p_project text, p_write boolean) RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v uuid;
+BEGIN
+  IF p_project IS NULL OR p_project !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN RETURN false; END IF;
+  v := p_project::uuid;
+  IF NOT p_write THEN
+    RETURN public.pm_owns_project(v) OR public.perm_can_in('project_task_table', 'R', v);
+  END IF;
+  IF public.project_is_readonly(v) THEN RETURN false; END IF;
+  RETURN public.pm_owns_project(v) OR (public.permission_estimation_manager() AND public.perm_can_in('project_task_table', 'U', v));
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.estimation_project_access(text, boolean) FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.estimation_project_access(text, boolean) TO authenticated;
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY['estimation_norm_book_catalog', 'estimation_norm_catalog', 'estimation_resource_catalog', 'estimation_coefficient_catalog', 'estimation_export_template_catalog', 'estimation_index_history', 'estimation_overhead_profit_table', 'estimation_document_table', 'estimation_line_table', 'estimation_market_quote_table'] LOOP
+    PERFORM public.kit8_setup_def_table(t);
+    EXECUTE format('REVOKE ALL ON public.%I FROM anon, authenticated', t);
+    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO authenticated', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_select', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_insert', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_update', t);
+    EXECUTE format('DROP POLICY IF EXISTS %I ON public.%I', t || '_delete', t);
+  END LOOP;
+  -- the catalogs: shared reading, the managers write
+  FOREACH t IN ARRAY ARRAY['estimation_norm_book_catalog', 'estimation_norm_catalog', 'estimation_resource_catalog', 'estimation_coefficient_catalog', 'estimation_export_template_catalog', 'estimation_index_history', 'estimation_overhead_profit_table'] LOOP
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (true)', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.permission_estimation_manager())', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.permission_estimation_manager()) WITH CHECK (public.permission_estimation_manager())', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.permission_estimation_manager())', t || '_delete', t);
+  END LOOP;
+  -- the project data: rowOwnerGUID = the project
+  FOREACH t IN ARRAY ARRAY['estimation_document_table', 'estimation_line_table', 'estimation_market_quote_table'] LOOP
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR SELECT TO authenticated USING (public.estimation_project_access("rowOwnerGUID", false))', t || '_select', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR INSERT TO authenticated WITH CHECK (public.estimation_project_access("rowOwnerGUID", true))', t || '_insert', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR UPDATE TO authenticated USING (public.estimation_project_access("rowOwnerGUID", true)) WITH CHECK (public.estimation_project_access("rowOwnerGUID", true))', t || '_update', t);
+    EXECUTE format('CREATE POLICY %I ON public.%I FOR DELETE TO authenticated USING (public.estimation_project_access("rowOwnerGUID", true))', t || '_delete', t);
+  END LOOP;
+END $$;
+
+-- ---- guards ---------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-- the TREE of norm books: world -> continent -> country -> book; the kinds of the children are fixed
+CREATE OR REPLACE FUNCTION public.estimation_norm_book_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_kind   text := NEW."rowJSON"->>'nodeKind';
+  v_parent text;
+BEGIN
+  IF v_kind IS NULL OR v_kind NOT IN ('world', 'continent', 'country', 'book') THEN
+    RAISE EXCEPTION 'estimation_norm_book_catalog: nodeKind must be world, continent, country or book' USING ERRCODE = '23514';
+  END IF;
+  IF NEW."rowParentGUID" = NEW."rowGUID" THEN
+    RAISE EXCEPTION 'estimation_norm_book_catalog: a node cannot be its own parent' USING ERRCODE = '23514';
+  END IF;
+  IF v_kind = 'world' THEN
+    IF NEW."rowParentGUID" <> 'empty' THEN RAISE EXCEPTION 'estimation_norm_book_catalog: the world node is the root' USING ERRCODE = '23514'; END IF;
+  ELSE
+    SELECT p."rowJSON"->>'nodeKind' INTO v_parent FROM public.estimation_norm_book_catalog p WHERE p."rowGUID" = NEW."rowParentGUID";
+    IF v_parent IS NULL THEN
+      RAISE EXCEPTION 'estimation_norm_book_catalog: the parent node does not exist' USING ERRCODE = '23503';
+    END IF;
+    IF (v_kind = 'continent' AND v_parent <> 'world') OR (v_kind = 'country' AND v_parent <> 'continent') OR (v_kind = 'book' AND v_parent NOT IN ('country', 'world')) THEN
+      RAISE EXCEPTION 'estimation_norm_book_catalog: a % cannot be placed under a %', v_kind, v_parent USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_estimation_norm_book_guard ON public.estimation_norm_book_catalog;
+
+CREATE TRIGGER trg_estimation_norm_book_guard BEFORE INSERT OR UPDATE ON public.estimation_norm_book_catalog
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_norm_book_guard();
+
+-- norms and resources belong to a BOOK of the tree; the kind of a row is known
+CREATE OR REPLACE FUNCTION public.estimation_book_row_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_kind text := NEW."rowJSON"->>'nodeKind';
+BEGIN
+  IF TG_TABLE_NAME = 'estimation_norm_catalog' AND (v_kind IS NULL OR v_kind NOT IN ('section', 'norm')) THEN
+    RAISE EXCEPTION 'estimation_norm_catalog: nodeKind must be section or norm' USING ERRCODE = '23514';
+  END IF;
+  IF TG_TABLE_NAME = 'estimation_resource_catalog' AND (v_kind IS NULL OR v_kind NOT IN ('group', 'resource')) THEN
+    RAISE EXCEPTION 'estimation_resource_catalog: nodeKind must be group or resource' USING ERRCODE = '23514';
+  END IF;
+  IF v_kind IN ('norm', 'resource') AND COALESCE(btrim(NEW."rowJSON"->>'code'), '') = '' THEN
+    RAISE EXCEPTION '%: a norm / resource needs its code', TG_TABLE_NAME USING ERRCODE = '23514';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM public.estimation_norm_book_catalog b WHERE b."rowGUID" = NEW."rowOwnerGUID" AND b."rowJSON"->>'nodeKind' = 'book') THEN
+    RAISE EXCEPTION '%: rowOwnerGUID must be a norm BOOK of estimation_norm_book_catalog', TG_TABLE_NAME USING ERRCODE = '23503';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_estimation_norm_guard ON public.estimation_norm_catalog;
+
+CREATE TRIGGER trg_estimation_norm_guard BEFORE INSERT OR UPDATE ON public.estimation_norm_catalog
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_book_row_guard();
+
+DROP TRIGGER IF EXISTS trg_estimation_resource_guard ON public.estimation_resource_catalog;
+
+CREATE TRIGGER trg_estimation_resource_guard BEFORE INSERT OR UPDATE ON public.estimation_resource_catalog
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_book_row_guard();
+
+-- a document and a line belong to ONE project of the same organization the writer can see; the money of a line is a number in each of the three currencies
+CREATE OR REPLACE FUNCTION public.estimation_project_row_guard() RETURNS trigger
+LANGUAGE plpgsql SET search_path = public, extensions AS $$
+DECLARE
+  v_doc text;
+  k     text;
+BEGIN
+  IF NEW."rowOwnerGUID" !~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$' THEN
+    RAISE EXCEPTION '%: rowOwnerGUID must be the GUID of the estimation project', TG_TABLE_NAME USING ERRCODE = '23514';
+  END IF;
+  IF TG_TABLE_NAME = 'estimation_document_table' AND COALESCE(NEW."rowJSON"->>'docKind', '') NOT IN ('local', 'object', 'summary', 'separate', 'bid') THEN
+    RAISE EXCEPTION 'estimation_document_table: docKind must be local, object, summary, separate or bid' USING ERRCODE = '23514';
+  END IF;
+  IF TG_TABLE_NAME = 'estimation_line_table' THEN
+    v_doc := NEW."rowJSON"->>'documentGUID';
+    IF v_doc IS NULL OR NOT EXISTS (SELECT 1 FROM public.estimation_document_table d WHERE d."rowGUID" = v_doc AND d."rowOwnerGUID" = NEW."rowOwnerGUID") THEN
+      RAISE EXCEPTION 'estimation_line_table: documentGUID must be a document of the same project' USING ERRCODE = '23503';
+    END IF;
+    IF COALESCE(NEW."rowJSON"->>'lineKind', '') NOT IN ('section', 'position', 'resource') THEN
+      RAISE EXCEPTION 'estimation_line_table: lineKind must be section, position or resource' USING ERRCODE = '23514';
+    END IF;
+    IF NEW."rowParentGUID" <> 'empty' AND NOT EXISTS (SELECT 1 FROM public.estimation_line_table p WHERE p."rowGUID" = NEW."rowParentGUID" AND p."rowOwnerGUID" = NEW."rowOwnerGUID") THEN
+      RAISE EXCEPTION 'estimation_line_table: the parent line does not exist in this project' USING ERRCODE = '23503';
+    END IF;
+    IF NEW."rowParentGUID" = NEW."rowGUID" THEN
+      RAISE EXCEPTION 'estimation_line_table: a line cannot be its own parent' USING ERRCODE = '23514';
+    END IF;
+    FOREACH k IN ARRAY ARRAY['qty', 'sumForBudget', 'sumForAccounting', 'sumForConsolidation'] LOOP
+      IF NEW."rowJSON" ? k AND jsonb_typeof(NEW."rowJSON"->k) NOT IN ('number', 'null') THEN
+        RAISE EXCEPTION 'estimation_line_table: % must be a number', k USING ERRCODE = '23514';
+      END IF;
+    END LOOP;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_estimation_document_guard ON public.estimation_document_table;
+
+CREATE TRIGGER trg_estimation_document_guard BEFORE INSERT OR UPDATE ON public.estimation_document_table
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_project_row_guard();
+
+DROP TRIGGER IF EXISTS trg_estimation_line_guard ON public.estimation_line_table;
+
+CREATE TRIGGER trg_estimation_line_guard BEFORE INSERT OR UPDATE ON public.estimation_line_table
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_project_row_guard();
+
+-- a deleted project takes its estimate data with it
+CREATE OR REPLACE FUNCTION public.estimation_project_deleted() RETURNS trigger
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  DELETE FROM public.estimation_market_quote_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
+  DELETE FROM public.estimation_line_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
+  DELETE FROM public.estimation_document_table WHERE "rowOwnerGUID" = OLD."rowGUID"::text;
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_project_estimation_data_delete ON public.project_table;
+
+CREATE TRIGGER trg_project_estimation_data_delete AFTER DELETE ON public.project_table
+  FOR EACH ROW EXECUTE FUNCTION public.estimation_project_deleted();
+
+-- realtime (the estimate lines of an open dashboard)
+DO $$
+DECLARE
+  v_all boolean;
+  t text;
+BEGIN
+  SELECT puballtables INTO v_all FROM pg_publication WHERE pubname = 'supabase_realtime';
+  IF NOT FOUND THEN
+    RAISE NOTICE 'publication supabase_realtime does not exist - realtime auto refresh is off';
+  ELSIF NOT v_all THEN
+    FOREACH t IN ARRAY ARRAY['estimation_document_table', 'estimation_line_table'] LOOP
+      IF NOT EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime ADD TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+NOTIFY pgrst, 'reload schema';
+
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

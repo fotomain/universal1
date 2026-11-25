@@ -40,7 +40,7 @@ describe('the Plan button', () => {
     seedStore();
     const onChange = jest.fn();
     renderUI(<GanttToggleButtons palette={palette} onChange={onChange} />);
-    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showPlanView', 'showBimView']);
+    expect(GANTT_VS_NETWORK_VIEW_OPTIONS.map((o) => o.value)).toEqual(['showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showEstimationView', 'showReportsView', 'showPlanView', 'showBimView']);
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-1)!.label).toBe('BIM');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-2)!.label).toBe('Budgets');
     expect(GANTT_VS_NETWORK_VIEW_OPTIONS.at(-3)!.label).toBe('Reports');
@@ -59,9 +59,10 @@ describe('the Plan button', () => {
   it('the saved button order is normalized (unknown / duplicate dropped, missing appended) and reordering by drop works', () => {
     expect(viewButtonsOrderOf(undefined)).toEqual(PM_DEFAULT_VIEW_BUTTONS_ORDER);
     // BIM (showBimView) is always the LAST, wherever it was saved; Budgets (showPlanView) follows the user's order before it
-    expect(viewButtonsOrderOf(['showBimView', 'x', 'showPlanView', 'showBimView', 'showGanttChart'])).toEqual(['showPlanView', 'showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showReportsView', 'showBimView']);
+    expect(viewButtonsOrderOf(['showBimView', 'x', 'showPlanView', 'showBimView', 'showGanttChart'])).toEqual(['showPlanView', 'showGanttChart', 'showFinancesView', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showEstimationView', 'showReportsView', 'showBimView']);
     expect(viewButtonsOrderOf(['showGanttChart', 'showKanbanView', 'showNetworkView', 'showVersionsView', 'showFinancesView', 'showPlanView', 'showReportsView']).at(-1)).toBe('showBimView');
-    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder[0]).toBe('showReportsView');
+    // Estimation (new) is put right before Reports, also in an order saved before it existed
+    expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder.slice(0, 2)).toEqual(['showEstimationView', 'showReportsView']);
     expect(uxuiSettingsOf(null, { viewButtonsOrder: ['showReportsView'] }).viewButtonsOrder.at(-1)).toBe('showBimView');
     const layouts = { a: { x: 0, w: 40 }, b: { x: 40, w: 40 }, c: { x: 80, w: 40 } };
     // 'a' dropped with its center over 'c' -> last

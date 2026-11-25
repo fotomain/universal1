@@ -62,6 +62,8 @@
 --   54. create_application_admin.sql - APPLICATION ADMINISTRATORS (documentation/PERMISSIONS_WBS.html section 13): application_permission_table = the e-mails that hold permissionApplicationAdmin (one row each); the code is in start2_sql_code.sql
 --   55. create_bim.sql - BIM (documentation/BIM_WBS.html): bim_model_table / bim_storey_table / bim_chunk_table / bim_element_table / bim_property_table / bim_import_job_table / bim_storage_cleanup_table = the model of an IFC import (rows only: the geometry is chunk files in the Storage bucket bim), foreign keys to the project and its tasks
 --   56. create_catalog_translation.sql - TRANSLATIONS of catalog items: language_catalog (the languages, rowGUID = the language code) + catalogTranslationTable (one row = ONE field of ONE catalog item in ONE language); the code is in start2_sql_code.sql
+--   57. create_project_estimation.sql - PROJECT ESTIMATION: no table (the link is the key projectEstimationGUID of project_table.rowJSON); the code is in start2_sql_code.sql
+--   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: the estimation_ tables (norm book tree, norms, resources, coefficients, export templates, indices, overhead / profit norms + the estimate documents, lines and supplier quotes of a project); the code is in start2_sql_code.sql
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).
@@ -4261,6 +4263,156 @@ CREATE UNIQUE INDEX IF NOT EXISTS "uq_catalogTranslation" ON public."catalogTran
 
 CREATE INDEX IF NOT EXISTS "idx_catalogTranslation_language" ON public."catalogTranslationTable" ("rowParentGUID");
 
+
+-- ===============================================================================================
+-- PART 58: create_estimation_dashboard.sql
+-- ESTIMATION DASHBOARD (documentation/ESTIMATION/dashboard/claude/ESTIMATION_DASHBOARD_WBS.html, documentation/ESTIMATION/dashboard/google/ESTIMATION_DASHBOARD_WBS.html).
+-- Every table has the generic shape rowGUID / rowOwnerGUID / rowParentGUID / rowJSON / orderInList and its name starts with estimation_.
+-- CATALOGS (shared: read by everybody signed in, written by who holds permissionEstimationManager - start2 PART 58). rowOwnerGUID = the catalog itself unless said otherwise.
+--   estimation_norm_book_catalog     the TREE of norm books: World Norms (v2) -> continent -> country -> book.  rowJSON { nodeKind: world | continent | country | book, code, title, countryCode, currency, sourceCurrency, language, version, fxRate, fxDate }
+--   estimation_norm_catalog          the NORMS of a book. rowOwnerGUID = the BOOK, rowParentGUID = the parent section ('empty' = top).  rowJSON { nodeKind: section | norm, code, title, unit, workType, resources[], nrCode, spCode }
+--                                    the title is the ENGLISH text; the original (RU ...) and the other languages are rows of catalogTranslationTable (PART 56) of the item
+--   estimation_resource_catalog      the priced RESOURCES of a book (labour, machines, materials, equipment). rowOwnerGUID = the BOOK, rowParentGUID = the group.  rowJSON { nodeKind: group | resource, code, title, unit, resourceKind, price, priceOpt, currency, priceSource }
+--   estimation_coefficient_catalog   coefficients for the conditions of work (cramped site, winter ...), each with its justification
+--   estimation_export_template_catalog  declarative layout of the exported documents (local estimate, object estimate, summary estimate ... ; input templates too)
+--   estimation_index_history         index to the current price level per book / zone / cost element / price date
+--   estimation_overhead_profit_table overhead and profit norms (percent of payroll) per type of work
+-- PROJECT DATA (rowOwnerGUID = the GUID of the estimation project, text)
+--   estimation_document_table        the header of an estimate document: kind (local | object | summary | separate | bid), cipher, method, price level, currencies, signatures, totals
+--   estimation_line_table            sections and positions of a document (one tree: rowParentGUID = the parent line or 'empty'; rowJSON.documentGUID); the money of a position is kept in ALL
+--                                    three currencies of the project: sumForBudget / sumForAccounting / sumForConsolidation
+--   estimation_market_quote_table    the supplier quotes behind a position (three quotes, the chosen one)
+-- ===============================================================================================
+
+CREATE TABLE IF NOT EXISTS public.estimation_norm_book_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_norm_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_resource_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_coefficient_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_export_template_catalog (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_index_history (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_overhead_profit_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'estimationCatalog',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_document_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_line_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE TABLE IF NOT EXISTS public.estimation_market_quote_table (
+  "rowGUID"       TEXT        NOT NULL DEFAULT gen_random_uuid()::text,
+  "rowOwnerGUID"  TEXT        NOT NULL DEFAULT 'empty',
+  "rowParentGUID" TEXT        NOT NULL DEFAULT 'empty',
+  "rowJSON"       JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  "orderInList"   NUMERIC     NOT NULL DEFAULT 0,
+  "created_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  "updated_at"    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY ("rowGUID")
+);
+
+CREATE INDEX IF NOT EXISTS idx_estimation_norm_book_parent ON public.estimation_norm_book_catalog ("rowParentGUID");
+CREATE INDEX IF NOT EXISTS idx_estimation_norm_tree ON public.estimation_norm_catalog ("rowOwnerGUID", "rowParentGUID");
+-- The search of the norm books (code / title contains the text, over ALL books: ILIKE '%text%') scanned every norm row and hit the 8 s statement limit of Supabase
+-- ("canceling statement due to statement timeout"). Trigram GIN indexes on the two searched texts make it index lookups. A database without pg_trgm is not an error: only a NOTICE.
+DO $$
+BEGIN
+  CREATE EXTENSION IF NOT EXISTS pg_trgm;
+  CREATE INDEX IF NOT EXISTS idx_estimation_norm_code_trgm ON public.estimation_norm_catalog USING gin (("rowJSON"->>'code') gin_trgm_ops);
+  CREATE INDEX IF NOT EXISTS idx_estimation_norm_title_trgm ON public.estimation_norm_catalog USING gin (("rowJSON"->>'title') gin_trgm_ops);
+EXCEPTION WHEN OTHERS THEN
+  RAISE NOTICE 'the trigram indexes of the norm search were not made (%): enable pg_trgm (Database -> Extensions) and run start1 again', SQLERRM;
+END $$;
+CREATE INDEX IF NOT EXISTS idx_estimation_resource_tree ON public.estimation_resource_catalog ("rowOwnerGUID", "rowParentGUID");
+CREATE UNIQUE INDEX IF NOT EXISTS uq_estimation_resource_code ON public.estimation_resource_catalog ("rowOwnerGUID", ("rowJSON"->>'code')) WHERE "rowJSON"->>'nodeKind' = 'resource';
+CREATE INDEX IF NOT EXISTS idx_estimation_index_book ON public.estimation_index_history ("rowOwnerGUID", ("rowJSON"->>'priceDate'));
+CREATE INDEX IF NOT EXISTS idx_estimation_document_project ON public.estimation_document_table ("rowOwnerGUID");
+CREATE INDEX IF NOT EXISTS idx_estimation_line_project ON public.estimation_line_table ("rowOwnerGUID", "rowParentGUID");
+CREATE INDEX IF NOT EXISTS idx_estimation_line_document ON public.estimation_line_table (("rowJSON"->>'documentGUID'));
+CREATE INDEX IF NOT EXISTS idx_estimation_quote_line ON public.estimation_market_quote_table ("rowOwnerGUID", "rowParentGUID");
 
 -- ===============================================================================================
 -- END of start1_sql_tables.sql

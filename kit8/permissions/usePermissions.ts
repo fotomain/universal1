@@ -57,6 +57,7 @@ export interface Permissions {
   isApplicationAdmin: boolean;
   /** permissionTranslateCatalog (SQL PART 56): may write catalog translations; true until the answer is there (the database refuses) */
   canTranslateCatalog: boolean;
+  canManageEstimation: boolean;
   canCreateProject: boolean;
   /** table letter (C R U D) for the project / task of the hook */
   can: (table: string, letter: PermLetter) => boolean;
@@ -131,7 +132,7 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
   const canUi = useCallback((object: string, letter: PermLetter) => !ready || canObject(matrix, object, letter), [ready, matrix]);
 
   return useMemo(
-    () => ({ ready, projectIsReadonly: ready && matrix.projectIsReadonly, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, isApplicationAdmin: ready && matrix.isApplicationAdmin, canTranslateCatalog: ready ? matrix.canTranslateCatalog : true, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
+    () => ({ ready, projectIsReadonly: ready && matrix.projectIsReadonly, profiles: matrix.profiles, isAdmin: ready ? matrix.isAdmin : true, isApplicationAdmin: ready && matrix.isApplicationAdmin, canTranslateCatalog: ready ? matrix.canTranslateCatalog : true, canManageEstimation: ready ? matrix.canManageEstimation : true, canCreateProject: ready ? matrix.canCreateProject : true, can, canUi, matrix, refresh: () => { void load(); } }),
     [ready, matrix, can, canUi, load],
   );
 }

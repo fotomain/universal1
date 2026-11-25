@@ -5,6 +5,8 @@
 // Finances mode (rightPane='finances'): [ tree | splitter | PMTaskEditView ] (the lines of the selected task, view/task/finances).
 // Plan mode (rightPane='plan'): [ tree | splitter | PMTaskLinePlanView ] (the posted days of the lines of the selected task, view/task/plan).
 // Reports mode (rightPane='reports'): [ tree | splitter | PMProjectReportsView ] (project summary, view/reports).
+// Estimation mode (rightPane='estimation'): [ tree | splitter | PMProjectEstimationView ] (the estimation table of the project, view/project/estimation).
+// Custom mode (rightPane='custom'): [ tree | splitter | renderRight({ width, height, palette }) ] - a screen outside the Project dashboard puts its own pane next to the task tree (the Estimation dashboard: the estimate of the selected task).
 // BIM mode (rightPane='bim'): [ tree | splitter | PMProjectBimView ] (the 3D model of an IFC import, kit8/pm/bim; a press on a task lights its elements, a press on an element scrolls the tree).
 // On web this module (and everything that imports Skia) is loaded lazily, after
 // CanvasKit has been initialised (see PMGanttSurfaceLoader.web.tsx).
@@ -20,7 +22,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import { DAY_MS, PM_DAY_WIDTH_MAX, PM_DAY_WIDTH_MIN, PM_SCALE_HEIGHT, PM_SPLITTER_WIDTH, PM_TIMELINE_PAD_DAYS, PM_TOOLBAR_HEIGHT } from '../../model/constants';
 import { usePMStore } from '../../store/store_pm';
-import { makePMPalette } from '../theme';
+import { makePMPalette, type PMPalette } from '../theme';
 import { clampValue, maxScrollX, maxScrollY, useGanttViewport } from './useGanttViewport';
 import { mondayOnOrBefore } from './ganttGeometry';
 import { diffDaysMs, todayUTC } from '../project/scheduling';
@@ -39,6 +41,7 @@ import { overlaysRange } from '../../version/model/versionCompare';
 import PMTaskEditView from '../task/finances/PMTaskEditView';
 import PMTaskLinePlanView from '../task/plan/PMTaskLinePlanView';
 import PMProjectReportsView from '../reports/PMProjectReportsView';
+import PMProjectEstimationView from '../project/estimation/PMProjectEstimationView';
 import PMProjectBimView from '../../bim/view/PMProjectBimView';
 
 const MIN_CHART_WIDTH = 160;
@@ -48,7 +51,9 @@ export interface PMGanttSurfaceProps {
   ownerGUID: string;
   projectGUID: string;
   /** right pane: the Skia Gantt chart (default), the Kanban board (tree rows can be dragged onto it) or the project versions list */
-  rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances' | 'plan' | 'reports' | 'bim';
+  rightPane?: 'gantt' | 'kanban' | 'versions' | 'finances' | 'plan' | 'reports' | 'estimation' | 'bim' | 'custom';
+  /** rightPane 'custom': what is drawn right of the tree (it gets the size of the pane and the palette) */
+  renderRight?: (area: { width: number; height: number; palette: PMPalette }) => React.ReactNode;
   readOnly?: boolean;
   hideTree?: boolean;
   /** uxui.hideGanttChartNode: only the tree (no splitter, no chart / board / versions list) */
@@ -67,6 +72,7 @@ export default function PMGanttSurface({
   ownerGUID,
   projectGUID,
   rightPane = 'gantt',
+  renderRight,
   readOnly = false,
   hideTree: hideTreeProp = false,
   hideRight: hideRightProp = false,
@@ -86,7 +92,9 @@ export default function PMGanttSurface({
   const isFinances = rightPane === 'finances';
   const isPlan = rightPane === 'plan';
   const isReports = rightPane === 'reports';
+  const isEstimation = rightPane === 'estimation';
   const isBim = rightPane === 'bim';
+  const isCustom = rightPane === 'custom';
   const { themeColors, isDark } = useDesignSystem();
   const criticalColor = usePMStore((s) => s.criticalPathTaskColor); // uxuiSettings.criticalPathTaskColor
   const palette = useMemo(() => makePMPalette(themeColors, isDark, criticalColor), [themeColors, isDark, criticalColor]);
@@ -251,7 +259,7 @@ export default function PMGanttSurface({
   const treeWidthRef = useRef(treeWidth);
   treeWidthRef.current = treeWidth;
   const isKanbanRef = useRef(isKanban);
-  isKanbanRef.current = isKanban || isVersions || isFinances || isPlan || isReports; // the right pane scrolls natively
+  isKanbanRef.current = isKanban || isVersions || isFinances || isPlan || isReports || isEstimation || isCustom; // the right pane scrolls natively
   useEffect(() => () => {
     if (zoomCommitTimer.current) clearTimeout(zoomCommitTimer.current);
   }, []);
@@ -346,8 +354,12 @@ export default function PMGanttSurface({
               )}
             </>
           )}
-          {hideRight ? null : isBim ? (
+          {hideRight ? null : isCustom ? (
+            <View style={{ width: chartWidth, height: size.h, backgroundColor: palette.background }}>{renderRight ? renderRight({ width: chartWidth, height: size.h, palette }) : null}</View>
+          ) : isBim ? (
             <PMProjectBimView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
+          ) : isEstimation ? (
+            <PMProjectEstimationView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} />
           ) : isReports ? (
             <PMProjectReportsView projectGUID={projectGUID} width={chartWidth} height={size.h} palette={palette} crud={crud} />
           ) : isPlan ? (

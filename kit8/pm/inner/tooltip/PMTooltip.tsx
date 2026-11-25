@@ -5,14 +5,14 @@
 // clipped by toolbars / scroll views. Anything can request a tip via usePMTip() or showPMTip().
 // Scopes: 'screen' (default) = the layer of the current screen; 'app' = the layer of the root layout,
 // which covers the whole window - the app bar buttons use it (a screen layer starts BELOW the app bar,
-// so a tip of an app bar button would be cut off there).
+// so a tip of an app bar button would be cut off there); 'modal' = a layer INSIDE a Modal window (Project settings ...), because a Modal covers the other layers.
 
 import { pmT } from '../../i18n/pmT';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import { create } from 'zustand';
 
-export type PMTipScope = 'screen' | 'app';
+export type PMTipScope = 'screen' | 'app' | 'modal';
 
 interface TipState {
   text: string | null;
@@ -119,7 +119,7 @@ export function PMTooltipLayer({ background = '#1e293b', color = '#f8fafc', scop
   }
 
   return (
-    <View ref={layerRef} pointerEvents="none" style={[StyleSheet.absoluteFill, scope === 'app' ? { zIndex: 9999 } : null]} onLayout={measureLayer}>
+    <View ref={layerRef} pointerEvents="none" style={[StyleSheet.absoluteFill, scope !== 'screen' ? { zIndex: 9999 } : null]} onLayout={measureLayer}>
       {!!tip.text && (
         <View
           onLayout={(e) => {

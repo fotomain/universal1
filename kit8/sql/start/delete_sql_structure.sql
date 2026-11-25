@@ -5,6 +5,8 @@
 -- Extensions (pgcrypto, ltree) and Supabase's own schemas (auth, storage ...) are NOT touched. Re-create with start1_sql_tables.sql + start2_sql_code.sql.
 -- Parts, in this order (reverse of the install order):
 --
+--  1a-0000000000000000000000000. delete_estimation_dashboard.sql - PART 58: drops the estimation_ tables (data included: ALL norm books, norms, resources, coefficients, templates, indices and the estimate documents / lines / quotes of ALL projects), their guards, permission_estimation_manager and estimation_project_access (runs very first: it is the newest)
+--  1a-000000000000000000000000. delete_project_estimation.sql - PART 57: drops the guard trigger of the key projectEstimationGUID on project_table and the project_estimation_* / project_delete_task_roots functions (no table, no data; the key stays in the project rows as inert JSON; runs very first: it is the newest)
 --  1a-00000000000000000000000. delete_catalog_translation.sql - PART 56: drops catalogTranslationTable (data included: ALL translations of catalog items) and language_catalog, permission_translate_catalog / catalog_translation_guard, and gives perm_my_matrix its old answer back at the next start2 (runs very first: it is the newest)
 --  1a-0000000000000000000000. delete_bim.sql - PART 55: drops the bim_ tables (data included: the models, storeys, chunk rows, elements, properties and import history of ALL projects), the bim_ functions, the Storage policies of the bucket bim; the files of the bucket and the key projectIsBIMBased stay (use delete_bim_data.sql BEFORE this to remove the data and the files properly; runs very first: it is the newest)
 --  1a-000000000000000000000. delete_application_admin.sql - PART 54: drops application_permission_table (data included: the list of the application administrators) and permission_application_admin / organization_visible, and gives organizationTable its old public SELECT policy back (runs very first: it is the newest)
@@ -49,6 +51,73 @@
 --   17. helper function kit8_touch_updated_at
 -- ===============================================================================================
 
+
+
+-- =====================================================================================
+-- PART 1a-0000000000000000000000000: delete_estimation_dashboard.sql  (PART 58 of the structure file: the ESTIMATION DASHBOARD tables - runs before everything else, it is the newest)
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_project_estimation_data_delete ON public.project_table;
+
+DROP FUNCTION IF EXISTS public.estimation_project_deleted();
+
+DO $$
+DECLARE
+  t text;
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') AND NOT (SELECT puballtables FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    FOREACH t IN ARRAY ARRAY['estimation_document_table', 'estimation_line_table'] LOOP
+      IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND schemaname = 'public' AND tablename = t) THEN
+        EXECUTE format('ALTER PUBLICATION supabase_realtime DROP TABLE public.%I', t);
+      END IF;
+    END LOOP;
+  END IF;
+END $$;
+
+DROP TABLE IF EXISTS public.estimation_norm_book_catalog CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_norm_catalog CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_resource_catalog CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_coefficient_catalog CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_export_template_catalog CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_index_history CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_overhead_profit_table CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_document_table CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_line_table CASCADE;
+
+DROP TABLE IF EXISTS public.estimation_market_quote_table CASCADE;
+
+DROP FUNCTION IF EXISTS public.estimation_project_row_guard();
+
+DROP FUNCTION IF EXISTS public.estimation_book_row_guard();
+
+DROP FUNCTION IF EXISTS public.estimation_norm_book_guard();
+
+DROP FUNCTION IF EXISTS public.estimation_project_access(text, boolean);
+
+DROP FUNCTION IF EXISTS public.permission_estimation_manager();
+
+NOTIFY pgrst, 'reload schema';
+
+
+-- =====================================================================================
+-- PART 1a-000000000000000000000000: delete_project_estimation.sql  (PART 57 of the structure file: the PROJECT ESTIMATION functions - runs before everything else, it is the newest)
+-- =====================================================================================
+DROP TRIGGER IF EXISTS trg_project_estimation_guard ON public.project_table;
+
+DROP FUNCTION IF EXISTS public.project_estimation_guard();
+
+DROP FUNCTION IF EXISTS public.project_estimation_summary(uuid, uuid);
+
+DROP FUNCTION IF EXISTS public.project_estimation_project(uuid);
+
+DROP FUNCTION IF EXISTS public.project_delete_task_roots(uuid, uuid[]);
 
 
 -- =====================================================================================

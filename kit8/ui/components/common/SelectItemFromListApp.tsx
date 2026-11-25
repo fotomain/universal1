@@ -21,7 +21,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View, ViewStyle } from 'react-native';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from './IconApp';
-import TextInputApp from './TextInputApp';
+import TextInputApp, { type TextInputLeftIcon } from './TextInputApp';
 
 export interface SelectItemFromListItem<T extends string = string> {
   value: T;
@@ -39,8 +39,10 @@ export interface SelectItemFromListAppProps<T extends string = string> {
   items: readonly SelectItemFromListItem<T>[];
   value: T | null | undefined;
   onSelect: (value: T) => void;
-  /** 'field' = outlined box with label (default) · 'link' = compact colored text + chevron */
-  trigger?: 'field' | 'link';
+  /** 'field' = outlined box with label (default) · 'link' = compact colored text + chevron · 'textInput' = a read only TextInputApp (the look and the height of the other inputs of a row) with a chevron */
+  trigger?: 'field' | 'link' | 'textInput';
+  /** trigger 'textInput': icons INSIDE the field at the left (a history button ...); a press on them is theirs, not the opening of the list */
+  inputLeftIcons?: TextInputLeftIcon[];
   /** caption above the field ('field' trigger) */
   label?: string;
   placeholder?: string;
@@ -88,6 +90,7 @@ export function SelectItemFromListApp<T extends string = string>({
   value,
   onSelect,
   trigger = 'field',
+  inputLeftIcons,
   label,
   placeholder = 'Select…',
   disabled = false,
@@ -222,7 +225,21 @@ export function SelectItemFromListApp<T extends string = string>({
   return (
     <View style={[trigger === 'field' ? styles.fieldRoot : null, style]} testID={testID}>
       {trigger === 'field' && !!label && <Text style={[styles.label, { color: c.text }]}>{label}</Text>}
-      <Pressable
+      {trigger === 'textInput' && (
+        <View ref={triggerRef} collapsable={false}>
+          <TextInputApp testID={`${testID}-input`} label={label} value={selected ? selected.label : ''} placeholder={placeholder} editable={false} disabled={disabled} hideClearIcon rightIcon="menu-down" style={{ marginBottom: 0 }} iconSize={16} iconsNotTabbable={!!inputLeftIcons} {...(inputLeftIcons ? { leftIcons: inputLeftIcons } : {})} />
+          <Pressable
+            testID={`${testID}-trigger`}
+            accessibilityRole={'combobox' as any}
+            accessibilityLabel={label ? `${label}: ${triggerText}` : triggerText}
+            accessibilityState={{ expanded: open, disabled }}
+            disabled={disabled}
+            onPress={() => (open ? close() : show())}
+            style={[StyleSheet.absoluteFill, inputLeftIcons?.length ? { left: 48 } : null]}
+          />
+        </View>
+      )}
+      {trigger !== 'textInput' && <Pressable
         ref={triggerRef as any}
         testID={`${testID}-trigger`}
         accessibilityRole={'combobox' as any}
@@ -263,7 +280,7 @@ export function SelectItemFromListApp<T extends string = string>({
           </Pressable>
         )}
         <IconApp testID={`${testID}-chevron`} name={open ? 'expand_less' : 'expand_more'} size={trigger === 'link' ? 18 : 20} color={trigger === 'link' ? tint : c.text} />
-      </Pressable>
+      </Pressable>}
 
       {open && (
         <Modal visible transparent animationType="none" onRequestClose={close}>

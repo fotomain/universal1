@@ -38,6 +38,10 @@ export interface PMRowMenuState {
   x: number;
   y: number;
   source: 'tree' | 'gantt';
+  /** tree only: the cell (column) under the pointer - the menu then has Copy cell / Paste cell */
+  cellField?: PMCellField | null;
+  /** tree only: the cell can be edited (Paste cell is offered only then) */
+  cellEditable?: boolean;
 }
 
 /** "Filter & sort" popup of a tree column (window point of its top-left corner). */

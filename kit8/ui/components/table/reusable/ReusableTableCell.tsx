@@ -312,20 +312,35 @@ function DatePickerCell({ testID, value, placeholder, onCommit }: { testID: stri
   );
 }
 
-function TextCell({ radius, border, h, value, editable, placeholder, align, onCommit, testID }: { radius: number; border: number; h: number; value: any; editable: boolean; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (t: string) => void; testID: string }) {
+export function TextCell({ radius, border, h, value, editable, placeholder, align, onCommit, testID }: { radius: number; border: number; h: number; value: any; editable: boolean; placeholder?: string; align: 'left' | 'center' | 'right'; onCommit: (t: string) => void; testID: string }) {
   const { themeColors: c } = useDesignSystem();
   const shown = value === null || value === undefined ? '' : String(value);
   const [draft, setDraft] = useState(shown);
   useEffect(() => setDraft(shown), [shown]);
+  const [focused, setFocused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const inputRef = useRef<React.ComponentRef<typeof TextInput>>(null);
   const commit = () => { if (draft !== shown) onCommit(draft); };
+  // the close icon at the right of the field deletes the text (the icon stays 200 ms after the blur, so a press that blurs the field first is not lost); the field keeps the focus
+  const clear = () => { setDraft(''); if (shown !== '') onCommit(''); setTimeout(() => inputRef.current?.focus(), 0); };
   if (!editable) return <Text testID={testID} numberOfLines={1} style={{ color: c.text, flex: 1, textAlign: align, fontSize: 14 }}>{shown}</Text>;
+  const showClear = (focused || hovered) && draft !== '';
   return (
-    <TextInput testID={testID} value={draft} onChangeText={setDraft} onBlur={commit} onSubmitEditing={commit} placeholder={placeholder} placeholderTextColor={c.text + '60'}
-      style={[styles.input, { borderRadius: radius, borderWidth: border, height: h, color: c.text, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent', textAlign: align }]} />
+    <View style={styles.textCell} {...({ onMouseEnter: () => setHovered(true), onMouseLeave: () => setHovered(false) } as any)}>
+      <TextInput ref={inputRef} testID={testID} value={draft} onChangeText={setDraft} onFocus={() => setFocused(true)} onBlur={() => { commit(); setTimeout(() => setFocused(false), 200); }} onSubmitEditing={commit} placeholder={placeholder} placeholderTextColor={c.text + '60'}
+        style={[styles.input, { borderRadius: radius, borderWidth: border, height: h, color: c.text, borderColor: c.border, backgroundColor: border ? c.surface : 'transparent', textAlign: align }, showClear && { paddingRight: 30 }]} />
+      {showClear && (
+        <Pressable testID={`${testID}-clear`} accessibilityLabel={pmT('Clear')} onPress={clear} hitSlop={6} style={styles.textClear}>
+          <IconApp name="close" size={16} color={c.text + '99'} />
+        </Pressable>
+      )}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  textCell: { flex: 1, minWidth: 0, justifyContent: 'center' },
+  textClear: { position: 'absolute', right: 6, top: 0, bottom: 0, width: 22, alignItems: 'center', justifyContent: 'center' },
   calcRow: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center' },
   boolCell: { flex: 1, flexDirection: 'row', alignItems: 'center', alignSelf: 'stretch' },
   boolBox: { width: 18, height: 18, borderWidth: 2, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },

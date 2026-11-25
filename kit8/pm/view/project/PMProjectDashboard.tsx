@@ -10,33 +10,22 @@
 // Data flow: Supabase <-> React Query (queries.ts) -> Zustand (store/store_pm.ts) -> Skia.
 // Undo: PMUndoProvider (expo-sqlite on native) keeps one undoGanttAction per action.
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSafeSelector } from '../../../redux/storeRef';
 import { useUxuiCurrentJSON } from '../../../redux/useUxuiCurrentJSON';
-import { FABContextAction, useFABContextActions } from '../../../providers/FABProvider';
-import { usePMKanbanStore } from '../../store/store_kanban';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
 import PMNetworkView from '../network/PMNetworkView';
-import PMTaskEditModal from '../task/PMTaskEditModal';
-import PMTaskEditOptions from '../task/PMTaskEditOptions';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
-import PMEditDependencyScreen from '../task/dependency/PMEditDependencyScreen';
-import PMDependencyMenu from '../task/dependency/PMDependencyMenu';
-import PMTaskRowMenu from '../task/PMTaskRowMenu';
-import PMTreeHeaderMenu from '../tree/customColumns/PMTreeHeaderMenu';
-import PMCustomColumnNameModalWindow from '../tree/customColumns/PMCustomColumnNameModalWindow';
-import PMTreeColumnFilterPopup from '../tree/filter/PMTreeColumnFilterPopup';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
 import PMExtendedWindow from '../../extended/PMExtendedWindow';
 import PMExtendedDialogs from '../../extended/PMExtendedDialogs';
 import PMTimelineStrip from '../../extended/PMTimelineStrip';
 import PMDetailsPane from '../../extended/PMDetailsPane';
-import PMApproveYesNoCancelModalWindow, { isPMApproveOpen } from '../../inner/PMApproveYesNoCancelModalWindow';
 import PMUndoProvider from '../undo/PMUndoProvider';
 import { useRecentProjects } from './recent/recentProjects';
 import { PMTooltipLayer } from '../../inner/tooltip/PMTooltip';
@@ -50,7 +39,10 @@ import { useReadProjectKanbanQuery } from '../../crud/kanban/kanbanQueries';
 import { useKanbanRealtime } from '../../crud/kanban/useKanbanRealtime';
 import ActivityIndicatorCircleApp from '../../../ui/components/activityindicator/ActivityIndicatorCircleApp';
 import PMVersionWindows from '../../version/view/windows/PMVersionWindows';
-import { openFillFromTemplate, openSaveToTemplate, openSavedTemplates, PMTaskTemplateWindows } from '../../tasktemplate';
+import PMTreeWindows from './tree/PMTreeWindows';
+import { useTreeFabActions } from './tree/useTreeFabActions';
+import { useTreeKeyboardShortcuts } from './tree/useTreeKeyboardShortcuts';
+import { PROJECT_DASHBOARD_SCOPE, useTreeScopeSelection } from './tree/useTreeScopeSelection';
 import { pmT, usePMLanguage } from '../../i18n/pmT';
 import { useProjectTaskLinesRealtime } from '../task/plan/useProjectTaskLines';
 import { useDashboardDeepLink } from './useDashboardDeepLink';
@@ -137,7 +129,9 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
     if (dataQuery.isError) setAwaitingProject(null);
   }, [dataQuery.isError]);
 
-  useKeyboardShortcuts(crud, !picker);
+  useTreeKeyboardShortcuts(crud, !picker);
+  // the dashboard remembers its own last project + task: another screen with the tree (Estimation dashboard) selects its project in the same store
+  useTreeScopeSelection(PROJECT_DASHBOARD_SCOPE, { enabled: !picker });
 
   // ---- app bar buttons (kit8/ui/components/common/ApplicationBarApp.tsx) -> Redux uxuiState ----
   const hideProjectToolBar = useSafeSelector((s) => !!s?.uxuiState?.hideProjectToolBar);
@@ -171,63 +165,9 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
   );
 
   // ---- main FAB (FABProvider): the CRUD commands of this screen, for the current view + selection ----
-  const selectedIsLeaf = usePMStore((s) => !!(s.selectedGUID && s.tasksById[s.selectedGUID] && !(s.tree.childrenById[s.selectedGUID]?.length)));
-  const isSummary = usePMStore((s) => (s.selectedGUID ? !!s.schedule[s.selectedGUID]?.isSummary : false));
-  const checkedCount = usePMStore((s) => Object.keys(s.checkedGUIDs).length);
-  const undoCount = usePMStore((s) => s.undoCount);
-  const redoCount = usePMStore((s) => s.redoCount);
-  const fabActions = useMemo((): FABContextAction[] | null => {
-    if (!ownerGUID || picker) return null;
-    const sel = selectedTaskGUID && currentTaskRow ? selectedTaskGUID : null;
-    const a: FABContextAction[] = [];
-    if (!selectedProjectGUID) {
-      a.push({ icon: 'plus', label: 'New project', onPress: () => usePMStore.getState().openProjectSettings('new') });
-      return a;
-    }
-    const isKanbanView = ganttVsNetworkView === 'showKanbanView';
-
-    if (sel) {
-      // When a task of Tree is selected, main FAB has all task context menu items with their texts
-      a.push({ icon: 'table-row-plus-after', label: 'Add task below', onPress: () => crud.createTaskBelow(sel) });
-      a.push({ icon: 'table-row-plus-before', label: 'Add task above', onPress: () => crud.createTaskAbove(sel) });
-      if (isSummary) {
-        a.push({ icon: 'plus-circle-outline', label: 'Add task inside', onPress: () => crud.createTask(sel) });
-      }
-      a.push({ icon: 'folder-plus-outline', label: 'Add stage below', onPress: () => crud.createStageBelow(sel) });
-      a.push({ icon: 'folder-upload-outline', label: 'Add stage above', onPress: () => crud.createStageAbove(sel) });
-      a.push({ icon: 'pencil-outline', label: 'Edit', onPress: () => crud.edit(sel) });
-      a.push({ icon: 'content-duplicate', label: 'Duplicate', onPress: () => crud.duplicateTask(sel) });
-      a.push({ icon: 'bookmark-plus-outline', label: 'Save to template', onPress: () => openSaveToTemplate(sel) });
-      a.push({ icon: 'content-paste', label: 'Fill from template', onPress: () => openFillFromTemplate(sel) });
-      a.push({ icon: 'bookmark-multiple-outline', label: 'Templates saved', onPress: () => openSavedTemplates(sel) });
-      a.push({ icon: 'content-copy', label: 'Copy task info', onPress: () => crud.copyTaskInfo(sel) });
-      a.push({ icon: 'fingerprint', label: 'Copy GUID', onPress: () => crud.copyTaskGUID(sel) });
-      a.push({ icon: 'share-variant', label: 'Share task', onPress: () => crud.shareTask(sel) });
-      a.push({ icon: 'calendar-plus', label: 'Add to Google Calendar', onPress: () => crud.addToGoogleCalendar(sel) });
-      a.push({ icon: 'link-variant', label: 'Link to…', onPress: () => crud.startLink(sel) });
-      a.push({ icon: 'open-in-new', label: 'Open task info', onPress: () => crud.openInfo(sel) });
-      if (isKanbanView && selectedIsLeaf) {
-        a.push({ icon: 'layers-off-outline', label: 'Kanban: to "No state"', onPress: () => kanban.clearTreeRowKanbanState(sel) });
-      }
-      a.push({ icon: 'delete-outline', label: 'Delete', color: themeColors.error, onPress: () => crud.deleteTask(sel) });
-    } else {
-      // Default project actions when no task is selected
-      a.push({ icon: 'plus', label: 'Add task', onPress: () => crud.createTask(null) });
-      a.push({ icon: 'folder-plus-outline', label: 'Add stage', onPress: () => crud.createStage(null) });
-      a.push({ icon: 'flag-outline', label: 'Add milestone', onPress: () => crud.createTask(null, 'milestone') });
-    }
-
-    if (checkedCount > 0) {
-      a.push({ icon: 'sql_for_delete-sweep-outline', label: `Delete the ${checkedCount} selected rows`, color: themeColors.error, onPress: () => crud.deleteTasks(Object.keys(usePMStore.getState().checkedGUIDs)) });
-      a.push({ icon: 'checkbox-multiple-blank-circle-outline', label: 'Clear the selection', onPress: () => usePMStore.getState().clearChecked() });
-    }
-    if (isKanbanView) a.push({ icon: 'view-column-outline', label: 'Kanban Stages', onPress: () => usePMKanbanStore.getState().openStagesEditor(selectedProjectGUID) });
-    if (undoCount > 0) a.push({ icon: 'undo', label: 'Undo', onPress: () => crud.undoGanttAction() });
-    if (redoCount > 0) a.push({ icon: 'redo', label: pmT('Redo'), onPress: () => crud.redoGanttAction() });
-    a.push({ icon: 'cog-outline', label: 'Project settings', onPress: () => usePMStore.getState().openProjectSettings(selectedProjectGUID) });
-    return a;
-  }, [ownerGUID, picker, selectedProjectGUID, selectedTaskGUID, currentTaskRow, isSummary, selectedIsLeaf, checkedCount, undoCount, redoCount, ganttVsNetworkView, crud, kanban, themeColors.error]);
-  useFABContextActions('pm-project-dashboard', fabActions);
+  useTreeFabActions('pm-project-dashboard', {
+    ownerGUID, projectGUID: selectedProjectGUID, crud, kanban, enabled: !picker, isKanbanView: ganttVsNetworkView === 'showKanbanView',
+  });
 
   if (!ownerGUID) {
     return (
@@ -313,7 +253,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
-              rightPane={picker ? 'finances' : ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : ganttVsNetworkView === 'showBimView' ? 'bim' : 'gantt'}
+              rightPane={picker ? 'finances' : ganttVsNetworkView === 'showKanbanView' ? 'kanban' : ganttVsNetworkView === 'showVersionsView' ? 'versions' : ganttVsNetworkView === 'showFinancesView' ? 'finances' : ganttVsNetworkView === 'showPlanView' ? 'plan' : ganttVsNetworkView === 'showReportsView' ? 'reports' : ganttVsNetworkView === 'showEstimationView' ? 'estimation' : ganttVsNetworkView === 'showBimView' ? 'bim' : 'gantt'}
               hideTree={hideTreeNode}
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}
@@ -330,23 +270,13 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
         </View>
       )}
 
-      <PMTaskEditModal crud={crud} kanban={kanban} />
-      <PMTaskEditOptions crud={crud} />
-      <PMEditDependencyScreen crud={crud} />
-      <PMDependencyMenu crud={crud} />
-      <PMTaskRowMenu crud={crud} />
-      <PMTreeHeaderMenu crud={crud} />
-      <PMCustomColumnNameModalWindow crud={crud} />
-      <PMTreeColumnFilterPopup crud={crud} />
-      <PMGanttUXUISettinsModalWindow crud={crud} />
-      <PMExtendedWindow crud={crud} />
-      <PMExtendedDialogs crud={crud} />
-      {/* project versions: store sync + "Save project version" / "Restore project from version" windows */}
-      <PMVersionWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
-      {/* task templates: "Save to template" / "Fill from template" windows */}
-      <PMTaskTemplateWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
-      <PMApproveYesNoCancelModalWindow />
-      <PMTooltipLayer />
+      <PMTreeWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} crud={crud} kanban={kanban}>
+        <PMGanttUXUISettinsModalWindow crud={crud} />
+        <PMExtendedWindow crud={crud} />
+        <PMExtendedDialogs crud={crud} />
+        {/* project versions: store sync + "Save project version" / "Restore project from version" windows */}
+        <PMVersionWindows ownerGUID={ownerGUID} projectGUID={selectedProjectGUID} />
+      </PMTreeWindows>
     </View>
   );
 }
@@ -358,63 +288,6 @@ function Centered({ children, color }: { children: React.ReactNode; color: strin
       <PMTooltipLayer />
     </View>
   );
-}
-
-/** Web: Ctrl/⌘+Z = undo, Del = sql_for_delete, Enter/F2 = edit, Esc = cancel link / clear, Alt+↑↓ = move, Tab/Shift+Tab = indent. */
-function useKeyboardShortcuts(crud: ReturnType<typeof usePMCrud>, enabled: boolean = true) {
-  useEffect(() => {
-    if (!enabled || Platform.OS !== 'web' || typeof window === 'undefined') return;
-    const onKey = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) return;
-      const s = usePMStore.getState();
-      if (s.editingGUID || s.editingDep || s.uxuiSettingsOpen || s.customColumnPrompt || isPMApproveOpen()) return;
-      // Redo: Ctrl/⌘+Shift+Z or Ctrl+Y
-      if ((e.ctrlKey || e.metaKey) && ((e.shiftKey && (e.key === 'z' || e.key === 'Z')) || (!e.shiftKey && (e.key === 'y' || e.key === 'Y')))) {
-        e.preventDefault();
-        if (s.redoCount > 0) crud.redoGanttAction();
-        return;
-      }
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && (e.key === 'z' || e.key === 'Z')) {
-        e.preventDefault();
-        if (s.undoCount > 0) crud.undoGanttAction();
-        return;
-      }
-      const sel = s.selectedGUID;
-      if (e.key === 'Escape') {
-        if (s.depMenu) s.setDepMenu(null);
-        else if (s.treeHeaderMenu) s.setTreeHeaderMenu(null);
-        else if (s.linkSourceGUID) s.setLinkSource(null);
-        else s.setSelected(null);
-        return;
-      }
-      if (!sel) return;
-      if (e.key === 'Delete') {
-        e.preventDefault();
-        crud.deleteTask(sel);
-      } else if (e.key === 'Enter' || e.key === 'F2') {
-        e.preventDefault();
-        crud.edit(sel);
-      } else if (e.altKey && e.key === 'ArrowUp') {
-        e.preventDefault();
-        crud.moveBy(sel, -1);
-      } else if (e.altKey && e.key === 'ArrowDown') {
-        e.preventDefault();
-        crud.moveBy(sel, 1);
-      } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
-        e.preventDefault();
-        const i = s.rowIndexById[sel] ?? 0;
-        const next = s.visibleRows[i + (e.key === 'ArrowUp' ? -1 : 1)];
-        if (next) s.setSelected(next);
-      } else if (e.key === 'Tab') {
-        e.preventDefault();
-        if (e.shiftKey) crud.outdent(sel);
-        else crud.indent(sel);
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [crud, enabled]);
 }
 
 const styles = StyleSheet.create({

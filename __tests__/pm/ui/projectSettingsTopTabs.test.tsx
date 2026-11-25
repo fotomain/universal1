@@ -307,6 +307,27 @@ describe('Project settings window TopTabs', () => {
     expect(patchRowJSON.projectROIIncludePurchaseVAT).toBe(false);
   });
 
+  it('TabEstimation (right after TabROI, documentation/ESTIMATION): always there, its input is enabled, no estimation is saved as null; a new project has it too', () => {
+    seedStore();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-edit');
+    const tabIds = Array.from(q('pm-project-settings-toptabs')!.querySelectorAll('[data-testid^="pm-project-tab-"]')).map((e: any) => e.getAttribute('data-testid'));
+    expect(tabIds.indexOf('pm-project-tab-TabEstimation')).toBe(tabIds.indexOf('pm-project-tab-TabROI') + 1);
+    press('pm-project-tab-TabEstimation');
+    expect(q('pm-project-tab-estimation-content')).not.toBeNull();
+    expect((q('pm-project-estimation-input-text') as HTMLInputElement).readOnly).toBeFalsy();
+    expect(textOf('pm-estimation-fill-button-reason')).toBe('Pick the estimation project first.');
+    press('pm-project-save');
+    expect(mockUpdate.mock.calls[0][0].patch.rowJSON.projectEstimationGUID).toBeNull();
+    cleanupUI();
+    renderUI(<PMRecentProjectsToolbar ownerGUID={OWNER} />);
+    press('pm-project-add');
+    press('pm-project-add-menu-new');
+    expect(q('pm-project-tab-TabEstimation')).not.toBeNull();
+    press('pm-project-tab-TabEstimation');
+    expect(textOf('pm-estimation-fill-button-reason')).toBe('Pick the estimation project first.');
+  });
+
   it('on the ORGANIZATION screen the same Budgets tab edits the 3 currencies = the defaults of a NEW project', () => {
     const PMProjectBudgetsTab = require('../../../kit8/pm/view/project/settings/PMProjectBudgetsTab').default;
     const onChange = jest.fn();

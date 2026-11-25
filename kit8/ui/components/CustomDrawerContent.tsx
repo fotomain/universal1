@@ -197,6 +197,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       ],
     },
     { id: 'pm-projects', label: t('drawer.projectDashboard'), icon: 'timeline', route: 'pm/project/dashboard' },
+    // the Estimation dashboard (kit8/pm/estimation): input, edit and export estimates; right under the Project dashboard
+    { id: 'pm-estimation', label: t('drawer.estimationDashboard'), icon: 'calculate', route: 'pm/project/estimation/dashboard' },
     // reports: Monitor01 (planned · contracted · received · used per resource role, month and task; the FULL data set, live), Monitor02 ROI now, Monitor03 ROI history, Monitor07 Customer / Vendor balance, Monitor08 Consolidation
     {
       id: 'reports',

@@ -20,6 +20,7 @@ export function useSearchHistory(storageKey: string) {
   const [history, setHistory] = useState<string[]>([]);
   useEffect(() => {
     let alive = true;
+    setHistory([]); // another key = another list: never show the entries of the previous one
     Promise.resolve(storage()?.getItem?.(key)).then((raw: any) => {
       if (!alive || !raw) return;
       try { const list = JSON.parse(raw); if (Array.isArray(list)) setHistory(list.filter((x) => typeof x === 'string').slice(0, SEARCH_HISTORY_MAX)); } catch { /* broken value: start empty */ }

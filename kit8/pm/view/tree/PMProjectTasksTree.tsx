@@ -58,6 +58,7 @@ import { usePMKanbanStore } from '../../store/store_kanban';
 import { kanbanStageForRow, kanbanPercentForRow } from '../kanban/kanbanModel';
 import { kanbanStageColorOf, kanbanStageProgressOf, PM_KANBAN_NO_STATE_COLOR, PM_KANBAN_NO_STATE_LABEL } from '../../model/kanbanTypes';
 import PMInlineCellEditor from './inline/PMInlineCellEditor';
+import { cellFamilyOf } from './cellClipboard';
 import {
   PMTreeColumnKey,
   PM_TREE_RESIZE_GRAB,
@@ -816,14 +817,17 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
   }, []);
 
   /** onRightClickMenuMode: select the row and open PMTaskRowMenu at the window point */
-  const openRowMenu = useCallback((idx: number, winX: number, winY: number) => {
+  const openRowMenu = useCallback((idx: number, winX: number, winY: number, contentX = -1) => {
     const s = usePMStore.getState();
     const guid = s.visibleRows[idx];
     if (!guid) return;
     hidePMTip();
     s.setSelected(guid);
-    s.setRowMenu({ guid, x: winX, y: winY, source: 'tree' });
-  }, []);
+    // the cell under the pointer (a column that can be copied): the menu gets Copy cell / Paste cell
+    const field = contentX >= 0 ? cellFieldAt(contentX) : null;
+    const cellField = field && cellFamilyOf(field) ? field : null;
+    s.setRowMenu({ guid, x: winX, y: winY, source: 'tree', cellField, cellEditable: cellField ? cellEditable(guid, cellField) : false });
+  }, [cellFieldAt, cellEditable]);
 
   // web: right-click on the header -> PMTreeHeaderMenu; on a row (onRightClickMenuMode) -> PMTaskRowMenu;
   // elsewhere the browser menu
@@ -840,7 +844,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         const idx = Math.floor((y - PM_SCALE_HEIGHT + scrollY.value) / PM_ROW_HEIGHT);
         if (idx < 0 || idx >= usePMStore.getState().visibleRows.length) return;
         e.preventDefault();
-        openRowMenu(idx, e.clientX, e.clientY);
+        openRowMenu(idx, e.clientX, e.clientY, e.clientX - r.left + treeScrollX.value);
         return;
       }
       e.preventDefault();
@@ -1112,7 +1116,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
         menuRow.value = -1;
         if (!ok || idx < 0 || dragging.value !== 0) return;
         if (Math.abs(e.x - menuX.value) + Math.abs(e.y - menuY.value) > 12) return; // it became a drag
-        runOnJS(openRowMenu)(idx, e.absoluteX, e.absoluteY);
+        runOnJS(openRowMenu)(idx, e.absoluteX, e.absoluteY, cx(e.x));
       });
 
     /** the panel's drag handle (last panel button): drag the panel's row */

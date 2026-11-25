@@ -18,6 +18,9 @@ import { taskModeOf, taskModeReadOnlyReason } from '../../model/taskScheduleMode
 import { extendedOptionsPatch } from '../../extended/extendedOptions';
 import { useBimSingleComponentOfTask } from '../../bim/component/bimComponentRegistry';
 import { useBimComponentActions } from '../../bim/component/useBimComponentActions';
+import { canPasteCell, cellClipboard, copyCell, pasteCell } from '../tree/cellClipboard';
+import { appDispatch } from '../../../redux/storeRef';
+import { showSnackbar } from '../../../redux/uxuiSlice';
 
 export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   const menu = usePMStore((s) => s.rowMenu);
@@ -33,6 +36,8 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
   // BIM: a task of a BIM project whose model is open and that is ONE component (single detail = task) also gets Share + Go to component
   const bimComponent = useBimSingleComponentOfTask(task?.projectGUID, menu?.guid);
   const bimActions = useBimComponentActions();
+  // the cell clipboard (kit8/pm/view/tree/cellClipboard.ts): re-render when something is copied
+  const clip = React.useSyncExternalStore(cellClipboard.subscribe, cellClipboard.get, cellClipboard.get);
   if (!menu || !task) return null;
 
   const guid = menu.guid;
@@ -46,7 +51,20 @@ export default function PMTaskRowMenu({ crud }: { crud: PMCrud }) {
     fn();
   };
   const id = (s: string) => `pm-row-menu-${s}`;
+  // right click on a CELL of the tree: Copy cell, and Paste cell when the copied value fits this column and the cell can be edited
+  const cellField = menu.source === 'tree' ? menu.cellField ?? null : null;
+  const cellItems: PMMenuItemProps[] = cellField ? [
+    { testID: id('copy-cell'), label: 'Copy cell', icon: 'content_copy', onPress: run(() => { void copyCell(guid, cellField); }) },
+    ...(clip && canPasteCell(clip, cellField) && menu.cellEditable ? [{
+      testID: id('paste-cell'), label: 'Paste cell', icon: 'content_paste',
+      onPress: run(() => {
+        const err = pasteCell(clip, guid, cellField, crud);
+        if (err) { try { appDispatch(showSnackbar({ message: err, duration: 3000 })); } catch { /* no store */ } }
+      }),
+    }] : []),
+  ] : [];
   const items: PMMenuItemProps[] = [
+    ...cellItems,
     { testID: id('add-below'), label: 'Add task below', icon: 'add_row_below', onPress: run(() => crud.createTaskBelow(guid)) },
     { testID: id('add-above'), label: 'Add task above', icon: 'add_row_above', onPress: run(() => crud.createTaskAbove(guid)) },
     ...(isSummary ? [{ testID: id('add-inside'), label: 'Add task inside', icon: 'add', onPress: run(() => crud.createTask(guid)) }] : []),

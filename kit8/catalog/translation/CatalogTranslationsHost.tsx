@@ -22,7 +22,7 @@ export default function CatalogTranslationsHost(): null {
     let timer: ReturnType<typeof setTimeout> | null = null;
     const read = async () => {
       try {
-        const rows = await readAllPages((from, to) => client.from('catalogTranslationTable').select('rowOwnerGUID, rowParentGUID, rowJSON').eq('rowParentGUID', language)
+        const rows = await readAllPages((from, to) => client.from('catalogTranslationTable').select('rowOwnerGUID, rowParentGUID, rowJSON').eq('rowParentGUID', language).not('rowOwnerGUID', 'like', 'estn-%')   // the rows of the norm books (kit8/pm/estimation) are read when a book is opened, never all at once
           .order('rowOwnerGUID', { ascending: true }).order('rowGUID', { ascending: true }).range(from, to));
         if (alive) setCatalogTranslations(language, rows);
       } catch {

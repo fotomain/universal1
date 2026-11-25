@@ -414,6 +414,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="demo/carousel/index" options={{ drawerItemStyle: { display: 'none' }, title: 'Carousel Vendors' }} />
               <Drawer.Screen name="demo/carousel/CarouselVendorsPaper" options={{ drawerItemStyle: { display: 'none' }, title: 'Carousel Vendors (Paper)' }} />
               <Drawer.Screen name="pm/project/dashboard/index" options={{ title: t('drawer.projects'), drawerLabel: t('drawer.projects') }} />
+              <Drawer.Screen name="pm/project/estimation/dashboard/index" options={{ title: t('drawer.estimationDashboard'), drawerLabel: t('drawer.estimationDashboard') }} />
               <Drawer.Screen name="catalog/product/dashboard/index" options={{ title: t('drawer.products'), drawerLabel: t('drawer.products') }} />
               <Drawer.Screen name="catalog/resourcerole/dashboard/index" options={{ title: t('drawer.resourceRoles'), drawerLabel: t('drawer.resourceRoles') }} />
               <Drawer.Screen name="catalog/management/genus/list/index" options={{ title: t('drawer.managementGenus'), drawerLabel: t('drawer.managementGenus') }} />
@@ -428,6 +429,17 @@ function RootLayoutContent() {
               <Drawer.Screen name="catalog/organization/texts/index" options={{ title: t('drawer.applicationTexts'), drawerLabel: t('drawer.applicationTexts') }} />
               <Drawer.Screen name="system/costcalculator" options={{ title: t('drawer.costCalculator'), drawerLabel: t('drawer.costCalculator') }} />
               <Drawer.Screen name="catalog/organization/members/index" options={{ title: t('drawer.organizationMembers'), drawerLabel: t('drawer.organizationMembers') }} />
+              {/* a route file that is NOT declared here opens Home instead of its screen (seen 2026-11-25 on the SDK 58 tree): every screen the menu or a button opens is declared */}
+              <Drawer.Screen name="catalog/project/index" options={{ title: t('drawer.projects'), drawerLabel: t('drawer.projects') }} />
+              <Drawer.Screen name="catalog/organization/index" options={{ title: t('drawer.organizations'), drawerLabel: t('drawer.organizations') }} />
+              <Drawer.Screen name="catalog/organization/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: t('drawer.organizations') }} />
+              <Drawer.Screen name="catalog/partner/list/index" options={{ title: t('drawer.partners'), drawerLabel: t('drawer.partners') }} />
+              <Drawer.Screen name="catalog/partner/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: t('drawer.partners') }} />
+              <Drawer.Screen name="catalog/person/list/index" options={{ title: t('drawer.persons'), drawerLabel: t('drawer.persons') }} />
+              <Drawer.Screen name="catalog/person/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: t('drawer.persons') }} />
+              <Drawer.Screen name="catalog/country/index" options={{ title: t('drawer.countries'), drawerLabel: t('drawer.countries') }} />
+              <Drawer.Screen name="catalog/country/list/index" options={{ drawerItemStyle: { display: 'none' }, title: t('drawer.countries') }} />
+              <Drawer.Screen name="catalog/country/edit/index" options={{ drawerItemStyle: { display: 'none' }, title: t('drawer.countries') }} />
               <Drawer.Screen name="catalog/money/account/index" options={{ title: t('drawer.moneyAccounts'), drawerLabel: t('drawer.moneyAccounts') }} />
               <Drawer.Screen name="catalog/work/center/index" options={{ title: t('drawer.workCenters'), drawerLabel: t('drawer.workCenters') }} />
               <Drawer.Screen name="catalog/management/templateresourcecontract/list/index" options={{ title: t('drawer.resourceContractTemplates'), drawerLabel: t('drawer.resourceContractTemplates') }} />

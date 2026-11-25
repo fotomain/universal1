@@ -16,6 +16,7 @@ import { SegmentedButtons as PaperSegmentedButtons } from 'react-native-paper';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import IconApp from './IconApp';
 import { AppleSegmentedControl } from '../../applemacui/components/AppleSegmentedControl';
+import { usePMTip } from '../../../pm/inner/tooltip/PMTooltip';
 
 export interface SegmentButtonApp<T extends string = string> {
   value: T;
@@ -25,6 +26,8 @@ export interface SegmentButtonApp<T extends string = string> {
   disabled?: boolean;
   testID?: string;
   accessibilityLabel?: string;
+  /** hover tip (long press on a phone): the NAME first, the description after it, e.g. "Budget currency (USD): ...". Shown by the drawn looks (not paper / applemacui). */
+  tip?: string;
 }
 
 export interface SegmentButtonsAppProps<T extends string = string> {
@@ -131,46 +134,66 @@ export function SegmentButtonsApp<T extends string = string>({
           const off = disabled || !!b.disabled;
           const color = selected ? look.selText : look.text;
           return (
-            <Pressable
+            <SegmentItem
               key={b.value}
+              b={b}
               testID={idOf(b)}
-              accessibilityRole="radio"
-              accessibilityLabel={b.accessibilityLabel || b.label}
-              accessibilityState={{ selected, checked: selected, disabled: off }}
-              // react-native-web 0.21 ignores accessibilityState -> aria-* too
-              aria-checked={selected}
-              aria-selected={selected}
-              disabled={off}
+              selected={selected}
+              off={off}
+              first={i === 0}
+              look={look}
+              color={color}
+              check={check}
+              primary={primary}
               onPress={() => {
                 if (!selected) onValueChange(b.value);
               }}
-              style={({ hovered, pressed }: any) => ({
-                flex: 1,
-                minWidth: 0,
-                flexDirection: 'row',
-                alignItems: 'center',
-                justifyContent: 'center',
-                paddingHorizontal: 8,
-                borderRadius: look.pill ? look.inner : 0,
-                borderLeftWidth: look.divider && i > 0 ? 1 : 0,
-                borderLeftColor: look.trackBorder,
-                backgroundColor: selected ? look.selBg : hovered || pressed ? `${primary}12` : 'transparent',
-                opacity: b.disabled && !disabled ? 0.4 : 1,
-              })}
-            >
-              {check && selected ? (
-                <IconApp name="check" size={16} color={color} style={{ marginRight: 6 }} />
-              ) : b.icon ? (
-                <IconApp name={b.icon} size={16} color={color} style={{ marginRight: 6 }} />
-              ) : null}
-              <Text numberOfLines={1} style={{ color, fontSize: look.font, fontWeight: selected ? look.weight : '500', flexShrink: 1 }}>
-                {b.label}
-              </Text>
-            </Pressable>
+            />
           );
         })}
       </View>
     </View>
+  );
+}
+
+/** ONE drawn segment (a component of its own: the tip is a hook) */
+function SegmentItem<T extends string>({ b, testID, selected, off, first, look, color, check, primary, onPress }: { b: SegmentButtonApp<T>; testID: string; selected: boolean; off: boolean; first: boolean; look: any; color: string; check: boolean; primary: string; onPress: () => void }) {
+  const tip = usePMTip(b.tip, 'app');
+  return (
+    <Pressable
+      {...tip}
+      testID={testID}
+      accessibilityRole="radio"
+      accessibilityLabel={b.accessibilityLabel || b.label}
+      accessibilityState={{ selected, checked: selected, disabled: off }}
+      // react-native-web 0.21 ignores accessibilityState -> aria-* too
+      aria-checked={selected}
+      aria-selected={selected}
+      disabled={off}
+      onPress={onPress}
+      style={({ hovered, pressed }: any) => ({
+        flex: 1,
+        minWidth: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+        borderRadius: look.pill ? look.inner : 0,
+        borderLeftWidth: look.divider && !first ? 1 : 0,
+        borderLeftColor: look.trackBorder,
+        backgroundColor: selected ? look.selBg : hovered || pressed ? `${primary}12` : 'transparent',
+        opacity: b.disabled ? 0.4 : 1,
+      })}
+    >
+      {check && selected ? (
+        <IconApp name="check" size={16} color={color} style={{ marginRight: 6 }} />
+      ) : b.icon ? (
+        <IconApp name={b.icon} size={16} color={color} style={{ marginRight: 6 }} />
+      ) : null}
+      <Text numberOfLines={1} style={{ color, fontSize: look.font, fontWeight: selected ? look.weight : '500', flexShrink: 1 }}>
+        {b.label}
+      </Text>
+    </Pressable>
   );
 }
 

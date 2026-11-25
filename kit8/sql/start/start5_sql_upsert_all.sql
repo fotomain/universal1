@@ -7260,3 +7260,15 @@ INSERT INTO public.language_catalog ("rowGUID", "rowOwnerGUID", "rowParentGUID",
   ('et', 'languageCatalog', 'empty', 15000, '{"title": "Estonian", "code": "et", "abbr": "ET"}'::jsonb)
 ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
 
+-- Norm book tree (PART 58 of start1_sql_tables.sql + start2_sql_code.sql): upsert
+INSERT INTO public.estimation_norm_book_catalog ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON") VALUES
+  ('estWorldNorms2', 'estimationCatalog', 'empty', 1000, '{"nodeKind": "world", "code": "WORLD2", "title": "World Norms (v2)"}'::jsonb),
+  ('estContinentEurope', 'estimationCatalog', 'estWorldNorms2', 1000, '{"nodeKind": "continent", "code": "EUROPE", "title": "Europe"}'::jsonb),
+  ('estContinentAsia', 'estimationCatalog', 'estWorldNorms2', 2000, '{"nodeKind": "continent", "code": "ASIA", "title": "Asia"}'::jsonb),
+  ('estContinentAfrica', 'estimationCatalog', 'estWorldNorms2', 3000, '{"nodeKind": "continent", "code": "AFRICA", "title": "Africa"}'::jsonb),
+  ('estContinentNorthAmerica', 'estimationCatalog', 'estWorldNorms2', 4000, '{"nodeKind": "continent", "code": "NORTHAMERICA", "title": "North America"}'::jsonb),
+  ('estContinentSouthAmerica', 'estimationCatalog', 'estWorldNorms2', 5000, '{"nodeKind": "continent", "code": "SOUTHAMERICA", "title": "South America"}'::jsonb),
+  ('estContinentOceania', 'estimationCatalog', 'estWorldNorms2', 6000, '{"nodeKind": "continent", "code": "OCEANIA", "title": "Oceania"}'::jsonb),
+  ('estCountryRU', 'estimationCatalog', 'estContinentEurope', 1000, '{"nodeKind": "country", "code": "RU", "countryCode": "RU", "title": "Russia"}'::jsonb)
+ON CONFLICT ("rowGUID") DO UPDATE SET "rowJSON" = EXCLUDED."rowJSON", "orderInList" = EXCLUDED."orderInList";
+

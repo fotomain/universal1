@@ -56,7 +56,7 @@ import PMDateInput from "../../../inner/inputs/PMDateInput";
 import PMAddProjectButton from "../buttons/PMAddProjectButton";
 import PMProjectActionsButton from "../buttons/PMProjectActionsButton";
 import { projectCostBudgetOn } from "../../../model/taskInputScope";
-import { usePMTip } from "../../../inner/tooltip/PMTooltip";
+import { PMTooltipLayer, usePMTip } from "../../../inner/tooltip/PMTooltip";
 import SelectProjectFromList from "../SelectProjectFromList";
 import OrganizationFilter from "../../../../catalog/organization/switch/OrganizationFilter";
 import ImportExportProject, { type PMExchangeTab } from "../../../crud/exchange/project/ImportExportProject";
@@ -86,6 +86,8 @@ import PMProjectSubprojectsTab, { subprojectValuesOf, type PMSubprojectValues } 
 import PMProjectKanbanSettingsSection from "../settings/kanban/PMProjectKanbanSettingsSection";
 import { kanbanValuesOf, type PMKanbanSettingsValues } from "../settings/kanban/kanbanSettings";
 import PMProjectRoiTab, { roiValuesOf, type PMProjectRoiValues } from "../settings/PMProjectRoiTab";
+import PMProjectEstimationTab from "../estimation/PMProjectEstimationTab";
+import { estimationValuesOf, type PMProjectEstimationValues } from "../estimation/estimationModel";
 import { hourModelValuesOf } from "../../../hourmodel/hourModelSettings";
 import PMResourceLevelingSettingsTab, { resourceLevelingValuesOf, type PMResourceLevelingValues } from "../../../resourceleveling/PMResourceLevelingSettingsTab";
 import PMProjectPaymentsTab, { paymentsValuesOf, type PMProjectPaymentsValues } from "../settings/PMProjectPaymentsTab";
@@ -112,9 +114,9 @@ import { PROJECT_CURRENCY_CHANGE_MESSAGE, PROJECT_CURRENCY_CHANGE_TITLE, changed
 import { useProjectCurrencyRecalc } from "../../../../catalog/organization/currencies/useOrganizationCurrencyRecalc";
 import ScrollableTabBar from '../../../../ui/components/tabs/ScrollableTabBar';
 
-export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabChat' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabBIM' | 'TabMembers';
+export type ProjectSettingsTab = 'TabMain' | 'TabBudgets' | 'TabPayments' | 'TabFiles' | 'TabChat' | 'TabVendor' | 'TabCustomer' | 'TabProduct' | 'TabSubprojects' | 'TabROI' | 'TabEstimation' | 'TabResources' | 'TabUXUI' | 'TabGantt' | 'TabPartners' | 'TabKanban' | 'TabBIM' | 'TabMembers';
 
-interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectPaymentsValues, PMProjectFilesValues, PMProjectChatValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
+interface Draft extends PMProjectBudgetsValues, PMProjectVendorValues, PMProjectCustomerValues, PMProjectProductValues, PMSubprojectValues, PMProjectRoiValues, PMProjectEstimationValues, PMProjectPaymentsValues, PMProjectFilesValues, PMProjectChatValues, PMProjectGanttValues, PMResourceLevelingValues, PMKanbanSettingsValues {
   rowGUID: string | null; // null = new project
   name: string;
   start: string;
@@ -332,6 +334,7 @@ export default function PMRecentProjectsToolbar({
       ...productValuesOf(null),
       ...subprojectValuesOf(null),
       ...roiValuesOf(null),
+      ...estimationValuesOf(null),
       ...resourceLevelingValuesOf(null),
       ...kanbanValuesOf(null),
       ...paymentsValuesOf(null),
@@ -387,6 +390,7 @@ export default function PMRecentProjectsToolbar({
       ...productValuesOf(project.rowJSON),
       ...subprojectValuesOf(project.rowJSON),
       ...roiValuesOf(project.rowJSON),
+      ...estimationValuesOf(project.rowJSON),
       ...resourceLevelingValuesOf(project.rowJSON),
       ...hourModelValuesOf(project.rowJSON),
       ...kanbanValuesOf(project.rowJSON),
@@ -568,6 +572,7 @@ export default function PMRecentProjectsToolbar({
             ...productValuesOf(draft),
             ...subprojectValuesOf(draft),
             ...roiValuesOf(draft),
+            ...estimationValuesOf(draft),
             ...resourceLevelingValuesOf(draft),
             ...hourModelValuesOf(draft),
             ...kanbanValuesOf(draft),
@@ -623,7 +628,7 @@ export default function PMRecentProjectsToolbar({
       row.rowJSON.mainCustomerGUID = draft.mainCustomerGUID ?? null;
       row.rowJSON.mainCustomerContractGUID = draft.mainCustomerContractGUID ?? null;
       row.rowJSON.projectManagerPerson = draft.projectManagerPerson ?? null;
-      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), resourceLevelingValuesOf(draft), hourModelValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
+      Object.assign(row.rowJSON, budgetsValuesOf(draft), vendorValuesOf(draft), customerValuesOf(draft), productValuesOf(draft), subprojectValuesOf(draft), roiValuesOf(draft), estimationValuesOf(draft), resourceLevelingValuesOf(draft), hourModelValuesOf(draft), kanbanValuesOf(draft), paymentsValuesOf(draft), filesValuesOf(draft), chatValuesOf(draft), ganttValuesOf(draft));
       if (draft.projectIsBIMBased === true) row.rowJSON.projectIsBIMBased = true;
       if (keepOpen) {
         // Save: the window stays and becomes the Project settings window of the new project once the database has it
@@ -947,7 +952,7 @@ export default function PMRecentProjectsToolbar({
                 >
                   {draft?.rowGUID ? "Project settings" : "New project"}
                 </Text>
-                <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} />
+                <ShareScreenshotButton testID="pm-project-settings-share" color={themeColors.text} tipScope="modal" />
                 <Pressable
                   testID="pm-project-settings-menu"
                   accessibilityRole="button"
@@ -967,7 +972,7 @@ export default function PMRecentProjectsToolbar({
                 </Pressable>
               </View>
 
-              {/* TopTabs Bar: TabMain, TabGantt, TabBudgets, TabResources, TabROI, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
+              {/* TopTabs Bar: TabMain, TabGantt, TabBudgets, TabResources, TabROI, TabEstimation, TabPayments, TabVendor, TabCustomer, TabProduct, TabSubprojects, TabUXUI, TabPartners, TabKanban */}
               <ScrollableTabBar testID="pm-project-settings-toptabs" style={styles.topTabsBar}>
                 {[
                   { id: 'TabMain' as const, label: 'Main', icon: 'info' },
@@ -975,6 +980,7 @@ export default function PMRecentProjectsToolbar({
                   { id: 'TabBudgets' as const, label: 'Budgets', icon: 'payments' },
                   { id: 'TabResources' as const, label: 'Resources', icon: 'engineering' },
                   { id: 'TabROI' as const, label: 'ROI', icon: 'trending_up' },
+                  { id: 'TabEstimation' as const, label: 'Estimation', icon: 'calculate' },
                   { id: 'TabPayments' as const, label: 'Payments', icon: 'account_balance_wallet' },
                   { id: 'TabFiles' as const, label: 'Files', icon: 'attach_file' },
                   { id: 'TabChat' as const, label: 'Chat', icon: 'chat' },
@@ -1197,6 +1203,16 @@ export default function PMRecentProjectsToolbar({
                 )}
                 {activeTab === 'TabROI' && (
                   <PMProjectRoiTab values={draft || {}} onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))} />
+                )}
+                {activeTab === 'TabEstimation' && (
+                  <PMProjectEstimationTab
+                    values={draft || {}}
+                    onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
+                    savedProject={draft?.rowGUID ? projectsById[draft.rowGUID] : null}
+                    ownerGUID={ownerGUID}
+                    draftBudgetCurrency={draft?.currencyForBudget ?? null}
+                    locked={settingsLocked}
+                  />
                 )}
 
                 {activeTab === 'TabUXUI' && (
@@ -1492,6 +1508,8 @@ export default function PMRecentProjectsToolbar({
                   onPress={() => saveDraft()}
                 />
               </View>
+              {/* the tips of the window (a Modal covers the layers of the screen and of the app) */}
+              <PMTooltipLayer scope="modal" />
             </View>
           </View>
           {/* inside the settings Modal: iOS presents a modal only from the top-most one */}

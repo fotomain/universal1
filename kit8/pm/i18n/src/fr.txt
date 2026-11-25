@@ -1199,3 +1199,308 @@
 1199|{{resource}} est nécessaire {{hours}} h le {{day}}, mais le calendrier de la ressource autorise {{capacity}} h ce jour-là. La tâche peut-elle être déplacée ou le calendrier modifié ?
 1200|{{resource}} : le calendrier n'a pas le jour {{day}} (non rempli pour cette année), les {{hours}} h ne peuvent donc pas être vérifiées
 1201|{{update}} paiement(s) vont changer et {{remove}} seront supprimés. Ce que vous avez saisi sur un paiement (dates, poste budgétaire, bénéficiaire ...) est conservé.
+1202|Choisissez d'abord le projet d'estimation.
+1203|Lecture de l'estimation...
+1204|Le projet d'estimation est introuvable ou vous n'avez pas le droit de le lire.
+1205|Le projet d'estimation n'a aucune tâche : rien à copier.
+1206|Enregistrez d'abord le projet (bouton Enregistrer) : l'estimation pourra alors y être copiée.
+1207|Le projet d'estimation a été modifié dans cette fenêtre : enregistrez d'abord les paramètres.
+1208|Projet en lecture seule : rien ne peut être modifié.
+1209|Vous ne pouvez pas créer de tâches dans ce projet.
+1210|{{tasks}} tâches, {{links}} liens et {{lines}} lignes de tâche seront copiés. Les lignes ne sont pas comptabilisées.
+1211|Remplir le projet depuis l'estimation
+1212|Recalculer les lignes de tâche maintenant ?
+1213|Les devises de l'estimation ({{from}}) diffèrent de celles de ce projet ({{to}}) : les lignes copiées n'ont pas encore de montants en {{to}}. Les recalculer maintenant avec les taux de change ?
+1214|Oui
+1215|{{tasks}} tâches et {{lines}} lignes de tâche copiées. Appuyez sur Comptabiliser les tâches non comptabilisées pour les comptabiliser.
+1216|Annulé. Rien n'a été modifié.
+1217|Remplacer
+1218|Ajouter
+1219|Projet vide
+1220|{{tasks}} tâches et étapes, {{links}} liens et {{lines}} lignes de tâche de « {{from}} » seront copiés dans « {{to}} ». Les lignes ne sont pas comptabilisées.
+1221|Déjà rempli le {{date}} ({{mode}}, {{n}} tâches). Remplir à nouveau ajoute encore les lignes, sauf si vous choisissez Remplacer.
+1222|Le projet a déjà {{n}} lignes de premier niveau. Que doit-il leur arriver ?
+1223|Ajouter après les lignes existantes
+1224|Rien n'est modifié dans le projet.
+1225|Remplacer les lignes existantes
+1226|Impossible : {{n}} tâches du projet sont comptabilisées.
+1227|Impossible : le projet contient des documents (factures, commandes, réalisations ...).
+1228|Les {{n}} lignes de premier niveau existantes, avec tout ce qu'elles contiennent, sont supprimées une fois la copie réussie.
+1229|Choisissez une option pour continuer.
+1230|Les devises diffèrent ({{from}} -> {{to}}) : les montants des lignes copiées sont supprimés, et on vous demandera si vous voulez les recalculer maintenant.
+1231|Terminé : {{tasks}} tâches, {{links}} liens et {{lines}} lignes de tâche copiés.
+1232|(aucun poste budgétaire)
+1233|Produits
+1234|Estimation
+1235|Projet actuel
+1236|Estimation - actuel
+1237|L'estimation n'a aucune ligne de tâche.
+1238|{{n}} lignes n'ont pas de montant budgétaire (pas de devise budgétaire ou pas de taux de change) : elles comptent pour 0.
+1239|{{n}} lignes n'ont pas de poste budgétaire.
+1240|La devise budgétaire de l'estimation est {{from}}, celle de ce projet {{to}} : il n'y a pas de taux de change pour aujourd'hui.
+1241|La devise budgétaire de l'estimation est {{from}}, celle de ce projet {{to}} : la colonne convertie utilise le taux d'aujourd'hui et n'est qu'indicative.
+1242|Estimation
+1243|Bénéfice
+1244|Dernier remplissage : {{date}} - {{n}} tâches, {{lines}} lignes de tâche.
+1245|Lecture de l'estimation
+1246|Écriture de {{n}} tâches
+1247|Écriture de {{n}} liens
+1248|Écriture de {{n}} lignes de tâche
+1249|Suppression des anciennes lignes
+1250|Enregistrement de la note du remplissage
+1251|Projet d'estimation
+1252|Rechercher le projet d'estimation…
+1253|Projet en lecture seule : le projet d'estimation ne peut pas être modifié.
+1254|Aucun projet d'estimation. Faites l'estimation dans un projet séparé, puis choisissez-le ici.
+1255|Aucun projet trouvé
+1256|Réessayer
+1257|Annuler le remplissage
+1258|Partager la capture d'écran + JSON
+1259|Estimation : les sommes du projet d'estimation de ce projet, par poste budgétaire
+1260|Aucun projet d'estimation défini. Choisissez-le dans les paramètres du projet, onglet Estimation.
+1261|Pas de taux dans le livre des taux pour : {{c}}. Saisissez le taux à la main.
+1262|Les taux du livre des taux ont été lus.
+1263|Ouvrez ou créez d'abord un devis (onglet Devis).
+1264|La norme a été ajoutée. {{n}} ressource(s) sans prix dans le livre : chiffrez-les dans le tableau.
+1265|La norme a été ajoutée au devis.
+1266|Non enregistré
+1267|Tableau de bord des devis
+1268|son projet de devis est modifié
+1269|Ouvrez d'abord un projet (Tableau de bord des projets) ou utilisez le bouton de Paramètres du projet -> Devis.
+1270|projet en lecture seule
+1271|lecture seule, pas de modification (permissionEstimationManager)
+1272|Recharger
+1273|(Exécutez start1 + start2 + start4 : SQL PART 58.)
+1274|Aucun projet.
+1275|Nouveau devis
+1276|Nouveau chiffrage
+1277|Supprimer le devis
+1278|Consolidation
+1279|Lecture...
+1280|Ce projet n'a pas encore de devis.
+1281|Créez-en un avec Nouveau devis ou partez d'un exemple dans l'onglet Modèles.
+1282|Coûts directs
+1283|Frais généraux
+1284|Total aux prix de base
+1285|Total aux prix courants
+1286|Dans la devise de la vue
+1287|Paramètres du document
+1288|Livres de normes
+1289|Modèles
+1290|Récapitulatif
+1291|Document
+1292|Prix de base et un indice
+1293|Commercial
+1294|Ressources et indice (plus tard)
+1295|Ressources (plus tard)
+1296|Normes, indice et taxes
+1297|Non productif
+1298|Productif
+1299|Linéaire
+1300|Unique / dangereux
+1301|La provision pour imprévus ne dépasse en général pas {{cap}} % pour ce type d'ouvrage.
+1302|Devises : chaque montant est stocké dans les trois
+1303|Taux vers la devise budgétaire
+1304|Taux vers la devise comptable
+1305|Taux vers la devise de consolidation
+1306|Lire les taux
+1307|Devis récapitulatif
+1308|Construction
+1309|Installation
+1310|Autres coûts
+1311|En-tête et signatures
+1312|Les documents emploient le libellé de la Méthodologie (Paramètres du projet -> Devis).
+1313|Libellé neutre : aucun texte propre à un pays, aucun numéro de formulaire (Paramètres du projet -> Devis).
+1314|Colonnes de cette présentation
+1315|Les devis locaux et les devis de coûts séparés vont dans leur chapitre (réglé dans les paramètres de chaque document). Montants en milliers, devise {{c}}.
+1316|Imprévus, %
+1317|TVA, %
+1318|Chapitres, ouvrages, travaux et coûts
+1319|Total, chapitres 1 - 7
+1320|Total, chapitres 1 - 8
+1321|Total, chapitres 1 - 9
+1322|Total, chapitres 1 - 12
+1323|Imprévus, {{p}} %
+1324|TVA, {{p}} %
+1325|TOTAL TTC
+1326|Lecture des fichiers
+1327|Annulé.
+1328|Terminé : {{n}} lignes écrites.
+1329|Terminé : {{norms}} normes, {{sections}} sections, {{resources}} ressources.
+1330|Fichiers ignorés : {{n}}.
+1331|Importer des livres de normes
+1332|Fichiers : un .zip ou .xml d'un livre de normes (normes et ressources chiffrées) ou un .zip de l'export ({{f}}).
+1333|Choisir des fichiers
+1334|Aucun fichier choisi
+1335|Où le livre se place dans l'arbre
+1336|Code pays (ISO)
+1337|Pays inconnu
+1338|Textes
+1339|Traduire en anglais avec Google AI (le texte anglais devient le principal)
+1340|Garder les textes d'origine comme traductions (traductions du catalogue)
+1341|La traduction demande une clé Google AI dans les réglages de l'application (GOOGLE_AI_API_KEY).
+1342|Annuler l'import
+1343|Pas encore de livres de normes. Exécutez le SQL de PART 58 et importez un livre.
+1344|Choisissez un livre de normes à gauche.
+1345|Rechercher par code ou titre
+1346|Taux horaire de main-d'œuvre
+1347|Début du livre
+1348|Ajouter au devis
+1349|Rien ici.
+1350|Structure
+1351|Section
+1352|Poste
+1353|(niveau supérieur)
+1354|Norme / justification
+1355|Réf. métré
+1356|Devise budgétaire
+1357|Devise comptable
+1358|Devise de consolidation
+1359|Catégorie
+1360|Terminé
+1361|Corps de métier / description
+1362|Par m2
+1363|Nouveau corps de métier
+1364|Nouvelle section
+1365|+ Corps de métier
+1366|+ Section
+1367|+ Poste
+1368|Tout ce qui est sous une section est supprimé avec elle.
+1369|Feuille de devis
+1370|Avancé (matrice de ressources)
+1371|Chiffrage rapide
+1372|Décomposition par corps de métier
+1373|Lecture du devis
+1374|Rien n'est choisi pour l'export.
+1375|Terminé : {{n}} document(s) exporté(s).
+1376|Documents
+1377|Pas encore de devis : créez-en un dans l'onglet Devis ou depuis un exemple dans Modèles.
+1378|Sans titre
+1379|Ajouter la feuille de ressources de chaque devis
+1380|Ajouter le devis récapitulatif (chapitres 1 - 12)
+1381|Format
+1382|Excel (.xlsx, totaux en formules)
+1383|PDF (un fichier par document)
+1384|Le libellé de la Méthodologie est utilisé (Paramètres du projet -> Devis).
+1385|Libellé neutre : aucun texte propre à un pays, aucun numéro de formulaire.
+1386|Les montants sont affichés en : {{b}}.
+1387|Lecture du livre de normes
+1388|Création du zip
+1389|Terminé : {{n}} lignes en {{kb}} Ko.
+1390|Exporter un livre de normes
+1391|Le zip contient manifest.json, json/ (les données, pour l'import) et csv/ (les mêmes lignes pour Excel).
+1392|Exporter le zip
+1393|L'exemple a été exporté.
+1394|Aucune ligne trouvée : la première ligne doit contenir les noms de colonnes du modèle de saisie.
+1395|{{n}} lignes ajoutées.
+1396|Partir d'un exemple (saisie)
+1397|Créer ce devis
+1398|Les chiffres des exemples sont indicatifs : modifiez-les, ce ne sont pas des données d'un bordereau de prix.
+1399|Saisie depuis un tableau
+1400|Télécharger le modèle de saisie (CSV)
+1401|Collez ici un tableau (CSV ou copié d'Excel) ; première ligne = noms de colonnes du modèle
+1402|Ajouter les lignes au devis ouvert
+1403|Exemples de sortie
+1404|Devis local, chiffrage et devis récapitulatif faits à partir des exemples ci-dessus - pour voir les documents avant de créer les vôtres.
+1405|Exemple de sortie : Excel
+1406|Exemple de sortie : PDF
+1407|Sections et postes avec normes, unités, quantités, coefficients, coûts unitaires de main-d'œuvre, d'engins et de matériaux, frais généraux, bénéfice et indice aux prix courants.
+1408|Une ligne par travail : catégorie, description, unité, quantité, coût unitaire, majoration, prix et statut. Rapide pour les petits travaux et les chiffrages.
+1409|Une section par corps de métier avec main-d'œuvre et matériaux, coût au m2 et part : pour les estimations de concept.
+1410|Préparation du site de construction
+1411|Ouvrages principaux de construction
+1412|Ouvrages annexes et de service
+1413|Installations énergétiques
+1414|Installations de transport et communications
+1415|Réseaux et ouvrages extérieurs : eau, assainissement, chauffage, gaz
+1416|Aménagement paysager et du site
+1417|Bâtiments et ouvrages provisoires
+1418|Autres travaux et coûts
+1419|Formation du personnel d'exploitation
+1420|Études, relevés, expertise, suivi par le concepteur
+1421|Devis local (formulaire de la Méthodologie, annexe 2)
+1422|Devis local
+1423|Devis d'ouvrage (formulaire de la Méthodologie, annexe 5)
+1424|Devis d'ouvrage
+1425|Devis récapitulatif du coût de construction (formulaire de la Méthodologie, annexe 6)
+1426|Devis récapitulatif du coût de construction
+1427|Devis de coûts séparés
+1428|Chiffrage
+1429|Code
+1430|Client
+1431|Base
+1432|Méthode
+1433|prix de base et un indice
+1434|Niveau de prix
+1435|Justification
+1436|Description des travaux et coûts
+1437|Quantité
+1438|Coefficient
+1439|Coût unitaire, prix de base
+1440|Indice
+1441|Total des coûts directs
+1442|Salaires (ouvriers et conducteurs d'engins)
+1443|Bénéfice estimé
+1444|TOTAL
+1445|Total dans la devise de la vue
+1446|Établi par
+1447|Approuvé par
+1448|Main-d'œuvre
+1449|Engins
+1450|dont conducteurs
+1451|Matériaux
+1452|Feuille de ressources
+1453|Coût par unité
+1454|Majoration, %
+1455|Chapitre
+1456|Intitulé des chapitres, ouvrages, travaux et coûts
+1457|Travaux de construction
+1458|Travaux d'installation
+1459|Utiliser l'information réglementaire (la Méthodologie d'un pays) dans les documents
+1460|Désactivé (par défaut) : aucun texte propre à un pays, numéro de formulaire ou autorité n'apparaît dans le tableau de bord ni dans les documents exportés.
+1461|Coef.
+1462|Main-d'œuvre / unité
+1463|Engins / unité
+1464|Matériaux / unité
+1465|Frais généraux, %
+1466|Bénéfice, %
+1467|Conducteurs
+1468|Salaires
+1469|Autres / unité
+1470|Équipements / unité
+1471|devise budgétaire
+1472|devise comptable
+1473|devise de consolidation
+1474|commercial
+1475|en milliers
+1476|normes
+1477|ressources
+1478|Choisissez un projet ci-dessous ou créez-en un nouveau pour le devis.
+1479|Changer de projet
+1480|Saisissez un nom pour le projet.
+1481|Nouveau projet pour le devis
+1482|Les devis sont conservés dans un projet. Créez-en un ici ou choisissez l'un de vos projets ci-dessous.
+1483|Créer le projet
+1484|Vous ne pouvez pas créer de projets dans cette organisation. Choisissez l'un de vos projets ci-dessous.
+1485|Vos projets
+1486|Aucun projet pour l'instant.
+1487|Choisir la norme
+1488|Choisir
+1489|Choisir la norme de la position
+1490|Ajoutez une position, puis choisissez sa norme dans le recueil de normes.
+1491|La norme a été appliquée à la position.
+1492|La norme a été appliquée. {{n}} ressource(s) n'ont pas de prix dans le recueil : saisissez les prix dans le tableau.
+1493|Recueil de normes
+1494|Rechercher dans tous les recueils de normes
+1495|Main-d'œuvre / unité de
+1496|Main-d'œuvre / unité à
+1497|Contient
+1498|Fin
+1499|Mode de recherche
+1500|Copier la cellule
+1501|Coller la cellule
+1502|La recherche a pris trop de temps. Saisissez plus de lettres pour l’affiner.
+1503|Coût direct / unité
+1504|Filtrer par
+1505|De
+1506|À

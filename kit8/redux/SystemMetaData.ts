@@ -17,6 +17,7 @@ import {distributionSystemMetaData} from "../catalog/distribution/distributionMe
 import {budgetItemSystemMetaData} from "../catalog/budget/item/budgetItemMetaData";
 import {budgetItemKeySystemMetaData} from "../catalog/budget/item/budgetItemKeyMetaData";
 import {managementActivityGenusSystemMetaData} from "../catalog/management/activity_genus/managementActivityGenusMetaData";
+import { estimationSystemMetaData } from "../pm/estimation/estimationMetaData";
 import {managementRACIGenusSystemMetaData} from "../catalog/management/raci_genus/raciGenusMetaData";
 import {catalogTranslationSystemMetaData} from "../catalog/translation/catalogTranslationMetaData";
 import {organizationMemberSystemMetaData} from "../catalog/organization/members/organizationMemberMetaData";
@@ -123,6 +124,8 @@ const SystemMetaData:any = {
     ...managementRACIGenusSystemMetaData(),
     // Catalog translations (kit8/catalog/translation): catalogTranslationTable, the title / description of any catalog item per language (the Translate tab of a catalog card). SQL PART 56
     ...catalogTranslationSystemMetaData(),
+    // Estimation dashboard (kit8/pm/estimation): the norm book tree, coefficients, overhead / profit norms, indices and export templates (small estimation_ tables). SQL PART 58
+    ...estimationSystemMetaData(),
     // Organization members (kit8/catalog/organization/members): organizationMemberTable, who is a member of which organization (administrator flag, invitation state). SQL PART 45
     ...organizationMemberSystemMetaData(),
     // Budget scenarios (kit8/catalog/budget/scenario): budgetScenarioTable, a plain list (Plan | Fact); project.rowJSON.budgetScenarioForPlan / budgetScenarioForFact point at it.

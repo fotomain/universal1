@@ -78,7 +78,7 @@
 <main>
 
 <section id="goal">
-  <span class="pill key">PLAN ONLY &middot; 2026-11-24 &middot; no code written</span>
+  <span class="pill key">BUILT &middot; 2026-11-24 &middot; code in kit8/pm/view/project/estimation (section 6); the owner answered Q4 and Q7 (section 8)</span>
   <h1>Project estimation</h1>
   <p class="lead">A project can have an <b>estimation</b>: another, ordinary project (project2) in which the user prepares the plan of the work before the real project (project1) starts.
   Project1 points to it, shows what it adds up to <b>per budget item</b>, and a button copies the whole estimation into project1.</p>
@@ -134,7 +134,7 @@
 
 <section id="tab">
   <h2>2 &middot; The tab <b>Estimation</b></h2>
-  <p class="sub">File <code>kit8/pm/view/project/settings/PMProjectEstimationTab.tsx</code>; wired in <code>PMRecentProjectsToolbar.tsx</code>: <code>ProjectSettingsTab</code> gets <code>'TabEstimation'</code>, the tab bar entry goes right after <code>TabROI</code> (icon <code>request_quote</code> is taken by Customer, use <code>calculate</code>), the content block next to <code>TabROI</code>. Always in the bar (also for a new project).</p>
+  <p class="sub">File <code>kit8/pm/view/project/estimation/PMProjectEstimationTab.tsx</code>; wired in <code>PMRecentProjectsToolbar.tsx</code>: <code>ProjectSettingsTab</code> gets <code>'TabEstimation'</code>, the tab bar entry goes right after <code>TabROI</code> (icon <code>request_quote</code> is taken by Customer, use <code>calculate</code>), the content block next to <code>TabROI</code>. Always in the bar (also for a new project).</p>
   <div class="wire">
     <div class="tabs"><span>Main</span><span>Gantt</span><span>Budgets</span><span>Resources</span><span>ROI</span><span class="on">Estimation</span><span>Payments</span><span>Files</span><span>Chat</span><span>&hellip;</span></div>
     <div class="lbl">ProjectEstimationGUIDInput</div>
@@ -217,15 +217,15 @@
     <tr><td>Subproject marks, chat, files, BIM</td><td><span class="pill no">no</span></td><td>As in Copy with Tasks (the link rows and files belong to project2).</td></tr>
     <tr><td>Name, owner, read-only switch, <code>projectEstimationGUID</code> of project2</td><td><span class="pill no">no</span></td><td>Project1 keeps its identity.</td></tr>
   </table></div>
-  <h3>Two modes (asked in the confirm window; only when project1 already has tasks)</h3>
+  <h3>Two modes (the user is ASKED in the window - nothing is preselected and Fill waits for the answer; only when project1 already has tasks)</h3>
   <div class="grid">
-    <div class="card"><h3 style="margin-top:0">Append (default)</h3>
+    <div class="card"><h3 style="margin-top:0">Append</h3>
       <p>The copied rows become new top-level rows <b>after</b> the existing ones. Nothing of project1 is touched. Allowed always.</p></div>
     <div class="card"><h3 style="margin-top:0">Replace</h3>
       <p>After the copy succeeded, the old top-level rows of project1 (with everything below them) are deleted. <b>Offered only when project1 has no posted task and no document</b> (<code>postedTasks = 0</code> and <code>documents = 0</code> of the summary call). Otherwise the radio shows it disabled with the reason.</p></div>
   </div>
   <p class="sub">An empty project1 has no choice: the rows are simply written.</p>
-  <h3>Confirm window (<code>ModalAskComponent</code>)</h3>
+  <h3>The window (<code>FillProjectFromEstimationWindow</code>, the look of the export window)</h3>
   <div class="card">
     <p><b>Fill "Hall 12" from "Hall 12 - Estimate"?</b></p>
     <ul class="steps">
@@ -284,15 +284,15 @@
   <h2>6 &middot; Code map (to be created)</h2>
   <div class="card scroll"><table>
     <tr><th>File</th><th>Content</th></tr>
-    <tr><td><code>kit8/pm/estimation/estimationModel.ts</code></td><td>Pure: the key, <code>estimationLinkOf(rowJSON)</code>, the self-link rule, the fill modes, which reasons disable Fill (one function that returns the reason text), the totals / profit / ROI1 of the table, the sentence of the confirm window. No React, no Supabase.</td></tr>
-    <tr><td><code>kit8/pm/estimation/estimationApi.ts</code></td><td><code>readEstimationSummary(client, target, source)</code>, <code>deleteTaskRoots(client, project, roots)</code>.</td></tr>
-    <tr><td><code>kit8/pm/estimation/useProjectEstimation.ts</code></td><td>React Query hook of the summary (key by both guids, refetch on tab open and on a Refresh press); <code>useFillProjectFromEstimation</code> (one fill at a time, steps for the progress bar, snackbar, <code>ErrorModalWindow</code>, refresh of project1).</td></tr>
-    <tr><td><code>kit8/pm/estimation/fillProjectFromEstimation.ts</code></td><td>The sequence of section 4 on top of <code>planProjectImport</code> / <code>buildProjectExchangeFile</code> and the writers used by <code>copyProject</code>; the fx clean-up of the lines; rollback.</td></tr>
-    <tr><td><code>kit8/pm/estimation/ProjectEstimationGUIDInput.tsx</code></td><td>The select field.</td></tr>
-    <tr><td><code>kit8/pm/estimation/ProjectEstimationTable.tsx</code></td><td>The <code>ReusableTable</code> (local rows, <code>readOnly</code>, folders Cost / Revenue, footer).</td></tr>
-    <tr><td><code>kit8/pm/estimation/FillProjectFromEstimationButton.tsx</code> + <code>FillProjectFromEstimationWindow.tsx</code></td><td>The button, the confirm window with the radio, the progress.</td></tr>
-    <tr><td><code>kit8/pm/estimation/README.md</code></td><td>What it does, rules, tests, not built (same round).</td></tr>
-    <tr><td><code>kit8/pm/view/project/settings/PMProjectEstimationTab.tsx</code></td><td>The tab: composes the three pieces + the "Last fill" line + the hints.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/estimationModel.ts</code></td><td>Pure: the key, <code>estimationLinkOf(rowJSON)</code>, the self-link rule, the fill modes, which reasons disable Fill (one function that returns the reason text), the totals / profit / ROI1 of the table, the sentence of the confirm window. No React, no Supabase.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/estimationApi.ts</code></td><td><code>readEstimationSummary(client, target, source)</code>, <code>deleteTaskRoots(client, project, roots)</code>.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/useProjectEstimation.ts</code></td><td>React Query hook of the summary (key by both guids, refetch on tab open and on a Refresh press); <code>useFillProjectFromEstimation</code> (one fill at a time, steps for the progress bar, snackbar, <code>ErrorModalWindow</code>, refresh of project1).</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/fillProjectFromEstimation.ts</code></td><td>The sequence of section 4 on top of <code>planProjectImport</code> / <code>buildProjectExchangeFile</code> and the writers used by <code>copyProject</code>; the fx clean-up of the lines; rollback.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/ProjectEstimationGUIDInput.tsx</code></td><td>The select field.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/ProjectEstimationTable.tsx</code></td><td>The <code>ReusableTable</code> (local rows, <code>readOnly</code>, folders Cost / Revenue, footer).</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/FillProjectFromEstimationButton.tsx</code> + <code>FillProjectFromEstimationWindow.tsx</code></td><td>The button, the confirm window with the radio, the progress.</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/README.md</code></td><td>What it does, rules, tests, not built (same round).</td></tr>
+    <tr><td><code>kit8/pm/view/project/estimation/PMProjectEstimationTab.tsx</code></td><td>The tab: composes the three pieces + the "Last fill" line + the hints.</td></tr>
     <tr><td><code>PMRecentProjectsToolbar.tsx</code>, <code>model/types.ts</code> (<code>PMRowJSON</code>), the project normalizer</td><td><code>TabEstimation</code>, the key <code>projectEstimationGUID</code>, <code>projectEstimationLastFill</code>.</td></tr>
     <tr><td>Import / export of a project, <code>CreateTemplateFromProject</code>, <code>OrganizationProjectSettings</code></td><td>Do not take / do not show the key (section 1).</td></tr>
     <tr><td><code>kit8/pm/i18n/locales/keys.ts</code> + 14 <code>src/&lt;lang&gt;.txt</code></td><td>Every text of the tab through <code>pmT</code> with its key and a line in all languages (<code>python3 kit8/pm/i18n/src/build.py</code>; <code>__tests__/pm/i18n</code> fails on a gap). Placeholder is <code>{{n}}</code>.</td></tr>
@@ -330,10 +330,10 @@
     <tr><td>Q1 <span class="pill ask">ask</span></td><td>"Always enabled": does it mean (a) no switch, the tab and the input are always there, or also (b) the link can be changed in a <b>read-only</b> project?</td><td>(a). A read-only project keeps the link locked (PART 51 allows only its own switch). If you want (b), the key joins the allowed keys of the two read-only guards.</td></tr>
     <tr><td>Q2</td><td>May one project2 be the estimation of several projects?</td><td>Yes (Fill copies, nothing is shared).</td></tr>
     <tr><td>Q3</td><td>The numbers of the table come from the task lines (what Fill copies) or from the posted plan?</td><td>Task lines. A column "Posted plan" can come later.</td></tr>
-    <tr><td>Q4</td><td>Fill into a project that already has tasks: Append or Replace?</td><td>Both, Append preselected; Replace only when nothing in project1 is posted and it has no documents.</td></tr>
+    <tr><td>Q4</td><td>Fill into a project that already has tasks: Append or Replace?</td><td><b>Owner: ask the user.</b> Both are offered and none is preselected (Fill waits for the answer); Replace only when nothing in project1 is posted and it has no documents.</td></tr>
     <tr><td>Q5</td><td>Should Fill also copy the settings of project2 (currencies, calendar, scenarios)?</td><td>No. "All data" = tasks, links, task lines.</td></tr>
     <tr><td>Q6</td><td>Dates of the copied tasks: keep or shift to the start of project1?</td><td>Keep (as Copy with Tasks). Shift = later work item.</td></tr>
-    <tr><td>Q7</td><td>Different budget / accounting currency of the two projects: what happens to the copied sums?</td><td>The sums and the fx snapshot are cleared; the user presses Recalculate. (Automatic recalculation after Fill = later.)</td></tr>
+    <tr><td>Q7</td><td>Different budget / accounting currency of the two projects: what happens to the copied sums?</td><td><b>Owner: offer to the user.</b> The sums of the currencies of the estimation are removed from the copied lines, and when the copy is done the window asks <b>"Recalculate the task lines now?" Yes / No</b>; Yes runs the recalculation of the project (the one of a currency change), No leaves the lines without sums until the user presses Recalculate.</td></tr>
     <tr><td>Q8</td><td>VAT in the table: net + VAT columns, or the VAT basis switch of the reports?</td><td>Net and VAT columns; no basis switch (a line has no "VAT that is cost" split).</td></tr>
     <tr><td>Q9</td><td>Project2 deleted: clear the link of the other projects by a trigger or leave it dangling?</td><td>Leave it, show "not found" + Clear.</td></tr>
     <tr><td>Q10</td><td>Who may press Fill?</td><td>Who may create tasks in project1 (project manager / owner). Everybody who can read project2 sees the table.</td></tr>
@@ -350,7 +350,7 @@
     <li>Estimation versions (project versions already exist as read-only copies: <code>kit8/pm/version</code>).</li>
     <li>Fill of the project settings, of the documents or of the chat / files.</li>
   </ul>
-  <div class="good"><b>What I could not check:</b> nothing here ran - it is a plan. Facts taken from the code on 2026-11-24: the tab list of <code>PMRecentProjectsToolbar</code> (<code>TabROI</code>), <code>copyProject</code> / <code>planProjectImport</code>, <code>useProjectSearchQuery</code> (lists the projects of the active organization), <code>ReusableTable</code> local rows mode, SQL PART 56 is the last one, Docker tests go up to 106. How project1's budget currency is read inside the unsaved draft, and the exact permission call for "may create tasks in this project", are to be confirmed when E6 is written.</div>
+  <div class="good"><b>What was and was not checked (2026-11-24):</b> built as described. Checked: SQL PART 57 on Postgres 15 in Docker (<code>tests/107</code>, 63 checks; the install twice, the delete and the whole <code>test_sql.sh</code> run), Jest for the rules, the fill with a fake API (order, Append, Replace, rollback, cancel), the window (the question Append / Replace, Recalculate Yes / No), the tab, the table and the tab order in the Project settings window. <b>Not seen</b> in a browser or on a phone; not run against the owner's Supabase (start2 must be run there first). Deviations from the plan: the Estimation tab file lives in the estimation folder (as asked); the Fill window is its own window instead of <code>ModalAskComponent</code> (it needs the radio and the progress).</div>
 </section>
 
 </main>

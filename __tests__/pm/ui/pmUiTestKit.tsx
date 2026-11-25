@@ -58,8 +58,8 @@ jest.mock('../../../kit8/ui/components/common/IconApp', () => {
 jest.mock('../../../kit8/ui/components/common/TextInputApp', () => {
   const R = require('react');
   const { TextInput } = require('react-native');
-  const TextInputApp = ({ testID, value, editable, onChangeText, label }: any) =>
-    R.createElement(TextInput, { testID, value, editable, onChangeText, accessibilityLabel: label });
+  const TextInputApp = ({ testID, value, editable, onChangeText, label, onBlur, onSubmitEditing }: any) =>
+    R.createElement(TextInput, { testID, value, editable, onChangeText, onBlur, onSubmitEditing, accessibilityLabel: label });
   return { __esModule: true, default: TextInputApp, TextInputApp };
 });
 
