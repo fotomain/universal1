@@ -29,6 +29,9 @@ import { PM_MENU_WIDTH } from '../../../../pm/inner/menu/PMContextMenu';
 import ReusableListCreateModal from './ReusableListCreateModal';
 import RefreshOnFocus from './RefreshOnFocus';
 import ReusableListItem, { ReusableListItemContext } from './ReusableListItem';
+import RowSelectColumn from './RowSelectColumn';
+import GhostPointer from './GhostPointer';
+import type { GhostPointerHandle } from './ghostPointerTypes';
 import ReorderHandle from './ReorderHandle';
 import { buildView, isQueryActive, reorderResult, resolveListRoles, webRowLimit } from './listEngine';
 import { createDragStore, createSelectionStore, useSelectionVersion } from './listStores';
@@ -85,7 +88,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
     visualColumns: columns, itemHeight = DEFAULT_ITEM_HEIGHT, itemLabel = 'Row', crudListTitle, testID = 'reusable-list', selectionEnabled = true, searchEnabled = true,
     contextMenuEnabled = true, reorderEnabled = true, addEnabled = true, readOnly = false, deleteEnabled = true, onAdd, onRowOpen, openLabel, EditRowModalCard, extraMenuItems,
     emptyText, focusRowGUID, onSelectionChange, toolbarExtra, uxuiList, endReachedThreshold = 1.5, reusableListWidth, entityName,
-    CreateElementForm, onElementCreated, cardSize, cardSizes, onCardSizeChange, onDeleteRows, refreshOnFocus, renderItemDeps,
+    CreateElementForm, onElementCreated, cardSize, cardSizes, onCardSizeChange, onDeleteRows, refreshOnFocus, renderItemDeps, selectionVisibleAtStart = false,
   } = props;
   const server = source.mode === 'serverDataMode';
   const dispatch = useDispatch();
@@ -122,6 +125,9 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const dragStore = useMemo(createDragStore, []);
   const selectionVersion = useSelectionVersion(selection);
   const selectedCount = selection.count(view.length);
+  /** the ring button of the toolbar: the check boxes of the rows are shown (on) or not (off); off also clears the selection */
+  const [selectionVisible, setSelectionVisible] = useState(selectionVisibleAtStart);
+  const changeSelectionVisible = useCallback((on: boolean) => { setSelectionVisible(on); if (!on) selection.clear(); }, [selection]);
   useEffect(() => { if (onSelectionChange) onSelectionChange(selection.count(viewRef.current.length) === 0 ? [] : selection.idsOf(viewRef.current)); // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectionVersion]);
 
@@ -215,14 +221,27 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   }, [source]);
 
   // ---- items ----
+  const latest = useRef<any>({});
+  const rowCount = useCallback(() => viewRef.current.length, []);
+  const itemHeightRef = useRef(itemHeight); itemHeightRef.current = itemHeight;
+  const ghostRef = useRef<GhostPointerHandle>(null);
+  /** an arrow of the select column: the row goes one place. WEB: the pointer cannot be moved by a page, so the GHOST POINTER jumps with the row's arrow (GhostPointer.web.tsx) */
+  const moveRow = useCallback((guid: string, delta: -1 | 1) => {
+    setLastUsed(guid);
+    if (!latest.current.canEdit) return;
+    const at = viewRef.current.findIndex((r) => r.rowGUID === guid);
+    const to = at + delta;
+    const moves = at >= 0 && to >= 0 && to < viewRef.current.length;
+    latest.current.menuCrud[delta < 0 ? 'moveUp' : 'moveDown'](guid);
+    if (moves) ghostRef.current?.jump(delta * itemHeightRef.current);
+  }, []);
   const ctx = useMemo<ReusableListItemContext>(() => ({
-    itemHeight, columns, roles, catalogTitle, selection, drag: dragStore, controller: canReorder ? controller : null, selectionEnabled: selectionEnabled && canEdit,
+    itemHeight, columns, roles, catalogTitle, selection, drag: dragStore, controller: canReorder ? controller : null, selectionEnabled: selectionEnabled && canEdit && selectionVisible, moveEnabled: canReorder, onMove: moveRow, count: rowCount,
     menuEnabled: contextMenuEnabled, dividers: uxuiList?.dividers !== false, rounded: !!uxuiList?.roundedCards, colors, onPress: onItemPress, onMenu: onItemMenu, testID,
-  }), [itemHeight, columns, roles, catalogTitle, selection, dragStore, canReorder, controller, selectionEnabled, canEdit, contextMenuEnabled, uxuiList, colors, onItemPress, onItemMenu, testID]);
+  }), [itemHeight, columns, roles, catalogTitle, selection, dragStore, canReorder, controller, selectionEnabled, selectionVisible, moveRow, rowCount, canEdit, contextMenuEnabled, uxuiList, colors, onItemPress, onItemMenu, testID]);
   const ghostCtx = useMemo<ReusableListItemContext>(() => ({ ...ctx, controller: null, selectionEnabled: false, menuEnabled: false, dividers: false }), [ctx]);
 
   // the commands of a row for a custom item (a card): stable functions that ask the list when they are called
-  const latest = useRef<any>({});
   latest.current = { askDelete, openEdit, menuCrud, canEdit, canAdd, canDelete };
   const rowActions = useMemo<ReusableListRowActions>(() => {
     const used = (g: string) => setLastUsed(g);
@@ -247,10 +266,17 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const renderItem = useCallback(({ item, index }: { item: ReusableTableRow; index: number }) => {
     if (props.renderItem) {
       const grip = canReorder ? <ReorderHandle testID={`${testID}-grip-${item.rowGUID}`} controller={controller} guid={item.rowGUID} index={index} color={colors.text} height={itemHeight} /> : null;
-      return <>{props.renderItem(item, itemState(index, canReorder, false, grip))}</>;
+      const body = props.renderItem(item, itemState(index, canReorder, false, grip));
+      // the select column (arrows + circle) stands OUTSIDE the custom item, at the left edge: the select-all circle of the toolbar is on its vertical line
+      return ctx.selectionEnabled ? (
+        <View style={styles.selectRow}>
+          <RowSelectColumn selection={selection} guid={item.rowGUID} testID={testID} color={colors.text} primary={colors.primary} index={index} count={rowCount} moveEnabled={canReorder} onMove={moveRow} />
+          <View style={styles.selectBody}>{body}</View>
+        </View>
+      ) : <>{body}</>;
     }
     return <ReusableListItem row={item} index={index} ctx={ctx} reorderable={canReorder} />;
-  }, [props.renderItem, itemState, ctx, canReorder, controller, colors, itemHeight, testID]);
+  }, [props.renderItem, itemState, ctx, canReorder, controller, colors, itemHeight, testID, selection, rowCount, moveRow]);
   /** FlashList draws the visible items again only when this changes */
   const listExtra = useMemo(() => ({ ctx, deps: renderItemDeps, render: props.renderItem, itemState }), [ctx, renderItemDeps, props.renderItem, itemState]);
   const keyExtractor = useCallback((r: ReusableTableRow) => r.rowGUID, []);
@@ -320,6 +346,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
 
   return (
     <View testID={testID} style={[styles.root, reusableListWidthStyle(reusableListWidth)]}>
+      <GhostPointer ref={ghostRef} testID={testID} />
       <ReusableListToolbar
         testID={testID} colors={colors} title={crudListTitle} mode={source.mode} search={q.search} onSearch={q.setSearch} searchEnabled={searchEnabled}
         sortLabel={sortCol ? `${sortCol.title} ${q.sort!.direction === 'asc' ? '▲' : '▼'}` : ''} filterCount={filterCount}
@@ -331,7 +358,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
         onRefresh={source.refresh} onMore={(at) => { setBarAt(at); setBarMenu('more'); }} refreshing={source.loadingMore}
         selectedCount={selectedCount} onClearSelection={selection.clear} onDeleteSelected={canDelete ? () => askDelete(selection.idsOf(viewRef.current)) : undefined}
         onSelectAll={() => { if (server) selection.set(viewRef.current.map((r) => r.rowGUID)); else selection.selectAll(); }}
-        selectionEnabled={selectionEnabled && canEdit} toolbarExtra={toolbarExtra}
+        allSelected={view.length > 0 && selectedCount === view.length} selectionEnabled={selectionEnabled && canEdit} selectionVisible={selectionVisible} onSelectionVisibleChange={changeSelectionVisible} toolbarExtra={toolbarExtra}
       />
 
       <View ref={containerRef} collapsable={false} style={styles.listBox} onLayout={() => measureBox()}>
@@ -412,6 +439,8 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
 const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 0 },
   listBox: { flex: 1, minHeight: 0 },
+  selectRow: { flexDirection: 'row', alignItems: 'center' },
+  selectBody: { flex: 1, minWidth: 0 },
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   footerLoading: { padding: 12, alignItems: 'center' },
   footer: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 12, paddingHorizontal: 10, paddingVertical: 6, borderTopWidth: StyleSheet.hairlineWidth },

@@ -66,7 +66,8 @@ afterEach(() => { cleanup(); jest.clearAllMocks(); jest.restoreAllMocks(); });
 it('is a ReusableList of the posts of the FULL user guid, newest first, with the form of the Add button and a read on every focus', async () => {
   render(<MediaPostsNativeList />);
   await flush();
-  expect(mockList.props).toMatchObject({ entityName: 'mediaPostReusable', listOwnerGUID: 'full-user-guid', listParentGUID: 'empty', orderDirection: 'desc', refreshOnFocus: true, selectionEnabled: false, itemHeight: 96 });
+  expect(mockList.props).toMatchObject({ entityName: 'mediaPostReusable', listOwnerGUID: 'full-user-guid', listParentGUID: 'empty', orderDirection: 'desc', refreshOnFocus: true, itemHeight: 96 });
+  expect(mockList.props.selectionEnabled).not.toBe(false); // the ring button + the check boxes of the cards
   expect(typeof mockList.props.CreateElementForm).toBe('function');
   expect(mockList.props.visualColumns.map((c: any) => c.field)).toEqual(expect.arrayContaining(['mediaPostTitle', 'mediaPostDescription', 'dataOriginName']));
   expect(text('media-post-title-v1')).toBe('My video');

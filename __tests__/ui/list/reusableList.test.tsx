@@ -61,7 +61,7 @@ jest.mock('@shopify/flash-list', () => {
   const { View } = require('react-native');
   return { FlashList: R.forwardRef((p: any, ref: any) => {
     mockFlash.props = p;
-    R.useImperativeHandle(ref, () => (mockFlash.handle = { scrollToOffset: jest.fn(), scrollToIndex: jest.fn(), scrollToEnd: jest.fn() }));
+    R.useImperativeHandle(ref, () => (mockFlash.handle = { scrollToOffset: jest.fn(), scrollToIndex: jest.fn(), scrollToEnd: jest.fn(), }));
     return R.createElement(View, { testID: p.testID }, p.data.slice(0, 200).map((item: any, index: number) => R.createElement(View, { key: p.keyExtractor(item, index) }, p.renderItem({ item, index }))), p.ListFooterComponent);
   }) };
 });
@@ -100,7 +100,7 @@ function mount(extra: any = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<ReusableList testID={T} entityName="thing" listOwnerGUID="u1" listParentGUID="empty" visualColumns={columns} itemLabel="Post" {...extra} />));
+  act(() => root.render(<ReusableList testID={T} entityName="thing" listOwnerGUID="u1" listParentGUID="empty" visualColumns={columns} itemLabel="Post" selectionVisibleAtStart {...extra} />));
 }
 afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockSupabase = null; mockFlash.props = null; });
 
@@ -138,6 +138,62 @@ describe('clientDataMode (redux entity)', () => {
     expect(q(`${T}-empty`)!.textContent).toBe('No matches found.');
   });
 
+  it('the ring button of the toolbar switches the select-rows check boxes on / off (off at the start; off again clears the selection)', () => {
+    mount({ selectionVisibleAtStart: false });
+    expect(qa(`${T}-check-`).length).toBe(0);
+    expect(q(`${T}-select-all`)).toBeNull();
+    press(`${T}-selection-toggle`);
+    expect(qa(`${T}-check-`).length).toBe(3);
+    expect(q(`${T}-select-all`)).not.toBeNull();
+    press(`${T}-check-b`);
+    expect(q(`${T}-selected-count`)!.textContent).toBe('1 selected');
+    press(`${T}-selection-toggle`);
+    expect(qa(`${T}-check-`).length).toBe(0);
+    expect(q(`${T}-selected-count`)).toBeNull();
+    press(`${T}-selection-toggle`);
+    expect(q(`${T}-check-b`)!.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('the select column: arrow up, circle, arrow down; the arrows move the row, the first row cannot go up, the last cannot go down', () => {
+    mount({ selectionVisibleAtStart: true });
+    expect(q(`${T}-up-a`)).not.toBeNull();
+    expect(q(`${T}-down-a`)).not.toBeNull();
+    expect((q(`${T}-up-a`) as any).disabled || q(`${T}-up-a`)!.getAttribute('aria-disabled') === 'true').toBeTruthy();
+    expect((q(`${T}-down-c`) as any).disabled || q(`${T}-down-c`)!.getAttribute('aria-disabled') === 'true').toBeTruthy();
+    press(`${T}-down-a`);
+    expect(mockActions.updateOne).toHaveBeenCalled();
+  });
+
+  it('the select-all circle of the strip: empty -> all -> partial (a row off) -> empty again', () => {
+    mount({ selectionVisibleAtStart: true });
+    expect(q(`${T}-select-all`)!.getAttribute('aria-checked')).toBe('false');
+    press(`${T}-select-all`);
+    expect(q(`${T}-selected-count`)!.textContent).toBe('3 selected');
+    expect(q(`${T}-select-all`)!.getAttribute('aria-checked')).toBe('true');
+    press(`${T}-check-b`);
+    expect(q(`${T}-select-all`)!.getAttribute('aria-checked')).toBe('mixed');
+    press(`${T}-check-b`);
+    press(`${T}-select-all`); // all selected -> clears
+    expect(q(`${T}-selected-count`)).toBeNull();
+    expect(q(`${T}-select-all`)!.getAttribute('aria-checked')).toBe('false');
+  });
+
+  it('the delete icon is in the toolbar only while rows are selected; there is no Clear text', () => {
+    mount({ selectionVisibleAtStart: true });
+    expect(q(`${T}-delete-selected`)).toBeNull();
+    press(`${T}-check-a`);
+    expect(q(`${T}-delete-selected`)).not.toBeNull();
+    expect(q(`${T}-bar`)!.contains(q(`${T}-delete-selected`))).toBe(true);
+    expect(q(`${T}-clear-selection`)).toBeNull();
+    press(`${T}-check-a`);
+    expect(q(`${T}-delete-selected`)).toBeNull();
+  });
+
+  it('no ring button when the list has no selection (selectionEnabled false / readOnly)', () => {
+    mount({ selectionEnabled: false });
+    expect(q(`${T}-selection-toggle`)).toBeNull();
+  });
+
   it('selection: tap a check box, select all, clear; one item is marked', () => {
     mount();
     press(`${T}-check-b`);
@@ -147,7 +203,7 @@ describe('clientDataMode (redux entity)', () => {
     press(`${T}-select-all`);
     expect(q(`${T}-selected-count`)!.textContent).toBe('3 selected');
     expect(q(`${T}-check-a`)!.getAttribute('aria-checked')).toBe('true');
-    press(`${T}-clear-selection`);
+    press(`${T}-select-all`); // all are selected: the circle clears
     expect(q(`${T}-selected-count`)).toBeNull();
   });
 
@@ -204,6 +260,7 @@ describe('clientDataMode (redux entity)', () => {
 
   it('readOnly: no add, no check boxes, no grips, no delete', () => {
     mount({ readOnly: true });
+    expect(q(`${T}-selection-toggle`)).toBeNull();
     expect(q(`${T}-add`)).toBeNull();
     expect(qa(`${T}-check-`).length).toBe(0);
     expect(qa(`${T}-grip-`).length).toBe(0);
@@ -224,6 +281,18 @@ describe('clientDataMode (redux entity)', () => {
     press(`${T}-item-c`);
     expect(open).toHaveBeenCalledTimes(1);
     expect(q(`${T}-check-c`)!.getAttribute('aria-checked')).toBe('true');
+  });
+
+  it('a custom renderItem (a card) gets the select column (arrows + circle) at its left only while the ring button is on', () => {
+    mount({ selectionVisibleAtStart: false, renderItem: (row: any, s: any) => <div data-testid={`custom-${row.rowGUID}`}>{row.rowJSON.title}</div> });
+    expect(qa(`${T}-check-`).length).toBe(0);
+    press(`${T}-selection-toggle`);
+    expect(qa(`${T}-check-`).length).toBe(3);
+    press(`${T}-check-a`);
+    expect(q(`${T}-selected-count`)!.textContent).toBe('1 selected');
+    expect(q(`${T}-check-a`)!.getAttribute('aria-checked')).toBe('true');
+    press(`${T}-selection-toggle`);
+    expect(qa(`${T}-check-`).length).toBe(0);
   });
 
   it('a custom renderItem gets the grip', () => {

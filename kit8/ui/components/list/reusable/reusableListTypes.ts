@@ -100,6 +100,8 @@ export interface ReusableListProps extends FromTable {
   /** another look of an item (default: built from the columns, see listRole) */
   renderItem?: (row: ReusableTableRow, state: ReusableListItemState) => ReactNode;
   uxuiList?: ReusableListUx;
+  /** the ring button of the toolbar switches the select-rows check boxes on / off; true = they are on when the list opens (default false) */
+  selectionVisibleAtStart?: boolean;
   /** width of the list in px (it never gets wider than its parent). Not set = as wide as the parent but at most 960 px; the list is centred when narrower */
   reusableListWidth?: number;
   /** a new element was made with the form: its guid, its rowJSON and the extras of the form (the host uploads the photo of a person document ...) */

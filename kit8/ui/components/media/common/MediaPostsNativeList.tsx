@@ -106,7 +106,6 @@ export default function MediaPostsNativeList({ reusableCard, initialCardSize = D
         itemHeight={itemHeight}
         renderItem={renderItem}
         renderItemDeps={projects}
-        selectionEnabled={false}
         CreateElementForm={CreateListElementForm}
         onElementCreated={onElementCreated}
         cardSize={sized ? cardSize : undefined}

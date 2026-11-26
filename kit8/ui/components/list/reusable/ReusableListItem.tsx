@@ -5,6 +5,7 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { ReusableTableRow, VisualColumn } from '../../table/reusable/reusableTableTypes';
 import type { CatalogTitleFn } from '../../table/reusable/tableFilter';
 import { displayText } from '../../table/reusable/tableRows';
+import RowSelectColumn from './RowSelectColumn';
 import ReorderHandle, { GRIP_WIDTH } from './ReorderHandle';
 import type { ReorderController } from './reorderController';
 import { DragStore, SelectionStore, useIsDragged, useIsSelected } from './listStores';
@@ -22,6 +23,11 @@ export interface ReusableListItemContext {
   drag: DragStore;
   controller: ReorderController | null;
   selectionEnabled: boolean;
+  /** the arrows of the select column: the list may be reordered now */
+  moveEnabled: boolean;
+  onMove: (guid: string, delta: -1 | 1) => void;
+  /** the number of rows of the shown list */
+  count: () => number;
   menuEnabled: boolean;
   dividers: boolean;
   rounded: boolean;
@@ -59,13 +65,8 @@ function ReusableListItem({ row, index, ctx, reorderable }: Props) {
         ctx.rounded ? { borderRadius: 12, marginHorizontal: 6 } : null,
       ]}
     >
+      {ctx.selectionEnabled ? <RowSelectColumn selection={ctx.selection} guid={guid} testID={ctx.testID} color={c.text} primary={c.primary} index={index} count={ctx.count} moveEnabled={ctx.moveEnabled} onMove={ctx.onMove} /> : null}
       {reorderable && ctx.controller ? <ReorderHandle testID={`${ctx.testID}-grip-${guid}`} controller={ctx.controller} guid={guid} index={index} color={c.text} height={itemHeight} /> : null}
-      {ctx.selectionEnabled ? (
-        <Pressable testID={`${ctx.testID}-check-${guid}`} accessibilityRole="checkbox" aria-checked={selected} hitSlop={8} onPress={() => ctx.selection.toggle(guid)}
-          style={[styles.box, { borderColor: selected ? c.primary : c.text + '66', backgroundColor: selected ? c.primary : 'transparent' }]}>
-          {selected ? <Text style={styles.tick}>✓</Text> : null}
-        </Pressable>
-      ) : null}
       <View style={styles.body}>
         <Text numberOfLines={1} testID={`${ctx.testID}-title-${guid}`} style={[styles.title, { color: c.text }]}>{title || '—'}</Text>
         {subtitle ? <Text numberOfLines={1} style={[styles.sub, { color: c.text }]}>{subtitle}</Text> : null}
@@ -85,8 +86,6 @@ function ReusableListItem({ row, index, ctx, reorderable }: Props) {
 
 const styles = StyleSheet.create({
   item: { flexDirection: 'row', alignItems: 'center', paddingRight: 4, overflow: 'hidden' },
-  box: { width: 22, height: 22, borderRadius: 5, borderWidth: 2, alignItems: 'center', justifyContent: 'center', marginHorizontal: 10 },
-  tick: { color: '#fff', fontSize: 13, fontWeight: '700', lineHeight: 15 },
   body: { flex: 1, minWidth: 0, paddingHorizontal: 8, justifyContent: 'center' },
   title: { fontSize: 15, fontWeight: '600' },
   sub: { fontSize: 13, opacity: 0.75, marginTop: 1 },

@@ -10,6 +10,7 @@ import ActivityIndicatorCircleApp from '../../activityindicator/ActivityIndicato
 import ScrollTopButton from './ScrollTopButton';
 import ScrollBottomButton from './ScrollBottomButton';
 import ScrollToLastUsedCardButton from './ScrollToLastUsedCardButton';
+import { SELECT_COLUMN_WIDTH, SelectCircle } from './RowSelectColumn';
 import SelectCardSizeIconButton from '../cards/SelectCardSizeIconButton';
 import type { CardSize } from '../cards/cardSize';
 import type { ReusableListDataMode } from './reusableListTypes';
@@ -37,6 +38,11 @@ export interface ReusableListBarProps {
   onDeleteSelected?: () => void;
   onSelectAll?: () => void;
   selectionEnabled: boolean;
+  /** the ring button: the check boxes (select rows) are shown / hidden */
+  selectionVisible: boolean;
+  /** every row of the shown list is selected (the select-all circle is full) */
+  allSelected: boolean;
+  onSelectionVisibleChange: (on: boolean) => void;
   toolbarExtra?: React.ReactNode;
   onScrollTop: () => void;
   onScrollBottom: () => void;
@@ -61,10 +67,17 @@ export default function ReusableListToolbar(p: ReusableListBarProps) {
         {p.title ? <Text numberOfLines={1} style={[styles.title, { color: c.text }]}>{p.title}</Text> : null}
         {p.searchEnabled ? (
           <View style={styles.search}>
-            <TextInputApp testID={`${testID}-search`} value={p.search} onChangeText={p.onSearch} placeholder="Search" compact heightVariant="smallestHeight" leftIcon="search" />
+            <TextInputApp testID={`${testID}-search`} value={p.search} onChangeText={p.onSearch} placeholder="Search" compact heightVariant="smallestHeight" leftIcon="search" style={styles.searchInput} />
           </View>
         ) : <View style={{ flex: 1 }} />}
         {p.onAdd ? <PMIconButton testID={`${testID}-add`} icon="add" title="Add" onPress={p.onAdd} color={c.text} /> : null}
+        {p.selectionEnabled ? (
+          <PMIconButton testID={`${testID}-selection-toggle`} icon={p.selectionVisible ? 'check_circle' : 'radio_button_unchecked'} title={p.selectionVisible ? 'Hide row selection' : 'Select rows'}
+            onPress={() => p.onSelectionVisibleChange(!p.selectionVisible)} color={c.text} active={p.selectionVisible} activeColor={c.primary} />
+        ) : null}
+        {p.selectionEnabled && p.selectionVisible && p.selectedCount > 0 && p.onDeleteSelected ? (
+          <PMIconButton testID={`${testID}-delete-selected`} icon="delete" title="Delete selected" onPress={p.onDeleteSelected} color="#d32f2f" badge={p.selectedCount} />
+        ) : null}
         {p.cardSize && p.onCardSizeChange ? <SelectCardSizeIconButton testID={`${testID}-card-size`} value={p.cardSize} sizes={p.cardSizes} onChange={p.onCardSizeChange} color={c.text} activeColor={c.primary} /> : null}
         <View {...sortAnchor.anchorProps}>
           <PMIconButton testID={`${testID}-sort-filter`} icon="filter_list" title="Sort and filter" onPress={sortAnchor.open} color={c.text} active={!!p.sortLabel || p.filterCount > 0} activeColor={c.primary} />
@@ -84,15 +97,15 @@ export default function ReusableListToolbar(p: ReusableListBarProps) {
           <Pressable testID={`${testID}-clear-query`} onPress={p.onClearQuery}><Text style={{ color: c.text, opacity: 0.7, fontSize: 12, textDecorationLine: 'underline' }}>Clear search, sort and filters</Text></Pressable>
         </View>
       ) : null}
-      {p.selectionEnabled && p.selectedCount > 0 ? (
-        <View testID={`${testID}-selection`} style={[styles.row, { backgroundColor: c.primary + '18', borderRadius: 8, paddingHorizontal: 8 }]}>
-          <Text testID={`${testID}-selected-count`} style={{ color: c.text, fontWeight: '600', flex: 1 }}>{p.selectedCount} selected</Text>
-          {p.onSelectAll ? <Pressable testID={`${testID}-select-all`} onPress={p.onSelectAll}><Text style={{ color: c.primary, fontWeight: '600' }}>Select all</Text></Pressable> : null}
-          <Pressable testID={`${testID}-clear-selection`} onPress={p.onClearSelection}><Text style={{ color: c.text, opacity: 0.8 }}>Clear</Text></Pressable>
-          {p.onDeleteSelected ? <PMIconButton testID={`${testID}-delete-selected`} icon="delete" title="Delete selected" onPress={p.onDeleteSelected} color="#d32f2f" /> : null}
+      {p.selectionEnabled && p.selectionVisible ? (
+        // the select-all circle stands in a column as wide as the select column of the rows and at the same left edge: ONE vertical line of circles
+        <View testID={`${testID}-selection`} style={[styles.row, styles.selectionStrip, { backgroundColor: p.selectedCount > 0 ? c.primary + '18' : 'transparent' }]}>
+          <View style={styles.selectAllColumn}>
+            <SelectCircle testID={`${testID}-select-all`} checked={p.allSelected} partial={p.selectedCount > 0 && !p.allSelected} borderColor={c.text + '66'} primary={c.primary}
+              onPress={() => (p.allSelected ? p.onClearSelection() : p.onSelectAll?.())} />
+          </View>
+          {p.selectedCount > 0 ? <Text testID={`${testID}-selected-count`} style={{ color: c.text, fontWeight: '600', flex: 1 }}>{p.selectedCount} selected</Text> : <Text style={{ color: c.text, opacity: 0.6, fontSize: 13, flex: 1 }}>Select all</Text>}
         </View>
-      ) : p.selectionEnabled && p.onSelectAll ? (
-        <View style={styles.row}><Pressable testID={`${testID}-select-all`} onPress={p.onSelectAll}><Text style={{ color: c.text, opacity: 0.6, fontSize: 12 }}>Select all</Text></Pressable></View>
       ) : null}
     </View>
   );
@@ -101,7 +114,12 @@ export default function ReusableListToolbar(p: ReusableListBarProps) {
 const styles = StyleSheet.create({
   bar: { paddingHorizontal: 8, paddingVertical: 6, gap: 6 },
   row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 6, minHeight: 34 },
+  // the bar has 8 px padding at the sides: the strip goes back to the list's left edge so its circle is on the line of the row circles
+  selectionStrip: { marginHorizontal: -8, paddingRight: 8, flexWrap: 'nowrap' },
+  selectAllColumn: { width: SELECT_COLUMN_WIDTH, alignItems: 'center', justifyContent: 'center' },
   title: { fontSize: 16, fontWeight: '700', maxWidth: 160 },
-  search: { flex: 1, minWidth: 120 },
+  search: { flex: 1, minWidth: 120, justifyContent: 'center' },
+  // TextInputApp keeps a 12 - 14 px margin under the field (room for an error text): without this the field sits above the centre line of the icons
+  searchInput: { marginBottom: 0 },
   chip: { fontSize: 12, fontWeight: '600', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' },
 });

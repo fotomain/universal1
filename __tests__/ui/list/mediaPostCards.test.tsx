@@ -42,6 +42,7 @@ import ReusableCardMediaPost from '../../../kit8/ui/components/list/cards/mediap
 import MediaPostCardDefault from '../../../kit8/ui/components/list/cards/mediapost/MediaPostCardDefault';
 import PersonDocumentDetailsCard from '../../../kit8/ui/components/list/cards/mediapost/PersonDocumentDetailsCard';
 import CardLocalFab from '../../../kit8/ui/components/list/cards/CardLocalFab';
+import { FABProvider } from '../../../kit8/providers/FABProvider';
 
 (globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
 const { createRoot } = require('react-dom/client');
@@ -177,14 +178,40 @@ describe('MediaPostCardDefault (as the list was)', () => {
   });
 });
 
+// the web list has no backdrop: a pointer press anywhere else closes it and still reaches its target
+const pointerDownOn = (el: Element) => act(() => { el.dispatchEvent(new Event('pointerdown', { bubbles: true })); });
+const pointerDownOutside = () => pointerDownOn(document.body);
+
 describe('CardLocalFab', () => {
+  it('ONE press on the FAB of another card opens it while this one is open (the first press is not spent on closing)', async () => {
+    const a = [{ icon: 'play', label: 'Play', onPress: jest.fn() }];
+    mount(<FABProvider><CardLocalFab id="a" actions={a} /><CardLocalFab id="b" actions={a} /></FABProvider>);
+    press('card-fab-a-button');
+    await wait();
+    expect(q('card-fab-a-action-Play')).not.toBeNull();
+    // what a real mouse does: pointerdown, then click on the other FAB
+    pointerDownOn(q('card-fab-b-button')!);
+    press('card-fab-b-button');
+    await wait();
+    expect(q('card-fab-b-action-Play')).not.toBeNull();
+    expect(q('card-fab-a-action-Play')).toBeNull();
+  });
+  it('a press on its own button closes the list (it is not closed and reopened)', async () => {
+    mount(<FABProvider><CardLocalFab id="a" actions={[{ icon: 'play', label: 'Play', onPress: jest.fn() }]} /></FABProvider>);
+    press('card-fab-a-button');
+    await wait();
+    pointerDownOn(q('card-fab-a-button')!);
+    press('card-fab-a-button');
+    await wait();
+    expect(q('card-fab-a-action-Play')).toBeNull();
+  });
   it('opens a list of the actions with their names and closes it by the backdrop', async () => {
     const run = jest.fn();
     mount(<CardLocalFab id="x" actions={[{ icon: 'play', label: 'Play', onPress: run }, { icon: 'delete-outline', label: 'Delete', onPress: jest.fn() }]} />);
     press('card-fab-x-button');
     await wait();
     expect(q('card-fab-x-action-Play')).not.toBeNull();
-    press('card-fab-x-backdrop');
+    pointerDownOutside();
     expect(q('card-fab-x-action-Play')).toBeNull();
     press('card-fab-x-button');
     await wait();
