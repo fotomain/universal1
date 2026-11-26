@@ -50,7 +50,7 @@ eas init
 eas build:configure
 
 # PUBLISH ========= publish to global eas web
---- make me ./deploy/deploy_web_eas.command
+--- make me ./apps/appPM80/deploy/eas/web/deploy_web_eas.command
 
 # PUBLISH STORES
 Build for App Stores (Production AAB & iOS IPA)

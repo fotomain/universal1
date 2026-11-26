@@ -54,6 +54,22 @@ it('asks perm_my_matrix once per project / task and narrows the interface to the
   expect(last.p.canCreateProject).toBe(false);
 });
 
+it('a guest (no session) is not asked: perm_my_matrix is not granted to anon, the interface stays open', async () => {
+  mockClient = { rpc: (...a: any[]) => (mockRpc as any)(...a), auth: { getSession: async () => ({ data: { session: null } }) } };
+  await mount({ project: 'p1' });
+  expect(mockRpc).not.toHaveBeenCalled();
+  expect(last.p.ready).toBe(false);
+  expect(last.p.can('task_line_table', 'D')).toBe(true);
+});
+
+it('a signed-in user (a session) is asked', async () => {
+  mockRpc.mockResolvedValue({ data: answer, error: null });
+  mockClient = { rpc: (...a: any[]) => (mockRpc as any)(...a), auth: { getSession: async () => ({ data: { session: { access_token: 'x' } } }) } };
+  await mount({ project: 'p1' });
+  expect(mockRpc).toHaveBeenCalledTimes(1);
+  expect(last.p.ready).toBe(true);
+});
+
 it('useDocumentRights: the letters U / D / C of the header table (the Post and Delete buttons of the document forms)', async () => {
   mockRpc.mockResolvedValue({ data: answer, error: null });
   const host = document.createElement('div');

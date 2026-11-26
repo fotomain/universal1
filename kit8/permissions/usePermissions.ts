@@ -78,6 +78,12 @@ export function usePermissions(projectGUID?: string | null, taskGUID?: string | 
     if (store.entries[key]?.loading) return;
     store.mark(key);
     try {
+      // a guest has no session: perm_my_matrix is not granted to the anonymous role (the answer would be a 401 in the console). Nothing is asked then;
+      // the interface stays open (the database decides) and the sign in (onAuthStateChange below) asks again.
+      if (typeof client.auth?.getSession === 'function') {
+        const { data: sessionData } = await client.auth.getSession();
+        if (!sessionData?.session) throw new Error('no session');
+      }
       const { data, error } = await client.rpc('perm_my_matrix', { p_project: projectGUID || null, p_task: taskGUID || null });
       if (error) throw error;
       usePermissionStore.getState().put(key, matrixOf(data));

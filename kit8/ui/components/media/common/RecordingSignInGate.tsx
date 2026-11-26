@@ -2,13 +2,35 @@
 // organization (organizationTable.rowJSON.organizationFilesStorageProvider: Google Drive | Microsoft OneDrive, set in Organization edit -> Files).
 // A guest sees this card instead of the recorder / the scanner: Sign in, or (recordings) Sign in and then set up the file storage. Mounted by app/media/record/{audio,video,photo}, app/media/scan, app/media/nfc/{index,identification,iddocread}, app/pm/project/estimation/dashboard (kind estimation).
 import React, { useEffect } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
 import { useRouter } from 'expo-router';
 import { useSelector } from 'react-redux';
 import { selectIsLoggedIn } from '../../../../redux/activeUserSlice';
 import { setPendingReturnTo } from '../../../../auth/session/pendingReturnTo';
-import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../common';
+
+/** the largest width of the card: a wide window does not stretch it across the whole screen */
+export const SIGNIN_GATE_MAX_WIDTH = 960;
+
+/** a button of the look of the Sign in screen buttons (Google / Microsoft): a full width pill, 44 px high, the primary colour; secondary = the same pill with only the border */
+function GateButton({ testID, onPress, secondary, children }: { testID: string; onPress: () => void; secondary?: boolean; children: React.ReactNode }) {
+  const theme = useTheme();
+  const primary = theme.colors.primary;
+  return (
+    <Pressable
+      testID={testID}
+      accessibilityRole="button"
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.button,
+        secondary ? { backgroundColor: 'transparent', borderColor: primary } : { backgroundColor: primary, borderColor: primary },
+        pressed && { opacity: 0.8 },
+      ]}
+    >
+      <Text style={[styles.buttonLabel, { color: secondary ? primary : '#ffffff' }]}>{children}</Text>
+    </Pressable>
+  );
+}
 
 /** where the user lands after the sign in to connect the storage: the organization list (edit -> tab Files) */
 export const FILE_STORAGE_SETUP_ROUTE = '/catalog/organization';
@@ -62,8 +84,8 @@ export default function RecordingSignInGate({ returnTo, kind, children }: Record
             {isRecord ? RECORD_TEXT : kind === 'estimation' ? ESTIMATION_TEXT : SCAN_TEXT}
           </Text>
           <View style={styles.buttons}>
-            <ButtonPrimaryApp testID="recording-signin-button" onPress={() => signIn(returnTo)}>Sign in</ButtonPrimaryApp>
-            {isRecord && <ButtonSecondaryApp testID="recording-signin-storage-button" onPress={() => signIn(FILE_STORAGE_SETUP_ROUTE)}>Sign in and connect the file storage</ButtonSecondaryApp>}
+            <GateButton testID="recording-signin-button" onPress={() => signIn(returnTo)}>Sign in</GateButton>
+            {isRecord && <GateButton secondary testID="recording-signin-storage-button" onPress={() => signIn(FILE_STORAGE_SETUP_ROUTE)}>Sign in and connect the file storage</GateButton>}
           </View>
         </Card.Content>
       </Card>
@@ -73,7 +95,9 @@ export default function RecordingSignInGate({ returnTo, kind, children }: Record
 
 const styles = StyleSheet.create({
   content: { padding: 16, flexGrow: 1, justifyContent: 'center' },
-  card: { borderRadius: 16 },
+  card: { borderRadius: 16, width: '100%', maxWidth: SIGNIN_GATE_MAX_WIDTH, alignSelf: 'center' },
   body: { gap: 12 },
-  buttons: { gap: 8 },
+  buttons: { gap: 12, marginTop: 8 },
+  button: { minHeight: 44, borderRadius: 22, borderWidth: 1, paddingHorizontal: 24, alignItems: 'center', justifyContent: 'center' },
+  buttonLabel: { fontSize: 14, fontWeight: '600', textAlign: 'center' },
 });

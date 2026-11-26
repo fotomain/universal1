@@ -17,3 +17,19 @@ Rules
 - `session/` imports `otp/` and `password/` only for URL parsing (`useAuthRedirectHandler`); `otp/` and `password/` import the redirect publishers from `session/`. Do not import a screen component from `session/`.
 - Tests mirror the folders: `__tests__/auth/{otp,password,user}`.
 - **One sign-in at a time** (`app/user/signin/index.tsx`): `busy` = Google loading OR Microsoft loading OR the email code being sent / verified (`SignInWithEmailOtp` reports it through `onBusyChange`) OR the password sign-in running. While `busy`, every other button and input of the screen is disabled (the Google / Microsoft buttons, the email form through its `disabled` prop, the password inputs, Sign in, Forgot password, the mode toggle). Tests: `__tests__/auth/signinBusy.test.tsx`, `__tests__/auth/otp/signInWithEmailOtpDisabled.test.tsx`.
+
+
+## Supabase URL Configuration (Authentication -> URL Configuration) - REQUIRED for every sign-in
+
+A sign-in on the web sends `redirectTo = <origin of the page>/user/signin` (Google: `google/useAuth.web.ts`, Microsoft: `microsoft/useAuthWithMicrosoft.ts`; the e-mail link and the password reset use `<origin>/...` too). Supabase accepts a `redirectTo` ONLY when it matches the **Redirect URLs** list; otherwise it silently falls back to the **Site URL** - with a Site URL of `http://localhost:8081` the user came back from Google to a dead `localhost:8081/#access_token=...` page ("refused to connect", 2026-11-26). `*` matches one label (no `.` or `/`), `**` matches anything.
+
+| Setting | Value |
+|---|---|
+| **Site URL** | `https://project-budget-management.expo.app` (the production site: the fallback must never be localhost) |
+| Redirect URLs | `http://localhost:*/**` (any local port: `npm run web` = 8088, 8081, 8089 ...) |
+| | `http://127.0.0.1:*/**` |
+| | `https://*.expo.app/**` (every EAS web deploy: `<slug>.expo.app` and the preview `<slug>--<id>.expo.app`) |
+| | `projectbudgetmanagement://**` (appPM80 native sign-in = `extra.authScheme`) |
+| | `myapp://**` (the older apps) |
+
+A custom domain for a site needs its own `https://<domain>/**` line. After a change nothing is redeployed: it is a Supabase setting only.

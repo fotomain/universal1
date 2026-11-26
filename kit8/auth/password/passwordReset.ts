@@ -8,7 +8,7 @@
 // Supabase dashboard setup (Authentication):
 //   * Emails > "Reset Password": paste kit8/auth/password/email-templates/reset-password.html (it has {{ .Token }}
 //     AND {{ .ConfirmationURL }}; the default template has only the link).
-//   * URL Configuration > Redirect URLs: add http://localhost:8081/** , https://<your web domain>/** and
+//   * URL Configuration > Redirect URLs: add the list of kit8/auth/README.md (http://localhost:*/** , https://*.expo.app/** ...) and
 //     the native schemes (myapp-posts://**, myapp-cc1://**, ...). resetRedirectTo() asks for .../forgotpassword.
 //   * Providers > Email > "Minimum password length": keep PASSWORD_MIN_LENGTH below in sync.
 //   * Same email limits as the OTP sign-in (60 s per address, hourly project quota) - see emailOtp.ts.

@@ -7,10 +7,9 @@
 //   * Emails > "Confirm signup" (new users) AND "Magic Link" (existing users): paste
 //     kit8/auth/otp/email-templates/confirm-signup.html / magic-link.html - they contain {{ .Token }} (the code).
 //     verifyOtp({ type: 'email' }) accepts both the signup code and the sign-in code.
-//   * URL Configuration > Site URL: the real web address of the app (e.g. https://your-app.com, or
-//     http://localhost:8081 while developing). A wrong value sends the email link to a broken
+//   * URL Configuration > Site URL: the real PRODUCTION web address of the app (never localhost: it is where Supabase falls back when a redirect is not in the list). A wrong value sends the email link to a broken
 //     address such as http://0.0.62.61/.
-//   * URL Configuration > Redirect URLs: add http://localhost:8081/** and https://<your web domain>/**
+//   * URL Configuration > Redirect URLs: add the list of kit8/auth/README.md (http://localhost:*/** , https://*.expo.app/** ...)
 //     (emailOtpRedirectTo() asks for <origin>/signin; URLs not in this list fall back to the Site URL).
 //   * Providers > Email: enabled; code length (6-10 digits) + expiry are set there; the UI accepts 6-10.
 //   * Supabase allows one email per address every 60 s -> OTP_RESEND_COOLDOWN_SECONDS.

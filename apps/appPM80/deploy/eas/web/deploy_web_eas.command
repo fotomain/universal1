@@ -3,12 +3,15 @@ set -e
 
 # Determine directories
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$DIR/../../.." && pwd)"
+# This script lives in apps/<app>/deploy/eas/web, so the project root is 5 levels up.
+PROJECT_ROOT="$(cd "$DIR/../../../../.." && pwd)"
+# The app is the folder this deploy folder belongs to (apps/appPM80/deploy -> appPM80).
+APP_FOLDER="$(basename "$(cd "$DIR/../../.." && pwd)")"
 
 # Which app to deploy: first argument (appClothes1, appPM80, ...) or APP_NAME from the environment,
-# default appClothes1 (what this script always deployed). Every app with a slug of its own has ITS OWN
+# default = the app whose folder holds this script (apps/appPM80/deploy -> appPM80). Every app with a slug of its own has ITS OWN
 # EAS project (extra.eas.projectId in app.config.js), so a deploy never overwrites another app's site.
-APP="${1:-${APP_NAME:-appClothes1}}"
+APP="${1:-${APP_NAME:-$APP_FOLDER}}"
 export APP_NAME="$APP"
 EXPORT_DIR="dist/eas/$APP"
 
