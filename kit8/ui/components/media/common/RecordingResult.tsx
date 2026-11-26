@@ -8,6 +8,7 @@ import MediaPlayerModal from '../play/MediaPlayerModal';
 import { playableUrisOfPost, RecordingPost } from './mediaPost';
 import { formatDuration, MediaKind } from './mediaSource';
 import { dateTimeOverOfPost } from '../video/dateTimeOver';
+import { driveFilesOfPost } from '../../../../files/common/recordingUpload';
 
 export interface RecordingResultProps {
   kind: MediaKind;
@@ -44,7 +45,7 @@ export default function RecordingResult({ kind, post, onRecordAgain }: Recording
           </ButtonSecondaryApp>
         </View>
       </Card.Content>
-      <MediaPlayerModal visible={playing} onDismiss={() => setPlaying(false)} kind={kind} source={playableUrisOfPost(json)} title={json.mediaPostTitle} dateTimeOver={dateTimeOverOfPost(json)} />
+      <MediaPlayerModal visible={playing} onDismiss={() => setPlaying(false)} kind={kind} source={playableUrisOfPost(json)} title={json.mediaPostTitle} dateTimeOver={dateTimeOverOfPost(json)} driveFiles={driveFilesOfPost(json)} />
     </Card>
   );
 }

@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Initial program data - how it works</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.a { background: var(--rose-soft); color: var(--rose); }
+  .pill.b { background: var(--amber-soft); color: var(--amber); }
+  .pill.c { background: var(--bg-subtle); color: var(--muted); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .bad { background: var(--rose-soft); border: 1px solid #f5b5c0; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Initial program data - how it works</div>
+  <nav><ul>
+    <li><a href="#what">What it is</a></li><li><a href="#first">First run</a></li><li><a href="#screen">The screen</a></li><li><a href="#rates">Exchange rates</a></li>
+    <li><a href="#inside">Inside</a></li><li><a href="#admin">First administrator</a></li><li><a href="#new">A new database</a></li><li><a href="#proof">What was tested</a></li>
+  </ul></nav>
+</div></header>
+<main>
+
+<section id="what">
+  <h1>Initial program data - how it works</h1>
+  <p class="lead">A new, empty Supabase database has the tables and the functions but no row in any catalog: no permission matrix, no budget item, no calendar. The application now makes those rows itself, from JSON files that are part of the application. It does it by itself at the first run, and a menu row does the same later.</p>
+  <p class="sub">Built 2026-11-26. Plan and decisions: <code>INITIAL_DATA_WBS.html</code>. Code: <code>kit8/initial/data/code</code> · data: <code>kit8/initial/data/json</code> · SQL: PART 60 of <code>start2_sql_code.sql</code> · README: <code>kit8/initial/data/README.md</code>.</p>
+</section>
+
+<section id="first">
+  <h2>1. What the application does when it starts</h2>
+  <p class="sub">After a user is signed in, ONE question goes to the database (<code>initial_data_status</code>); the answer says what exists. Then:</p>
+  <div class="scroll"><table>
+    <thead><tr><th>The database</th><th>What the user sees</th></tr></thead>
+    <tbody>
+      <tr><td>Everything the application needs is there</td><td>Nothing. The normal start. (This is every start after the first.)</td></tr>
+      <tr><td><b>Nothing</b> of it exists (a new database)</td><td>The window <b>Preparing the application</b> opens by itself and runs <b>without asking</b>. Only the progress is shown: a bar, the percent, "Step 3 of 15: Management genus", the table and its rows. Nothing else in the application can be used. When it is over, the exchange rates window is offered, then the home page opens.</td></tr>
+      <tr><td><b>A part</b> exists (something was deleted, or an older database)</td><td>The screen <b>Create initial data</b> opens as a list with a check box near each group. The user presses <b>Create</b>. Close stays disabled until everything required is there. When it is over the home page opens.</td></tr>
+      <tr><td>This user may not write the data</td><td>The screen says who can ("ask your administrator"); Create is disabled; <b>Check again</b> reads the database again.</td></tr>
+      <tr><td>The check cannot be made (the SQL of PART 60 is not installed yet, no network)</td><td>Nothing. The application is <b>not</b> locked; a warning is in the console.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">A guest cannot be checked: the function is only for signed-in users. The check runs when a user signs in, once per user and application run (a token refresh does not ask again).</div>
+</section>
+
+<section id="screen">
+  <h2>2. The screen <code>CreateInitialProgramData</code></h2>
+  <p>Menu: hamburger -&gt; System settings -&gt; <b>Create initial data</b> (administrators). The same screen opens at the first run.</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Column</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td>Create (check box)</td><td>A required group that is missing is checked and cannot be un-checked. An optional group (countries, business units, languages, file types, scenarios) is checked and may be cleared. A complete group is shown ticked.</td></tr>
+      <tr><td>Initial data</td><td>The group: permission matrix · management genus, activity genus and budget item keys · budget items · RACI items · calendars (and their days) · Kanban stages · currencies · VAT rates, units of measure and distributions · exchange rates of 31 December · countries · CFR types and business units (all 29) · languages · document types of the files · budget scenarios · the first application administrator.</td></tr>
+      <tr><td>Required</td><td>Required = the application cannot work without it. Optional = a feature needs it.</td></tr>
+      <tr><td>In the file / In the database</td><td>Rows the application has / rows the database has of them.</td></tr>
+      <tr><td>Status</td><td>Missing · Partly · Complete (and "Partly (enough to work)" when only rows nobody needs are missing).</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>Create</b> writes the checked groups: only what the database does not have yet, in pieces of 500 rows. A row that exists is never changed (a budget item you renamed stays renamed). While it writes the screen shows only the progress. If a step fails the message is shown and <b>Create again</b> goes on from there. The button <b>Exchange rates</b> opens the separate window of section 3.</p>
+</section>
+
+<section id="rates">
+  <h2>3. Exchange rates (a separate window)</h2>
+  <ol class="steps">
+    <li><b>Automatic.</b> The run makes the rate in force on <b>31 December of the previous year</b> for the currencies of the catalog (the base currency excluded; the check at the start looks at USD, EUR and GBP). The rates service publishes working days only, so the last published day on or before 31 December (up to 10 days back) is stored as the rate of 31 December; the day it was read from is in <code>rowJSON.rateFromDay</code>. A currency that already has a rate on or before that day is left alone.</li>
+    <li><b>Offered.</b> When the data is ready the window <b>Exchange rates</b> opens: <b>Fill from 1 January to today</b> adds every missing day for the catalog's currencies (what a currency card's "Upload all data from a date" does).</li>
+    <li><b>Template.</b> <b>Download currencies_reates_import_template.csv</b>: the columns <code>currencyCode, startingDate, currencyRatio, rateType</code> and a line per currency for 1 January with an empty ratio.</li>
+    <li><b>Import.</b> <b>Import from CSV</b> reads the filled file and shows a preview first: how many rates can be imported, how many lines have no ratio (skipped), which lines are wrong and why. Then <b>Import</b>. Rates that exist stay unless "Replace a rate that already exists" is checked.</li>
+  </ol>
+  <div class="note">The CSV may use , or ; between the columns, the day as <code>2026-01-02</code> or <code>02.01.2026</code>, the ratio with a point or a comma; <code>rateType</code> is Default (or empty) or Budget. A ratio is units of the currency for 1 unit of the base currency. If the rates service cannot be reached at the first run, the screen stops at "Exchange rates" and offers <b>Create again</b> and <b>Continue without rates</b>; the next start asks again.</div>
+</section>
+
+<section id="inside">
+  <h2>4. Inside</h2>
+  <ul class="steps">
+    <li><b>The list of the data</b> is one file, <code>initialDataDefinition.json</code>: the groups in install order, the tables, how a row is recognised (its rowGUID, or one key of its JSON for currencies, countries and Kanban stages), what is required. The screen, the gate, the dump script and the tests all read it; a Jest test compares it with the whitelist in SQL.</li>
+    <li><b>The data</b> is <code>kit8/initial/data/json/NN_&lt;table&gt;.json</code>, one row a line, with <code>manifest.json</code> (rows and sha-256). It is bundled into the application, so nothing but Supabase is needed.</li>
+    <li><b>The way in</b> is the function <code>initial_data_install(table, rows)</code> (SECURITY DEFINER): a whitelist of 20 tables, at most 1 000 rows a call, INSERT ONLY (<code>ON CONFLICT DO NOTHING</code> plus the natural-key test), rows in the order of the file (a parent before its children). Three catalogs the client can only read (permission profiles, RACI items, languages) are written through it too, by an application administrator only.</li>
+    <li><b>The calendar days</b> are not shipped: <code>initial_data_fill_calendars()</code> makes the days of last, this and next year for the five seeded calendars (the rule of start4), only for a calendar and year that has none.</li>
+    <li><b>The dump.</b> <code>node kit8/initial/data/code/dumpInitialData.mjs</code> writes the JSON files from the Supabase of <code>.env</code> (it reads the key, never prints or writes it) and prints what changed against the files that were there. <code>--source docker --db sqlseeds</code> makes them from the repository seeds (<code>kit8/docker/make_seeds_db.sh</code>); the files in the repository now come from there. It dumps ALL rows of the listed tables: remove the user's own rows from the JSON before the files are used.</li>
+  </ul>
+</section>
+
+<section id="admin">
+  <h2>5. The first application administrator</h2>
+  <p>The permission matrix is read from the database, and the only application administrator of the old database is a row of <code>application_permission_table</code> that nobody but SQL can write. A new database has none. The function <code>initial_data_bootstrap_admin()</code> makes the <b>caller</b> the application administrator, with the e-mail of his own session, only while <b>nobody is one</b> and the database has <b>at most one registered user</b> (the first sign-up). It is the first step of the run, before the groups that need an application administrator. A second user of a new database cannot claim it from the application: an administrator adds the e-mail in SQL (start4 PART 54 shows the row).</p>
+</section>
+
+<section id="new">
+  <h2>6. A new Supabase database</h2>
+  <ol class="steps">
+    <li>SQL Editor: run <code>start1_sql_tables.sql</code>, then <code>start2_sql_code.sql</code> (PART 60 is in it), then <code>start3_sql_pg_cron.sql</code> if pg_cron is enabled. <b>Not</b> start4: the application creates the data.</li>
+    <li><code>.env</code>: the URL and keys of the new project; restart <code>npx expo start --web -c</code>.</li>
+    <li>Sign in as the first user. The window "Preparing the application" runs by itself; the exchange rates window follows; then the home page opens.</li>
+  </ol>
+  <div class="note">An existing database needs only <code>start2_sql_code.sql</code> (the functions), and the menu row Create initial data works. If its data is complete the application starts as before.</div>
+</section>
+
+<section id="proof">
+  <h2>7. What was tested, and what was not</h2>
+  <div class="grid">
+    <div class="card"><h3 style="margin-top:0">Tested</h3><ul class="steps">
+      <li>Docker, an EMPTY database (start1 + start2): 53 checks of the five functions (insert only, whitelist, 1 000 rows, rights, the first administrator, calendars once).</li>
+      <li>The JSON files installed through the functions, as the first run does: <b>21 tables equal</b> to the database made by start4.</li>
+      <li>On that database made WITHOUT start4: a demo project, a task, a Time line, <b>Post</b> works.</li>
+      <li>Jest (<code>__tests__/initial</code>): the model and what the application does about each state, the JSON files, the rate algorithm and the CSV, the run (order, pieces, failure), the screen, the gate, the rates window.</li>
+    </ul></div>
+    <div class="card"><h3 style="margin-top:0">Not tested</h3><ul class="steps">
+      <li>Nothing was seen in a browser or on a phone.</li>
+      <li>The owner's real Supabase was not touched, and the rates service was only tested with a fake one.</li>
+      <li>"Take one group away and see what breaks" was not run: the proof is that the JSON alone is enough for a project and a Post. Which group is required comes from reading the code.</li>
+      <li>The texts of the screen and the gate are in English; the menu row is in 15 languages.</li>
+    </ul></div>
+  </div>
+</section>
+
+</main>
+</body>
+</html>

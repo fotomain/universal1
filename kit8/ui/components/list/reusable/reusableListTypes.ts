@@ -3,6 +3,8 @@
 import type { ComponentType, ReactNode } from 'react';
 import type { ReusableTableProps, ReusableTableRow, VisualColumn } from '../../table/reusable/reusableTableTypes';
 import type { CardSize } from '../cards/cardSize';
+import type { CardFabAction } from '../cards/CardLocalFab';
+import type { SwipeActionsProp, SwipeInset } from './swipeModel';
 
 /**
  * where the rows live while the list is open:
@@ -33,6 +35,8 @@ export interface ReusableListRowActions {
   makeLast: (guid: string) => void;
   /** the row menu of the list at a window point */
   openMenu: (guid: string, x: number, y: number) => void;
+  /** Archive / Restore: toggles `rowJSON.rowIsArchived` (the same as the swipe; does nothing when the list does not offer it for this row) */
+  archive: (guid: string) => void;
   /** the card was used (pressed ...): the toolbar button "scroll to the last used card" goes to it. Every other command marks it too */
   markUsed: (guid: string) => void;
 }
@@ -54,6 +58,8 @@ export interface ReusableListItemState {
   canDelete: boolean;
   /** the list has an edit card or onRowOpen */
   canOpen: boolean;
+  /** `rowJSON.rowIsArchived` is true (the list draws the small info icon on the card itself; a custom card may also dim / label it) */
+  archived: boolean;
 }
 
 /** the props of a form that makes a NEW element (the Add button of the toolbar opens it). The rowJSON is the content of the new row. */
@@ -119,6 +125,20 @@ export interface ReusableListProps extends FromTable {
   refreshOnFocus?: boolean;
   /** anything the custom `renderItem` reads from outside (a map of names, a handler): when it changes the visible items are drawn again */
   renderItemDeps?: unknown;
+  /** the INNER id of this list (a constant string per list, e.g. 'mediaPosts.list'). The local settings of the list (three dots menu -> Settings: what a swipe does, ...) are kept on this device under it - so it must never change and be unique in the app */
+  reusableListGUID: string;
+  /** swipe actions on every item (default ON; false = none): what a swipe does in each direction is the SETTING of the list (archive | delete, with a stop at the button | the card disappears; default left -> right = archiveWithStop, right -> left = deleteWithStop).
+   *  An object switches an action off: { archive: false } / { delete: false }. Archive sets ONLY `rowJSON.rowIsArchived` (the row stays, the card shows the Archive icon); Delete asks first when the user setting says so. Needs canEdit / canDelete */
+  swipeActions?: SwipeActionsProp;
+  /** with swipeActions: how far the VISIBLE card is inset inside its item (a card with its own margin / rounded corners): the Archive / Delete buttons are drawn exactly under the card, on its vertical line, with its corner radius */
+  swipeInset?: SwipeInset;
+  /** with swipeActions: false = this row cannot be archived (no Archive button for it; Delete stays). A row the database refuses to update (a file row of the media posts) */
+  canArchiveRow?: (row: ReusableTableRow) => boolean;
+  /** every custom card (`renderItem`) gets the small round FAB of the list at its bottom right (default ON, like the three dots menu at its top right): it opens the commands of THAT card
+   *  (Edit, Add above / below, Duplicate, Move up / down, Archive / Restore, Delete - only what the user may do) plus `cardFabActions`. false = none (a card that draws its own FAB) */
+  cardFab?: boolean;
+  /** extra commands of a card for its FAB (shown before the standard ones; the host gives the same commands to `extraMenuItems` for the three dots menu) */
+  cardFabActions?: (row: ReusableTableRow, state: ReusableListItemState) => CardFabAction[];
   /** px under which the list asks for the next page / the end of the list (FlashList onEndReachedThreshold, default 1.5 screens) */
   endReachedThreshold?: number;
 }

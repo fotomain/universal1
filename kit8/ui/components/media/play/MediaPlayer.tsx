@@ -6,12 +6,15 @@
 // Called by a route (app/media/play/*: ?url=…&autoPlay=true) or from a modal window (MediaPlayerModal). With a source
 // it starts to play by itself (autoPlay, default true).
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
 import AudioPlayerView from './AudioPlayerView';
 import VideoPlayerView from './VideoPlayerView';
 import MediaSourceInput from '../common/MediaSourceInput';
-import { resolveMediaUri } from '../common/mediaFileStore';
+import { mediaFileExists, resolveMediaUri } from '../common/mediaFileStore';
+import { fetchDownloadUrl } from '../../../../files/common/filesDriveApi';
+import type { DriveFileRef } from '../../../../files/common/recordingUpload';
+import { driveFileOfPart, resolvePlaySource, type PlayFrom, type PlaySourceDeps } from './playSource';
 import { MediaKind, normalizeQueue } from '../common/mediaSource';
 import type { MediaDateTimeOver } from '../video/dateTimeOver';
 
@@ -28,16 +31,30 @@ export interface MediaPlayerProps {
   onEnded?: () => void;
   /** video: the date and time stamp of a recording whose files do not have it (dateTimeOverOfPost(rowJSON)); it belongs to `source` */
   dateTimeOver?: MediaDateTimeOver | null;
+  /** the files of the post in the file storage, one per part of `source` (the same order): the web plays from them, a phone plays from the file of the device and falls back to them */
+  driveFiles?: DriveFileRef[];
   testID?: string;
 }
 
-export default function MediaPlayer({ kind, source, autoPlay = true, title, showSourceInput = true, onEnded, dateTimeOver = null, testID = 'media-player' }: MediaPlayerProps) {
+/** a link to play the file row of a post: the function signs one (10 minutes) and streams the file */
+async function driveUrlOf(fileRowGUID: string): Promise<string> {
+  const r = await fetchDownloadUrl(fileRowGUID);
+  if (!r.ok) throw new Error(`The file could not be opened from the file storage: ${r.error}`);
+  return r.data.url;
+}
+
+const playSourceDeps = (): PlaySourceDeps => ({ isWeb: Platform.OS === 'web', resolveLocal: resolveMediaUri, localExists: mediaFileExists, driveUrl: driveUrlOf });
+
+export default function MediaPlayer({ kind, source, autoPlay = true, title, showSourceInput = true, onEnded, dateTimeOver = null, driveFiles, testID = 'media-player' }: MediaPlayerProps) {
   const theme = useTheme();
   const sourceKey = JSON.stringify(normalizeQueue(source));
   const [queue, setQueue] = useState<string[]>(() => normalizeQueue(source));
   const [index, setIndex] = useState(0);
   const [startNow, setStartNow] = useState(autoPlay);
   const [playUri, setPlayUri] = useState('');
+  const [playFrom, setPlayFrom] = useState<PlayFrom>('local');
+  /** the file of the device did not play (damaged, wrong format): the next try is the file in the storage */
+  const [forceDrive, setForceDrive] = useState(false);
   const [error, setError] = useState('');
   const [nonce, setNonce] = useState(0);
   /** false after the user typed / picked another source: the stamp belongs to the source of the props */
@@ -54,19 +71,29 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
   }, [sourceKey, autoPlay]);
 
   const current = queue[index] || '';
+  // the part the user chose by typing / picking has no file in the storage: the files belong to the source of the props
+  const driveFile = ownSource ? driveFileOfPart(driveFiles, index) : undefined;
+  const driveGUID = driveFile?.fileRowGUID || '';
 
-  // a stored recording (kit8media://) -> an object url the player can open
+  useEffect(() => setForceDrive(false), [current, driveGUID]);
+
+  // the address to play: a stored recording (kit8media://) -> an object url; web = the file in the storage first; a phone = its own file first (playSource.ts)
   useEffect(() => {
     let alive = true;
     setPlayUri('');
     if (!current) return undefined;
-    resolveMediaUri(current)
-      .then((uri) => alive && setPlayUri(uri))
+    resolvePlaySource(current, driveFile, playSourceDeps(), { forceDrive })
+      .then((src) => {
+        if (!alive) return;
+        setPlayFrom(src.from);
+        setPlayUri(src.uri);
+      })
       .catch((e) => alive && setError(String(e?.message || e)));
     return () => {
       alive = false;
     };
-  }, [current]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current, driveGUID, forceDrive]);
 
   const handleEnd = useCallback(() => {
     if (index + 1 < queue.length) {
@@ -77,7 +104,18 @@ export default function MediaPlayer({ kind, source, autoPlay = true, title, show
     }
   }, [index, queue.length, onEnded]);
 
-  const handleError = useCallback((message: string) => setError(message), []);
+  const handleError = useCallback(
+    (message: string) => {
+      // the file of the device would not play: try the file in the storage once before telling the user
+      if (playFrom === 'local' && driveGUID && !forceDrive) {
+        setError('');
+        setForceDrive(true);
+        return;
+      }
+      setError(message);
+    },
+    [playFrom, driveGUID, forceDrive],
+  );
 
   const userChose = (uri: string) => {
     setError('');

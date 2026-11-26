@@ -64,6 +64,7 @@
 --   57. create_project_estimation.sql - PROJECT ESTIMATION (documentation/ESTIMATION/PROJECT_ESTIMATION.html): no table; project_estimation_summary (the sums of the task lines of the estimation project per budget item + counts of the project it fills), project_delete_task_roots (delete top-level rows with their subtrees in bulk), the guard trigger of the key projectEstimationGUID of project_table
 --   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: RLS + policies of the estimation_ tables, permission_estimation_manager() (= permissionEstimationManager), estimation_project_access, the guard triggers; perm_my_matrix answers canManageEstimation
 --   59. create_user_settings.sql - USER SETTINGS: RLS + policies of userSettingsTable (own rows only), the guard, user_settings_upsert / _touch / _copy_from, realtime
+--   60. create_initial_data.sql - INITIAL PROGRAM DATA (documentation/INITIAL_DATA_WBS.html): no table; initial_data_tables / _status / _install / _fill_calendars / _bootstrap_admin = the only door the JSON files of kit8/initial/data go in by (insert only, whitelist)
 -- ===============================================================================================
 
 DO $$
@@ -17811,9 +17812,9 @@ END $$;
 
 CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
   USING (
-    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' <> 'identification' AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
-    -- the owner photo of an ID card / passport (scope identification): its uploader only, never the other members of the organization
-    OR ("rowJSON"->>'fileSourceKind' = 'identification' AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
+    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' NOT IN ('identification', 'recording') AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    -- the owner photo of an ID card / passport (scope identification) and the files of the user's own recordings (scope recording): their uploader only, never the other members of the organization
+    OR ("rowJSON"->>'fileSourceKind' IN ('identification', 'recording') AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
   );
@@ -17842,7 +17843,7 @@ LANGUAGE sql IMMUTABLE AS $$
 $$;
 
 -- ---- files_authorize: the ONE question every file action asks (the Edge Function asks it with the caller's JWT before any Drive call) ---------------------------------------------
---   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document | chat | identification
+--   p_action: read | add | update | delete | reorder | move | connect          p_scope: organization | project | stage | task | document | chat | identification | recording
 --   p_guid: the project / task / stage / document GUID (the organization scope needs none)          p_project: the project GUID for a stage / task
 -- Answer { allowed, reason, organizationGUID, userGUID, projectGUID, scope, guid }. reason: signIn | unknownAction | scope | project | task | switchOff | noPermission.
 -- OD4: the STORAGE of a scope. ONE storage for the whole organization: the key organizationFilesStorageProvider of the organization row (Organization edit -> Files) decides every scope
@@ -17868,7 +17869,7 @@ DECLARE
 BEGIN
   IF v_user IS NULL OR v_org IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'signIn'); END IF;
   IF p_action NOT IN ('read', 'add', 'update', 'delete', 'reorder', 'move', 'connect') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'unknownAction'); END IF;
-  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document', 'chat', 'identification') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+  IF p_action <> 'connect' AND v_scope NOT IN ('organization', 'project', 'stage', 'task', 'document', 'chat', 'identification', 'recording') THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
   IF p_action <> 'connect' THEN
     IF v_scope = 'project' THEN v_project := public.files_uuid_or_null(p_guid);
     ELSIF v_scope IN ('stage', 'task') THEN v_project := public.files_uuid_or_null(p_project);
@@ -17892,6 +17893,12 @@ BEGIN
       SELECT m."rowJSON"->>'idCardFolder' INTO v_id_kind FROM public."mediaPostTable" m
        WHERE m."rowGUID" = COALESCE(p_guid, '') AND NOT (m."rowJSON" ? 'fileSourceKind') AND m."rowOwnerGUID" = v_user::text AND m."rowJSON"->>'idCardFolder' IN ('idcard', 'passport');
       IF v_id_kind IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
+    ELSIF v_scope = 'recording' THEN
+      -- the file of a recording / a photo (2026-11-26): p_guid = the media post of the recording (rowJSON.recordingFolder = audio | video | photo; the folder is kit8root/media/<folder>); only its AUTHOR.
+      -- v_id_kind carries the folder (the answer key idKind is shared with the scope identification)
+      SELECT m."rowJSON"->>'recordingFolder' INTO v_id_kind FROM public."mediaPostTable" m
+       WHERE m."rowGUID" = COALESCE(p_guid, '') AND NOT (m."rowJSON" ? 'fileSourceKind') AND m."rowOwnerGUID" = v_user::text AND m."rowJSON"->>'recordingFolder' IN ('audio', 'video', 'photo');
+      IF v_id_kind IS NULL THEN RETURN jsonb_build_object('allowed', false, 'reason', 'scope'); END IF;
     ELSIF v_scope = 'document' AND COALESCE(p_guid, '') = '' THEN
       RETURN jsonb_build_object('allowed', false, 'reason', 'scope');
     END IF;
@@ -17902,7 +17909,7 @@ BEGIN
   END IF;
   IF p_action = 'read' THEN v_ok := true;
   ELSIF p_action = 'connect' THEN v_ok := public.perm_can('projectFileManager', 'U');
-  ELSIF v_scope = 'identification' THEN v_ok := p_action <> 'move';   -- the author of the post adds / reads / deletes his own photo; it never moves
+  ELSIF v_scope IN ('identification', 'recording') THEN v_ok := p_action <> 'move';   -- the author of the post adds / reads / deletes his own photo / recording files; they never move
   ELSIF v_scope = 'chat' THEN v_ok := p_action <> 'move';   -- a member adds / changes the files of his theme (the row rule is chat_file_manage_check); a chat file never moves
   ELSIF v_scope IN ('project', 'stage', 'task') THEN v_ok := public.perm_can_in('projectMediaPostManager', 'U', v_project);
   ELSE v_ok := public.perm_can('projectFileManager', 'U');
@@ -17944,8 +17951,9 @@ BEGIN
       FROM public."mediaPostTable" m
      WHERE m."rowOwnerGUID" = v_org AND m."rowJSON" ? 'fileSourceKind'
        AND CASE v_scope
-             WHEN 'organization' THEN m."rowJSON"->>'fileSourceKind' <> 'identification'   -- the ID photos are private to their author
+             WHEN 'organization' THEN m."rowJSON"->>'fileSourceKind' NOT IN ('identification', 'recording')   -- the ID photos and the recording files are private to their author
              WHEN 'identification' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'identification'
+             WHEN 'recording' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'recording'
              WHEN 'project' THEN m."rowJSON"->>'fileSourceProjectGUID' = p_guid
              WHEN 'document' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'document'
              WHEN 'chat' THEN m."rowParentGUID" = p_guid AND m."rowJSON"->>'fileSourceKind' = 'chat'
@@ -18366,15 +18374,15 @@ BEGIN
 END;
 $$;
 
--- the owner photo of an ID card post goes with the post: the file row is deleted and the Drive file queued (the folders identification/idcard|passport stay)
+-- the owner photo of an ID card post and the files of a recording post go with the post: the file rows are deleted and the Drive files queued (the folders stay)
 CREATE OR REPLACE FUNCTION public.files_on_identification_post_delete() RETURNS trigger
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
 DECLARE
   r record;
 BEGIN
-  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceKind' = 'identification' AND m."rowParentGUID" = OLD."rowGUID"
+  FOR r IN DELETE FROM public."mediaPostTable" m WHERE m."rowJSON"->>'fileSourceKind' IN ('identification', 'recording') AND m."rowParentGUID" = OLD."rowGUID"
            RETURNING m."rowOwnerGUID" AS org, COALESCE(m."rowJSON"->>'googleDriveFileId', m."rowJSON"->>'oneDriveItemId') AS fid, COALESCE(m."rowJSON"->>'fileStorageProvider', 'googleDrive') AS prov LOOP
-    PERFORM public.files_queue(r.org, r.fid, 'file', 'identification post deleted', false, r.prov);
+    PERFORM public.files_queue(r.org, r.fid, 'file', 'identification / recording post deleted', false, r.prov);
   END LOOP;
   RETURN NULL;
 END;
@@ -18423,7 +18431,7 @@ DROP TRIGGER IF EXISTS trg_files_project_delete ON public.project_table;
 CREATE TRIGGER trg_files_project_delete AFTER DELETE ON public.project_table REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_project_delete();
 
 DROP TRIGGER IF EXISTS trg_files_identification_post_delete ON public."mediaPostTable";
-CREATE TRIGGER trg_files_identification_post_delete AFTER DELETE ON public."mediaPostTable" FOR EACH ROW WHEN (OLD."rowJSON" ? 'idCardFolder') EXECUTE FUNCTION public.files_on_identification_post_delete();
+CREATE TRIGGER trg_files_identification_post_delete AFTER DELETE ON public."mediaPostTable" FOR EACH ROW WHEN (OLD."rowJSON" ? 'idCardFolder' OR OLD."rowJSON" ? 'recordingFolder') EXECUTE FUNCTION public.files_on_identification_post_delete();
 
 DROP TRIGGER IF EXISTS trg_files_organization_delete ON public."organizationTable";
 CREATE TRIGGER trg_files_organization_delete AFTER DELETE ON public."organizationTable" REFERENCING OLD TABLE AS old_rows FOR EACH STATEMENT EXECUTE FUNCTION public.files_on_organization_delete();
@@ -18730,9 +18738,9 @@ CREATE POLICY "chatMessages_select" ON public."chatMessagesTable" FOR SELECT TO 
 DROP POLICY IF EXISTS "mediaPost_select" ON public."mediaPostTable";
 CREATE POLICY "mediaPost_select" ON public."mediaPostTable" FOR SELECT TO authenticated
   USING (
-    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' NOT IN ('chat', 'identification') AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
+    ("rowJSON" ? 'fileSourceKind' AND "rowJSON"->>'fileSourceKind' NOT IN ('chat', 'identification', 'recording') AND "rowOwnerGUID" = (SELECT public.organization_of_current_user()))
     OR ("rowJSON"->>'fileSourceKind' = 'chat' AND "rowParentGUID" IN (SELECT public.chat_my_themes()))
-    OR ("rowJSON"->>'fileSourceKind' = 'identification' AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
+    OR ("rowJSON"->>'fileSourceKind' IN ('identification', 'recording') AND "rowJSON"->>'fileUploadedByGUID' = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND "rowOwnerGUID" = (SELECT public.app_user_guid()::text))
     OR (NOT ("rowJSON" ? 'fileSourceKind') AND public.files_is_project_post("rowParentGUID"))
   );
@@ -21710,6 +21718,217 @@ END $$;
 
 NOTIFY pgrst, 'reload schema';
 
+
+-- ===============================================================================================
+-- PART 60: create_initial_data.sql
+-- INITIAL PROGRAM DATA (documentation/INITIAL_DATA_WBS.html, kit8/initial/data): NO table. The rows an EMPTY database needs before the application works (the permission matrix, the genus,
+-- the budget items, the calendars ...) come from the JSON files of the application; these functions are the only door they go in by. All of them are SECURITY DEFINER, granted to authenticated only.
+--   initial_data_tables()             the whitelist: table, how a row is recognised (rowGUID, or one key of rowJSON), who may write it (admin | application)
+--   initial_data_status(p_check)      what exists: per table the rows and which of the asked keys are there; plus canWrite / bootstrap / isApplicationAdmin
+--   initial_data_install(table, rows) INSERT ONLY (never updates, never deletes), at most 1000 rows, whitelisted tables, a row that exists (rowGUID or natural key) is skipped
+--   initial_data_fill_calendars()     the days of the seeded calendars for last / this / next year (the rule of start4), only the years that have no day row yet
+--   initial_data_bootstrap_admin()    the first application administrator: only while nobody is one and the database has at most one registered user; the e-mail is the one of the session
+-- Who may write: an organization administrator (every signed-in user is the administrator of his own organization) writes the catalogs the client may write anyway; the three catalogs
+-- the client may only READ (profiles, RACI items, languages) need an application administrator, or the bootstrap case (the very first user of an empty database).
+-- ===============================================================================================
+
+CREATE OR REPLACE FUNCTION public.initial_data_tables() RETURNS TABLE (tbl text, mode text, keycol text, level text)
+LANGUAGE sql IMMUTABLE AS $$
+  SELECT * FROM (VALUES
+    ('project_permission_profile_catalog',   'guid', NULL,        'application'),
+    ('project_permission_profile_crud_table', 'guid', NULL,        'admin'),
+    ('project_permission_profile_uxui_table', 'guid', NULL,        'admin'),
+    ('managementGenusTable',                  'guid', NULL,        'admin'),
+    ('managementActivityGenusTable',          'guid', NULL,        'admin'),
+    ('budgetItemGenericKeyTable',             'guid', NULL,        'admin'),
+    ('budgetItemTable',                       'guid', NULL,        'admin'),
+    ('managementRACIGenusTable',              'guid', NULL,        'application'),
+    ('managementCalendarTable',               'guid', NULL,        'admin'),
+    ('distributionGenericTable',              'guid', NULL,        'admin'),
+    ('valueAddedTaxTable',                    'guid', NULL,        'admin'),
+    ('measureUnitTable',                      'guid', NULL,        'admin'),
+    ('kanban_stage_table',                    'json', 'stageCode', 'admin'),
+    ('currencyTable',                         'json', 'currencyCode', 'admin'),
+    ('countryTable',                          'json', 'countryCode',  'admin'),
+    ('cfrTypeTable',                          'guid', NULL,        'admin'),
+    ('businessUnitTable',                     'guid', NULL,        'admin'),
+    ('language_catalog',                      'guid', NULL,        'application'),
+    ('files_document_type_catalog',           'guid', NULL,        'admin'),
+    ('budgetScenarioTable',                   'guid', NULL,        'admin')
+  ) AS v(tbl, mode, keycol, level)
+$$;
+
+CREATE OR REPLACE FUNCTION public.initial_data_email() RETURNS text
+LANGUAGE sql STABLE AS $$ SELECT lower(COALESCE(auth.jwt()->>'email', '')) $$;
+
+-- nobody is an application administrator yet and the database has at most one registered user (the caller): the first sign-up of a new database
+CREATE OR REPLACE FUNCTION public.initial_data_bootstrap_possible() RETURNS boolean
+LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+  SELECT public.initial_data_email() <> ''
+     AND NOT EXISTS (SELECT 1 FROM public.application_permission_table a WHERE a."rowJSON"->>'permissionApplicationAdmin' = 'true')
+     AND (SELECT count(*) FROM public."userTable") <= 1
+$$;
+
+CREATE OR REPLACE FUNCTION public.initial_data_can_write(p_level text DEFAULT 'admin') RETURNS boolean
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+BEGIN
+  IF public.initial_data_email() = '' THEN RETURN false; END IF;
+  IF public.permission_application_admin() THEN RETURN true; END IF;
+  IF p_level = 'application' THEN RETURN public.initial_data_bootstrap_possible(); END IF;
+  RETURN COALESCE(public.organization_is_admin(public.organization_of_current_user()), false);
+END;
+$$;
+
+-- p_check = { "<table>": ["key", ...], ... }: for every table the number of rows and the keys of the list that exist (the key is the rowGUID, or the natural key of the table).
+-- Two special entries: managementCalendarDaysTable (keys = calendars; found = the ones that have day rows in the current year) and application_permission_table (found = ["permissionApplicationAdmin"] when somebody is one).
+CREATE OR REPLACE FUNCTION public.initial_data_status(p_check jsonb DEFAULT '{}'::jsonb) RETURNS jsonb
+LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  r       record;
+  t       record;
+  v_out   jsonb := '{}'::jsonb;
+  v_keys  text[];
+  v_found text[];
+  v_rows  bigint;
+  v_year  text := extract(year FROM current_date)::integer::text;
+BEGIN
+  IF jsonb_typeof(p_check) IS DISTINCT FROM 'object' THEN
+    RAISE EXCEPTION 'initial_data_status: the argument must be a JSON object {table: [keys]}';
+  END IF;
+  FOR r IN SELECT e.key AS tbl, e.value AS v FROM jsonb_each(p_check) e LOOP
+    IF jsonb_typeof(r.v) IS DISTINCT FROM 'array' THEN
+      RAISE EXCEPTION 'initial_data_status: the keys of "%" must be a JSON array', r.tbl;
+    END IF;
+    SELECT COALESCE(array_agg(x), ARRAY[]::text[]) INTO v_keys FROM jsonb_array_elements_text(r.v) AS x;
+    IF r.tbl = 'managementCalendarDaysTable' THEN
+      SELECT count(*), COALESCE(array_agg(DISTINCT d."rowOwnerGUID") FILTER (WHERE d."rowOwnerGUID" = ANY (v_keys) AND d."rowParentGUID" = v_year), ARRAY[]::text[])
+        INTO v_rows, v_found FROM public."managementCalendarDaysTable" d;
+    ELSIF r.tbl = 'application_permission_table' THEN
+      SELECT count(*), CASE WHEN bool_or(a."rowJSON"->>'permissionApplicationAdmin' = 'true') THEN ARRAY['permissionApplicationAdmin'] ELSE ARRAY[]::text[] END
+        INTO v_rows, v_found FROM public.application_permission_table a;
+    ELSE
+      SELECT * INTO t FROM public.initial_data_tables() WHERE tbl = r.tbl;
+      IF NOT FOUND THEN RAISE EXCEPTION 'initial_data_status: the table "%" is not in the list of the initial data', r.tbl; END IF;
+      IF t.mode = 'guid' THEN
+        EXECUTE format('SELECT count(*), COALESCE(array_agg(x."rowGUID"::text) FILTER (WHERE x."rowGUID"::text = ANY ($1)), ARRAY[]::text[]) FROM public.%I x', r.tbl) INTO v_rows, v_found USING v_keys;
+      ELSE
+        SELECT COALESCE(array_agg(lower(k)), ARRAY[]::text[]) INTO v_keys FROM unnest(v_keys) AS k;
+        EXECUTE format('SELECT count(*), COALESCE(array_agg(DISTINCT lower(x."rowJSON"->>%L)) FILTER (WHERE lower(x."rowJSON"->>%L) = ANY ($1)), ARRAY[]::text[]) FROM public.%I x', t.keycol, t.keycol, r.tbl) INTO v_rows, v_found USING v_keys;
+      END IF;
+    END IF;
+    v_out := v_out || jsonb_build_object(r.tbl, jsonb_build_object('rows', COALESCE(v_rows, 0), 'found', to_jsonb(COALESCE(v_found, ARRAY[]::text[]))));
+  END LOOP;
+  RETURN jsonb_build_object(
+    'tables', v_out,
+    'year', v_year::integer,
+    'signedIn', public.initial_data_email() <> '',
+    'canWrite', public.initial_data_can_write('admin'),
+    'canWriteApplication', public.initial_data_can_write('application'),
+    'isApplicationAdmin', public.permission_application_admin(),
+    'bootstrap', public.initial_data_bootstrap_possible());
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.initial_data_install(p_table text, p_rows jsonb) RETURNS jsonb
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  t       record;
+  v_total integer;
+  v_n     integer;
+BEGIN
+  SELECT * INTO t FROM public.initial_data_tables() WHERE tbl = p_table;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'initial_data_install: the table "%" is not in the list of the initial data', p_table USING ERRCODE = '42501';
+  END IF;
+  IF NOT public.initial_data_can_write(t.level) THEN
+    RAISE EXCEPTION 'initial_data_install: no permission to create the initial data of "%"', p_table USING ERRCODE = '42501';
+  END IF;
+  IF jsonb_typeof(p_rows) IS DISTINCT FROM 'array' THEN
+    RAISE EXCEPTION 'initial_data_install: the rows must be a JSON array';
+  END IF;
+  v_total := jsonb_array_length(p_rows);
+  IF v_total > 1000 THEN
+    RAISE EXCEPTION 'initial_data_install: at most 1000 rows in one call (got %)', v_total;
+  END IF;
+  IF v_total = 0 THEN RETURN jsonb_build_object('table', p_table, 'inserted', 0, 'skipped', 0); END IF;
+  -- INSERT only: a row that exists (the same rowGUID, or the same natural key) stays exactly as it is; the rows go in in the order of the array (a parent before its children: the business units check it)
+  EXECUTE format(
+    'INSERT INTO public.%1$I ("rowGUID", "rowOwnerGUID", "rowParentGUID", "rowFolderGUID", "orderInList", "rowJSON")
+     SELECT COALESCE(x."rowGUID", gen_random_uuid()::text), COALESCE(x."rowOwnerGUID", ''empty''), COALESCE(x."rowParentGUID", ''empty''), COALESCE(x."rowFolderGUID", ''empty''),
+            COALESCE(x."orderInList", 0), COALESCE(x."rowJSON", ''{}''::jsonb)
+       FROM jsonb_array_elements($1) WITH ORDINALITY AS e(j, ord),
+            LATERAL jsonb_to_record(e.j) AS x("rowGUID" text, "rowOwnerGUID" text, "rowParentGUID" text, "rowFolderGUID" text, "orderInList" numeric, "rowJSON" jsonb)
+      WHERE %2$s
+      ORDER BY e.ord
+     ON CONFLICT DO NOTHING',
+    p_table,
+    CASE WHEN t.mode = 'json'
+         THEN format('NOT EXISTS (SELECT 1 FROM public.%1$I n WHERE lower(n."rowJSON"->>%2$L) = lower(x."rowJSON"->>%2$L))', p_table, t.keycol)
+         ELSE 'true' END)
+  USING p_rows;
+  GET DIAGNOSTICS v_n = ROW_COUNT;
+  RETURN jsonb_build_object('table', p_table, 'inserted', v_n, 'skipped', v_total - v_n);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.initial_data_fill_calendars() RETURNS integer
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  c   record;
+  y   integer := extract(year FROM current_date)::integer;
+  v_y integer;
+  v_n integer := 0;
+BEGIN
+  IF NOT public.initial_data_can_write('admin') THEN
+    RAISE EXCEPTION 'initial_data_fill_calendars: no permission' USING ERRCODE = '42501';
+  END IF;
+  FOR c IN SELECT * FROM (VALUES ('workingDaysCalendar', 'workingDays'), ('standardWorkWeekCalendar', 'fiveDays'), ('sixDayWeekCalendar', 'sixDays'),
+                                 ('sevenDayWeekCalendar', 'allDays'), ('partTime4hCalendar', 'fiveDays')) AS v(cal, mode) LOOP
+    IF NOT EXISTS (SELECT 1 FROM public."managementCalendarTable" m WHERE m."rowGUID" = c.cal) THEN CONTINUE; END IF;
+    FOR v_y IN y - 1 .. y + 1 LOOP
+      IF NOT EXISTS (SELECT 1 FROM public."managementCalendarDaysTable" d WHERE d."rowOwnerGUID" = c.cal AND d."rowParentGUID" = v_y::text) THEN
+        PERFORM public.fill_management_calendar(c.cal, v_y, c.mode);
+        v_n := v_n + 1;
+      END IF;
+    END LOOP;
+  END LOOP;
+  RETURN v_n;
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.initial_data_bootstrap_admin() RETURNS boolean
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, extensions AS $$
+DECLARE
+  v_email text := public.initial_data_email();
+BEGIN
+  PERFORM pg_advisory_xact_lock(hashtext('initial_data_bootstrap_admin'));
+  IF NOT public.initial_data_bootstrap_possible() THEN RETURN false; END IF;
+  INSERT INTO public.application_permission_table ("rowGUID", "rowOwnerGUID", "rowParentGUID", "orderInList", "rowJSON")
+  VALUES ('permissionApplicationAdmin:' || v_email, v_email, 'empty', 1000, '{"permissionApplicationAdmin": true}'::jsonb)
+  ON CONFLICT DO NOTHING;
+  RETURN true;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION public.initial_data_tables() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_email() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_bootstrap_possible() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_can_write(text) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_status(jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_install(text, jsonb) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_fill_calendars() FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.initial_data_bootstrap_admin() FROM PUBLIC, anon;
+
+GRANT EXECUTE ON FUNCTION public.initial_data_tables() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_email() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_bootstrap_possible() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_can_write(text) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_status(jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_install(text, jsonb) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_fill_calendars() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.initial_data_bootstrap_admin() TO authenticated;
+
+NOTIFY pgrst, 'reload schema';
 
 -- ===============================================================================================
 -- END of start2_sql_code.sql

@@ -1,0 +1,148 @@
+{
+  "format": "kit8.initialdata.manifest",
+  "version": 1,
+  "generatedAt": "2026-11-26T13:15:37.450Z",
+  "source": "docker",
+  "tables": [
+    {
+      "table": "project_permission_profile_catalog",
+      "file": "10_project_permission_profile_catalog.json",
+      "group": "permissions",
+      "rows": 11,
+      "sha256": "7a1ee121158031814c534ebe06c22e2a4e88dcddcc73e5476c42dec465b6cf9b"
+    },
+    {
+      "table": "project_permission_profile_crud_table",
+      "file": "11_project_permission_profile_crud_table.json",
+      "group": "permissions",
+      "rows": 1694,
+      "sha256": "d887e734eb5e84b1df2fc7a96ad8f671d8cda19f82e5b3acc10a0bdb013855bd"
+    },
+    {
+      "table": "project_permission_profile_uxui_table",
+      "file": "12_project_permission_profile_uxui_table.json",
+      "group": "permissions",
+      "rows": 297,
+      "sha256": "8d88e855e3e05ef9438caf4135d839f7ef82609b4f1efbb4afbcdc27c47627fb"
+    },
+    {
+      "table": "managementGenusTable",
+      "file": "20_managementGenusTable.json",
+      "group": "genus",
+      "rows": 9,
+      "sha256": "89002a7c797ba7d68a7c74978798bda14f3c3e614236963324b0b672aeb656de"
+    },
+    {
+      "table": "managementActivityGenusTable",
+      "file": "21_managementActivityGenusTable.json",
+      "group": "genus",
+      "rows": 3,
+      "sha256": "a7af7ccebc4afd00e51f9ebbc3aad5feb56e91851d667c322b4625d6ca8bff27"
+    },
+    {
+      "table": "budgetItemGenericKeyTable",
+      "file": "22_budgetItemGenericKeyTable.json",
+      "group": "genus",
+      "rows": 14,
+      "sha256": "44ee0a0bd0d3393a499a7445cc0bd3d0530332ec00ef4d9f819b25f170f06b9a"
+    },
+    {
+      "table": "budgetItemTable",
+      "file": "30_budgetItemTable.json",
+      "group": "budgetItems",
+      "rows": 45,
+      "sha256": "822bb737edd99a85361d8a31658b0b2562e3f2c326469bbb5d357a81ae209ca1"
+    },
+    {
+      "table": "managementRACIGenusTable",
+      "file": "40_managementRACIGenusTable.json",
+      "group": "raci",
+      "rows": 4,
+      "sha256": "2d486763d532e366d9a15a5a5883dc24aed1eac66eb0982bd08a566d5b78f351"
+    },
+    {
+      "table": "managementCalendarTable",
+      "file": "50_managementCalendarTable.json",
+      "group": "calendars",
+      "rows": 10,
+      "sha256": "54c1335c3813171098c11b241fd1a478da2d3b081017b67ab55958a638e9c17f"
+    },
+    {
+      "table": "kanban_stage_table",
+      "file": "60_kanban_stage_table.json",
+      "group": "kanban",
+      "rows": 5,
+      "sha256": "7721d5c3cc13377f1961c672d7dfd967aaa2b63d516b04cb646de68a078ccd4e"
+    },
+    {
+      "table": "currencyTable",
+      "file": "70_currencyTable.json",
+      "group": "currencies",
+      "rows": 10,
+      "sha256": "6d5cfcf28be4b86bf26b05067c840e61f6a6b08c3067518e4320ae5545d3e6fc"
+    },
+    {
+      "table": "valueAddedTaxTable",
+      "file": "80_valueAddedTaxTable.json",
+      "group": "units",
+      "rows": 7,
+      "sha256": "4aef840e90f2e2764a0146ee9be531446381d3f7d0821fcda216551720100334"
+    },
+    {
+      "table": "measureUnitTable",
+      "file": "81_measureUnitTable.json",
+      "group": "units",
+      "rows": 11,
+      "sha256": "9b73a7432992822da336835ea1bcb12c8d903e08a08bd0e10b63762c8d4294cc"
+    },
+    {
+      "table": "distributionGenericTable",
+      "file": "82_distributionGenericTable.json",
+      "group": "units",
+      "rows": 11,
+      "sha256": "8d5fa8bd950271a40f966002e2b059970b103f865b5988febb3a0a0f91b9b207"
+    },
+    {
+      "table": "countryTable",
+      "file": "90_countryTable.json",
+      "group": "countries",
+      "rows": 18,
+      "sha256": "0cb5347ad0395b593a65244af8fefe704b04d44a77a36ca249bb332b6d3edc4f"
+    },
+    {
+      "table": "cfrTypeTable",
+      "file": "91_cfrTypeTable.json",
+      "group": "businessUnits",
+      "rows": 4,
+      "sha256": "a995778a9fe1b6a398ad822ce2e3dcce8db68d67f3a0943e0daa821b9bae2340"
+    },
+    {
+      "table": "businessUnitTable",
+      "file": "92_businessUnitTable.json",
+      "group": "businessUnits",
+      "rows": 29,
+      "sha256": "f52a47a1ef15a20d20ae2c56c1c60ffd0bf3761a63b11717a6ddaaf77bfafd15"
+    },
+    {
+      "table": "language_catalog",
+      "file": "93_language_catalog.json",
+      "group": "languages",
+      "rows": 15,
+      "sha256": "38a4ba1f2427b461b5d51da25623f443e56c177bcb9d1779213f1edb363ffae4"
+    },
+    {
+      "table": "files_document_type_catalog",
+      "file": "94_files_document_type_catalog.json",
+      "group": "fileTypes",
+      "rows": 9,
+      "sha256": "77e816e371054565e310423e57849a81ece3467afc63e76b15e430ef7c66717a"
+    },
+    {
+      "table": "budgetScenarioTable",
+      "file": "95_budgetScenarioTable.json",
+      "group": "scenarios",
+      "rows": 2,
+      "sha256": "993285d167912cc4cdf52092569d89e28a192381a2ab5804a73549cbf57343b7"
+    }
+  ]
+}

@@ -44,6 +44,11 @@ dataManipulationVariants[DATA_ORIGIN_TYPE.msword][DATA_MANIPULATION_TYPE.FILE_TO
 dataManipulationVariants[DATA_ORIGIN_TYPE.msexcel][DATA_MANIPULATION_TYPE.FILE_TO_GOOGLE_DRIVE] = 1;
 dataManipulationVariants[DATA_ORIGIN_TYPE.webpage][DATA_MANIPULATION_TYPE.WEB_PAGE_TO_GOOGLE_DRIVE] = 1;
 
+// "no data manipulation" is offered next to the others of every origin that has its own list (the other origins already offer all of them)
+for (const origin of [DATA_ORIGIN_TYPE.youtube, DATA_ORIGIN_TYPE.msword, DATA_ORIGIN_TYPE.msexcel, DATA_ORIGIN_TYPE.webpage]) {
+    dataManipulationVariants[origin][DATA_MANIPULATION_TYPE.NO_DATA_MANIPULATION] = 1;
+}
+
 /**
  * Returns array of valid DataManipulationType options for a given DataOriginType
  * based on the dataManipulationVariants boolean matrix.

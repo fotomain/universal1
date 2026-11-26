@@ -199,6 +199,30 @@ describe('PMTreeColumnFilterPopup', () => {
     expect(input().value).toBe('20261130');
   });
 
+  it('date between: +5 / -5 in one field is days from the other; the real dates are shown; both relative is refused', () => {
+    const crud = fakeCrud();
+    setStore({ treeColumnFilterPopup: { key: 'start', x: 10, y: 10 } });
+    renderUI(<PMTreeColumnFilterPopup crud={crud} />);
+    expect(q('pm-tree-filter-between-hint')).toBeNull();               // only for "between"
+    press('pm-tree-filter-variant-trigger');
+    press('pm-tree-filter-variant-item-between');
+    expect(textOf('pm-tree-filter-between-hint')).toContain('+5 or -5');
+    expect(q('pm-tree-filter-between-resolved')).toBeNull();
+    typeInto('pm-tree-filter-value', '20261130');
+    typeInto('pm-tree-filter-value2', '+5');                            // not turned into a date while typing
+    expect((mustGet('pm-tree-filter-value2') as HTMLInputElement).value).toBe('+5');
+    expect(textOf('pm-tree-filter-between-resolved')).toBe('2026-11-30 → 2026-12-05');
+    typeInto('pm-tree-filter-value', '-5');                             // both relative
+    press('pm-tree-filter-apply');
+    expect(textOf('pm-tree-filter-error')).toContain('Only one');
+    expect(crud.setTreeColumnFilter).not.toHaveBeenCalled();
+    typeInto('pm-tree-filter-value', '2026-11-30');
+    typeInto('pm-tree-filter-value2', '-5');
+    expect(textOf('pm-tree-filter-between-resolved')).toBe('2026-11-25 → 2026-11-30');
+    press('pm-tree-filter-apply');
+    expect(crud.setTreeColumnFilter).toHaveBeenCalledWith('start', { filterVariantForColumn: 'between', value: '2026-11-30', value2: '-5' });
+  });
+
   it('opens with the saved filter; Clear removes it (disabled without a filter)', () => {
     const crud = fakeCrud();
     setStore({ treeColumnFilterPopup: { key: 'name', x: 0, y: 0 }, treeColumnsFilters: { name: { filterVariantForColumn: 'contains', value: 'uil' } } });

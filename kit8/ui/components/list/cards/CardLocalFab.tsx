@@ -5,7 +5,7 @@
 // goes on to the target: another card's FAB opens with ONE press. iOS / Android keep the Modal.
 // Only one FAB of the app is open at a time (FABProvider: the main FAB, the other cards); without a provider (a test) it simply works alone.
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Modal, Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Modal, Platform, Pressable, ScrollView, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { Surface, Text, useTheme } from 'react-native-paper';
 import { useSelector } from 'react-redux';
 import FABApp from '../../common/FABApp';
@@ -30,6 +30,18 @@ export interface CardLocalFabProps {
 }
 
 const ACTION_ROW_HEIGHT = 52;
+/** px kept free between the list of commands and the edge of the window */
+const EDGE_GAP = 12;
+
+/** where the list of commands opens: the side that holds it whole (above first), else the side with more room - then the list is limited to that room and scrolls */
+export function fabListPlacement(box: { y: number; h: number } | null, windowHeight: number, listHeight: number): { upwards: boolean; room: number; scrolls: boolean } {
+  if (!box) return { upwards: true, room: Infinity, scrolls: false };
+  const above = box.y - EDGE_GAP;
+  const below = windowHeight - (box.y + box.h) - EDGE_GAP;
+  const upwards = listHeight + 12 <= above || (listHeight + 12 > below && above >= below);
+  const room = Math.max(ACTION_ROW_HEIGHT, upwards ? above : below);
+  return { upwards, room, scrolls: listHeight + 12 > room };
+}
 
 /** the provider is missing in a test: the FAB then lives alone */
 function useOptionalFAB() {
@@ -83,11 +95,12 @@ export default function CardLocalFab({ id, actions, size = 'small', testID = `ca
   }, [isWeb, open, close]);
   const main = getFabMainColors(customColor);
   const listHeight = actions.length * ACTION_ROW_HEIGHT;
-  // the list opens upwards; near the top of the window it opens downwards
-  const upwards = !box || box.y > listHeight + 24;
+  // the list opens upwards; near the top of the window it opens downwards; when neither side holds all of it, the roomier side shows it in a scrolling box
+  const { upwards, room, scrolls } = fabListPlacement(box, win.height, listHeight);
   const listStyle = box
     ? ({ right: Math.max(8, win.width - (box.x + box.w)), ...(upwards ? { bottom: win.height - box.y + 6 } : { top: box.y + box.h + 6 }) } as const)
     : null;
+  const scrollRef = useRef<any>(null);
 
   const renderActions = () => (upwards ? actions.slice().reverse() : actions).map((act, i) => {
     const mini = getFabMiniColors(customColor, act.color);
@@ -103,6 +116,12 @@ export default function CardLocalFab({ id, actions, size = 'small', testID = `ca
     );
   });
 
+  // the commands: in a scrolling box (testID ...-scroll) only while they do not fit; opened upwards the nearest ones (the end) show first
+  const renderList = () => (scrolls ? (
+    <ScrollView ref={scrollRef} testID={`${testID}-scroll`} style={{ maxHeight: room - 12 }} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator
+      onContentSizeChange={() => { if (upwards) scrollRef.current?.scrollToEnd?.({ animated: false }); }}>{renderActions()}</ScrollView>
+  ) : renderActions());
+
   return (
     <View ref={buttonRef} collapsable={false} testID={testID}>
       <FABApp testID={`${testID}-button`} icon={open ? 'close' : 'plus'} size="small" style={size === 'small' ? styles.small : styles.medium}
@@ -110,13 +129,13 @@ export default function CardLocalFab({ id, actions, size = 'small', testID = `ca
       {open && listStyle ? (isWeb ? (
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         require('react-dom').createPortal(
-          <View ref={listRef} collapsable={false} testID={`${testID}-modal`} style={[styles.list, listStyle, { position: 'fixed', zIndex: 9999999 } as any]}>{renderActions()}</View>,
+          <View ref={listRef} collapsable={false} testID={`${testID}-modal`} style={[styles.list, listStyle, { position: 'fixed', zIndex: 9999999 } as any]}>{renderList()}</View>,
           document.body,
         )
       ) : (
         <Modal transparent visible animationType="fade" onRequestClose={close} testID={`${testID}-modal`}>
           <Pressable style={StyleSheet.absoluteFill} onPress={close} accessibilityLabel="Close" testID={`${testID}-backdrop`} />
-          <View style={[styles.list, listStyle]} pointerEvents="box-none">{renderActions()}</View>
+          <View style={[styles.list, listStyle]} pointerEvents="box-none">{renderList()}</View>
         </Modal>
       )) : null}
     </View>
@@ -127,6 +146,7 @@ const styles = StyleSheet.create({
   small: { borderRadius: 12, width: 40, height: 40, margin: 0 },
   medium: { borderRadius: 16 },
   list: { position: 'absolute', alignItems: 'flex-end', gap: 8 },
+  scrollContent: { alignItems: 'flex-end', gap: 8 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', height: 44 },
   label: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   mini: { marginLeft: 8, borderRadius: 12 },

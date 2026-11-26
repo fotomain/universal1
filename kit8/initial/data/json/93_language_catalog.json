@@ -1,0 +1,17 @@
+{"format":"kit8.initialdata","version":1,"table":"language_catalog","group":"languages","mode":"guid","rows":[
+{"rowGUID":"en","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1000,"rowJSON":{"abbr":"EN","code":"en","title":"English"}},
+{"rowGUID":"zh","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2000,"rowJSON":{"abbr":"ZH","code":"zh","title":"Mandarin Chinese"}},
+{"rowGUID":"hi","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3000,"rowJSON":{"abbr":"HI","code":"hi","title":"Hindi"}},
+{"rowGUID":"es","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4000,"rowJSON":{"abbr":"ES","code":"es","title":"Spanish"}},
+{"rowGUID":"ar","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":5000,"rowJSON":{"abbr":"AR","code":"ar","title":"Standard Arabic (Arabian)"}},
+{"rowGUID":"fr","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":6000,"rowJSON":{"abbr":"FR","code":"fr","title":"French"}},
+{"rowGUID":"bn","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":7000,"rowJSON":{"abbr":"BN","code":"bn","title":"Bengali"}},
+{"rowGUID":"pt","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":8000,"rowJSON":{"abbr":"PT","code":"pt","title":"Portuguese"}},
+{"rowGUID":"ru","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":9000,"rowJSON":{"abbr":"RU","code":"ru","title":"Russian"}},
+{"rowGUID":"de","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":10000,"rowJSON":{"abbr":"DE","code":"de","title":"Deutsch"}},
+{"rowGUID":"nl","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":11000,"rowJSON":{"abbr":"NL","code":"nl","title":"Dutch"}},
+{"rowGUID":"lv","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":12000,"rowJSON":{"abbr":"LV","code":"lv","title":"Latvian"}},
+{"rowGUID":"fa","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":13000,"rowJSON":{"abbr":"FA","code":"fa","title":"Farsi"}},
+{"rowGUID":"lt","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":14000,"rowJSON":{"abbr":"LT","code":"lt","title":"Lithuanian"}},
+{"rowGUID":"et","rowOwnerGUID":"languageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":15000,"rowJSON":{"abbr":"ET","code":"et","title":"Estonian"}}
+]}

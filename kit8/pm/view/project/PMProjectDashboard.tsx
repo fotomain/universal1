@@ -19,6 +19,7 @@ import { useRouter } from 'expo-router';
 import { useDesignSystem } from '../../../providers/WithDesignSystem';
 import PMRecentProjectsToolbar from './recent/PMRecentProjectsToolbar';
 import PMGanttSurfaceLoader from '../gantt/PMGanttSurfaceLoader';
+import { DashboardFontScope } from '../../skia/dashboardFont';
 import PMNetworkView from '../network/PMNetworkView';
 import { useKanbanCommands } from '../../crud/kanban/useKanbanCommands';
 import PMGanttUXUISettinsModalWindow from '../gantt/PMGanttUXUISettinsModalWindow';
@@ -250,6 +251,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
           {!picker && ganttVsNetworkView === 'showNetworkView' ? (
             <PMNetworkView crud={crud} />
           ) : (
+            <DashboardFontScope dashboard="projectDashboard">
             <PMGanttSurfaceLoader
               ownerGUID={ownerGUID}
               projectGUID={selectedProjectGUID}
@@ -258,6 +260,7 @@ function PMProjectDashboardInner({ picker }: { picker: PMPicker | null }) {
               hideRight={hideGanttChartNode}
               hideToolbars={hideGanttToolBar}
             />
+            </DashboardFontScope>
           )}
           </View>
           {!picker && ganttVsNetworkView === 'showGanttChart' && <PMDetailsPane crud={crud} />}

@@ -1552,7 +1552,7 @@ export default function PMProjectTasksTree({ viewport, width: paneWidth, height,
             <PMTreeColumnsHeader
               layout={layout}
               palette={palette}
-              font={fonts.ready ? fonts.smallBold : null}
+              font={fonts.ready ? fonts.headerSmall : null}
               height={canvasH}
               drag={colDrag}
               resize={colResize}

@@ -237,6 +237,8 @@ it('Record (Audio, Video, Photo), Scan (QR / Barcode, NFC) and Play (Audio, Vide
   expect(mockNavigate).not.toHaveBeenCalled(); // a group only toggles
   expect(q('drawer-subitem-record-audio')!.textContent).toContain('Audio');
   expect(q('drawer-subitem-record-video')!.textContent).toContain('Video');
+  const recordSubs = Array.from(document.querySelectorAll('[data-testid^="drawer-subitem-record-"]')).map((e) => e.getAttribute('data-testid'));
+  expect(recordSubs).toEqual(['drawer-subitem-record-video', 'drawer-subitem-record-audio', 'drawer-subitem-record-photo']);
   press('drawer-subitem-record-audio');
   expect(mockNavigate).toHaveBeenLastCalledWith('/media/record/audio');
   press('drawer-subitem-record-video');

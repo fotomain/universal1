@@ -14,7 +14,10 @@ jest.mock('../../kit8/ui/components/media/play/VideoPlayerView', () => {
   return { __esModule: true, default: (props: any) => { (mockViews as any).push({ kind: 'video', props }); return R.createElement('div', { 'data-testid': 'video-view', 'data-uri': props.uri, 'data-autoplay': String(props.autoPlay) }); } };
 });
 const mockResolve = jest.fn(async (uri: string) => (uri.startsWith('kit8media://') ? 'blob:resolved-' + uri.slice(12) : uri));
-jest.mock('../../kit8/ui/components/media/common/mediaFileStore', () => ({ resolveMediaUri: (u: string) => mockResolve(u) }));
+const mockExists = jest.fn(async (_u: string) => true);
+jest.mock('../../kit8/ui/components/media/common/mediaFileStore', () => ({ resolveMediaUri: (u: string) => mockResolve(u), mediaFileExists: (u: string) => mockExists(u) }));
+const mockDownload = jest.fn(async (id: string): Promise<any> => ({ ok: true, data: { url: `https://fn/?file=${id}` } }));
+jest.mock('../../kit8/files/common/filesDriveApi', () => ({ fetchDownloadUrl: (id: string) => mockDownload(id) }));
 
 import MediaPlayer from '../../kit8/ui/components/media/play/MediaPlayer';
 import MediaPlayerModal from '../../kit8/ui/components/media/play/MediaPlayerModal';
@@ -146,6 +149,61 @@ describe('MediaPlayer', () => {
     await flush();
     expect(mockResolve).toHaveBeenCalledWith('kit8media://kit8video_1.webm');
     expect(q('video-view')?.getAttribute('data-uri')).toBe('blob:resolved-kit8video_1.webm');
+  });
+
+  describe('a recording that is also in the file storage', () => {
+    const { Platform } = require('react-native');
+    const DRIVE = [{ fileRowGUID: 'f1', googleDriveURLToFile: 'https://drive.google.com/file/d/X/view' }];
+    describe('on a phone', () => {
+    const realOS = Platform.OS;
+    beforeEach(() => { Platform.OS = 'ios'; });
+    afterEach(() => { Platform.OS = realOS; });
+    it('plays the file of the device while it exists', async () => {
+      render(<MediaPlayer kind="video" source="file:///data/a.mp4" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      expect(q('video-view')?.getAttribute('data-uri')).toBe('file:///data/a.mp4');
+      expect(mockDownload).not.toHaveBeenCalled();
+    });
+    it('plays from the file storage when the file of the device is gone', async () => {
+      mockExists.mockResolvedValueOnce(false);
+      render(<MediaPlayer kind="video" source="file:///data/a.mp4" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      expect(mockDownload).toHaveBeenCalledWith('f1');
+      expect(q('video-view')?.getAttribute('data-uri')).toBe('https://fn/?file=f1');
+    });
+    it('the file of the device does not play -> the file storage is tried before the user sees an error', async () => {
+      render(<MediaPlayer kind="video" source="file:///data/a.mp4" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      await act(async () => lastView().props.onError('The video could not be played.'));
+      await flush();
+      expect(q('video-view')?.getAttribute('data-uri')).toBe('https://fn/?file=f1');
+      expect(q('media-player-error')).toBeNull();
+      // and when the storage file fails too, the error shows
+      await act(async () => lastView().props.onError('The video could not be played.'));
+      expect(text('media-player-error')).toBe('The video could not be played.');
+    });
+    it('the storage cannot give a link: the error says so', async () => {
+      mockExists.mockResolvedValueOnce(false);
+      mockDownload.mockResolvedValueOnce({ ok: false, error: 'Google Drive is not connected.' });
+      render(<MediaPlayer kind="video" source="file:///data/a.mp4" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      expect(text('media-player-error')).toContain('Google Drive is not connected.');
+    });
+    });
+    it('in a browser: plays from the file storage first, even when the copy of this browser exists', async () => {
+      Platform.OS = 'web';
+      render(<MediaPlayer kind="video" source="kit8media://kit8video_1.webm" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      expect(q('video-view')?.getAttribute('data-uri')).toBe('https://fn/?file=f1');
+      expect(mockResolve).not.toHaveBeenCalled();
+    });
+    it('in a browser: the storage gives no link -> the copy of this browser', async () => {
+      Platform.OS = 'web';
+      mockDownload.mockResolvedValueOnce({ ok: false, error: 'down' });
+      render(<MediaPlayer kind="video" source="kit8media://kit8video_1.webm" driveFiles={DRIVE} showSourceInput={false} />);
+      await flush();
+      expect(q('video-view')?.getAttribute('data-uri')).toBe('blob:resolved-kit8video_1.webm');
+    });
   });
 
   it('shows the error of the player', async () => {

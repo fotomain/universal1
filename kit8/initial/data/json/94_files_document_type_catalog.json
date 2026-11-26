@@ -1,0 +1,11 @@
+{"format":"kit8.initialdata","version":1,"table":"files_document_type_catalog","group":"fileTypes","mode":"guid","rows":[
+{"rowGUID":"filesTypeContract","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1000,"rowJSON":{"title":"Contract"}},
+{"rowGUID":"filesTypeInvoice","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2000,"rowJSON":{"title":"Invoice"}},
+{"rowGUID":"filesTypeSpecification","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3000,"rowJSON":{"title":"Specification"}},
+{"rowGUID":"filesTypeDrawing","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4000,"rowJSON":{"title":"Drawing"}},
+{"rowGUID":"filesTypePhoto","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":5000,"rowJSON":{"title":"Photo"}},
+{"rowGUID":"filesTypeReport","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":6000,"rowJSON":{"title":"Report"}},
+{"rowGUID":"filesTypeMinutes","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":7000,"rowJSON":{"title":"Minutes"}},
+{"rowGUID":"filesTypeCertificate","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":8000,"rowJSON":{"title":"Certificate"}},
+{"rowGUID":"filesTypeOther","rowOwnerGUID":"empty","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":9000,"rowJSON":{"title":"Other"}}
+]}

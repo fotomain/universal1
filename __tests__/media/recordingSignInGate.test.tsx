@@ -49,6 +49,7 @@ describe('scanning is for signed-in users too', () => {
     ['nfc', '/media/nfc', 'Sign in to read NFC tags'],
     ['identification', '/media/nfc/identification', 'Sign in to identify with an ID card or passport'],
     ['idcard', '/media/nfc/iddocread', 'Sign in to read an ID card or passport'],
+    ['estimation', '/pm/project/estimation/dashboard', 'Sign in to open the Estimation dashboard'],
   ])('a guest does not get the %s screen: he is offered to sign in and comes back to it', async (kind, route, title) => {
     mockState = { activeUserState: { activeUserEmail: 'user@example.com' } };
     scanGate(kind, route);

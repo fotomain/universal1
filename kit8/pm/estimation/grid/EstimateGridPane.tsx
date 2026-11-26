@@ -89,6 +89,7 @@ export default function EstimateGridPane({ width, height, palette, viewport, pro
   const fonts = usePMFonts();
   const measure = useMemo(() => makeMeasure(fonts.regular), [fonts.regular]);
   const measureBold = useMemo(() => makeMeasure(fonts.bold), [fonts.bold]);
+  const measureHeader = useMemo(() => makeMeasure(fonts.header), [fonts.header]);
   const { scrollY, rowCount, bodyH, win } = viewport;
 
   // ---- the tree rows (the PM store) ----
@@ -470,7 +471,8 @@ export default function EstimateGridPane({ width, height, palette, viewport, pro
     return out;
   }, [first, last, rows, columns, ctx, readOnly]);
   const wantFallback = useMemo(() => columns.some((c) => needsFallbackFont(c.title)) || rawCells.some((c) => needsFallbackFont(c.text)), [columns, rawCells]);
-  const fb = useGridFallbackFonts(wantFallback);
+  // a font the user chose (Roboto / Inter / Selawik) has Cyrillic itself: the fallback (a fixed 12 px) is for the Space Grotesk only
+  const fb = useGridFallbackFonts(wantFallback && !fonts.custom);
   const fbMeasure = useMemo(() => makeMeasure(fb.regular), [fb.regular]);
   const fbMeasureBold = useMemo(() => makeMeasure(fb.bold), [fb.bold]);
   const headerLines = useMemo(() => {
@@ -478,13 +480,13 @@ export default function EstimateGridPane({ width, height, palette, viewport, pro
     const out: { key: string; x: number; y: number; text: string; font: SkFont }[] = [];
     for (const c of columns) {
       const alt = needsFallbackFont(c.title) && !!fb.bold;
-      const font = alt ? fb.bold! : fonts.bold!;
-      const m = alt ? fbMeasureBold : measureBold;
+      const font = alt ? fb.bold! : fonts.header!;
+      const m = alt ? fbMeasureBold : measureHeader;
       const parts = wrapTitle(c.title, c.width - 12 - HEAD_BTN_W + 8, m);
       parts.forEach((t, i) => out.push({ key: `${c.key}:${i}`, x: c.x + (c.width - HEAD_BTN_W + 8 - m(t)) / 2, y: parts.length === 1 ? PM_SCALE_HEIGHT / 2 + 4 : PM_SCALE_HEIGHT / 2 + (i === 0 ? -3 : 11), text: t, font }));
     }
     return out;
-  }, [columns, fonts.ready, fonts.bold, measureBold, fb.bold, fbMeasureBold]);
+  }, [columns, fonts.ready, fonts.header, measureHeader, fb.bold, fbMeasureBold]);
   const cells = useMemo(() => {
     if (!fonts.ready) return [];
     const out: { key: string; x: number; y: number; text: string; font: SkFont; color: string; w: number; link: boolean }[] = [];

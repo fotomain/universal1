@@ -61,7 +61,7 @@
   <nav><ul>
     <li><a href="#goal">Goal</a></li><li><a href="#state">Current state</a></li><li><a href="#minimum">Minimum data</a></li><li><a href="#gaps">What the request missed</a></li>
     <li><a href="#flow">First run</a></li><li><a href="#screen">Screen</a></li><li><a href="#json">JSON files</a></li><li><a href="#sql">SQL</a></li>
-    <li><a href="#wbs">WBS</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li><li><a href="#install">Install</a></li>
+    <li><a href="#wbs">WBS</a></li><li><a href="#tests">Tests</a></li><li><a href="#questions">Questions</a></li><li><a href="#built">As built</a></li><li><a href="#install">Install</a></li>
   </ul></nav>
 </div></header>
 <main>
@@ -69,7 +69,7 @@
 <section id="goal">
   <h1>Initial program data</h1>
   <p class="lead">An empty Supabase database has the tables and the functions but no row in any catalog. The application cannot be used then: no budget item, no calendar, no permission matrix. The plan below gives the application its own "Create initial data" function: it finds out what is missing, shows it as a list with check boxes and writes the rows from JSON files that are part of the application.</p>
-  <p class="sub">PLAN ONLY, 2026-11-26 (the request says: do not code). Source: the Google Doc "W1 Initial Program Data". Code will be in <code>kit8/initial/data/code</code>, the JSON files in <code>kit8/initial/data/json</code> (both folders exist and are empty), this document is <code>documentation/INITIAL_DATA_WBS.html</code>. <code>INITIAL_DATA_HOW_IT_WORKS.html</code> is written when the code is built, not now.</p>
+  <p class="sub"><b>BUILT 2026-11-26</b> (the plan of the same day was accepted with the owner's answers to Q2, Q4 and Q5, section 10; what changed while building is in section 12). Source: the Google Doc "W1 Initial Program Data". Code in <code>kit8/initial/data/code</code>, JSON files in <code>kit8/initial/data/json</code>, SQL PART 60, Docker <code>kit8/docker/test_initial_data.sh</code>, Jest <code>__tests__/initial</code>, README <code>kit8/initial/data/README.md</code>, how it works: <code>documentation/INITIAL_DATA_HOW_IT_WORKS.html</code>.</p>
 
   <div class="card">
     <h3 style="margin-top:0">The request (from the Google Doc, in order)</h3>
@@ -112,7 +112,7 @@
   <div class="scroll"><table>
     <thead><tr><th>Tier</th><th>Table (group)</th><th class="num">Rows in start4</th><th>Why</th><th>Written by</th></tr></thead>
     <tbody>
-      <tr><td><span class="pill a">A</span></td><td><code>project_permission_profile_catalog</code> + <code>_crud_table</code> + <code>_uxui_table</code></td><td class="num">11 + 158 + 27</td><td>The permission matrix. Without it only project owners work, nobody else can do anything.</td><td><span class="pill rpc">RPC</span> (catalog is read only) + client (CRUD / UXUI need the administrator)</td></tr>
+      <tr><td><span class="pill a">A</span></td><td><code>project_permission_profile_catalog</code> + <code>_crud_table</code> + <code>_uxui_table</code></td><td class="num">11 + 1 694 + 297</td><td>The permission matrix. Without it only project owners work, nobody else can do anything.</td><td><span class="pill rpc">RPC</span> (catalog is read only) + client (CRUD / UXUI need the administrator)</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>managementGenusTable</code></td><td class="num">9</td><td>Costs / Revenues / Payments folders and the six genus items. Every task line and budget item points to them.</td><td>client</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>managementActivityGenusTable</code> + <code>budgetItemGenericKeyTable</code></td><td class="num">3 + 14</td><td>Every budget item has an obligatory key (CHECK <code>budgetItemTable_key_chk</code>).</td><td>client</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>budgetItemTable</code></td><td class="num">3 folders + 6 + 36</td><td>Post refuses a line with no budget item. The folders are made from the genus rows, the 36 items stand under them.</td><td>client</td></tr>
@@ -120,7 +120,7 @@
       <tr><td><span class="pill a">A</span></td><td><code>managementCalendarTable</code> + days</td><td class="num">10 + generated</td><td><code>workingDaysCalendar</code> (project default) and <code>standardWorkWeekCalendar</code> (capacity fallback). The days of last / this / next year are <b>generated</b> by <code>fill_management_calendar</code>, not dumped (about 5 000 rows).</td><td>client + RPC for the days</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>kanban_stage_table</code></td><td class="num">5</td><td>The stages of every Kanban board and of the project creation.</td><td>client</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>currencyTable</code></td><td class="num">10</td><td>The currency pickers; project currencies point to it.</td><td>client</td></tr>
-      <tr><td><span class="pill a">A</span></td><td><code>valueAddedTaxTable</code> · <code>measureUnitTable</code> · <code>distributionGenericTable</code></td><td class="num">7 · 12 · 11</td><td>VAT lookup of document lines; units of the lines (<code>unit_hour</code>); <code>uniformDistribution</code> is the default of a task line.</td><td>client</td></tr>
+      <tr><td><span class="pill a">A</span></td><td><code>valueAddedTaxTable</code> · <code>measureUnitTable</code> · <code>distributionGenericTable</code></td><td class="num">7 · 11 · 11</td><td>VAT lookup of document lines; units of the lines (<code>unit_hour</code>); <code>uniformDistribution</code> is the default of a task line.</td><td>client</td></tr>
       <tr><td><span class="pill a">A</span></td><td><code>application_permission_table</code></td><td class="num">1</td><td>The first application administrator. NOT a copy of the owner's e-mail: the e-mail of the user who creates the data (Q2).</td><td><span class="pill rpc">RPC</span> only</td></tr>
       <tr><td><span class="pill b">B</span></td><td><code>countryTable</code></td><td class="num">18</td><td>Country pickers, legal data of organizations.</td><td>client</td></tr>
       <tr><td><span class="pill b">B</span></td><td><code>cfrTypeTable</code> + <code>businessUnitTable</code></td><td class="num">4 + 29</td><td>Business units. The four CFR types are a rule; the 29 units are the demo company "Enterprise #1" (Q4).</td><td>client</td></tr>
@@ -253,7 +253,7 @@
 <section id="tests">
   <h2>9. Tests</h2>
   <ul class="steps">
-    <li><b>Docker</b> <code>tests/112</code>: the minimum proof (A0); status on an empty / partly filled / complete db; install twice; no overwrite; whitelist; permission (administrator yes, member no, guest no); bootstrap once; calendars filled once.</li>
+    <li><b>Docker</b> <code>kit8/docker/initial_data_tests/112_initial_data.sql</code> (not in <code>tests/</code>: the other runners load start4 first, this one needs an EMPTY database; run by <code>test_initial_data.sh</code>): the minimum proof (A0); status on an empty / partly filled / complete db; install twice; no overwrite; whitelist; permission (administrator yes, member no, guest no); bootstrap once; calendars filled once.</li>
     <li><b>Docker end to end</b> (a script like <code>test_budget1.sh</code>): fresh db -&gt; start1 -&gt; start2 -&gt; <b>no start4</b> -&gt; the JSON through the real RPCs -&gt; create a project and Post a task. This is the test that says the JSON files are enough instead of start4.</li>
     <li><b>Jest</b>: model order has no group before its parent; JSON files = manifest; JSON tier A = start4 rows; the screen (check boxes, locked rows, Close disabled while required data is missing, Create calls the chunks in order, resume after a failure); the gate (guest, member, administrator, ready database shows nothing, unlock goes to home).</li>
     <li>Not testable here: the real Supabase of the owner and a real phone. They are said so in the report, not guessed.</li>
@@ -266,10 +266,10 @@
     <thead><tr><th>#</th><th>Question</th><th>Default</th></tr></thead>
     <tbody>
       <tr><td>Q1</td><td>Are the six extra tables of the request all optional (tier B)?</td><td>Yes. Only the tier A groups lock the application.</td></tr>
-      <tr><td>Q2</td><td>Who becomes the first application administrator in an empty database?</td><td>The user who runs Create, only while <code>application_permission_table</code> is empty AND the database has exactly one registered user (the first sign-up). Anyone later is added by SQL or by an existing administrator. Alternative: only by one SQL line pasted by the owner (safest, one more manual step).</td></tr>
+      <tr><td>Q2</td><td>Who becomes the first application administrator in an empty database? <b>The owner answered another point of Q2: "only if a part of the data does not exist CreateInitialProgramData must be opened; if the data does not exist completely it must run automatically without approval and show only the progress" - built exactly so (section 12). The question about the first administrator stays at its default.</b></td><td>The user who runs Create, only while <code>application_permission_table</code> is empty AND the database has exactly one registered user (the first sign-up). Anyone later is added by SQL or by an existing administrator. Alternative: only by one SQL line pasted by the owner (safest, one more manual step).</td></tr>
       <tr><td>Q3</td><td>The dump: all rows of each table, or only the rows start4 knows?</td><td>All rows, then the report lists the rows that are not in start4 for the owner to delete from the JSON before it is committed.</td></tr>
-      <tr><td>Q4</td><td>Business units: ship the 29 demo units of "Enterprise #1", or only the four CFR types?</td><td>Only the four CFR types are checked by default; the 29 units are in the list, unchecked. A real company draws its own tree.</td></tr>
-      <tr><td>Q5</td><td>Exchange rates: bundle the 4 104 rows, or fetch current ones?</td><td>Bundle them as a lazy file, unchecked by default (tier B), because they end in 2026. Fetching live rates is a separate feature.</td></tr>
+      <tr><td>Q4</td><td>Business units: ship the 29 demo units of "Enterprise #1", or only the four CFR types?</td><td><b>Owner: use all units.</b> All 29 units are in the file and checked by default.</td></tr>
+      <tr><td>Q5</td><td>Exchange rates: bundle the 4 104 rows, or fetch current ones?</td><td><b>Owner: an algorithm fills the rate of 31 December of the previous year automatically; when all data is ready the user is asked to fill from the beginning of the year to now, may download <code>currencies_reates_import_template.csv</code> and import it - in a SEPARATE window.</b> No rate file is bundled (a rate row points at the currency's rowGUID, which differs from database to database).</td></tr>
       <tr><td>Q6</td><td>A signed-in member who is not an administrator, in an empty database?</td><td>Locked with the message "Ask the administrator of your organization to create the initial data". No bypass.</td></tr>
       <tr><td>Q7</td><td>A guest in an empty database?</td><td>The sign-in card first, then the same check.</td></tr>
       <tr><td>Q8</td><td>Languages of the texts?</td><td>The menu row in all 15 languages (required by the drawer test); the screen and the gate texts in English, like the other administrator screens, until you want them translated.</td></tr>
@@ -279,14 +279,29 @@
   </table></div>
 </section>
 
+<section id="built">
+  <h2>12. As built (2026-11-26) - what differs from the plan</h2>
+  <ul class="steps">
+    <li><b>The gate</b> (<code>InitialDataGate</code>, a Modal over the whole window): <b>nothing exists</b> -&gt; the screen runs by itself, only the progress (a bar, "Step n of m", the table and rows); <b>a part exists</b> -&gt; the list opens, the user presses Create; <b>everything required exists</b> -&gt; nothing is shown. "Nothing exists" = no key of any table of the list, no calendar day, no administrator (<code>isCompletelyEmpty</code>).</li>
+    <li><b>Required is a smaller set than "everything in the file"</b> (<code>required</code> in <code>initialDataDefinition.json</code>): the genus, the keys, the RACI items, the profiles, the Kanban stages in full; of the budget items the 3 folders, the 6 genus items and the two standard payment items; of the currencies EUR, USD, GBP; calendars <code>workingDaysCalendar</code> and <code>standardWorkWeekCalendar</code> with their days of this year; VAT <code>vat_0</code>; units <code>unit_hour</code> and <code>unit_pcs</code>; <code>uniformDistribution</code>; at least one CRUD and one UXUI row of the matrix. A user who deletes a budget item nobody needs does not bring the first-run screen back at every start.</li>
+    <li><b>Exchange rates (Q5)</b>: group <code>rates</code> = the rate IN FORCE on 31 December of the previous year for USD, EUR, GBP (the base currency excluded). The service publishes working days only: the last published day on or before 31 December (up to 10 days back) is stored as the rate OF 31 December (<code>rowJSON.rateFromDay</code> says where it was read). A currency that has a Default rate on or before the day is not touched. After the data is ready the window <code>ExchangeRatesWindow</code> offers: fill 1 January - today, download <code>currencies_reates_import_template.csv</code>, import a CSV (a preview first; <code>,</code> or <code>;</code>, <code>2026-01-02</code> or <code>02.01.2026</code>, a line with an empty ratio is skipped, rates that exist stay unless the box is checked).</li>
+    <li><b>If the rates service cannot be reached</b> the run stops at "rates" with the message, Create again, and <b>Continue without rates</b> (first run only). The next start asks again.</li>
+    <li><b>If the check itself fails</b> (SQL PART 60 not installed yet, no network) the application is <b>not</b> locked (a warning in the console).</li>
+    <li><b>The first administrator</b> keeps the default of Q2 above: the first user of an empty database (nobody is an application administrator and the database has at most one registered user), made by the run itself before the groups that only an application administrator may write.</li>
+    <li><b>Tests on an empty database are NOT in <code>tests/</code></b>: <code>test_time_genus.sh</code> and <code>test_fact_monitor01.sh</code> run every <code>tests/NNN_*.sql</code> on a database that has start4, which would break them. <code>kit8/docker/test_initial_data.sh</code> does: 53 SQL checks, the JSON installed through the functions, 21 tables equal to the database of start4, a smoke (demo project, task, Time line, Post) on the database made WITHOUT start4.</li>
+    <li><b>Counts corrected</b>: the permission matrix is 11 + 1 694 + 297 rows (the CRUD and UXUI rows are made by a SELECT in start4, the first count looked only at literal rows); measure units 11.</li>
+    <li><b>Not done / not seen</b>: nothing was seen in a browser or on a phone; the real Supabase of the owner was not touched (the dump script reads it when the owner runs it: <code>node kit8/initial/data/code/dumpInitialData.mjs</code>; the JSON files in the repository are from start4 in Docker); the removal experiment of A0 (take one group away and see what breaks) was not run: the proof is "the JSON alone is enough for a project and a Post", not "each group is necessary" - the tier of a group comes from reading the code.</li>
+  </ul>
+</section>
+
 <section id="install">
   <h2>11. Install (when it is built)</h2>
   <ol class="steps">
-    <li>Run <code>start2_sql_code.sql</code> (PART 60 functions). No tables, so <code>start1</code> and <code>start4</code> are not needed.</li>
+    <li>Run <code>start2_sql_code.sql</code> (PART 60 functions). No tables, so <code>start1</code> and <code>start4</code> are not needed. On a NEW database run start1, start2 and start3 (if pg_cron), NOT start4: the application creates the data itself.</li>
     <li>Run the dump once if the JSON files are to be refreshed from your database (a command will be given with the build).</li>
     <li>Reload the app. On a new database it opens the screen by itself; on a ready database nothing changes except the new menu row.</li>
   </ol>
-  <div class="ok">Nothing of this is built. This page is the plan; the build starts when you answer or accept the defaults of section 10.</div>
+  <div class="ok">Built. Install: section 12.</div>
 </section>
 
 </main>

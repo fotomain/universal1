@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Record media - how it works</title>
+<style>
+  /* Light business theme, same family as the other documentation pages (works offline) */
+  :root {
+    --bg: #f8fafc; --bg-subtle: #f1f5f9; --card: #ffffff; --border: #e2e8f0; --border-strong: #cbd5e1;
+    --text: #0f172a; --text-2: #334155; --muted: #64748b;
+    --purple: #7c3aed; --purple-soft: #ede9fe; --cyan: #0891b2; --cyan-soft: #cffafe;
+    --emerald: #059669; --emerald-soft: #d1fae5; --amber: #d97706; --amber-soft: #fef3c7; --rose: #e11d48; --rose-soft: #ffe4e6;
+    --radius: 14px; --shadow: 0 1px 2px rgba(15,23,42,.06), 0 4px 16px rgba(15,23,42,.06);
+    --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Inter, sans-serif; --mono: ui-monospace, 'JetBrains Mono', Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 var(--font); }
+  code { font: 13px var(--mono); background: var(--bg-subtle); padding: 1px 6px; border-radius: 6px; overflow-wrap: anywhere; }
+  header.top { position: sticky; top: 0; z-index: 10; background: rgba(255,255,255,.94); backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+  .top-inner { max-width: 1120px; margin: 0 auto; display: flex; align-items: center; gap: 16px; padding: 10px 16px; }
+  .brand { font-weight: 700; white-space: nowrap; }
+  nav { overflow-x: auto; flex: 1; }
+  nav ul { list-style: none; display: flex; gap: 4px; margin: 0; padding: 0; }
+  nav a { display: block; white-space: nowrap; padding: 6px 12px; border-radius: 999px; color: var(--muted); text-decoration: none; font-weight: 500; font-size: 13.5px; }
+  nav a:hover { background: var(--bg-subtle); color: var(--text); }
+  main { max-width: 1120px; margin: 0 auto; padding: 24px 16px 80px; }
+  section { margin-top: 30px; }
+  h1 { font-size: 34px; line-height: 1.15; margin: 0 0 10px; letter-spacing: -0.02em; }
+  h2 { font-size: 23px; margin: 0 0 6px; }
+  h3 { font-size: 16px; margin: 18px 0 8px; }
+  .lead { font-size: 17px; color: var(--text-2); max-width: 820px; }
+  .sub { color: var(--muted); margin: 0 0 14px; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 18px; }
+  .card + .card { margin-top: 14px; }
+  .grid { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); }
+  .pill { display: inline-block; font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; white-space: nowrap; }
+  .pill.a { background: var(--rose-soft); color: var(--rose); }
+  .pill.b { background: var(--amber-soft); color: var(--amber); }
+  .pill.c { background: var(--bg-subtle); color: var(--muted); }
+  .pill.rpc { background: var(--cyan-soft); color: var(--cyan); }
+  .pill.key { background: var(--purple-soft); color: var(--purple); }
+  .pill.yes { background: var(--emerald-soft); color: var(--emerald); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); background: var(--bg-subtle); }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  ol.steps, ul.steps { margin: 0; padding-left: 20px; }
+  ol.steps li, ul.steps li { margin: 4px 0; }
+  .note { background: var(--amber-soft); border: 1px solid #f3d99a; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .ok { background: var(--emerald-soft); border: 1px solid #a7e3c8; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  .bad { background: var(--rose-soft); border: 1px solid #f5b5c0; border-radius: 10px; padding: 10px 14px; margin: 12px 0; font-size: 14px; }
+  svg text { font-family: var(--font); }
+</style>
+</head>
+<body>
+<header class="top"><div class="top-inner">
+  <div class="brand">Record media - how it works</div>
+  <nav><ul>
+    <li><a href="#flow">Flow</a></li><li><a href="#where">Where files go</a></li><li><a href="#post">The post</a></li><li><a href="#play">Playing</a></li>
+    <li><a href="#server">Server</a></li><li><a href="#fail">When it fails</a></li><li><a href="#code">Code + tests</a></li><li><a href="#todo">Not built</a></li>
+  </ul></nav>
+</div></header>
+<main>
+<h1>Record media - how it works</h1>
+<p class="lead">Hamburger menu <b>Record</b> -> <b>Video</b>, <b>Audio</b>, <b>Photo</b>. Every recording is kept on the device / in the browser, becomes a media post, and its file is
+<b>uploaded by itself</b> to the organization's file storage (Google Drive, or OneDrive when the organization chose it). The post stores the address of the file in the storage.
+The player uses the file of the device first when it exists, and the file in the storage when it does not - a browser always plays from the storage.</p>
+<div class="note">BUILT 2026-11-26. Tried in Jest and in the Docker database (30 SQL checks) only. NOT tried on a real phone, in a real browser, or against the real Google Drive.</div>
+
+<section id="flow"><h2>1. What happens when the user records</h2>
+<div class="card"><ol class="steps">
+  <li>The user records a video / audio / photo and presses Save. The file is copied out of the cache: <b>phone</b> = a file in the app's document folder (<code>file:///...kit8video_*.mp4</code>), <b>browser</b> = IndexedDB (<code>kit8media://...</code>).</li>
+  <li>The media post is written to <code>mediaPostTable</code> (<code>rowJSON.recordingFolder</code> = <code>video</code> | <code>audio</code> | <code>photo</code>). The screen says "saved" at once.</li>
+  <li><b>In the background</b> (<code>useUploadRecordingToDrive</code>): every part of the recording is sent to the storage through the Edge Function <code>files-drive</code> (scope <code>recording</code>): a session is opened, the bytes go in 5 MiB pieces straight to Google / Microsoft, the function finds and verifies the file and the database writes a <b>file row</b>.</li>
+  <li>The post is updated: <code>googleDriveURLToFile</code>, <code>mediaDriveFiles</code>, <code>mediaDriveState = uploaded</code>. A message tells the user: "Saved to the file storage: media/video/&lt;post guid&gt;".</li>
+</ol></div></section>
+
+<section id="where"><h2>2. Where the files are</h2>
+<div class="card">
+<p>In the storage of the organization, under the folder <b>kit8root</b> the application made:</p>
+<table><tr><th>Recording</th><th>Folder</th><th>File name</th></tr>
+<tr><td>Video</td><td><code>kit8root/media/video</code></td><td rowspan="3"><code>&lt;media post guid&gt;.&lt;ext&gt;</code>; a video cut in parts: <code>&lt;guid&gt;-2.&lt;ext&gt;</code>, <code>&lt;guid&gt;-3.&lt;ext&gt;</code> ...</td></tr>
+<tr><td>Audio</td><td><code>kit8root/media/audio</code></td></tr>
+<tr><td>Photo</td><td><code>kit8root/media/photo</code></td></tr></table>
+<p class="sub">The folders carry the marks of the other file folders (<code>kit8Kind = media</code> / <code>media-video</code> ...). There is no <code>files</code> sub folder. The folder id is cached in <code>files_folder_table</code> (key <code>recording:video</code>).</p>
+<div class="note">Which storage: ONE for the whole organization, set in <b>Organization edit -> Files</b> (Google Drive or OneDrive). An organization that is not connected gets <b>no upload</b>: the recording stays on the device (see "When it fails").</div>
+</div></section>
+
+<section id="post"><h2>3. What the media post stores</h2>
+<div class="card scroll"><table>
+<tr><th>Key in <code>rowJSON</code></th><th>Meaning</th></tr>
+<tr><td><code>recordingFolder</code></td><td><code>video</code> | <code>audio</code> | <code>photo</code> - set when the post is made; the database lets files be added to the post only with it, and only its author</td></tr>
+<tr><td><code>mediaPostOrigin</code>, <code>mediaSegments[].uri</code></td><td>the file of the device / browser (unchanged: the local copy stays)</td></tr>
+<tr><td><code>googleDriveURLToFile</code></td><td>the address of the (first) file in the storage, e.g. <code>https://drive.google.com/file/d/&lt;id&gt;/view</code> (OneDrive: its web address - the key name is kept)</td></tr>
+<tr><td><code>mediaDriveFiles</code></td><td><code>[{ fileRowGUID, googleDriveURLToFile }]</code>, one per part, in the order of the parts</td></tr>
+<tr><td><code>mediaDriveState</code></td><td><code>uploaded</code> | <code>failed</code> (missing = not tried: an older post or a screen with no database)</td></tr>
+<tr><td><code>mediaDriveError</code></td><td>the reason, when <code>failed</code></td></tr>
+</table>
+<div class="note"><b>Why two keys:</b> a Google Drive page address needs a Google login, a <code>&lt;video&gt;</code> cannot play it and the users of the organization have no Google login. The player therefore asks the function for a link with <code>fileRowGUID</code>: the function signs a link that works for 10 minutes and streams the file (Range works, so seeking works). <code>googleDriveURLToFile</code> is the address for people and for "open in Drive".</div>
+<p class="sub">The file rows (<code>fileSourceKind = recording</code>, parent = the post) are private to the author: no other member of the organization, not even the administrator, sees them or the organization file list. They are not cards in the Media Posts list.</p>
+</div></section>
+
+<section id="play"><h2>4. Playing: which file is used</h2>
+<div class="card scroll"><table>
+<tr><th>Where</th><th>First</th><th>Then</th></tr>
+<tr><td>Browser (web)</td><td>the file in the storage (<code>mediaDriveFiles</code>)</td><td>the copy of THIS browser (IndexedDB) when the storage cannot be reached</td></tr>
+<tr><td>iPhone / Android</td><td>the file of the device, <b>if it exists</b></td><td>the file in the storage - when the file is gone (reinstall, a post made on another device) <i>or</i> the file does not play</td></tr>
+<tr><td>Post with no file in the storage</td><td colspan="2">its own address, as before (a post made on a phone cannot be played in a browser: the message says so)</td></tr>
+</table>
+<p class="sub">The rule is one pure function, <code>resolvePlaySource</code> (<code>play/playSource.ts</code>); <code>MediaPlayer</code> calls it and, when the player reports an error for the local file, tries the storage once before the user sees a red text. Used by the Media Posts list, the "Recording saved" window and every <code>MediaPlayerModal</code> given <code>driveFiles</code>.</p>
+</div></section>
+
+<section id="server"><h2>5. The server side</h2>
+<div class="grid">
+<div class="card"><h3>SQL (<code>start2_sql_code.sql</code>, PART 49)</h3><ul class="steps">
+<li><code>files_authorize</code>: new scope <code>recording</code>; <code>p_guid</code> = the post; allowed only for its author and only with <code>recordingFolder</code>; answers the folder in <code>idKind</code>; files never move.</li>
+<li><code>files_list</code>: scope <code>recording</code>; the organization list hides these rows.</li>
+<li>Policy <code>mediaPost_select</code> (two copies: PART 49 and PART 50): the rows are visible to their uploader only.</li>
+<li>Delete: the trigger on the post (<code>files_on_identification_post_delete</code>, also for <code>recordingFolder</code>) deletes the file rows and queues the storage files for deletion.</li>
+<li>No new table, no new column.</li></ul></div>
+<div class="card"><h3>Edge Function <code>files-drive</code></h3><ul class="steps">
+<li><code>chainFor</code>: <code>media / &lt;audio|video|photo&gt;</code>; <code>scopeKeyFor</code>: <code>recording:&lt;folder&gt;</code>.</li>
+<li><code>upload_session</code>: the file type must fit the folder (a photo = an image, a video = <code>video/*</code>, an audio = <code>audio/*</code> or webm / ogg); the name must start with the post guid.</li>
+<li>Limits that already exist: 100 MB a file, the storage limit of the organization.</li>
+<li><b>It must be redeployed</b> (see UPDATE STEP-BY-STEP).</li></ul></div>
+</div></section>
+
+<section id="fail"><h2>6. When the upload does not work</h2>
+<div class="card"><p>The recording is <b>never lost</b>: it is on the device first. The post gets <code>mediaDriveState = failed</code> + <code>mediaDriveError</code> and a message says why.</p>
+<table><tr><th>Cause</th><th>What the user sees</th></tr>
+<tr><td>The organization has no connected storage</td><td>"... saved on this device but NOT uploaded: Google Drive is not connected."</td></tr>
+<tr><td>A file above 100 MB (a long video)</td><td>"The file is bigger than 100 MB."</td></tr>
+<tr><td>The storage limit of the organization</td><td>the limit message of the function</td></tr>
+<tr><td>No network / the browser tab was closed during the upload</td><td>the recording stays; no post update (state missing)</td></tr>
+<tr><td>A video in parts: part 2 fails</td><td>all or nothing: the parts that went are removed again</td></tr></table>
+<div class="note"><b>Important:</b> a <b>web</b> recording that failed to upload exists only in that browser (IndexedDB). A <b>phone</b> recording that failed exists only on that phone - and a browser cannot play it ("This recording is a file on the phone that made it ...").</div>
+</div></section>
+
+<section id="code"><h2>7. Code and tests</h2>
+<div class="card scroll"><table>
+<tr><th>What</th><th>Where</th></tr>
+<tr><td>Upload (names, all or nothing, retry while the post is not yet in the database, the keys of the post)</td><td><code>kit8/files/common/recordingUpload.ts</code></td></tr>
+<tr><td>Background upload + post update + message</td><td><code>kit8/ui/components/media/common/useUploadRecording.ts</code>, <code>recordingBlob.ts</code>; called by <code>useSaveRecording.ts</code> (video, audio) and <code>photo/useSavePhoto.ts</code></td></tr>
+<tr><td>Where to play from</td><td><code>kit8/ui/components/media/play/playSource.ts</code>, <code>MediaPlayer.tsx</code> (<code>driveFiles</code>), <code>mediaFileExists</code> in <code>mediaFileStore(.web).ts</code></td></tr>
+<tr><td>Message for a phone file in a browser</td><td><code>mediaFileStore.web.ts</code> (<code>DEVICE_FILE_ON_WEB_MESSAGE</code>)</td></tr>
+<tr><td>Jest</td><td><code>__tests__/media/recordingUpload.test.ts</code> (10), <code>playSource.test.ts</code> (6), <code>mediaPlayer.test.tsx</code> (+6), <code>mediaFileStoreWeb.test.ts</code>, <code>__tests__/files/filesDriveFunction.test.ts</code> (recording)</td></tr>
+<tr><td>Docker (SQL)</td><td><code>kit8/docker/tests/113_recording_files.sql</code> (30 checks): <code>./test_time_genus.sh 113</code></td></tr></table></div></section>
+
+<section id="todo"><h2>8. Not built (honest list)</h2>
+<div class="card"><ul class="steps">
+<li><b>Retry of a failed upload</b> (no queue, no "Upload again" button, nothing at the next app start). A failed recording stays on the device.</li>
+<li><b>Recordings made before this change</b> are not uploaded; they play as before (their phone files cannot be played in a browser).</li>
+<li><b>Files above 100 MB</b>: phase 1 reads the whole file into memory (the same limit as the Files tab).</li>
+<li><b>Photo cards</b> still draw the local picture; a photo that exists only in the storage (made on another device) is not drawn in the list, and the browser does not draw the photo of a phone. The photo IS uploaded and its address is stored.</li>
+<li><b>Upload progress</b> is not shown (one message at the end).</li>
+<li>The local copy is <b>never deleted</b> after the upload (web: IndexedDB keeps it as the fallback; phone: the file is the first choice).</li>
+<li>Not seen on a real phone, in a real browser, or against a real Google Drive.</li></ul></div></section>
+</main>
+</body>
+</html>

@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Modal, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import TextInputApp from '../../common/TextInputApp';
-import { autoFormatCompactDate } from '../../common/date_input/dateInputFormat';
+import { addDaysToDay, autoFormatCompactDate, parseRelativeDays } from '../../common/date_input/dateInputFormat';
 import type { VisualColumn } from './reusableTableTypes';
 import { ColumnFilter, ColumnFilterOp, ColumnSort, defaultFilterOpOf, filterKindOf, filterNeedsSecondValue, filterNeedsValue, filterOpLabel, filterOpsOf, parseDayOperand, parseNumberOperand, splitFilterList } from './tableFilter';
 import { pmT } from '../../../../pm/i18n/pmT';
@@ -35,12 +35,13 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
   const [listOpen, setListOpen] = useState(false);
   const [value, setValue] = useState(filter?.value ?? '');
   const [value2, setValue2] = useState(filter?.value2 ?? '');
-  const [invalid, setInvalid] = useState(false);
+  // the red message under the fields (null = nothing wrong)
+  const [invalid, setInvalid] = useState<string | null>(null);
   const mySort = sort?.key === col.key ? sort.direction : null;
   const left = Math.max(8, Math.min(x, win.width - W - 8));
   const top = Math.max(8, Math.min(y, win.height - 430));
   const id = (s: string) => `${testID}-column-menu-${s}`;
-  const setOperator = (o: ColumnFilterOp) => { setOp(o); setInvalid(false); };
+  const setOperator = (o: ColumnFilterOp) => { setOp(o); setInvalid(null); };
   // what Apply stores: numbers and days are checked and written the one way ('2026-01-05' for 05.01.2026 or 20260105); a value that is no number / date keeps the popup open
   const normalize = (text: string): string | null => {
     const t = text.trim();
@@ -55,9 +56,23 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
   const apply = () => {
     if (!filterNeedsValue(op)) { onFilter({ op }); onClose(); return; }
     if (kind === 'text') { onFilter({ op, value: value.trim() }); onClose(); return; }
+    if (kind === 'date' && op === 'between') {
+      // one end may be "+5" / "-5": that many days from the other end (B = "+5" is A + 5 days, A = "-5" is B - 5 days); the stored filter holds the two real days
+      const ra = parseRelativeDays(value);
+      const rb = parseRelativeDays(value2);
+      if (ra !== null && rb !== null) { setInvalid('Only one of the two dates can be +N / -N days; the other must be a date'); return; }
+      if (ra !== null || rb !== null) {
+        const base = parseDayOperand(ra !== null ? value2 : value);
+        const moved = base ? addDaysToDay(base, (ra ?? rb)!) : null;
+        if (!base || !moved) { setInvalid('Type a date in the other field: +N / -N counts days from it'); return; }
+        onFilter({ op, value: ra !== null ? moved : base, value2: ra !== null ? base : moved });
+        onClose();
+        return;
+      }
+    }
     const a = value.trim() === '' ? '' : normalize(value);
     const b = filterNeedsSecondValue(op) ? (value2.trim() === '' ? '' : normalize(value2)) : undefined;
-    if (a === null || b === null) { setInvalid(true); return; }
+    if (a === null || b === null) { setInvalid(kind === 'date' ? 'Not a valid date' : 'Not a valid number'); return; }
     onFilter({ op, value: a, ...(b !== undefined ? { value2: b } : {}) });
     onClose();
   };
@@ -65,12 +80,12 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
   // one input of the filter value: TextInputApp for every kind (a day is typed in any form of DateInputApp and written as YYYY-MM-DD by Apply); the cursor goes into the first one (web)
   const valueInput = (which: 1 | 2) => {
     // a day typed as eight digits (20261130, 30112026) turns into 2026-11-30 at once (not in a list)
-    const set = (t: string) => { (which === 1 ? setValue : setValue2)(kind === 'date' && op !== 'oneOf' ? autoFormatCompactDate(t) : t); setInvalid(false); };
-    const placeholder = op === 'oneOf' ? (kind === 'date' ? '2026-01-05, 2026-02-01' : '1, 5, 10') : hint;
+    const set = (t: string) => { (which === 1 ? setValue : setValue2)(kind === 'date' && op !== 'oneOf' ? autoFormatCompactDate(t) : t); setInvalid(null); };
+    const placeholder = op === 'oneOf' ? (kind === 'date' ? '2026-01-05, 2026-02-01' : '1, 5, 10') : kind === 'date' && op === 'between' ? 'YYYY-MM-DD, or +5 / -5 days' : hint;
     return (
       <View key={which} style={styles.field}>
         <TextInputApp testID={id(which === 1 ? 'value' : 'value2')} value={which === 1 ? value : value2} onChangeText={set} placeholder={placeholder} onSubmitEditing={apply}
-          autoFocus={which === 1 && Platform.OS === 'web'} keyboardType={kind === 'number' && op !== 'oneOf' ? 'numeric' : 'default'} error={invalid} iconsNotTabbable style={{ marginBottom: 0 }} />
+          autoFocus={which === 1 && Platform.OS === 'web'} keyboardType={kind === 'number' && op !== 'oneOf' ? 'numeric' : 'default'} error={!!invalid} iconsNotTabbable style={{ marginBottom: 0 }} />
       </View>
     );
   };
@@ -112,7 +127,8 @@ export default function ReusableTableColumnMenu({ col, x, y, sort, filter, onSor
         {filterNeedsValue(op) && valueInput(1)}
         {filterNeedsSecondValue(op) && <Text style={[styles.and, { color: c.text }]}>{pmT('and')}</Text>}
         {filterNeedsSecondValue(op) && valueInput(2)}
-        {invalid && <Text testID={id('invalid')} style={[styles.caption, { color: c.error, opacity: 1 }]}>{pmT(kind === 'date' ? 'Not a valid date' : 'Not a valid number')}</Text>}
+        {kind === 'date' && op === 'between' && <Text testID={id('between-hint')} style={[styles.caption, { color: c.text }]}>{pmT('In one of the two fields you can type +5 or -5: that many days from the date in the other field.')}</Text>}
+        {!!invalid && <Text testID={id('invalid')} style={[styles.caption, { color: c.error, opacity: 1 }]}>{pmT(invalid)}</Text>}
         <View style={styles.buttons}>
           <Pressable testID={id('clear')} onPress={() => { onFilter(null); onClose(); }} style={[styles.btn, { borderColor: c.border }]}>
             <Text style={{ color: c.text, fontWeight: '600' }}>{pmT('Clear')}</Text>

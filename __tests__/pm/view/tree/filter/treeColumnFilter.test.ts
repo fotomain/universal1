@@ -14,6 +14,7 @@ import {
   normalizeTreeColumnSort,
   normalizeTreeColumnsFilters,
   parseFilterDate,
+  resolveDateBetween,
   PMTreeColumnDataType,
   PMTreeColumnFilter,
   PMTreeFilterContext,
@@ -130,6 +131,35 @@ describe('number / date / boolean filters', () => {
     expect(test1(f('isNot', '3'), 'number', null)).toBe(true);
     expect(test1(f('after', '3'), 'number', null)).toBe(false);
     expect(compileTreeColumnFilter(f('isExactly', 'abc'), 'number')).toEqual({ error: '"abc" is not a number' });
+  });
+
+  it('date between: +5 / -5 in ONE field = days from the other field', () => {
+    const D = (iso: string) => Date.parse(`${iso}T00:00:00Z`);
+    // B = +5: A .. A + 5
+    expect(resolveDateBetween('2026-11-30', '+5', T0)).toEqual({ a: D('2026-11-30'), b: D('2026-12-05'), relative: 'b' });
+    // A = -5: B - 5 .. B
+    expect(resolveDateBetween('-5', '2026-11-30', T0)).toEqual({ a: D('2026-11-25'), b: D('2026-11-30'), relative: 'a' });
+    expect(resolveDateBetween('t', '+7', T0)).toEqual({ a: T0, b: T0 + 7 * 86_400_000, relative: 'b' });
+    expect(resolveDateBetween('2026-11-30', '-5', T0)).toMatchObject({ a: D('2026-11-30'), b: D('2026-11-25') }); // a range backwards is allowed here, the filter orders it
+    expect(resolveDateBetween('2026-01-01', '2026-01-31', T0)).toMatchObject({ relative: null });
+    // errors: both relative, no base date
+    expect(resolveDateBetween('+1', '-1', T0)).toEqual({ error: expect.stringContaining('Only one') });
+    expect(resolveDateBetween('', '+5', T0)).toEqual({ error: expect.stringMatching(/^A: type a date/) });
+    expect(resolveDateBetween('-5', 'abc', T0)).toEqual({ error: expect.stringMatching(/^B: type a date/) });
+    // the compiled filter: 2026-11-30 +5 = 30 Nov .. 5 Dec, both ends included; backwards too
+    const f = { filterVariantForColumn: 'between' as const, value: '2026-11-30', value2: '+5' };
+    expect(test1(f, 'date', D('2026-11-30'))).toBe(true);
+    expect(test1(f, 'date', D('2026-12-05'))).toBe(true);
+    expect(test1(f, 'date', D('2026-12-06'))).toBe(false);
+    expect(test1(f, 'date', D('2026-11-29'))).toBe(false);
+    const g = { filterVariantForColumn: 'between' as const, value: '-5', value2: '2026-11-30' };
+    expect(test1(g, 'date', D('2026-11-25'))).toBe(true);
+    expect(test1(g, 'date', D('2026-11-24'))).toBe(false);
+    const back = { filterVariantForColumn: 'between' as const, value: '2026-11-30', value2: '-5' };
+    expect(test1(back, 'date', D('2026-11-27'))).toBe(true);
+    expect(compileTreeColumnFilter({ filterVariantForColumn: 'between', value: '+1', value2: '-1' }, 'date', T0)).toEqual({ error: expect.stringContaining('Only one') });
+    // a NUMBER column keeps its own rule: "+5" is a number there
+    expect(test1({ filterVariantForColumn: 'between', value: '1', value2: '+5' }, 'number', 3)).toBe(true);
   });
 
   it('dates: YYYY-MM-DD, D.M.YYYY, M/D/YYYY, t, (day(n))', () => {

@@ -53,6 +53,22 @@ jest.mock('../../../kit8/ui/components/table/reusable/tableExportActions', () =>
   buildTableFile: jest.fn(() => ({ fileName: 'x.csv' })), exportTableFile: jest.fn(async () => ({ ok: true })), shareTableFile: jest.fn(async () => ({ ok: true })),
   TABLE_EXPORT_FORMATS: [{ format: 'csv', label: 'to CSV', icon: 'description' }], tableFileResultMessage: () => null,
 }));
+jest.mock('../../../kit8/ui/components/common/SwitchApp', () => {
+  const R = require('react');
+  const { Pressable } = require('react-native');
+  return { SwitchApp: ({ testID, value, onValueChange }: any) => R.createElement(Pressable, { testID, accessibilityRole: 'switch', accessibilityState: { checked: value }, onPress: () => onValueChange(!value) }) };
+});
+jest.mock('../../../kit8/ui/components/common/ButtonTextApp', () => {
+  const R = require('react');
+  const { Pressable, Text } = require('react-native');
+  return { __esModule: true, default: ({ testID, title, onPress }: any) => R.createElement(Pressable, { testID, onPress }, R.createElement(Text, null, title)) };
+});
+// the card FAB of the list: its commands are listed as buttons (the real one needs react-native-paper)
+jest.mock('../../../kit8/ui/components/list/cards/CardLocalFab', () => {
+  const R = require('react');
+  const { Pressable, Text, View } = require('react-native');
+  return { __esModule: true, default: ({ testID, actions }: any) => R.createElement(View, { testID }, actions.map((a: any) => R.createElement(Pressable, { key: a.testID, testID: a.testID, onPress: a.onPress }, R.createElement(Text, null, a.label)))) };
+});
 let mockSupabase: any = null;
 jest.mock('../../../kit8/providers/WithSupabase', () => ({ useSupabase: () => ({ supabase: mockSupabase }) }));
 const mockFlash: { props: any; handle?: any } = { props: null };
@@ -67,6 +83,7 @@ jest.mock('@shopify/flash-list', () => {
 });
 
 import ReusableList from '../../../kit8/ui/components/list/reusable/ReusableList';
+import { clearReusableListSettingsMemory, getReusableListSettings, saveReusableListSettings } from '../../../kit8/ui/components/list/reusable/reusableListSettingsStore';
 import { generateDemoRows, MEDIA_POST_LIST_COLUMNS } from '../../../kit8/ui/components/list/reusable/demo/demoData';
 import type { VisualColumn } from '../../../kit8/ui/components/table/reusable/reusableTableTypes';
 
@@ -100,9 +117,9 @@ function mount(extra: any = {}) {
   const el = document.createElement('div');
   document.body.appendChild(el);
   root = createRoot(el);
-  act(() => root.render(<ReusableList testID={T} entityName="thing" listOwnerGUID="u1" listParentGUID="empty" visualColumns={columns} itemLabel="Post" selectionVisibleAtStart {...extra} />));
+  act(() => root.render(<ReusableList testID={T} reusableListGUID="test.list" entityName="thing" listOwnerGUID="u1" listParentGUID="empty" visualColumns={columns} itemLabel="Post" selectionVisibleAtStart {...extra} />));
 }
-afterEach(() => { act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockSupabase = null; mockFlash.props = null; });
+afterEach(() => { clearReusableListSettingsMemory(); act(() => root?.unmount()); document.body.innerHTML = ''; jest.clearAllMocks(); mockSupabase = null; mockFlash.props = null; });
 
 describe('clientDataMode (redux entity)', () => {
   beforeEach(() => { mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: rowsOf(), readSuccessful: 1 } }; });
@@ -299,6 +316,216 @@ describe('clientDataMode (redux entity)', () => {
     mount({ renderItem: (row: any, s: any) => <div data-testid={`custom-${row.rowGUID}`}>{row.rowJSON.title}{s.grip}</div> });
     expect(q('custom-a')!.textContent).toContain('Alpha');
     expect(q(`${T}-grip-a`)).not.toBeNull();
+  });
+});
+
+describe('swipe actions (modes of the list settings) and the archived mark', () => {
+  const archivedRows = () => rowsOf().map((r) => (r.rowGUID === 'b' ? { ...r, rowJSON: { ...r.rowJSON, rowIsArchived: true } } : r));
+  // most of these cases look at the swipe buttons of ALL cards: the archived card stays in the list. The tab cases below ask for the default (cleared settings)
+  beforeEach(() => { saveReusableListSettings('test.list', { showArchivedRowsMode: 'showArchivedRowsInOneList' }); mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: archivedRows(), readSuccessful: 1 } }; });
+
+  it('is ON by default (left -> right Archive, right -> left Delete); swipeActions={false} = no swipe layer and no Settings item', () => {
+    mount();
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(3);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ swipeActions: false });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(0);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(0);
+    press(`${T}-more`);
+    expect(q(`${T}-more-export`)).not.toBeNull();
+    expect(q(`${T}-more-settings`)).toBeNull();
+  });
+
+  it('swipeActions: every item is wrapped, with an Archive and a Delete button under it', () => {
+    mount({ swipeActions: true });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(3);
+  });
+
+  it('Archive writes ONLY rowJSON.rowIsArchived = true into the row (it stays in the list), nothing is deleted', () => {
+    mount({ swipeActions: true });
+    press(`${T}-swipe-archive-a`);
+    expect(mockActions.updateOne).toHaveBeenCalledTimes(1);
+    const sent = mockActions.updateOne.mock.calls[0][0];
+    expect(sent.rowGUID).toBe('a');
+    // the saga merges the patch into the stored rowJSON, so the patch is the ONE key
+    expect(sent.rowJSON).toEqual({ rowIsArchived: true });
+    expect(mockActions.deleteOne).not.toHaveBeenCalled();
+    expect(mockActions.createOne).not.toHaveBeenCalled();
+  });
+
+  it('an archived row offers Unarchive (rowIsArchived false) and shows the info icon; the others show none', () => {
+    mount({ swipeActions: true });
+    expect(q(`${T}-archived-b`)).not.toBeNull();
+    expect(q(`${T}-archived-a`)).toBeNull();
+    expect(q(`${T}-swipe-archive-b`)!.getAttribute('aria-label')).toBe('Unarchive');
+    expect(q(`${T}-swipe-archive-a`)!.getAttribute('aria-label')).toBe('Archive');
+    press(`${T}-swipe-archive-b`);
+    expect(mockActions.updateOne.mock.calls[0][0].rowJSON.rowIsArchived).toBe(false);
+  });
+
+  it('the archived mark is the Archive icon (not Info) with its own label; a press does not change the row', () => {
+    mount({ swipeActions: true });
+    expect(q(`${T}-archived-b`)!.getAttribute('aria-label')).toBe('Archived');
+    expect(q(`${T}-archived-b`)!.textContent).toBe('archive');
+    press(`${T}-archived-b`);
+    expect(mockActions.updateOne).not.toHaveBeenCalled();
+  });
+
+  it('the archived mark shows without swipe too (a list that never swipes still marks an archived row)', () => {
+    mount({ swipeActions: false });
+    expect(q(`${T}-archived-b`)).not.toBeNull();
+    expect(qa(`${T}-swipe-archive-`).length).toBe(0);
+  });
+
+  it('Delete asks first (the user setting), then dispatches deleteOne for that row', () => {
+    mount({ swipeActions: true });
+    press(`${T}-swipe-delete-c`);
+    expect(mockActions.deleteOne).not.toHaveBeenCalled();
+    press(`${T}-ask-delete-confirm`);
+    expect(mockActions.deleteOne).toHaveBeenCalledTimes(1);
+    expect(mockActions.deleteOne.mock.calls[0][0].rowGUID).toBe('c');
+  });
+
+  it('swipeActions { delete: false } leaves only Archive; { archive: false } only Delete', () => {
+    mount({ swipeActions: { delete: false } });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(0);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ swipeActions: { archive: false } });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(0);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(3);
+  });
+
+  it('readOnly: no swipe; deleteEnabled false: no Delete button, Archive stays', () => {
+    mount({ swipeActions: true, readOnly: true });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(0);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ swipeActions: true, deleteEnabled: false });
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    expect(qa(`${T}-swipe-delete-`).length).toBe(0);
+  });
+
+  it('canArchiveRow false: that row has Delete only (no Archive button); the others keep both', () => {
+    mount({ swipeActions: true, canArchiveRow: (r: any) => r.rowGUID !== 'c' });
+    expect(q(`${T}-swipe-archive-a`)).not.toBeNull();
+    expect(q(`${T}-swipe-archive-c`)).toBeNull();
+    expect(q(`${T}-swipe-delete-c`)).not.toBeNull();
+  });
+
+  it('a custom card always has the three dots menu at its top right; a press opens the row menu; none when the context menu is off', () => {
+    mount({ renderItem: (row: any) => <span>{row.rowJSON.title}</span> });
+    expect(qa(`${T}-itemmenu-`).length).toBe(3);
+    press(`${T}-itemmenu-b`);
+    expect(document.body.textContent).toContain('Delete');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ contextMenuEnabled: false, renderItem: (row: any) => <span>{row.rowJSON.title}</span> });
+    expect(qa(`${T}-itemmenu-`).length).toBe(0);
+  });
+
+  it('three dots menu of the toolbar -> Settings opens the window of THIS list (its reusableListGUID); Close closes it', async () => {
+    clearReusableListSettingsMemory();
+    mount();
+    press(`${T}-more`);
+    press(`${T}-more-settings`);
+    await wait(30);
+    expect(q(`${T}-settings-modal`)).not.toBeNull();
+    expect(q(`${T}-settings-guid`)!.textContent).toContain('test.list');
+    ['archiveWithStop', 'archiveWithDesappear', 'deleteWithStop', 'deleteWithDesappear'].forEach((m) => {
+      expect(q(`${T}-settings-ltr-${m}`)).not.toBeNull();
+      expect(q(`${T}-settings-rtl-${m}`)).not.toBeNull();
+    });
+    expect(getReusableListSettings('test.list')).toEqual({ swipeModeFromLeftToRight: 'archiveWithStop', swipeModeFromRightToLeft: 'deleteWithStop', showArchivedRowsMode: 'showArchivedRowsOnSeparateTab' });
+    press(`${T}-settings-close`);
+    expect(q(`${T}-settings-modal`)).toBeNull();
+  });
+
+  it('a choice in the Settings is saved under the GUID at once and changes the buttons under the cards', async () => {
+    mount();
+    press(`${T}-more`);
+    press(`${T}-more-settings`);
+    await wait(30);
+    press(`${T}-settings-ltr-deleteWithDesappear`);
+    press(`${T}-settings-rtl-archiveWithStop`);
+    expect(getReusableListSettings('test.list')).toMatchObject({ swipeModeFromLeftToRight: 'deleteWithDesappear', swipeModeFromRightToLeft: 'archiveWithStop' });
+    expect(getReusableListSettings('other.list').swipeModeFromLeftToRight).toBe('archiveWithStop');
+    press(`${T}-settings-close`);
+    // both directions changed: Delete (ltr) and Archive (rtl) under every card
+    expect(qa(`${T}-swipe-delete-`).length).toBe(3);
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    // Delete from the left side asks first, then deletes
+    press(`${T}-swipe-delete-c`);
+    press(`${T}-ask-delete-confirm`);
+    expect(mockActions.deleteOne.mock.calls[0][0].rowGUID).toBe('c');
+  });
+
+  it('default: archived rows are on their own tab - tabs All and Archived show only while archived rows exist; All has the rest, Archived the archived', () => {
+    clearReusableListSettingsMemory();
+    mount();
+    expect(q(`${T}-tab-all`)).not.toBeNull();
+    expect(q(`${T}-tab-archived`)).not.toBeNull();
+    expect(q(`${T}-tab-all`)!.textContent).toBe('All');
+    expect(q(`${T}-tab-archived`)!.textContent).toBe('Archived');
+    expect(itemIds()).toEqual(['a', 'c']);
+    press(`${T}-tab-archived`);
+    expect(itemIds()).toEqual(['b']);
+    expect(q(`${T}-count`)!.textContent).toContain('1 post');
+    press(`${T}-tab-all`);
+    expect(itemIds()).toEqual(['a', 'c']);
+  });
+
+  it('no archived rows: no tabs, every row shown; the Archived tab goes away when its last row is restored', () => {
+    clearReusableListSettingsMemory();
+    mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: rowsOf(), readSuccessful: 1 } };
+    mount();
+    expect(q(`${T}-tabs`)).toBeNull();
+    expect(itemIds()).toEqual(['a', 'b', 'c']);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: archivedRows(), readSuccessful: 1 } };
+    mount();
+    press(`${T}-tab-archived`);
+    expect(itemIds()).toEqual(['b']);
+    // the row is restored (here: the data changes) -> no archived rows -> back on All, no tabs
+    mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: rowsOf(), readSuccessful: 1 } };
+    act(() => root.render(<ReusableList testID={T} reusableListGUID="test.list" entityName="thing" listOwnerGUID="u1" listParentGUID="empty" visualColumns={columns} itemLabel="Post" selectionVisibleAtStart />));
+    expect(q(`${T}-tabs`)).toBeNull();
+    expect(itemIds()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('showArchivedRowsInOneList: no tabs, archived rows stay in the list; a list with swipeActions false is the same', async () => {
+    saveReusableListSettings('test.list', { showArchivedRowsMode: 'showArchivedRowsInOneList' });
+    mount();
+    expect(q(`${T}-tabs`)).toBeNull();
+    expect(itemIds()).toEqual(['a', 'b', 'c']);
+    act(() => root.unmount()); document.body.innerHTML = '';
+    saveReusableListSettings('test.list', { showArchivedRowsMode: 'showArchivedRowsOnSeparateTab' });
+    mount({ swipeActions: false });
+    expect(q(`${T}-tabs`)).toBeNull();
+    expect(itemIds()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('the Settings window has the two modes; a choice is saved and changes the list at once; Reset restores the default', async () => {
+    clearReusableListSettingsMemory();
+    mount();
+    press(`${T}-more`);
+    press(`${T}-more-settings`);
+    await wait(30);
+    press(`${T}-settings-archived-showArchivedRowsInOneList`);
+    expect(getReusableListSettings('test.list').showArchivedRowsMode).toBe('showArchivedRowsInOneList');
+    expect(q(`${T}-tabs`)).toBeNull();
+    expect(itemIds()).toEqual(['a', 'b', 'c']);
+    press(`${T}-settings-reset`);
+    expect(getReusableListSettings('test.list').showArchivedRowsMode).toBe('showArchivedRowsOnSeparateTab');
+    expect(itemIds()).toEqual(['a', 'c']);
+  });
+
+  it('a custom card is wrapped too and gets state.archived', () => {
+    const seen: Record<string, boolean> = {};
+    mount({ swipeActions: true, renderItem: (row: any, st: any) => { seen[row.rowGUID] = st.archived; return <span data-testid={`card-${row.rowGUID}`}>{row.rowJSON.title}</span>; } });
+    expect(q(`card-a`)).not.toBeNull();
+    expect(qa(`${T}-swipe-archive-`).length).toBe(3);
+    expect(seen).toEqual({ a: false, b: true, c: false });
   });
 });
 
@@ -588,5 +815,116 @@ describe('toolbar: scroll to the last used card, to the top, to the bottom', () 
     press(`${T}-item-a`);
     type(`${T}-search`, 'Bravo');
     expect(q(`${T}-scroll-last-used`)!.hasAttribute('disabled') || q(`${T}-scroll-last-used`)!.getAttribute('aria-disabled') === 'true').toBe(true);
+  });
+});
+
+
+describe('default card FAB + the Archive command of the row menu', () => {
+  const archivedRows = () => rowsOf().map((r) => (r.rowGUID === 'b' ? { ...r, rowJSON: { ...r.rowJSON, rowIsArchived: true } } : r));
+  const card = (row: any) => <span data-testid={`card-${row.rowGUID}`}>{row.rowJSON.title}</span>;
+  const labels = (guid: string) => qa(`${T}-fab-${guid}-`).map((e) => e.textContent);
+  beforeEach(() => { saveReusableListSettings('test.list', { showArchivedRowsMode: 'showArchivedRowsInOneList' }); mockState = { uxuiState: { askBeforeDeletePost: true }, thing: { entityDataFromServer: archivedRows(), readSuccessful: 1 } }; });
+
+  it('every custom card gets the FAB with the commands of its row (what the user may do), the default item gets none', () => {
+    mount({ renderItem: card });
+    expect(q(`${T}-fab-a`)).not.toBeNull();
+    expect(labels('a')).toEqual(['Add post below', 'Add post above', 'Duplicate', 'Move up', 'Move down', 'Archive', 'Delete']);
+    expect(labels('b')).toContain('Restore');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount();
+    expect(qa(`${T}-fab-`).length).toBe(0);
+  });
+
+  it('cardFab={false} = no FAB (a card that draws its own)', () => {
+    mount({ renderItem: card, cardFab: false });
+    expect(qa(`${T}-fab-`).length).toBe(0);
+    expect(q(`${T}-itemmenu-a`)).not.toBeNull();
+  });
+
+  it('Edit is offered only when the list can open a row (onRowOpen / an edit card)', () => {
+    const onRowOpen = jest.fn();
+    mount({ renderItem: card, onRowOpen });
+    expect(labels('a')[0]).toBe('Edit post');
+    press(`${T}-fab-a-edit`);
+    expect(onRowOpen).toHaveBeenCalledTimes(1);
+  });
+
+  it('the FAB Archive writes ONLY rowIsArchived (true), Restore writes false', () => {
+    mount({ renderItem: card });
+    press(`${T}-fab-a-archive`);
+    expect(mockActions.updateOne.mock.calls[0][0]).toMatchObject({ rowGUID: 'a', rowJSON: { rowIsArchived: true } });
+    press(`${T}-fab-b-archive`);
+    expect(mockActions.updateOne.mock.calls[1][0]).toMatchObject({ rowGUID: 'b', rowJSON: { rowIsArchived: false } });
+    expect(mockActions.deleteOne).not.toHaveBeenCalled();
+  });
+
+  it('the FAB Delete asks first, then deletes the row; Move up changes the order', () => {
+    mount({ renderItem: card });
+    press(`${T}-fab-c-delete`);
+    expect(mockActions.deleteOne).not.toHaveBeenCalled();
+    press(`${T}-ask-delete-confirm`);
+    expect(mockActions.deleteOne.mock.calls[0][0].rowGUID).toBe('c');
+    press(`${T}-fab-b-move-up`);
+    expect(mockActions.updateOne.mock.calls.at(-1)![0]).toMatchObject({ rowGUID: 'b', field: 'orderInList' });
+  });
+
+  it('a list with its own onAdd makes its rows itself: no Add above / below / Duplicate in the FAB or the menu', () => {
+    mount({ renderItem: card, onAdd: jest.fn() });
+    expect(labels('a')).toEqual(['Move up', 'Move down', 'Archive', 'Delete']);
+    press(`${T}-itemmenu-a`);
+    expect(q(`${T}-menu-duplicate`)).toBeNull();
+    expect(q(`${T}-menu-add-below`)).toBeNull();
+  });
+
+  it('cardFabActions come first; a read only list shows only them (no Archive / Add / Move / Delete); with nothing to show there is no FAB', () => {
+    mount({ renderItem: card, readOnly: true, cardFabActions: (row: any) => [{ icon: 'play', label: `Open ${row.rowJSON.title}`, onPress: jest.fn(), testID: `${T}-extra-${row.rowGUID}` }] });
+    expect(labels('a')).toEqual([]);
+    expect(q(`${T}-extra-a`)!.textContent).toBe('Open Alpha');
+    act(() => root.unmount()); document.body.innerHTML = '';
+    mount({ renderItem: card, readOnly: true });
+    expect(qa(`${T}-fab-`).length).toBe(0);
+  });
+
+  it('cardFabActions are listed before the standard commands', () => {
+    mount({ renderItem: card, cardFabActions: () => [{ icon: 'play', label: 'First', onPress: jest.fn(), testID: `${T}-fab-a-first` }] });
+    expect(labels('a')[0]).toBe('First');
+  });
+
+  it('canArchiveRow false takes Archive from that row only (FAB + menu)', () => {
+    mount({ renderItem: card, canArchiveRow: (row: any) => row.rowGUID !== 'a' });
+    expect(labels('a')).not.toContain('Archive');
+    expect(labels('c')).toContain('Archive');
+    press(`${T}-itemmenu-a`);
+    expect(q(`${T}-menu-archive-flag`)).toBeNull();
+  });
+
+  it('the three dots menu has Archive / Restore (rowIsArchived) before the host items; swipeActions false / { archive: false } / a read only list take it away', () => {
+    mount({ renderItem: card, extraMenuItems: () => [{ testID: `${T}-host-item`, label: 'Host', icon: 'x', onPress: jest.fn() }] });
+    press(`${T}-itemmenu-a`);
+    expect(q(`${T}-menu-archive-flag`)!.textContent).toBe('Archive');
+    expect(q(`${T}-host-item`)).not.toBeNull();
+    press(`${T}-menu-archive-flag`);
+    expect(mockActions.updateOne.mock.calls[0][0]).toMatchObject({ rowGUID: 'a', rowJSON: { rowIsArchived: true } });
+    press(`${T}-itemmenu-b`);
+    expect(q(`${T}-menu-archive-flag`)!.textContent).toBe('Restore');
+    for (const extra of [{ swipeActions: false }, { swipeActions: { archive: false } }, { readOnly: true }]) {
+      act(() => root.unmount()); document.body.innerHTML = '';
+      mount({ renderItem: card, ...extra });
+      press(`${T}-itemmenu-a`);
+      expect(q(`${T}-menu-archive-flag`)).toBeNull();
+      expect(labels('a')).not.toContain('Archive');
+    }
+  });
+});
+
+describe('isNarrowToolbar (the list bar splits in two rows: search, then the buttons)', () => {
+  const { isNarrowToolbar, TOOLBAR_NARROW_WIDTH } = require('../../../kit8/ui/components/list/reusable/ReusableListToolbar');
+  it('narrow under the limit, one row at the limit and above, one row while the width is not measured', () => {
+    expect(isNarrowToolbar(400)).toBe(true);
+    expect(isNarrowToolbar(TOOLBAR_NARROW_WIDTH - 1)).toBe(true);
+    expect(isNarrowToolbar(TOOLBAR_NARROW_WIDTH)).toBe(false);
+    expect(isNarrowToolbar(960)).toBe(false);
+    expect(isNarrowToolbar(null)).toBe(false);
+    expect(isNarrowToolbar(0)).toBe(false);
   });
 });

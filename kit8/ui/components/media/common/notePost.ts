@@ -110,6 +110,7 @@ export function buildPhotoPost(input: PhotoPostInput): RecordingPost {
     mediaPostMIME: PHOTO_MIME[ext] || 'image/jpeg',
     mediaPostOriginType: 'file',
     dataOriginName: 'camera',
+    recordingFolder: 'photo',
     mediaImageUri: input.uri,
     mediaPlatform: input.platform,
     mediaFileExtension: ext,

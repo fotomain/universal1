@@ -101,8 +101,8 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       renderIcon: ({ size, color }) => <RecordMenuIcon size={size} color={color} />,
       route: '',
       children: [
-        { id: 'record-audio', label: t('drawer.audio'), icon: 'mic', route: 'media/record/audio' },
         { id: 'record-video', label: t('drawer.video'), icon: 'videocam', route: 'media/record/video' },
+        { id: 'record-audio', label: t('drawer.audio'), icon: 'mic', route: 'media/record/audio' },
         { id: 'record-photo', label: t('drawer.photo'), icon: 'photo_camera', route: 'media/record/photo' },
       ],
     },
@@ -237,7 +237,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
       label: t('drawer.systemSettings'),
       icon: 'settings_applications',
       route: '',
-      children: [{ id: 'system-routevisits', label: t('drawer.routesVisits'), icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: t('drawer.permissions'), icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: t('drawer.applicationTexts'), icon: 'translate', route: 'catalog/organization/texts' }, { id: 'system-costcalculator', label: t('drawer.costCalculator'), icon: 'calculate', route: 'system/costcalculator' }],
+      children: [{ id: 'system-routevisits', label: t('drawer.routesVisits'), icon: 'route', route: 'user/visits' }, { id: 'system-permissions', label: t('drawer.permissions'), icon: 'admin_panel_settings', route: 'user/permissions' }, { id: 'system-texts', label: t('drawer.applicationTexts'), icon: 'translate', route: 'catalog/organization/texts' }, { id: 'system-costcalculator', label: t('drawer.costCalculator'), icon: 'calculate', route: 'system/costcalculator' }, { id: 'system-initialdata', label: t('drawer.createInitialData'), icon: 'database', route: 'system/initialdata' }],
     },
   ];
 
@@ -302,7 +302,7 @@ export default function CustomDrawerContent(props: DrawerContentComponentProps) 
     item.children ? (
       <View key={item.id} testID={`drawer-group-${item.id}`}>
         {renderDrawerItem(item)}
-        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.filter((ch) => (ch.id !== 'organizationmembers' || permissions.canUi('permissionOrganizationMembers', 'R')) && (ch.id !== 'system-texts' || permissions.canUi('permissionEditTexts', 'R')) && (ch.id !== 'system-costcalculator' || permissions.isAdmin)).map(renderSubItem)}</View>}
+        {isGroupOpen(item) && <View testID={`drawer-group-items-${item.id}`}>{item.children.filter((ch) => (ch.id !== 'organizationmembers' || permissions.canUi('permissionOrganizationMembers', 'R')) && (ch.id !== 'system-texts' || permissions.canUi('permissionEditTexts', 'R')) && (ch.id !== 'system-costcalculator' || permissions.isAdmin) && (ch.id !== 'system-initialdata' || permissions.isAdmin)).map(renderSubItem)}</View>}
       </View>
     ) : (
       renderDrawerItem(item)

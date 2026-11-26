@@ -176,3 +176,7 @@ Vision Camera `useCodeScanner` (no frame processor, no extra package: AVFoundati
 
 ## Video: full screen button (2026-11-24)
 The toolbar over the video has a **full screen** button (left of the settings cog; `VideoControls` `onToggleFullscreen`). Web: the browser Fullscreen API on the box that holds the video AND our buttons (Escape leaves it, the button follows). iOS / Android: the box moves into a full screen `Modal` (the device may be turned; Back leaves it) - expo-video's own full screen would hide our buttons. Tests: `__tests__/media/videoPlayerView.test.tsx`, `videoPlayerViewWeb.test.tsx`.
+
+
+## Upload to the file storage and where a recording plays from (2026-11-26)
+After a recording / photo is saved, `useUploadRecordingToDrive` uploads its files in the background (`kit8root/media/<kind>`, see `kit8/files/README.md`) and writes `googleDriveURLToFile`, `mediaDriveFiles`, `mediaDriveState` into the post. `MediaPlayer` takes `driveFiles` and `play/playSource.ts` decides: browser = storage first (then the copy of this browser); phone = the file of the device first while it exists, else the storage, and the storage again when the file does not play. Full description: `documentation/RECORD_MEDIA_HOW_IT_WORKS.html`.

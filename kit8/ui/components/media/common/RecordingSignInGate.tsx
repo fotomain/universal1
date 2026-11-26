@@ -1,6 +1,6 @@
 // Recordings (audio / video / photo) AND scans (QR / barcode, NFC, ID card / passport) are for SIGNED-IN users only: a recording becomes a post of the user's account and its files belong to the storage of the user's
 // organization (organizationTable.rowJSON.organizationFilesStorageProvider: Google Drive | Microsoft OneDrive, set in Organization edit -> Files).
-// A guest sees this card instead of the recorder / the scanner: Sign in, or (recordings) Sign in and then set up the file storage. Mounted by app/media/record/{audio,video,photo}, app/media/scan, app/media/nfc/{index,identification,iddocread}.
+// A guest sees this card instead of the recorder / the scanner: Sign in, or (recordings) Sign in and then set up the file storage. Mounted by app/media/record/{audio,video,photo}, app/media/scan, app/media/nfc/{index,identification,iddocread}, app/pm/project/estimation/dashboard (kind estimation).
 import React, { useEffect } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { Card, Text, useTheme } from 'react-native-paper';
@@ -13,7 +13,7 @@ import { ButtonPrimaryApp, ButtonSecondaryApp } from '../../common';
 /** where the user lands after the sign in to connect the storage: the organization list (edit -> tab Files) */
 export const FILE_STORAGE_SETUP_ROUTE = '/catalog/organization';
 
-export type RecordingGateKind = 'audio' | 'video' | 'photo' | 'scan' | 'nfc' | 'identification' | 'idcard';
+export type RecordingGateKind = 'audio' | 'video' | 'photo' | 'scan' | 'nfc' | 'identification' | 'idcard' | 'estimation';
 
 const RECORD_KINDS: RecordingGateKind[] = ['audio', 'video', 'photo'];
 
@@ -27,11 +27,14 @@ export function signInGateTitle(kind: RecordingGateKind): string {
     case 'nfc': return 'Sign in to read NFC tags';
     case 'identification': return 'Sign in to identify with an ID card or passport';
     case 'idcard': return 'Sign in to read an ID card or passport';
+    case 'estimation': return 'Sign in to open the Estimation dashboard';
   }
 }
 
 const RECORD_TEXT = 'Recordings and photos are kept in your account and in the file storage of your organization (Google Drive or Microsoft OneDrive), so only signed-in users can make them.';
 const SCAN_TEXT = 'Scanning is only for signed-in users: the result belongs to your account, so please sign in first.';
+
+const ESTIMATION_TEXT = 'The Estimation dashboard shows the estimates of your projects, so it is only for signed-in users. Please sign in first.';
 
 export interface RecordingSignInGateProps {
   /** the route of the recorder: the sign in comes back to it */
@@ -56,7 +59,7 @@ export default function RecordingSignInGate({ returnTo, kind, children }: Record
         <Card.Content style={styles.body}>
           <Text variant="titleLarge" testID="recording-signin-title">{signInGateTitle(kind)}</Text>
           <Text variant="bodyMedium" style={{ color: theme.colors.onSurfaceVariant }}>
-            {isRecord ? RECORD_TEXT : SCAN_TEXT}
+            {isRecord ? RECORD_TEXT : kind === 'estimation' ? ESTIMATION_TEXT : SCAN_TEXT}
           </Text>
           <View style={styles.buttons}>
             <ButtonPrimaryApp testID="recording-signin-button" onPress={() => signIn(returnTo)}>Sign in</ButtonPrimaryApp>

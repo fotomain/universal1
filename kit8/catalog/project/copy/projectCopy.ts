@@ -56,7 +56,7 @@ export function copyOrderAfter(sourceOrder: number, allOrders: number[]): number
 /** The project row of the copy: the settings of the source, a new identity. rowParentGUID (the organization) is set by the database. */
 export function planProjectCopy(source: PMProjectRow, ownerGUID: string, name: string, orderInList: number, makeGUID: () => string = newGUID): PMProjectRow {
   const rowGUID = makeGUID();
-  const { projectIsReadonly: _ro, projectEstimationLastFill: _lastFill, ...settings } = (source.rowJSON || {}) as any;
+  const { projectIsReadonly: _ro, projectEstimationLastFill: _lastFill, rowIsArchived: _archived, ...settings } = (source.rowJSON || {}) as any;
   return {
     rowGUID,
     treePath: projectTreePath(rowGUID),

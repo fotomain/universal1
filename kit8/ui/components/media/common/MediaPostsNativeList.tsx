@@ -15,7 +15,7 @@ import ReusableList from '../../list/reusable/ReusableList';
 import CreateListElementForm from '../../list/forms/CreateListElementForm';
 import MediaPostCardDefault from '../../list/cards/mediapost/MediaPostCardDefault';
 import type { MediaPostCardProps } from '../../list/cards/mediapost/mediaPostCardTypes';
-import { CardSize, cardItemHeight, DEFAULT_CARD_SIZE, normalizeCardSize } from '../../list/cards/cardSize';
+import { CARD_GAP, CardSize, cardItemHeight, DEFAULT_CARD_SIZE, normalizeCardSize } from '../../list/cards/cardSize';
 import type { ReusableListItemState } from '../../list/reusable/reusableListTypes';
 import type { ReusableTableRow } from '../../table/reusable/reusableTableTypes';
 import MediaPlayerModal from '../play/MediaPlayerModal';
@@ -31,6 +31,8 @@ import { mediaPostProjectGUID, readonlyDeleteMessageOf } from './mediaPostProjec
 import { useMediaPostProjects } from './useMediaPostProjects';
 
 export const MEDIA_POSTS_ENTITY = 'mediaPostReusable';
+/** ReusableCardMediaPost: 12 px at the sides, half CARD_GAP above / below, corner radius 16 */
+const SWIPE_INSET = { x: 12, y: CARD_GAP / 2, radius: 16 };
 const CARD_SIZE_KEY = 'mediaPostsCardSize';
 
 export interface MediaPostsNativeListProps {
@@ -84,6 +86,9 @@ export default function MediaPostsNativeList({ reusableCard, initialCardSize = D
     return ids.filter((id) => !fileIds.has(id));
   }, [dispatch, projects]);
 
+  // swipe right = Archive (rowJSON.rowIsArchived): the table refuses every UPDATE of a file row (Files tab, chat), so those cards can only be deleted
+  const canArchiveRow = useCallback((row: ReusableTableRow) => !row.rowJSON?.fileSourceKind, []);
+
   // a person document made with the Add form: its owner photo also goes to the file storage (identification/idcard | passport/<post guid>), as the reader's post does
   const onElementCreated = useCallback((guid: string, _rowJSON: Record<string, any>, extras?: Record<string, any>) => {
     const p = extras?.idPhoto;
@@ -97,6 +102,7 @@ export default function MediaPostsNativeList({ reusableCard, initialCardSize = D
     <View style={styles.screen} testID="media-posts-native">
       <ReusableList
         testID="media-posts"
+        reusableListGUID="mediaPosts.list"
         entityName={MEDIA_POSTS_ENTITY}
         itemLabel="Post"
         listOwnerGUID={ownerGUID}
@@ -111,6 +117,10 @@ export default function MediaPostsNativeList({ reusableCard, initialCardSize = D
         cardSize={sized ? cardSize : undefined}
         onCardSizeChange={sized ? changeCardSize : undefined}
         onDeleteRows={onDeleteRows}
+        swipeActions
+        cardFab={false}
+        swipeInset={SWIPE_INSET}
+        canArchiveRow={canArchiveRow}
         refreshOnFocus
         focusRowGUID={focusRowGUID}
         emptyText="No media posts yet. Record a video or audio, take a photo or scan a code and it appears here."
@@ -124,6 +134,7 @@ export default function MediaPostsNativeList({ reusableCard, initialCardSize = D
           source={playing.uris}
           title={playing.title}
           dateTimeOver={playing.dateTimeOver}
+          driveFiles={playing.driveFiles}
         />
       )}
     </View>

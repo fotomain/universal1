@@ -55,6 +55,20 @@ export function autoFormatTypedDay(text: string, now: Date = new Date()): string
   return autoFormatCompactDate(text);
 }
 
+/** "+5" / "-5" (also "+5d", "- 5 days"): a number of days counted from ANOTHER date (the "between" of a date filter); null = not that form. A plain "5" is no relative date. */
+export function parseRelativeDays(text: string): number | null {
+  const m = /^\s*([+-])\s*(\d{1,5})\s*(?:d|days?)?\s*$/i.exec(text ?? '');
+  return m ? (m[1] === '-' ? -1 : 1) * Number(m[2]) : null;
+}
+
+/** 'YYYY-MM-DD' + n days (n may be negative) as 'YYYY-MM-DD'; null when `day` is not a real day */
+export function addDaysToDay(day: string, n: number): string | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(day);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + n);
+  return Number.isNaN(d.getTime()) ? null : defaultFormatDateInput(d);
+}
+
 /** local Date -> YYYY-MM-DD */
 export function defaultFormatDateInput(date: Date): string {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`;

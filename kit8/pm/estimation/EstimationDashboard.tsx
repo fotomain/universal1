@@ -53,6 +53,7 @@ import { positionCountOf, removePositionOf } from './model/estimateGridModel';
 import InfoModal from '../../ui/components/info/InfoModal';
 import { layoutHelp } from './model/layoutHelpModel';
 import PMProjectTreeHost from '../view/project/tree/PMProjectTreeHost';
+import { DashboardFontScope } from '../skia/dashboardFont';
 import type { PMViewport } from '../view/gantt/useGanttViewport';
 import type { PMPalette } from '../view/theme';
 import type { EstimateGridPaneProps } from './grid/EstimateGridPane';
@@ -371,7 +372,7 @@ export default function EstimationDashboard() {
               />
             </View>
             <View style={{ flex: 1 }}>
-              <PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" labels={ESTIMATION_TREE_LABELS} onTreeWidthCommit={(px) => saveProjectSettings({ tasksTreeWidth: px })} emptyText={pmT('This project has no lines yet. The estimate is made per line: add the first section, then its lines.')} />
+              <DashboardFontScope dashboard="estimationDashboard"><PMProjectTreeHost projectGUID={projectGUID!} readOnly={readOnly} renderRight={estimatePane} fabId="estimation-tree" labels={ESTIMATION_TREE_LABELS} onTreeWidthCommit={(px) => saveProjectSettings({ tasksTreeWidth: px })} emptyText={pmT('This project has no lines yet. The estimate is made per line: add the first section, then its lines.')} /></DashboardFontScope>
             </View>
           </View>
         ) : tab === 'document' ? (

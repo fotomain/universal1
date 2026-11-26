@@ -1,0 +1,6 @@
+{"format":"kit8.initialdata","version":1,"table":"cfrTypeTable","group":"businessUnits","mode":"guid","rows":[
+{"rowGUID":"costCenter","rowOwnerGUID":"cfrTypeCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":10,"rowJSON":{"title":"Cost center","description":"Accountable for costs only (support units: accounting, IT, the costs of a team).","acceptsCosts":true,"acceptsRevenues":false}},
+{"rowGUID":"revenueCenter","rowOwnerGUID":"cfrTypeCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":20,"rowJSON":{"title":"Revenue center","description":"Accountable for revenue only (sales).","acceptsCosts":false,"acceptsRevenues":true}},
+{"rowGUID":"profitCenter","rowOwnerGUID":"cfrTypeCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":30,"rowJSON":{"title":"Profit center","description":"Accountable for revenue and costs, i.e. for the profit.","acceptsCosts":true,"acceptsRevenues":true}},
+{"rowGUID":"investmentCenter","rowOwnerGUID":"cfrTypeCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":40,"rowJSON":{"title":"Investment center","description":"Accountable for the profit and for the capital invested (ROI). Takes investment (capex) lines later; for now costs and revenues.","acceptsCosts":true,"acceptsRevenues":true}}
+]}

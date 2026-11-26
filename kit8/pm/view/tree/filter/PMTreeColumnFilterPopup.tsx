@@ -18,7 +18,7 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDime
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
 import IconApp from '../../../../ui/components/common/IconApp';
 import TextInputApp from '../../../../ui/components/common/TextInputApp';
-import { autoFormatTypedDay } from '../../../../ui/components/common/date_input/dateInputFormat';
+import { autoFormatTypedDay, parseRelativeDays } from '../../../../ui/components/common/date_input/dateInputFormat';
 import SelectItemFromListApp, { SelectItemFromListItem } from '../../../../ui/components/common/SelectItemFromListApp';
 import { usePMStore } from '../../../store/store_pm';
 import { PMCrud } from '../../../crud/usePMCrud';
@@ -26,6 +26,7 @@ import { PMDialogButton } from '../../../inner/buttons/PMDialogButton';
 import { treeColumnTitle } from '../columns/treeColumns';
 import {
   compileTreeColumnFilter,
+  DATE_BETWEEN_HINT,
   DATE_FILTER_HINT,
   defaultFilterVariant,
   filterAndSortTreeRows,
@@ -38,6 +39,7 @@ import {
   PMSortDirection,
   PMTreeColumnDataType,
   PMTreeColumnFilter,
+  resolveDateBetween,
   sortLabels,
   treeColumnCanBeEmpty,
   treeColumnDataType,
@@ -100,6 +102,16 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
     return f;
   }, [variant, value, value2, inputs]);
   const compiled = useMemo(() => (type ? compileTreeColumnFilter(draft, type) : null), [draft, type]);
+
+  /** a date "between" with +5 / -5 in one field: the two real dates it means (shown under the fields) */
+  const resolved = useMemo(() => {
+    if (type !== 'date' || variant !== 'between' || (parseRelativeDays(value) === null && parseRelativeDays(value2) === null)) return null;
+    const r = resolveDateBetween(value, value2);
+    if ('error' in r) return null;
+    const [lo, hi] = r.a <= r.b ? [r.a, r.b] : [r.b, r.a];
+    const day = (ms: number) => new Date(ms).toISOString().slice(0, 10); // UTC-midnight ms of a calendar day
+    return `${day(lo)} → ${day(hi)}`;
+  }, [type, variant, value, value2]);
 
   /** live preview: rows matching this draft + the other column filters */
   const preview = useMemo(() => {
@@ -282,6 +294,16 @@ export default function PMTreeColumnFilterPopup({ crud }: { crud: PMCrud }) {
               {pmT(DATE_FILTER_HINT)}
             </Text>
           )}
+          {type === 'date' && variant === 'between' && (
+            <Text testID="pm-tree-filter-between-hint" style={[styles.hint, { color: c.text }]}>
+              {pmT(DATE_BETWEEN_HINT)}
+            </Text>
+          )}
+          {!!resolved && (
+            <Text testID="pm-tree-filter-between-resolved" style={[styles.resolved, { color: c.primary }]}>
+              {resolved}
+            </Text>
+          )}
           {variant === 'isOneOf' && <Text style={[styles.hint, { color: c.text }]}>{pmT('Separate the values with commas.')}</Text>}
           {variant === 'matches' && (
             <View testID="pm-tree-filter-matches-help" style={[styles.help, { borderColor: c.border }]}>
@@ -340,6 +362,7 @@ const styles = StyleSheet.create({
   and: { fontSize: 12, opacity: 0.6, marginVertical: 6, marginLeft: 2 },
   boolRow: { flexDirection: 'row' },
   boolChip: { flexDirection: 'row', alignItems: 'center', height: 36, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, marginRight: 8 },
+  resolved: { fontSize: 13, fontWeight: '700', marginTop: 6 },
   hint: { fontSize: 12, opacity: 0.65, marginTop: 8 },
   help: { marginTop: 8, borderWidth: StyleSheet.hairlineWidth, borderRadius: 8, padding: 8 },
   helpLine: { fontSize: 11, opacity: 0.8, lineHeight: 17 },

@@ -4,6 +4,7 @@ import { formatDuration } from './mediaSource';
 import { playableUrisOfPost } from './mediaPost';
 import { mediaPostProjectGUID } from './mediaPostProject';
 import { dateTimeOverOfPost, MediaDateTimeOver } from '../video/dateTimeOver';
+import { driveFilesOfPost, type DriveFileRef } from '../../../../files/common/recordingUpload';
 
 export interface MediaPostRow {
   id: string;
@@ -14,6 +15,8 @@ export interface MediaPostRow {
   subtitle: string;
   description: string;
   uris: string[];
+  /** the files of the post in the file storage, one per part of `uris` (Drive: kit8root/media/<kind>); [] = not uploaded */
+  driveFiles: DriveFileRef[];
   /** a recording whose file has no date and time stamp: the player draws it */
   dateTimeOver: MediaDateTimeOver | null;
   orderInList: number;
@@ -50,6 +53,8 @@ export function mediaPostRows(rows: unknown): MediaPostRow[] {
     const id = String(item?.rowGUID || '');
     if (!id) continue;
     const json = item?.rowJSON || {};
+    // the files of a recording / a photo (fileSourceKind recording) are the files of a POST that has its own card
+    if (json.fileSourceKind === 'recording') continue;
     const kind = json.mediaKind === 'video' || json.mediaKind === 'audio' ? json.mediaKind : '';
     const parts: string[] = [];
     if (kind) parts.push(kind === 'video' ? 'Video' : 'Audio');
@@ -68,6 +73,7 @@ export function mediaPostRows(rows: unknown): MediaPostRow[] {
       subtitle: parts.join(' · '),
       description: String(json.mediaPostDescription || ''),
       uris: kind ? playableUrisOfPost(json) : [],
+      driveFiles: kind ? driveFilesOfPost(json) : [],
       dateTimeOver: kind === 'video' ? dateTimeOverOfPost(json) : null,
       orderInList: Number(item?.orderInList) || 0,
       isFileRow: !!json.fileSourceKind,

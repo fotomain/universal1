@@ -7,7 +7,7 @@
 //   selection     a Set / "all except" store: select all of 100 000 rows is instant, one tap re-renders one item
 // Plan, decisions and tests: documentation/ReusableList_WBS.html, README.md in this folder. Demo: route /demo/list/reusable.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { FlashList } from '@shopify/flash-list';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { useDesignSystem } from '../../../../providers/WithDesignSystem';
@@ -33,6 +33,12 @@ import RowSelectColumn from './RowSelectColumn';
 import GhostPointer from './GhostPointer';
 import type { GhostPointerHandle } from './ghostPointerTypes';
 import ReorderHandle from './ReorderHandle';
+import ReusableListSwipeRow from './ReusableListSwipeRow';
+import CardLocalFab from '../cards/CardLocalFab';
+import { buildRowFabActions } from './rowFabModel';
+import { useReusableListSettings } from './reusableListSettingsStore';
+import ScrollableTabBar from '../../tabs/ScrollableTabBar';
+import { ArchivedTab, archiveOffered, archivedRowsModeOf, hasArchive, isRowArchived, resolveSwipe, rowsOfArchivedTab, withoutArchive } from './swipeModel';
 import { buildView, isQueryActive, reorderResult, resolveListRoles, webRowLimit } from './listEngine';
 import { createDragStore, createSelectionStore, useSelectionVersion } from './listStores';
 import { createReorderController } from './reorderController';
@@ -42,6 +48,8 @@ import { reusableListWidthStyle } from './reusableListWidth';
 import type { ReusableListItemState, ReusableListProps, ReusableListQuery, ReusableListRowActions, ReusableListSource } from './reusableListTypes';
 
 const DEFAULT_ITEM_HEIGHT = 72;
+// the Settings window is loaded when it is first opened (it pulls in the radio set, the switch and the buttons of the design system)
+const ReusableListSettingsModal = React.lazy(() => Promise.resolve(require('./ReusableListSettingsModal')));
 
 // ---- the query state (search, sort, filters) lives in the host, so the server hook can read it ----
 function useQueryState() {
@@ -110,12 +118,25 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
     return '';
   }, [catalogEntities, catalogRowsByEntity]);
 
+  // ---- the local settings of THIS list (kept on this device under its reusableListGUID) ----
+  const reusableListGUID = props.reusableListGUID || `${entityName}:${testID}`;
+  const listSettings = useReusableListSettings(reusableListGUID);
+  /** archived rows on their own tab (All | Archived) or in the one list */
+  const separateTab = archivedRowsModeOf(props.swipeActions, listSettings) === 'showArchivedRowsOnSeparateTab';
+  /** the tabs are drawn only while archived rows exist (server mode: among the loaded rows) */
+  const hasArchived = useMemo(() => separateTab && source.rows.some(isRowArchived), [separateTab, source.rows]);
+  const [archivedTab, setArchivedTab] = useState<ArchivedTab>('all');
+  /** the tab shown: the Archived tab only while it exists */
+  const activeTab: ArchivedTab = hasArchived ? archivedTab : 'all';
+  const hideArchived = separateTab;
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   // ---- the shown list ----
   const roles = useMemo(() => resolveListRoles(columns), [columns]);
-  const view = useMemo<ReusableTableRow[]>(
-    () => (server ? source.rows : buildView(source.rows, { columns, query: q.query, catalogTitle, direction })),
-    [server, source.rows, columns, q.query, catalogTitle, direction],
-  );
+  const view = useMemo<ReusableTableRow[]>(() => {
+    const rows = server ? source.rows : buildView(source.rows, { columns, query: q.query, catalogTitle, direction });
+    return separateTab ? rowsOfArchivedTab(rows, activeTab) : rows;
+  }, [server, source.rows, columns, q.query, catalogTitle, direction, separateTab, activeTab]);
   const queryActive = isQueryActive(q.query, columns);
   const viewRef = useRef(view); viewRef.current = view;
   const sourceRef = useRef(source); sourceRef.current = source;
@@ -137,6 +158,16 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const canDelete = canEdit && deleteEnabled;
   /** the ⠿ grip + drag: the list is in the stored order (no search / filter / column sort) and the user may change rows */
   const canReorder = canEdit && reorderEnabled && !queryActive && !source.loading;
+  /** what a swipe does in each direction: the settings of the list, narrowed by the prop and by what the user may do */
+  const swipe = useMemo(() => resolveSwipe(props.swipeActions, listSettings, { edit: canEdit, delete: canDelete }), [props.swipeActions, listSettings, canEdit, canDelete]);
+  /** the same swipe without Archive, for the rows `canArchiveRow` refuses (stable objects: the memoized swipe row must not redraw) */
+  const swipeNoArchive = useMemo(() => withoutArchive(swipe), [swipe]);
+  const swipeKey = swipe ? `${swipe.ltr ? `${swipe.ltr.action}${swipe.ltr.stop ? 'S' : 'D'}` : '-'}${swipe.rtl ? `${swipe.rtl.action}${swipe.rtl.stop ? 'S' : 'D'}` : '-'}${hideArchived ? 'h' : ''}` : '';
+  /** the guid of the item whose swipe button is open (one at a time) */
+  const swipeOpen = useMemo(createDragStore, []);
+  /** the Archive / Restore command of the row menu and the card FAB (the swipe's archive: `rowJSON.rowIsArchived`): offered unless the list switched archive off; per row `canArchiveRow` decides */
+  const archiveAllowed = canEdit && archiveOffered(props.swipeActions);
+  const rowArchiveOffered = useCallback((row: ReusableTableRow) => archiveAllowed && (!props.canArchiveRow || props.canArchiveRow(row)), [archiveAllowed, props.canArchiveRow]);
 
   // ---- reorder: the controller works on fixed item heights ----
   const listRef = useRef<any>(null);
@@ -193,6 +224,8 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
     setCreateOpen(false);
     setTimeout(() => { if (last) listRef.current?.scrollToEnd?.({ animated: true }); else listRef.current?.scrollToOffset?.({ offset: 0, animated: true }); }, 150);
   };
+  /** archive = ONLY `rowJSON.rowIsArchived` (true / false); the row stays where it is */
+  const archiveRow = useCallback((guid: string, archived: boolean) => { setLastUsed(guid); if (latest.current.canEdit) sourceRef.current.patchRow(guid, { rowIsArchived: !archived }); }, []);
   const askDelete = (ids: string[]) => { if (ids.length === 0 || !canDelete) return; if (askBeforeDelete) setPendingDelete(ids); else doDelete(ids); };
 
   const onItemPress = useCallback((row: ReusableTableRow) => {
@@ -200,7 +233,8 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
     if (selection.count(viewRef.current.length) > 0) { selection.toggle(row.rowGUID); return; }
     if (EditRowModalCard) setEditGUID(row.rowGUID); else if (onRowOpen) onRowOpen(row);
   }, [selection, EditRowModalCard, onRowOpen]);
-  const onItemMenu = useCallback((guid: string, x: number, y: number) => { setLastUsed(guid); setRowMenu({ guid, x, y }); }, []);
+  // a long press that is really a swipe (the row is being dragged sideways / its button is open) does not open the row menu
+  const onItemMenu = useCallback((guid: string, x: number, y: number) => { if (swipeOpen.get() === guid) return; setLastUsed(guid); setRowMenu({ guid, x, y }); }, [swipeOpen]);
 
   const moveToIndex = (guid: string, to: number) => {
     const v = viewRef.current;
@@ -242,7 +276,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const ghostCtx = useMemo<ReusableListItemContext>(() => ({ ...ctx, controller: null, selectionEnabled: false, menuEnabled: false, dividers: false }), [ctx]);
 
   // the commands of a row for a custom item (a card): stable functions that ask the list when they are called
-  latest.current = { askDelete, openEdit, menuCrud, canEdit, canAdd, canDelete };
+  latest.current = { askDelete, openEdit, menuCrud, canEdit, canAdd, canDelete, swipeArchive: hasArchive(swipe), archiveOffered: rowArchiveOffered, archiveRow };
   const rowActions = useMemo<ReusableListRowActions>(() => {
     const used = (g: string) => setLastUsed(g);
     return {
@@ -255,30 +289,75 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
       moveDown: (g) => { used(g); if (latest.current.canEdit) latest.current.menuCrud.moveDown(g); },
       makeFirst: (g) => { used(g); if (latest.current.canEdit) latest.current.menuCrud.makeFirst(g); },
       makeLast: (g) => { used(g); if (latest.current.canEdit) latest.current.menuCrud.makeLast(g); },
+      archive: (g) => {
+        const row = sourceRef.current.rows.find((r) => r.rowGUID === g);
+        if (row && latest.current.archiveOffered(row)) latest.current.archiveRow(g, isRowArchived(row));
+      },
       openMenu: onItemMenu,
       markUsed: used,
     };
   }, [onItemMenu]);
   const canOpen = !!openEdit;
-  const itemState = useCallback((index: number, reorderable: boolean, dragging: boolean, grip: React.ReactNode): ReusableListItemState => (
-    { index, reorderable, dragging, grip, actions: rowActions, canEdit, canAdd, canDelete, canOpen }
+  /** the three dots menu: Archive / Restore (rowIsArchived) first, then the host's own items */
+  const rowMenuExtras = useCallback((row: ReusableTableRow, close: () => void): PMMenuItemProps[] => {
+    const archived = isRowArchived(row);
+    return [
+      ...(rowArchiveOffered(row) ? [{ testID: `${testID}-menu-archive-flag`, label: archived ? 'Restore' : 'Archive', icon: archived ? 'unarchive' : 'archive', onPress: () => { close(); archiveRow(row.rowGUID, archived); } } as PMMenuItemProps] : []),
+      ...(extraMenuItems ? extraMenuItems(row, close) : []),
+    ];
+  }, [rowArchiveOffered, archiveRow, extraMenuItems, testID]);
+  /** the card FAB: on for every custom card unless `cardFab={false}`; the Add / Duplicate commands follow the row menu (a list with its own `onAdd` makes its rows itself) */
+  const cardFabOn = props.cardFab !== false;
+  const fabSig = `${cardFabOn}${canEdit}${canAdd}${canDelete}${canOpen}${canReorder}${archiveAllowed}${!!onAdd}`;
+  const cardFabActionsOf = (row: ReusableTableRow, state: ReusableListItemState, archived: boolean) => buildRowFabActions({
+    guid: row.rowGUID, itemLabel, openLabel, actions: rowActions, canOpen, canEdit, canAdd: canAdd && !onAdd, canDelete, canMove: canReorder, archiveOffered: rowArchiveOffered(row), archived,
+    testPrefix: `${testID}-fab-${row.rowGUID}`, extra: props.cardFabActions ? props.cardFabActions(row, state) : undefined,
+  });
+  const itemState = useCallback((index: number, reorderable: boolean, dragging: boolean, grip: React.ReactNode, archived = false): ReusableListItemState => (
+    { index, reorderable, dragging, grip, actions: rowActions, canEdit, canAdd, canDelete, canOpen, archived }
   ), [rowActions, canEdit, canAdd, canDelete, canOpen]);
   const renderItem = useCallback(({ item, index }: { item: ReusableTableRow; index: number }) => {
+    const archived = isRowArchived(item);
+    let inner: React.ReactNode;
     if (props.renderItem) {
       const grip = canReorder ? <ReorderHandle testID={`${testID}-grip-${item.rowGUID}`} controller={controller} guid={item.rowGUID} index={index} color={colors.text} height={itemHeight} /> : null;
-      const body = props.renderItem(item, itemState(index, canReorder, false, grip));
+      const state = itemState(index, canReorder, false, grip, archived);
+      const cardBody = props.renderItem(item, state);
+      const fab = cardFabOn ? cardFabActionsOf(item, state, archived) : [];
+      // EVERY card has the three dots menu at its top right (the row menu of the list) and the FAB at its bottom right, whatever the card draws itself
+      const body = contextMenuEnabled || fab.length > 0 ? (
+        <View>
+          {cardBody}
+          {contextMenuEnabled ? (
+            <Pressable testID={`${testID}-itemmenu-${item.rowGUID}`} accessibilityLabel="Menu" hitSlop={6} onPress={(e: any) => onItemMenu(item.rowGUID, e?.nativeEvent?.pageX ?? 0, e?.nativeEvent?.pageY ?? 0)}
+              style={[styles.cardMenu, { top: (props.swipeInset?.y ?? 0) + 4, right: (props.swipeInset?.x ?? 0) + 14, backgroundColor: colors.background + 'cc' }]}>
+              <Text style={{ color: colors.text, fontSize: 18, lineHeight: 20, opacity: 0.75 }}>⋮</Text>
+            </Pressable>
+          ) : null}
+          {fab.length > 0 ? (
+            <View pointerEvents="box-none" style={[styles.cardFab, { bottom: (props.swipeInset?.y ?? 0) + 6, right: (props.swipeInset?.x ?? 0) + 10 }]}>
+              <CardLocalFab id={item.rowGUID} testID={`${testID}-fab-${item.rowGUID}`} actions={fab} />
+            </View>
+          ) : null}
+        </View>
+      ) : cardBody;
       // the select column (arrows + circle) stands OUTSIDE the custom item, at the left edge: the select-all circle of the toolbar is on its vertical line
-      return ctx.selectionEnabled ? (
+      inner = ctx.selectionEnabled ? (
         <View style={styles.selectRow}>
           <RowSelectColumn selection={selection} guid={item.rowGUID} testID={testID} color={colors.text} primary={colors.primary} index={index} count={rowCount} moveEnabled={canReorder} onMove={moveRow} />
           <View style={styles.selectBody}>{body}</View>
         </View>
-      ) : <>{body}</>;
-    }
-    return <ReusableListItem row={item} index={index} ctx={ctx} reorderable={canReorder} />;
-  }, [props.renderItem, itemState, ctx, canReorder, controller, colors, itemHeight, testID, selection, rowCount, moveRow]);
+      ) : body;
+    } else inner = <ReusableListItem row={item} index={index} ctx={ctx} reorderable={canReorder} />;
+    // swipe actions + the archived mark wrap the item (the default one and a custom card alike)
+    const rowSwipe = swipe && props.canArchiveRow && !props.canArchiveRow(item) ? swipeNoArchive : swipe;
+    return rowSwipe || archived ? (
+      <ReusableListSwipeRow guid={item.rowGUID} archived={archived} swipe={rowSwipe} hideOnArchive={hideArchived} openStore={swipeOpen} background={colors.background} inset={props.swipeInset} testID={testID}
+        onArchive={archiveRow} onDelete={(g) => latest.current.askDelete([g])}>{inner}</ReusableListSwipeRow>
+    ) : <>{inner}</>;
+  }, [props.renderItem, itemState, ctx, canReorder, controller, colors, itemHeight, testID, selection, rowCount, moveRow, swipe, swipeNoArchive, hideArchived, props.canArchiveRow, props.swipeInset, contextMenuEnabled, onItemMenu, swipeOpen, archiveRow, cardFabOn, cardFabActionsOf]);
   /** FlashList draws the visible items again only when this changes */
-  const listExtra = useMemo(() => ({ ctx, deps: renderItemDeps, render: props.renderItem, itemState }), [ctx, renderItemDeps, props.renderItem, itemState]);
+  const listExtra = useMemo(() => ({ ctx, deps: renderItemDeps, render: props.renderItem, itemState, swipeKey, fabSig, fabActions: props.cardFabActions }), [ctx, renderItemDeps, props.renderItem, itemState, swipeKey, fabSig, props.cardFabActions]);
   const keyExtractor = useCallback((r: ReusableTableRow) => r.rowGUID, []);
   const onScroll = useCallback((e: any) => controller.onScroll(e?.nativeEvent?.contentOffset?.y ?? 0), [controller]);
 
@@ -326,6 +405,8 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
   const moreItems: PMMenuItemProps[] = [
     { testID: `${testID}-more-export`, label: server ? 'Export loaded rows' : 'Export', icon: 'download', onPress: () => {}, submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-export-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, false); } })) },
     { testID: `${testID}-more-share`, label: 'Share', icon: 'share', onPress: () => {}, submenu: TABLE_EXPORT_FORMATS.map((f) => ({ testID: `${testID}-more-share-${f.format}`, label: f.label, icon: f.icon, onPress: () => { setBarMenu(null); runExport(f.format, true); } })) },
+    // the local settings of this list (what a swipe does ...); not offered when the list has no swipe at all
+    ...(props.swipeActions === false ? [] : [{ testID: `${testID}-more-settings`, label: 'Settings', icon: 'settings', onPress: () => { setBarMenu(null); setSettingsOpen(true); } } as PMMenuItemProps]),
   ];
   const sortFilterColumns = columns.filter(isSortFilterColumn);
   const columnItems: PMMenuItemProps[] = sortFilterColumns.map((col) => ({
@@ -361,6 +442,20 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
         allSelected={view.length > 0 && selectedCount === view.length} selectionEnabled={selectionEnabled && canEdit} selectionVisible={selectionVisible} onSelectionVisibleChange={changeSelectionVisible} toolbarExtra={toolbarExtra}
       />
 
+      {hasArchived ? (
+        <ScrollableTabBar testID={`${testID}-tabs`} style={[styles.tabs, { borderColor: colors.border }]}>
+          {([['all', 'All'], ['archived', 'Archived']] as [ArchivedTab, string][]).map(([key, title]) => {
+            const active = activeTab === key;
+            return (
+              <Pressable key={key} testID={`${testID}-tab-${key}`} accessibilityRole="tab" accessibilityState={{ selected: active }} aria-selected={active} onPress={() => { setArchivedTab(key); selection.clear(); }}
+                style={[styles.tab, { borderBottomColor: active ? colors.primary : 'transparent' }]}>
+                <Text style={{ color: active ? colors.primary : colors.text, fontWeight: active ? '700' : '500' }}>{title}</Text>
+              </Pressable>
+            );
+          })}
+        </ScrollableTabBar>
+      ) : null}
+
       <View ref={containerRef} collapsable={false} style={styles.listBox} onLayout={() => measureBox()}>
         {source.loading ? (
           <View style={styles.state}><ActivityIndicatorCircleApp testID={`${testID}-loading`} /></View>
@@ -395,7 +490,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
           <>
             <Animated.View pointerEvents="none" testID={`${testID}-drop-line`} style={[styles.dropLine, { backgroundColor: colors.primary, transform: [{ translateY: lineY }] }]} />
             <Animated.View pointerEvents="none" testID={`${testID}-ghost`} style={[styles.ghost, { height: itemHeight, transform: [{ translateY: ghostY }], backgroundColor: colors.background }]}>
-              {(() => { const row = viewRef.current[dragging.from]; return row ? (props.renderItem ? <>{props.renderItem(row, itemState(dragging.from, false, true, null))}</> : <ReusableListItem row={row} index={dragging.from} ctx={ghostCtx} reorderable={false} />) : null; })()}
+              {(() => { const row = viewRef.current[dragging.from]; return row ? (props.renderItem ? <>{props.renderItem(row, itemState(dragging.from, false, true, null, isRowArchived(row)))}</> : <ReusableListItem row={row} index={dragging.from} ctx={ghostCtx} reorderable={false} />) : null; })()}
             </Animated.View>
           </>
         ) : null}
@@ -410,7 +505,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
       </View>
 
       <ReusableTableRowMenu menu={rowMenu} rows={view} crud={menuCrud} itemLabel={itemLabel} reorderEnabled={canEdit && reorderEnabled} addEnabled={canAdd && !onAdd} deleteEnabled={canDelete}
-        filtered={queryActive} openLabel={openLabel} onDelete={(g) => askDelete([g])} onEdit={openEdit} onClose={() => setRowMenu(null)} extraMenuItems={extraMenuItems} testID={testID} />
+        filtered={queryActive} openLabel={openLabel} onDelete={(g) => askDelete([g])} onEdit={openEdit} onClose={() => setRowMenu(null)} extraMenuItems={rowMenuExtras} testID={testID} />
       {barMenu === 'more' ? <PMContextMenu testID={`${testID}-more-menu`} x={barX} y={barAt.y} caption={itemLabel} items={moreItems} onClose={() => setBarMenu(null)} /> : null}
       {barMenu === 'columns' ? <PMContextMenu testID={`${testID}-columns-menu`} x={barX} y={barAt.y} caption="Sort and filter by" items={columnItems} onClose={() => setBarMenu(null)} /> : null}
       {columnMenu && columns.some((c) => c.key === columnMenu.key) ? (
@@ -429,6 +524,7 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
         return <EditRowModalCard {...cardProps} />;
       })() : null}
       {CreateElementForm && createOpen && canAdd ? <ReusableListCreateModal Form={CreateElementForm} testID={testID} onCreateFirst={createFromForm(false)} onCreateLast={createFromForm(true)} onClose={() => setCreateOpen(false)} /> : null}
+      {settingsOpen ? <React.Suspense fallback={null}><ReusableListSettingsModal reusableListGUID={reusableListGUID} title={crudListTitle || itemLabel} testID={testID} onClose={() => setSettingsOpen(false)} /></React.Suspense> : null}
       {refreshOnFocus ? <RefreshOnFocus onFocus={source.refresh} /> : null}
       <AskBeforeDeletePostComponent visible={!!pendingDelete} testID={`${testID}-ask-delete`} modalBody={pendingDelete && pendingDelete.length > 1 ? `${pendingDelete.length} ${itemLabel.toLowerCase()}s will be deleted` : undefined}
         onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) doDelete(pendingDelete); setPendingDelete(null); }} />
@@ -439,7 +535,11 @@ function ReusableListView({ props, source, q, direction }: ViewProps) {
 const styles = StyleSheet.create({
   root: { flex: 1, minHeight: 0 },
   listBox: { flex: 1, minHeight: 0 },
+  tabs: { flexDirection: 'row', borderBottomWidth: StyleSheet.hairlineWidth },
+  tab: { alignItems: 'center', paddingHorizontal: 22, paddingVertical: 8, borderBottomWidth: 2 },
   selectRow: { flexDirection: 'row', alignItems: 'center' },
+  cardFab: { position: 'absolute', zIndex: 6 },
+  cardMenu: { position: 'absolute', width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', zIndex: 6 },
   selectBody: { flex: 1, minWidth: 0 },
   state: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
   footerLoading: { padding: 12, alignItems: 'center' },

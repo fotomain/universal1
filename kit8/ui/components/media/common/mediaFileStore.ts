@@ -28,6 +28,16 @@ export async function resolveMediaUri(uri: string): Promise<string> {
   return uri;
 }
 
+/** does the kept file still exist on this device? false only when it is known to be gone (an address the file system cannot judge counts as existing: the player tries it) */
+export async function mediaFileExists(uri: string): Promise<boolean> {
+  if (!/^file:\/\//i.test(uri)) return true;
+  try {
+    return !!(new File(uri) as unknown as NativeFile).exists;
+  } catch {
+    return false;
+  }
+}
+
 /** removes a kept recording (a post was deleted); never throws */
 export async function deleteStoredMedia(uri: string): Promise<void> {
   try {

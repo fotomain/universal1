@@ -54,6 +54,7 @@ import OrganizationTextsHost from '../kit8/catalog/organization/texts/Organizati
 import CatalogTranslationsHost from '../kit8/catalog/translation/CatalogTranslationsHost';
 import WithIntent from '../kit8/providers/WithIntent';
 import IntentAddModalWindow from '../kit8/ui/components/intent/IntentAddModalWindow';
+import InitialDataGate from '../kit8/initial/data/code/InitialDataGate';
 
 const blockError=true
 
@@ -382,6 +383,7 @@ function RootLayoutContent() {
           <FABProvider>
             <SupabaseAuthSync />
             <UserSettingsHost />
+            <InitialDataGate />
             <ThemeStoreSyncManager />
 
             <Drawer
@@ -440,6 +442,7 @@ function RootLayoutContent() {
               <Drawer.Screen name="user/permissions/index" options={{ title: t('drawer.permissions'), drawerLabel: t('drawer.permissions') }} />
               <Drawer.Screen name="catalog/organization/texts/index" options={{ title: t('drawer.applicationTexts'), drawerLabel: t('drawer.applicationTexts') }} />
               <Drawer.Screen name="system/costcalculator" options={{ title: t('drawer.costCalculator'), drawerLabel: t('drawer.costCalculator') }} />
+              <Drawer.Screen name="system/initialdata" options={{ title: t('drawer.createInitialData'), drawerLabel: t('drawer.createInitialData') }} />
               <Drawer.Screen name="catalog/organization/members/index" options={{ title: t('drawer.organizationMembers'), drawerLabel: t('drawer.organizationMembers') }} />
               {/* a route file that is NOT declared here opens Home instead of its screen (seen 2026-11-25 on the SDK 58 tree): every screen the menu or a button opens is declared */}
               <Drawer.Screen name="catalog/project/index" options={{ title: t('drawer.projects'), drawerLabel: t('drawer.projects') }} />

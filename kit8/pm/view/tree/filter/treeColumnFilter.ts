@@ -18,7 +18,7 @@
 //   after (greater than) · before (less than) · lessThanOrEqual · greaterThanOrEqual · between (A and B) ·
 //   matches (old AX / D365 query syntax, see compileMatches) · isEmpty · isNotEmpty (custom columns only)
 
-import { parseCompactDateDigits } from '../../../../ui/components/common/date_input/dateInputFormat';
+import { parseCompactDateDigits, parseRelativeDays } from '../../../../ui/components/common/date_input/dateInputFormat';
 import { customCellValue, PMExtColumnContext } from '../../../extended/extendedColumns';
 import type { PMScheduledRow, PMTaskRow } from '../../../model/types';
 import type { PMProjectKanbanStageRow, PMTaskKanbanStateRow } from '../../../model/kanbanTypes';
@@ -236,10 +236,38 @@ export function sortLabels(type: PMTreeColumnDataType): { asc: string; desc: str
 /** The line under the date fields: what can be typed besides a full date (the placeholder only has room for the first shortcut). */
 export const DATE_FILTER_HINT = 'Press t for today\'s date. Type (day(-1)) for yesterday or (day(7)) for a week from today: the date appears as soon as you close the brackets. Eight digits work too: 20261130.';
 
+/** Line under the fields of a date "between": what +5 / -5 means. */
+export const DATE_BETWEEN_HINT = 'In one of the two fields you can type +5 or -5: that many days from the date in the other field.';
+
+/**
+ * The two dates of a date "between" where ONE of them may be "+N" / "-N" days counted from the other:
+ * B = "+5" -> A + 5 days; A = "-5" -> B - 5 days. Both relative, or the base date missing / wrong = { error }.
+ * Returns UTC-midnight ms; `relative` says which field was calculated.
+ */
+export function resolveDateBetween(a: string, b: string, today: number = todayUTC()): { a: number; b: number; relative: 'a' | 'b' | null } | { error: string } {
+  const ra = parseRelativeDays(a);
+  const rb = parseRelativeDays(b);
+  if (ra !== null && rb !== null) return { error: 'Only one of the two dates can be +N / -N days; the other must be a date' };
+  if (rb !== null) {
+    const base = parseFilterDate(a, today);
+    return base === null ? { error: `A: type a date (the other field counts ${rb > 0 ? '+' : '-'}${Math.abs(rb)} days from it)` } : { a: base, b: base + rb * DAY_MS, relative: 'b' };
+  }
+  if (ra !== null) {
+    const base = parseFilterDate(b, today);
+    return base === null ? { error: `B: type a date (the other field counts ${ra > 0 ? '+' : '-'}${Math.abs(ra)} days from it)` } : { a: base + ra * DAY_MS, b: base, relative: 'a' };
+  }
+  const x = parseFilterDate(a, today);
+  if (x === null) return { error: `A: "${(a ?? '').trim()}" is not a date (YYYY-MM-DD)` };
+  const y = parseFilterDate(b, today);
+  if (y === null) return { error: `B: "${(b ?? '').trim()}" is not a date (YYYY-MM-DD)` };
+  return { a: x, b: y, relative: null };
+}
+
 /** Input placeholder per type / variant. */
 export function filterInputPlaceholder(type: PMTreeColumnDataType, v: PMFilterVariantForColumn): string {
   if (v === 'isOneOf') return type === 'date' ? '2026-01-05, 2026-02-01' : type === 'number' ? '1, 5, 10' : 'Design, Build';
   if (v === 'matches') return type === 'text' ? 'G*V, !Gustav' : type === 'date' ? '2026-01-01..2026-03-31' : '10..20, !15';
+  if (type === 'date' && v === 'between') return 'YYYY-MM-DD, t, or +5 / -5 days';
   if (type === 'date') return 'YYYY-MM-DD, or press t for today';
   if (type === 'number') return 'Number';
   if (type === 'boolean') return 'Yes / No';
@@ -537,6 +565,13 @@ export function compileTreeColumnFilter(filter: PMTreeColumnFilter, type: PMTree
       return { test: (x) => !isEmptyValue(x) && values.some((y) => compareFilterValues(x!, y, type) === 0) };
     }
     case 'between': {
+      if (type === 'date' && (parseRelativeDays(filter.value ?? '') !== null || parseRelativeDays(filter.value2 ?? '') !== null)) {
+        // one end is "+5" / "-5" days from the other end
+        const r = resolveDateBetween(filter.value ?? '', filter.value2 ?? '', today);
+        if ('error' in r) return r;
+        const [lo, hi] = r.a <= r.b ? [r.a, r.b] : [r.b, r.a];
+        return { test: (x) => !isEmptyValue(x) && compareFilterValues(x!, lo, type) >= 0 && compareFilterValues(x!, hi, type) <= 0 };
+      }
       const a = parseFilterOperand(type, filter.value ?? '', today);
       if ('error' in a) return { error: `A: ${a.error}` };
       const b = parseFilterOperand(type, filter.value2 ?? '', today);

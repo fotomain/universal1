@@ -51,7 +51,7 @@ export interface AuthResult {
   chatKind?: string | null;
   chatRefGUID?: string | null;
   maxBytes?: number | null;
-  /** scope identification only: 'idcard' | 'passport' (the folder under identification/), read by files_authorize from the media post of the reading */
+  /** scope identification: 'idcard' | 'passport' (the folder under identification/); scope recording: 'audio' | 'video' | 'photo' (the folder under media/); read by files_authorize from the media post */
   idKind?: string | null;
 }
 
@@ -135,6 +135,11 @@ export function chainFor(organization: string, scope: string, guid: string, proj
     return [{ name: 'identification', description: 'kit8 · identification', properties: mark('identification') },
       { name: idKind, description: `kit8 · identification · ${idKind}`, properties: mark(`identification-${idKind}`) }];
   }
+  // RECORDING (2026-11-26): the file of a recording / a photo: media/video | media/audio | media/photo / <the media post guid>[-n].<ext> - no `files` folder
+  if (scope === 'recording' && GUID_RE.test(guid) && (idKind === 'audio' || idKind === 'video' || idKind === 'photo')) {
+    return [{ name: 'media', description: 'kit8 · media', properties: mark('media') },
+      { name: idKind, description: `kit8 · media · ${idKind}`, properties: mark(`media-${idKind}`) }];
+  }
   if (scope === 'document' && guid) {
     const safe = guid.replace(/[^A-Za-z0-9_.-]/g, '_').slice(0, 80);
     return [{ name: 'document', description: 'kit8 · documents', properties: mark('documents') },
@@ -145,7 +150,7 @@ export function chainFor(organization: string, scope: string, guid: string, proj
 
 /** the key of files_folder_table for a scope; the OneDrive folders of a scope are kept apart by a prefix (a Google key stays as it was) */
 export function scopeKeyFor(scope: string, guid: string, provider: ProviderId = 'googleDrive', idKind?: string | null): string {
-  const base = scope === 'identification' ? `identification:${idKind || ''}` : scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : scope === 'chat' ? `chat:${guid}` : `task:${guid}`;
+  const base = scope === 'identification' ? `identification:${idKind || ''}` : scope === 'recording' ? `recording:${idKind || ''}` : scope === 'organization' ? 'organization' : scope === 'project' ? `project:${guid}` : scope === 'document' ? `document:${guid}` : scope === 'chat' ? `chat:${guid}` : `task:${guid}`;
   return provider === 'oneDrive' ? `oneDrive:${base}` : base;
 }
 
@@ -226,7 +231,7 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
   /** the `files` folder of a scope: cached in files_folder_table, else made (the whole chain, with marks) and recorded - the first writer wins */
   const filesFolderFor = async (x: Px, org: string, scope: string, guid: string, project: string, token: string, chat?: ChatRef | null, idKind?: string | null): Promise<{ folderId: string; path: string } | { error: Response }> => {
     const chain = chainFor(org, scope, guid, project, chat, idKind);
-    if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage, document or chat with valid GUIDs.' }) };
+    if (!chain) return { error: json(400, { error: 'scope must be organization, project, task, stage, document, chat, identification or recording with valid GUIDs.' }) };
     const facts = await orgFacts(org, x.id);
     const rootId = String(facts?.rootFolderId || '');
     if (!rootId) return { error: json(409, { error: `${x.provider.title} is not connected.`, code: 'notConnected' }) };
@@ -321,13 +326,20 @@ export async function handleFilesDrive(req: Request, deps: FilesDriveDeps): Prom
         const org = a.organizationGUID!;
         const x = px(parseProvider(a.provider)); // the storage of this scope: the project setting (files_authorize), Google Drive when none
         const chat: ChatRef | null = scope === 'chat' ? { kind: String(a.chatKind || ''), ref: String(a.chatRefGUID || '') } : null;
-        if (!chainFor(org, scope, guid || '', projectGUID || '', chat, a.idKind)) return json(400, { error: 'scope must be organization, project, task, stage, document, chat or identification with valid GUIDs.' });
+        if (!chainFor(org, scope, guid || '', projectGUID || '', chat, a.idKind)) return json(400, { error: 'scope must be organization, project, task, stage, document, chat, identification or recording with valid GUIDs.' });
         // IDENTIFICATION: an image only, named by the media post (identification/<idcard|passport>/<post guid>.<ext>)
         let fileName = safeFileName(body.name);
         if (scope === 'identification') {
           if (!/^image\//i.test(String(body.mime || ''))) return json(400, { error: 'The owner photo must be an image.', code: 'notAnImage' });
           const ext = /\.([A-Za-z0-9]{1,5})$/.exec(fileName)?.[1]?.toLowerCase() || 'jpg';
           fileName = `${guid}.${ext}`;
+        }
+        // RECORDING: the kind of the file must fit the folder; the name starts with the post guid (a video in parts: <guid>-2.mp4 ...)
+        if (scope === 'recording') {
+          const mime = String(body.mime || '');
+          const fits = a.idKind === 'photo' ? /^image\//i.test(mime) : a.idKind === 'audio' ? /^(audio\/|video\/(webm|ogg|mp4))/i.test(mime) : /^video\//i.test(mime);
+          if (!fits) return json(400, { error: `A file of the folder media/${a.idKind} must be ${a.idKind === 'photo' ? 'an image' : a.idKind}.`, code: 'wrongMediaKind' });
+          if (!fileName.startsWith(String(guid))) fileName = `${guid}-${fileName}`;
         }
         // CHAT: the limit of an attachment is the setting of the organization (the database asks again in files_add)
         if (scope === 'chat' && Number.isFinite(Number(a.maxBytes)) && Number(a.maxBytes) > 0 && size > Number(a.maxBytes)) {

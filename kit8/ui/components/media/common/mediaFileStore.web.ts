@@ -51,7 +51,12 @@ export async function persistRecording(sourceUri: string, kind: MediaKind | 'pho
   return `${MEDIA_STORE_SCHEME}${id}`;
 }
 
+/** a file of a phone / computer (file://, content://, ...): a browser page can never open it */
+export const DEVICE_FILE_ON_WEB_MESSAGE =
+  'This recording is a file on the phone that made it, so a browser cannot play it here. Play it in the app on that phone.';
+
 export async function resolveMediaUri(uri: string): Promise<string> {
+  if (/^(file|content|ph|assets-library):\/\//i.test(uri)) throw new Error(DEVICE_FILE_ON_WEB_MESSAGE);
   if (!uri.startsWith(MEDIA_STORE_SCHEME)) return uri;
   const id = uri.substring(MEDIA_STORE_SCHEME.length);
   const cached = objectUrls.get(id);
@@ -61,6 +66,16 @@ export async function resolveMediaUri(uri: string): Promise<string> {
   const url = URL.createObjectURL(blob);
   objectUrls.set(id, url);
   return url;
+}
+
+/** web: a recording of this browser is in IndexedDB (a file address of a device never exists here) */
+export async function mediaFileExists(uri: string): Promise<boolean> {
+  if (!uri.startsWith(MEDIA_STORE_SCHEME)) return !/^(file|content|ph|assets-library):\/\//i.test(uri);
+  try {
+    return !!(await request<Blob | undefined>('readonly', (store) => store.get(uri.substring(MEDIA_STORE_SCHEME.length)) as IDBRequest<Blob | undefined>));
+  } catch {
+    return false;
+  }
 }
 
 export async function deleteStoredMedia(uri: string): Promise<void> {

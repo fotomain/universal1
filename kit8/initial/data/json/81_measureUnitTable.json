@@ -1,0 +1,13 @@
+{"format":"kit8.initialdata","version":1,"table":"measureUnitTable","group":"units","mode":"guid","rows":[
+{"rowGUID":"unit_pcs","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1000,"rowJSON":{"code":"796","title":"pcs"}},
+{"rowGUID":"unit_portion","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2000,"rowJSON":{"code":"—","title":"portion"}},
+{"rowGUID":"unit_kg","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3000,"rowJSON":{"code":"166","title":"kg"}},
+{"rowGUID":"unit_hour","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4000,"rowJSON":{"code":"356","title":"hour"}},
+{"rowGUID":"unit_g","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":5000,"rowJSON":{"code":"163","title":"g"}},
+{"rowGUID":"unit_l","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":6000,"rowJSON":{"code":"112","title":"l"}},
+{"rowGUID":"unit_m","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":7000,"rowJSON":{"code":"006","title":"m"}},
+{"rowGUID":"unit_m2","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":8000,"rowJSON":{"code":"055","title":"m²"}},
+{"rowGUID":"unit_km","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":9000,"rowJSON":{"code":"008","title":"km"}},
+{"rowGUID":"unit_day","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":10000,"rowJSON":{"code":"359","title":"day"}},
+{"rowGUID":"unit_month","rowOwnerGUID":"measureUnitCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":11000,"rowJSON":{"code":"362","title":"month"}}
+]}

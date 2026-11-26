@@ -1,0 +1,7 @@
+{"format":"kit8.initialdata","version":1,"table":"kanban_stage_table","group":"kanban","mode":"json","keyColumn":"stageCode","rows":[
+{"rowOwnerGUID":"kanbanStageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1024,"rowJSON":{"isActive":true,"stageCode":"waiting","stageName":"Waiting","stageColor":"#94A3B8","stageProgressPercent":0}},
+{"rowOwnerGUID":"kanbanStageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2048,"rowJSON":{"isActive":true,"stageCode":"plan","stageName":"Plan","stageColor":"#6366F1","stageProgressPercent":10}},
+{"rowOwnerGUID":"kanbanStageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3072,"rowJSON":{"isActive":true,"stageCode":"analyse","stageName":"Analyse","stageColor":"#0EA5E9","stageProgressPercent":30}},
+{"rowOwnerGUID":"kanbanStageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4096,"rowJSON":{"isActive":true,"stageCode":"construct","stageName":"Construct","stageColor":"#F59E0B","stageProgressPercent":60}},
+{"rowOwnerGUID":"kanbanStageCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":5120,"rowJSON":{"isActive":true,"stageCode":"execute","stageName":"Execute","stageColor":"#22C55E","stageProgressPercent":90}}
+]}

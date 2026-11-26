@@ -34,6 +34,7 @@ import { textFamily } from '../fonts/paperFonts';
 import { DashboardFontSettings, deviceKeyLabel, ExtendedSettings, THEME_ELEMENTS, ThemeElement, TRANSPARENT } from '../../catalog/user/settings/userSettingsModel';
 import { useUserSettingsActions } from '../../catalog/user/settings/useUserSettings';
 import { THEME_COLOR_KEYS } from './settingsModel';
+import { SystemFontForCanvases } from './SystemFontForCanvases';
 
 export function Block({ title, hint, children, testID }: { title: string; hint?: string; children: React.ReactNode; testID?: string }) {
   const { themeColors: c } = useDesignSystem();
@@ -230,6 +231,7 @@ export function DashboardBlock({ dashboard, title }: { dashboard: keyof Extended
     <Block title={title} hint="The header and the data cells of the table, and the background of the cells (transparent shows the theme).">
       {fontRow('header', 'Header font')}
       {fontRow('dataCell', 'Data cell font')}
+      {dashboard === 'estimationDashboard' && (d.header.fontName === 'system' || d.dataCell.fontName === 'system') && <SystemFontForCanvases />}
       <Text style={{ color: c.text, fontWeight: '600', marginBottom: 4 }}>Cell background{d.cellBackground === TRANSPARENT ? '  (transparent)' : ''}</Text>
       <ColorPickerRowApp testID={`settings-${dashboard}-bg`} value={d.cellBackground === TRANSPARENT ? null : d.cellBackground} onChange={(v) => patch({ cellBackground: v ?? TRANSPARENT })} />
     </Block>

@@ -1,0 +1,4 @@
+{"format":"kit8.initialdata","version":1,"table":"budgetScenarioTable","group":"scenarios","mode":"guid","rows":[
+{"rowGUID":"planScenarioProject1","rowOwnerGUID":"budgetScenarioCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":10,"rowJSON":{"title":"Plan scenario-Project #1","isActive":true,"scenarioKind":"plan"}},
+{"rowGUID":"factScenarioProject1","rowOwnerGUID":"budgetScenarioCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":20,"rowJSON":{"title":"Fact scenario-Project #1","isActive":true,"scenarioKind":"fact"}}
+]}

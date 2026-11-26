@@ -33,7 +33,10 @@ it('a person document is checked field by field (surname, given names, number, d
 });
 
 it('data manipulation: the matrix of the origin, all of them when it has none, none for a person', () => {
-  expect(manipulationsOf('youtube')).toEqual(['YOUTUBE_TO_GOOGLE_DRIVE', 'YOUTUBE_TO_DOWNLOAD']);
+  expect(manipulationsOf('youtube')).toEqual(['YOUTUBE_TO_GOOGLE_DRIVE', 'YOUTUBE_TO_DOWNLOAD', 'NO_DATA_MANIPULATION']);
+  expect(defaultManipulation('youtube')).toBe('YOUTUBE_TO_GOOGLE_DRIVE');
+  expect(manipulationsOf('webpage')).toContain('NO_DATA_MANIPULATION');
+  expect(manipulationsOf('pdf')).toContain('NO_DATA_MANIPULATION');
   expect(manipulationsOf('pdf').length).toBeGreaterThan(1);
   expect(manipulationsOf('personIDCard')).toEqual([]);
   expect(defaultManipulation('personPassport')).toBe('');

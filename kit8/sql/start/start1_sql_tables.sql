@@ -65,6 +65,7 @@
 --   57. create_project_estimation.sql - PROJECT ESTIMATION: no table (the link is the key projectEstimationGUID of project_table.rowJSON); the code is in start2_sql_code.sql
 --   58. create_estimation_dashboard.sql - ESTIMATION DASHBOARD: the estimation_ tables (norm book tree, norms, resources, coefficients, export templates, indices, overhead / profit norms + the estimate documents, lines and supplier quotes of a project); the code is in start2_sql_code.sql
 --   59. create_user_settings.sql - USER SETTINGS: userSettingsTable (the look of the interface per user + device type + OS, common for all work places) and the column rowFolderGUID of the universal schema
+--   60. create_initial_data.sql - INITIAL PROGRAM DATA: no table (the functions initial_data_* are in start2_sql_code.sql PART 60)
 --
 -- One thing here is not a table: the function pm_ltree_label(uuid) - the CHECK constraints of the project and task tables call it (a table cannot be made without it).
 -- start2_sql_code.sql has the same function again (CREATE OR REPLACE: no conflict; __tests__/sql/startSqlSplit.test.ts checks that both copies are the same).

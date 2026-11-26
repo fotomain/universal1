@@ -102,7 +102,8 @@ const styles = StyleSheet.create({
   shell: { flex: 1, flexDirection: 'row' },
   grip: { justifyContent: 'center', zIndex: 5 },
   rowContent: { flex: 1, flexDirection: 'row', alignItems: 'center', padding: 8, gap: 10, minWidth: 0 },
-  texts: { flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center' },
+  // paddingRight: the three dots menu of the list lies at the card's top right
+  texts: { flex: 1, minWidth: 0, alignSelf: 'stretch', justifyContent: 'center', paddingRight: 16 },
   description: { marginTop: 2 },
   picture: { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   pictureRounded: { borderRadius: 10 },
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
   playBig: { width: 64, height: 64, borderRadius: 32 },
   badge: { alignSelf: 'flex-start', borderWidth: 1, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 1, overflow: 'hidden' },
   mediumFooter: { marginTop: 4 },
-  fabSmall: { alignSelf: 'center' },
+  fabSmall: { alignSelf: 'flex-end' },
   fabMedium: { alignSelf: 'flex-end' },
   bigColumn: { flex: 1, minWidth: 0 },
   bigBody: { flex: 1, paddingHorizontal: 12, paddingTop: 8, minHeight: 0, overflow: 'hidden' },

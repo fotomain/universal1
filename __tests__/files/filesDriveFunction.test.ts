@@ -47,10 +47,10 @@ function setup(over: Partial<FilesDriveDeps> = {}, clock = { t: 1_800_000_000_00
     authorize: jest.fn(async (a: string, action: string, scope: string, guid?: string | null, project?: string | null): Promise<AuthResult> => {
       const u = who(a);
       if (!u) return { allowed: false, reason: 'signIn' };
-      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document', 'chat', 'identification'].includes(scope)) return { allowed: false, reason: 'scope' };
+      if (action !== 'connect' && action !== 'read' && !['organization', 'project', 'stage', 'task', 'document', 'chat', 'identification', 'recording'].includes(scope)) return { allowed: false, reason: 'scope' };
       if (db.switchOff && ['project', 'task', 'stage'].includes(scope) && action !== 'connect') return { allowed: false, reason: 'switchOff' };
       // the scope identification (PART 49, 2026-11-23): the author of the media post adds his owner photo - no manager right is needed; the answer names the folder
-      if (scope === 'identification') return { allowed: true, organizationGUID: u.org, userGUID: u.user, projectGUID: null, scope, guid: guid || null, idKind: db.idKind };
+      if (scope === 'identification' || scope === 'recording') return { allowed: true, organizationGUID: u.org, userGUID: u.user, projectGUID: null, scope, guid: guid || null, idKind: db.idKind };
       const write = action !== 'read';
       if (write && !u.manager) return { allowed: false, reason: 'noPermission' };
       // the scope chat (PART 50): a member adds; the answer names the kind of the chat, the user / task guid of the folder and the organization limit
@@ -408,6 +408,40 @@ describe('upload: session, bytes, finish', () => {
     expect(chainFor(ORG, 'identification', 'not-a-guid', '', null, 'idcard')).toBeNull();
     expect(scopeKeyFor('identification', POST, 'googleDrive', 'idcard')).toBe('identification:idcard');
     expect(scopeKeyFor('identification', POST, 'oneDrive', 'passport')).toBe('oneDrive:identification:passport');
+  });
+  it('RECORDING: a recording / photo goes to media/<video | audio | photo>/<post guid>[-n].<ext> - no `files` folder, the kind must fit the folder, a video may come in parts', async () => {
+    const POST = '12345678-1234-4234-8234-1234567890ab';
+    const t = setup();
+    await t.connect();
+    t.db.idKind = 'video';
+    const s = await (await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: `${POST}.mp4`, mime: 'video/mp4', size: 900 }, 'Bearer boris')).json();
+    expect(s.path).toBe('media/video');
+    const named = (n: string) => [...t.g.items.values()].filter((i) => i.name === n);
+    expect(named('media')[0].properties).toMatchObject({ kit8Kind: 'media', kit8OrganizationGUID: ORG });
+    expect(named('video')[0].properties).toMatchObject({ kit8Kind: 'media-video' });
+    expect(named('files')).toHaveLength(0);
+    expect(t.db.folders.has(`${ORG}|recording:video`)).toBe(true);
+    // a second part keeps its name; a name that does not start with the post guid is given the guid
+    await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: `${POST}-2.mp4`, mime: 'video/mp4', size: 500 });
+    await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: 'recording.mp4', mime: 'video/mp4', size: 500 });
+    expect([...t.db.pending.values()].map((p: any) => p.name)).toEqual([`${POST}.mp4`, `${POST}-2.mp4`, `${POST}-recording.mp4`]);
+    expect(named('video')).toHaveLength(1);
+    // the kind of the file must fit the folder
+    const wrong = await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: 'a.jpg', mime: 'image/jpeg', size: 10 });
+    expect(wrong.status).toBe(400);
+    expect(await wrong.json()).toMatchObject({ code: 'wrongMediaKind' });
+    t.db.idKind = 'photo';
+    const photo = await (await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: `${POST}.jpg`, mime: 'image/jpeg', size: 10 })).json();
+    expect(photo.path).toBe('media/photo');
+    t.db.idKind = 'audio';
+    const audio = await (await t.call({ action: 'upload_session', scope: 'recording', guid: POST, name: `${POST}.webm`, mime: 'audio/webm', size: 10 })).json();
+    expect(audio.path).toBe('media/audio');
+    expect(chainFor(ORG, 'recording', POST, '', null, 'video')!.map((x) => x.name)).toEqual(['media', 'video']);
+    expect(chainFor(ORG, 'recording', POST, '', null, 'idcard')).toBeNull();
+    expect(chainFor(ORG, 'recording', POST, '')).toBeNull();
+    expect(chainFor(ORG, 'recording', 'not-a-guid', '', null, 'video')).toBeNull();
+    expect(scopeKeyFor('recording', POST, 'googleDrive', 'photo')).toBe('recording:photo');
+    expect(scopeKeyFor('recording', POST, 'oneDrive', 'audio')).toBe('oneDrive:recording:audio');
   });
   it('CHAT: an attachment above the limit of the organization is refused BEFORE a session is opened; a non member is refused', async () => {
     const t = setup();

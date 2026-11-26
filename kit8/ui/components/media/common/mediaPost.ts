@@ -64,6 +64,8 @@ export function buildRecordingPost(input: BuildRecordingPostInput): RecordingPos
     mediaPostMIME: mimeTypeOf(first.uri, kind),
     mediaPostOriginType: 'file',
     dataOriginName: 'recorder',
+    // the folder of the files of this post in the file storage (kit8root/media/<kind>): SQL files_authorize scope recording asks for it
+    recordingFolder: kind,
     mediaKind: kind,
     mediaDurationSec: durationSec,
     mediaWithAudio: kind === 'audio' ? true : segments.some((s) => s.hasAudio),

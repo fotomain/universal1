@@ -4,6 +4,8 @@ export const DATA_MANIPULATION_TYPE = {
     YOUTUBE_TO_DOWNLOAD: "YOUTUBE_TO_DOWNLOAD",
     FILE_TO_GOOGLE_DRIVE: "FILE_TO_GOOGLE_DRIVE",
     WEB_PAGE_TO_GOOGLE_DRIVE: "WEB_PAGE_TO_GOOGLE_DRIVE",
+    // the post is only kept as it is: the data is not downloaded and not copied anywhere (last, so the first option of every origin stays the same)
+    NO_DATA_MANIPULATION: "NO_DATA_MANIPULATION",
 } as const;
 
 // 2. Derive the Union Type of the VALUES

@@ -15,7 +15,7 @@ export const MEDIA_POST_ENTITY = 'mediaPostReusable';
 const MEDIA_POST_TABLE = 'mediaPostTable';
 
 /** the Supabase client, or null in a screen / test without the provider (the post then goes through the saga as before) */
-function useClient(): any {
+export function useClient(): any {
   try {
     return (useSupabase() as any)?.supabase ?? null;
   } catch {

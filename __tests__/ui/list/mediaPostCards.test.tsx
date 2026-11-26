@@ -319,3 +319,21 @@ describe('PersonDocumentDetailsCard (read only)', () => {
     expect(Buffer.from(file.bytes).toString('latin1')).toContain('/Subtype /Image');
   });
 });
+
+describe('fabListPlacement (where the list of a card FAB opens)', () => {
+  const { fabListPlacement } = require('../../../kit8/ui/components/list/cards/CardLocalFab');
+  it('above while it fits above (as before); below near the top of the window', () => {
+    expect(fabListPlacement({ y: 500, h: 40 }, 800, 3 * 52)).toMatchObject({ upwards: true, scrolls: false });
+    expect(fabListPlacement({ y: 60, h: 40 }, 800, 3 * 52)).toMatchObject({ upwards: false, scrolls: false });
+  });
+  it('a list that fits on neither side opens on the roomier side and scrolls there (8 project commands in a short window)', () => {
+    const p = fabListPlacement({ y: 312, h: 40 }, 600, 8 * 52);
+    expect(p).toMatchObject({ upwards: true, scrolls: true });
+    expect(p.room).toBeLessThan(8 * 52);
+    expect(fabListPlacement({ y: 100, h: 40 }, 600, 10 * 52)).toMatchObject({ upwards: false, scrolls: true });
+    expect(fabListPlacement({ y: 420, h: 40 }, 600, 9 * 52)).toMatchObject({ upwards: true, scrolls: true });
+  });
+  it('no measured box yet: upwards, no limit', () => {
+    expect(fabListPlacement(null, 600, 9 * 52)).toMatchObject({ upwards: true, scrolls: false });
+  });
+});

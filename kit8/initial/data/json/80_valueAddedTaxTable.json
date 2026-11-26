@@ -1,0 +1,9 @@
+{"format":"kit8.initialdata","version":1,"table":"valueAddedTaxTable","group":"units","mode":"guid","rows":[
+{"rowGUID":"vat_21","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1000,"rowJSON":{"vatTableTitle":"21 %","vatTablePercent":21}},
+{"rowGUID":"vat_18","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2000,"rowJSON":{"vatTableTitle":"18 %","vatTablePercent":18}},
+{"rowGUID":"vat_15","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3000,"rowJSON":{"vatTableTitle":"15 %","vatTablePercent":15}},
+{"rowGUID":"vat_12","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4000,"rowJSON":{"vatTableTitle":"12 %","vatTablePercent":12}},
+{"rowGUID":"vat_10","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":5000,"rowJSON":{"vatTableTitle":"10 %","vatTablePercent":10}},
+{"rowGUID":"vat_5","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":6000,"rowJSON":{"vatTableTitle":"5 %","vatTablePercent":5}},
+{"rowGUID":"vat_0","rowOwnerGUID":"valueAddedTaxCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":7000,"rowJSON":{"vatTableTitle":"0 %","vatTablePercent":0}}
+]}

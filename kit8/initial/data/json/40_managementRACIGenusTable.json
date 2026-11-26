@@ -1,0 +1,6 @@
+{"format":"kit8.initialdata","version":1,"table":"managementRACIGenusTable","group":"raci","mode":"guid","rows":[
+{"rowGUID":"raciResponsibleGUID","rowOwnerGUID":"managementRACIGenusCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":1000,"rowJSON":{"title":"Responsible","description":"does the work"}},
+{"rowGUID":"raciAccountableGUID","rowOwnerGUID":"managementRACIGenusCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":2000,"rowJSON":{"title":"Accountable","description":"owns the result, signs it off"}},
+{"rowGUID":"raciConsultedGUID","rowOwnerGUID":"managementRACIGenusCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":3000,"rowJSON":{"title":"Consulted","description":"asked before, two-way"}},
+{"rowGUID":"raciInformedGUID","rowOwnerGUID":"managementRACIGenusCatalog","rowParentGUID":"empty","rowFolderGUID":"empty","orderInList":4000,"rowJSON":{"title":"Informed","description":"told after, one-way"}}
+]}

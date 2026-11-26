@@ -55,20 +55,20 @@ export default function ReusableListDemo() {
           <Chip testID="demo-source-generated" label="Generated rows" active={generated} onPress={() => setSource('generated')} color={c.primary} />
           {generated ? SIZES.map((n) => <Chip key={n} testID={`demo-size-${n}`} label={fmt(n)} active={size === n} onPress={() => pickSize(n)} color={c.primary} />) : null}
         </View>
-        <Text testID="demo-hint" style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>{hint} Hold ⠿ and drag an item to reorder.</Text>
+        <Text testID="demo-hint" style={{ color: c.text, opacity: 0.65, fontSize: 12 }}>{hint} Hold ⠿ and drag an item to reorder. Swipe a card: what it does is in the Settings of the list (three dots).</Text>
       </View>
       <View style={styles.list}>
         {/* a new key starts a fresh list when the data mode or the source changes */}
         {generated ? (
           <ReusableList
             key={`generated-${size}`}
-            testID="demo-list" entityName="reusableListDemoRows" itemLabel="Post" crudListTitle="Generated posts" visualColumns={MEDIA_POST_LIST_COLUMNS}
+            testID="demo-list" reusableListGUID="demo.reusableList.generatedRows" entityName="reusableListDemoRows" itemLabel="Post" crudListTitle="Generated posts" visualColumns={MEDIA_POST_LIST_COLUMNS}
             reusableListDataMode="clientDataMode" localRows={localRows} onLocalRowsChange={setLocalRows} orderDirection="asc" itemHeight={72}
           />
         ) : (
           <ReusableList
             key={`media-${effectiveMode}`}
-            testID="demo-list" entityName={MEDIA_POSTS_ENTITY} itemLabel="Post" crudListTitle="Media posts" visualColumns={MEDIA_POST_LIST_COLUMNS}
+            testID="demo-list" reusableListGUID="demo.reusableList.mediaPosts" swipeActions={false} entityName={MEDIA_POSTS_ENTITY} itemLabel="Post" crudListTitle="Media posts" visualColumns={MEDIA_POST_LIST_COLUMNS}
             reusableListDataMode={effectiveMode} serverPageSize={50} orderDirection="desc" itemHeight={72}
             listOwnerGUID={ownerGUID || undefined} listParentGUID="empty" readParams={{ paginationSize: 5000, originationCurrentPage: 0 }}
             emptyText={ownerGUID ? 'No media posts yet. Record one, or press +.' : 'Sign in to see your media posts.'}

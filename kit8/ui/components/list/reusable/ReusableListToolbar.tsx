@@ -1,7 +1,7 @@
 // ReusableList - the TOOLBAR above the items: search, Add (+), card size, Sort and Filter, refresh, the extra buttons of the host, the ⋮ More menu, chips of the active sort / filters,
 // the selection strip (count, clear, delete). Icons only (the name of an icon is its tip, never text next to it); an icon the list does not need is not drawn.
 // A plain component (no list state inside): everything comes in as props, so it re-renders only when the user types or taps, never while the list scrolls.
-import React from 'react';
+import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { MenuAnchorPoint, useMenuAnchor } from './useMenuAnchor';
 import TextInputApp from '../../common/TextInputApp';
@@ -56,20 +56,29 @@ export interface ReusableListBarProps {
   onCardSizeChange?: (size: CardSize) => void;
 }
 
+/** a bar narrower than this (px) puts the search on its own row and all the buttons on a second row; wider = one row */
+export const TOOLBAR_NARROW_WIDTH = 640;
+export const isNarrowToolbar = (width: number | null | undefined): boolean => !!width && width < TOOLBAR_NARROW_WIDTH;
+
 export default function ReusableListToolbar(p: ReusableListBarProps) {
   const { colors: c, testID } = p;
   const sortAnchor = useMenuAnchor(p.onSortFilter);
   const moreAnchor = useMenuAnchor((at) => p.onMore?.(at));
   const queryActive = p.search.trim() !== '' || !!p.sortLabel || p.filterCount > 0;
-  return (
-    <View testID={`${testID}-bar`} style={[styles.bar, { backgroundColor: c.background }]}>
-      <View style={styles.row}>
-        {p.title ? <Text numberOfLines={1} style={[styles.title, { color: c.text }]}>{p.title}</Text> : null}
+  const [barWidth, setBarWidth] = useState<number | null>(null);
+  const narrow = isNarrowToolbar(barWidth);
+  const head = (
+    <>
+      {p.title ? <Text numberOfLines={1} style={[styles.title, { color: c.text }]}>{p.title}</Text> : null}
         {p.searchEnabled ? (
           <View style={styles.search}>
             <TextInputApp testID={`${testID}-search`} value={p.search} onChangeText={p.onSearch} placeholder="Search" compact heightVariant="smallestHeight" leftIcon="search" style={styles.searchInput} />
           </View>
         ) : <View style={{ flex: 1 }} />}
+    </>
+  );
+  const buttons = (
+    <>
         {p.onAdd ? <PMIconButton testID={`${testID}-add`} icon="add" title="Add" onPress={p.onAdd} color={c.text} /> : null}
         {p.selectionEnabled ? (
           <PMIconButton testID={`${testID}-selection-toggle`} icon={p.selectionVisible ? 'check_circle' : 'radio_button_unchecked'} title={p.selectionVisible ? 'Hide row selection' : 'Select rows'}
@@ -89,7 +98,19 @@ export default function ReusableListToolbar(p: ReusableListBarProps) {
         <ScrollBottomButton testID={`${testID}-scroll-bottom`} onPress={p.onScrollBottom} color={c.text} />
         {p.onMore ? <View {...moreAnchor.anchorProps}><PMIconButton testID={`${testID}-more`} icon="more_vert" title="More" onPress={moreAnchor.open} color={c.text} /></View> : null}
         {p.refreshing ? <ActivityIndicatorCircleApp size="small" /> : null}
-      </View>
+    </>
+  );
+  return (
+    <View testID={`${testID}-bar`} onLayout={(e) => { const w = Math.round(e.nativeEvent.layout.width); setBarWidth((old) => (old === w ? old : w)); }} style={[styles.bar, { backgroundColor: c.background }]}>
+      {narrow ? (
+        // narrow: row 1 = title + search, row 2 = the buttons
+        <>
+          <View testID={`${testID}-bar-row-search`} style={styles.row}>{head}</View>
+          <View testID={`${testID}-bar-row-buttons`} style={styles.row}>{buttons}</View>
+        </>
+      ) : (
+        <View style={styles.row}>{head}{buttons}</View>
+      )}
       {queryActive ? (
         <View style={[styles.row, { flexWrap: 'wrap' }]}>
           {p.sortLabel ? <Text testID={`${testID}-chip-sort`} style={[styles.chip, { color: c.primary, borderColor: c.primary }]}>Sort: {p.sortLabel}</Text> : null}

@@ -103,3 +103,39 @@ it('eight digits turn into YYYY-MM-DD while typing (not in a list) and the clear
   typeIn('value', '20261130');
   expect((q('value') as HTMLInputElement).value).toBe('20261130');
 });
+
+it('between: +5 / -5 in one field is days from the other; the stored filter holds the two real days', () => {
+  const { onFilter, onClose } = mount();
+  press('op-select');
+  press('op-between');
+  expect(q('between-hint')!.textContent).toContain('+5 or -5');
+  typeIn('value', '2026-11-30');
+  typeIn('value2', '+5');
+  press('apply');
+  expect(onFilter).toHaveBeenLastCalledWith({ op: 'between', value: '2026-11-30', value2: '2026-12-05' });
+  expect(onClose).toHaveBeenCalledTimes(1);
+  typeIn('value', '-5');
+  typeIn('value2', '30.11.2026');
+  press('apply');
+  expect(onFilter).toHaveBeenLastCalledWith({ op: 'between', value: '2026-11-25', value2: '2026-11-30' });
+  typeIn('value', '2026-12-30');
+  typeIn('value2', '-3');
+  press('apply');
+  expect(onFilter).toHaveBeenLastCalledWith({ op: 'between', value: '2026-12-30', value2: '2026-12-27' });  // backwards: the filter orders the ends
+});
+
+it('between: both fields relative, or no date in the other field, is refused with a message', () => {
+  const { onFilter, onClose } = mount();
+  press('op-select');
+  press('op-between');
+  typeIn('value', '+1');
+  typeIn('value2', '-1');
+  press('apply');
+  expect(q('invalid')!.textContent).toContain('Only one');
+  typeIn('value', '');
+  typeIn('value2', '+5');
+  press('apply');
+  expect(q('invalid')!.textContent).toContain('Type a date');
+  expect(onFilter).not.toHaveBeenCalled();
+  expect(onClose).not.toHaveBeenCalled();
+});

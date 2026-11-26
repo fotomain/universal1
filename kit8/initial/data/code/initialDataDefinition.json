@@ -1,0 +1,55 @@
+{
+  "format": "kit8.initialdata.definition",
+  "version": 1,
+  "note": "THE one list of the initial program data (documentation/INITIAL_DATA_WBS.html). Read by initialDataModel.ts (the screen, the gate), dumpInitialData.mjs (the dump) and the tests. Order = install order. mode: guid = a row is known by its rowGUID, json = by one key of rowJSON (keyColumn) - the rowGUID of such a row differs from database to database. level: application = the client may only READ this table, an application administrator (or the very first user of an empty database) writes it. required: all = every row of the file, keys = these rowGUIDs / natural keys, minRows = at least n rows. Must equal initial_data_tables() of start2 PART 60 (a Jest test compares).",
+  "groups": [
+    { "id": "admin", "title": "First application administrator", "tier": "A", "special": "admin", "tables": [] },
+    { "id": "permissions", "title": "Permission matrix", "tier": "A", "tables": [
+      { "table": "project_permission_profile_catalog", "level": "application", "file": "10_project_permission_profile_catalog.json", "mode": "guid", "required": { "all": true } },
+      { "table": "project_permission_profile_crud_table", "file": "11_project_permission_profile_crud_table.json", "mode": "guid", "required": { "minRows": 1 } },
+      { "table": "project_permission_profile_uxui_table", "file": "12_project_permission_profile_uxui_table.json", "mode": "guid", "required": { "minRows": 1 } }
+    ] },
+    { "id": "genus", "title": "Management genus, activity genus and budget item keys", "tier": "A", "tables": [
+      { "table": "managementGenusTable", "file": "20_managementGenusTable.json", "mode": "guid", "required": { "all": true } },
+      { "table": "managementActivityGenusTable", "file": "21_managementActivityGenusTable.json", "mode": "guid", "required": { "all": true } },
+      { "table": "budgetItemGenericKeyTable", "file": "22_budgetItemGenericKeyTable.json", "mode": "guid", "required": { "all": true } }
+    ] },
+    { "id": "budgetItems", "title": "Budget items", "tier": "A", "tables": [
+      { "table": "budgetItemTable", "file": "30_budgetItemTable.json", "mode": "guid", "required": { "keys": ["costsBudgetFolder", "revenuesBudgetFolder", "paymentsBudgetFolder", "timeBudgetItem", "materialBudgetItem", "expenseBudgetItem", "revenueBudgetItem", "inboundPaymentBudgetItem", "outboundPaymentBudgetItem", "vendorPaymentsBudgetItem", "customerReceiptsBudgetItem"] } }
+    ] },
+    { "id": "raci", "title": "RACI items", "tier": "A", "tables": [
+      { "table": "managementRACIGenusTable", "level": "application", "file": "40_managementRACIGenusTable.json", "mode": "guid", "required": { "all": true } }
+    ] },
+    { "id": "calendars", "title": "Calendars (and their days)", "tier": "A", "special": "calendarDays", "tables": [
+      { "table": "managementCalendarTable", "file": "50_managementCalendarTable.json", "mode": "guid", "required": { "keys": ["workingDaysCalendar", "standardWorkWeekCalendar"] } }
+    ] },
+    { "id": "kanban", "title": "Kanban stages", "tier": "A", "tables": [
+      { "table": "kanban_stage_table", "file": "60_kanban_stage_table.json", "mode": "json", "keyColumn": "stageCode", "required": { "all": true } }
+    ] },
+    { "id": "currencies", "title": "Currencies", "tier": "A", "tables": [
+      { "table": "currencyTable", "file": "70_currencyTable.json", "mode": "json", "keyColumn": "currencyCode", "required": { "keys": ["EUR", "USD", "GBP"] } }
+    ] },
+    { "id": "units", "title": "VAT rates, units of measure and distributions", "tier": "A", "tables": [
+      { "table": "valueAddedTaxTable", "file": "80_valueAddedTaxTable.json", "mode": "guid", "required": { "keys": ["vat_0"] } },
+      { "table": "measureUnitTable", "file": "81_measureUnitTable.json", "mode": "guid", "required": { "keys": ["unit_hour", "unit_pcs"] } },
+      { "table": "distributionGenericTable", "file": "82_distributionGenericTable.json", "mode": "guid", "required": { "keys": ["uniformDistribution"] } }
+    ] },
+    { "id": "rates", "title": "Exchange rates of 31 December of the previous year", "tier": "A", "special": "rates", "tables": [] },
+    { "id": "countries", "title": "Countries", "tier": "B", "tables": [
+      { "table": "countryTable", "file": "90_countryTable.json", "mode": "json", "keyColumn": "countryCode", "required": { "all": true } }
+    ] },
+    { "id": "businessUnits", "title": "CFR types and business units", "tier": "B", "tables": [
+      { "table": "cfrTypeTable", "file": "91_cfrTypeTable.json", "mode": "guid", "required": { "all": true } },
+      { "table": "businessUnitTable", "file": "92_businessUnitTable.json", "mode": "guid", "required": { "all": true } }
+    ] },
+    { "id": "languages", "title": "Languages", "tier": "B", "tables": [
+      { "table": "language_catalog", "level": "application", "file": "93_language_catalog.json", "mode": "guid", "required": { "all": true } }
+    ] },
+    { "id": "fileTypes", "title": "Document types of the files", "tier": "B", "tables": [
+      { "table": "files_document_type_catalog", "file": "94_files_document_type_catalog.json", "mode": "guid", "required": { "all": true } }
+    ] },
+    { "id": "scenarios", "title": "Budget scenarios", "tier": "B", "tables": [
+      { "table": "budgetScenarioTable", "file": "95_budgetScenarioTable.json", "mode": "guid", "required": { "all": true } }
+    ] }
+  ]
+}
